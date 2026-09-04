@@ -1,8 +1,9 @@
 """意味検査（診断の段 3）。
 
-正本は `docs/spec/diagnostics.md`。実装するのは正典 12 件のうち段 3 に属する 10 件
-（JIN010 / JIN011 / JIN020 / JIN022 / JIN030 / JIN031 / JIN040 / JIN050 / JIN060 / JIN070）と、
-ADR-007 / DP-JIN-SEMANTIC-GAPS-01 の追加提案 2 件（JIN012 循環参照 / JIN013 多重親）。
+正本は `docs/spec/diagnostics.md`。実装するのは正典 14 件のうち段 3 に属する 12 件
+（JIN010 / JIN011 / JIN012 / JIN013 / JIN020 / JIN022 / JIN030 / JIN031 / JIN040 / JIN050 /
+JIN060 / JIN070）。JIN012（循環参照）/ JIN013（多重親）は ADR-007 が追加を決め、ADR-012 の
+人間承認（2026-09-04）を経て要件書 §2.4 に入った（採番の根拠は同 §3.1）。
 
 **コードの優先順位**（docs/spec/diagnostics.md §4）: より具体的なコードが勝つ。
 JIN011 の守備範囲は summon と delegate の 2 種だけで、steps / root / await / rune の `{key}` は
@@ -598,7 +599,7 @@ def analyze(
             _name_hint(model.root, circle_names, "circle", budget),
         )
 
-    # ---- JIN012 / JIN013: 参照グラフ（ADR-007・人間承認待ち） ----------------------
+    # ---- JIN012 / JIN013: 参照グラフ（ADR-007 / ADR-012） --------------------------
     cycle = _find_cycle(graph.reference_edges)
     if cycle is not None:
         index = circle_names.index(cycle[0])

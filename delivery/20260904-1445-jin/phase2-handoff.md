@@ -4,7 +4,12 @@
 根拠: 実装ラウンド 1 の Stage 5 レビュー（4 観点・86 件）と 3 度の修正ラウンドで実測された事項。
 **Phase 2 の implementer 起動プロンプトにこのファイルのパスを必ず渡すこと。**
 
-## 0-A. 【最優先・Phase 2 の着手前に実施】JIN012 / JIN013 の §2.4 統合
+## 0-A. 【実施済み】JIN012 / JIN013 の §2.4 統合
+
+> ✅ **2026-09-04 に Issue #2 で実施済み。** 要件書 §2.4 は 14 行、`docs/spec/diagnostics.md` の
+> 承認待ちの別表は §2 へ統合（採番の根拠は同 §3.1 に存置）、`jin_core.diagnostics` は
+> `CANONICAL_CODES` 14 件の 1 表に統合、design.yaml Phase 0 の machine 条件も 14 件に更新した。
+> **Phase 2 でこの作業を再実施する必要はない。** 以下は実施内容の記録である。
 
 **2026-09-04 に toyota が `DP-JIN-DIAGCODE-NUMBERING-01` を承認済み**（ADR-012 が accepted）。
 ADR-012 の「人間承認後にのみ行う」条件は満たされている。人間の指示により**実施タイミングを

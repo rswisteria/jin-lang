@@ -68,12 +68,15 @@ class Diagnostic:
         return payload
 
 
-#: 正典コード（要件書 §2.4 の 12 件）。docs/spec/diagnostics.md §2 と一致させること。
+#: 正典コード（要件書 §2.4 の 14 件）。docs/spec/diagnostics.md §2 と一致させること。
+#: 一致は tests/spec/test_spec_consistency.py が機械で検査する。
 CANONICAL_CODES: dict[str, Severity] = {
     "JIN001": "error",
     "JIN002": "error",
     "JIN010": "error",
     "JIN011": "error",
+    "JIN012": "error",
+    "JIN013": "error",
     "JIN020": "error",
     "JIN022": "error",
     "JIN030": "error",
@@ -84,23 +87,13 @@ CANONICAL_CODES: dict[str, Severity] = {
     "JIN070": "warning",
 }
 
-#: 追加提案コード（ADR-007 / DP-JIN-SEMANTIC-GAPS-01・**人間承認待ち**）。
-#: 採番の根拠は docs/spec/diagnostics.md §3.1。
-PROPOSED_CODES: dict[str, Severity] = {
-    "JIN012": "error",
-    "JIN013": "error",
-}
-
-#: 実装が出しうる全コード。
-ALL_CODES: dict[str, Severity] = {**CANONICAL_CODES, **PROPOSED_CODES}
-
 #: 要素数の上限（JIN020）。要件書 §2.4「tools または state が 12 を超えた」。
 MAX_ELEMENTS = 12
 
 
 def severity_of(code: str) -> Severity:
     try:
-        return ALL_CODES[code]
+        return CANONICAL_CODES[code]
     except KeyError as exc:  # pragma: no cover - 実装ミスの早期検出用
         raise KeyError(f"未知の診断コードです: {code}") from exc
 
@@ -110,10 +103,8 @@ def has_error(diagnostics: list[Diagnostic]) -> bool:
 
 
 __all__ = [
-    "ALL_CODES",
     "CANONICAL_CODES",
     "MAX_ELEMENTS",
-    "PROPOSED_CODES",
     "Diagnostic",
     "Position",
     "Range",
