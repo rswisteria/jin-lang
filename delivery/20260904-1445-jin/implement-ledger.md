@@ -200,3 +200,7 @@
 | 2026-09-04 20:14 | `code-review-report.md` を **`Status: FINAL`（スコープは Phase 0+1 のみ）** に更新 | 全体スコープ Phase 0〜6 のうち 2〜6 は未着手と明記 |
 | 2026-09-04 20:20 | Phase 0+1 をコミット（`38d17ec`・107 files / +19305）。AI 判断台帳の HTML ビューを生成しコミット（`8bda71e`） | `auto-review.html` |
 | 2026-09-04 20:22 | ブランチを push し **draft PR #1 を作成**。PR 本文の先頭に「人間に確認してほしい判断 19 件」と特に見てほしい 5 件を配置（鉄則 5: 結論を最初に） | https://github.com/rswisteria/jin-lang/pull/1 |
+| 2026-09-04 21:20 | **人間（toyota）が判断ポイントを確定**: AI 仮判断 19 件を承認、実装者確定の 7 件を人間確定へ昇格。**人間確定 44 件 / レビュー待ち 0 件**。ADR-001〜014 が accepted | コミット `9c3c2f5` |
+| — | **契約からの逸脱を記録**: `DP-IMPL-JIN-*` 7 件は AI（impl-p01）が記録したのに `status=decided` になっており `ai_provisional` ではなかった。`review_status=pending_human_review` だったため台帳では要確認に出ていた。内容を変えず `decided_by=toyota` で再記録し、`constraints` は省略して既存値（`verified_in` 付き）を維持 | `--approve` は ai_provisional 専用のため使えなかった |
+| 2026-09-04 21:25 | 人間の指示: **§2.4 統合（JIN012/JIN013）は Phase 2 のラウンド冒頭にまとめて実施**。Phase 0+1 のコミット境界を保つため | `phase2-handoff.md` §0-A に最優先タスクとして記載 |
+| 2026-09-04 21:25 | 人間の指示: **未決 9 件は期限まで未決のままで良い**。Phase 4 着手の直前に `DP-JIN-RESOLVE-ISOLATION-01` と `DP-REVIEW-JIN-008` を改めて人間へ提示すること（親の責務） | `phase2-handoff.md` §6 に記載 |

@@ -4,6 +4,35 @@
 根拠: 実装ラウンド 1 の Stage 5 レビュー（4 観点・86 件）と 3 度の修正ラウンドで実測された事項。
 **Phase 2 の implementer 起動プロンプトにこのファイルのパスを必ず渡すこと。**
 
+## 0-A. 【最優先・Phase 2 の着手前に実施】JIN012 / JIN013 の §2.4 統合
+
+**2026-09-04 に toyota が `DP-JIN-DIAGCODE-NUMBERING-01` を承認済み**（ADR-012 が accepted）。
+ADR-012 の「人間承認後にのみ行う」条件は満たされている。人間の指示により**実施タイミングを
+Phase 2 のラウンド冒頭にまとめた**（Phase 0+1 のコミット境界を保つため）。
+
+**Phase 2 のコードを書き始める前に、次の 4 箇所を 1 コミットで同時に更新すること**:
+
+1. **`jin-requirements.md` §2.4** の診断コード表に 2 行追加（12 行 → **14 行**）
+   - `JIN012` / error / 参照が循環している（`summon` / `delegate` / `flow.steps` の有向グラフに閉路がある）
+   - `JIN013` / error / circle が複数の親を持つ（`flow.steps` / `delegate` からの親子辺の入次数が 2 以上）
+   - 修正ヒント欄は既存行の書式にそろえる
+2. **`docs/spec/diagnostics.md`** — §3「追加提案コード（**人間承認待ち**）」を §2 の正典表へ統合し、
+   §3 と承認待ちの警告文を削除する。§3.1 の採番根拠は §2 側または別節に残す（根拠を消さない）
+3. **`docs/spec/diagnostics.md` §0** の「12 件」という表明を **14 件**に更新
+4. **`tests/spec/test_spec_consistency.py`** — 要件書 §2.4 との突合が 14 件で一致することを確認する形に更新。
+   **`test_diagnostics_proposed_codes_are_exactly_two`（提案表が 2 件であることの固定）は統合後は不要**なので、
+   統合を反映した形に置き換えるか削除する（削除する場合は理由をコミットメッセージに書く）
+5. **`delivery/20260904-1445-jin/design.yaml`** の Phase 0 `verification.machine` にある
+   「§2.4 の 12 件（JIN001 / JIN002 / ... / JIN070）と過不足なく一致する」を **14 件**の表明に更新
+
+> **この 5 箇所は同時に直さないと必ず赤くなる。** 突合テストが要件書と `diagnostics.md` の
+> 集合一致を機械で検査しているため、片方だけ直すと不一致で落ちる（設計どおりの挙動）。
+> ADR-012 の「影響」節にこの 3 つの表明の同時更新が明記されている。
+
+実施後、`uv run pytest` と `uv run jin check examples` が緑であることを確認してから Phase 2 の実装に入る。
+
+---
+
 ## 0. Phase 2 のスコープ（design.yaml `implementation_phases.items[2]`）
 
 成果物: `packages/jin-adk` と `packages/jin-cli`（`build` / `run` を追加）
@@ -89,6 +118,10 @@ introspection した結果）。要件書 §3.2 の生成コードはそのま�
   行・列の基点をそうしたのと同じ手続き）。
 
 ## 6. 判断ポイント（実装者が決めてはならない）
+
+> **2026-09-04 の人間判断**: 未決 9 件は「**期限まで未決のままで良い**」と確定した（toyota）。
+> warn_and_document の方針どおり未決のまま Phase 2 に進む。**Phase 4 着手の直前に、下記 2 件を
+> 改めて人間へ提示すること**（親の責務）。実装者が勝手に決めない。
 
 - **`DP-JIN-RESOLVE-ISOLATION-01`**（未決）: `--resolve` が同一プロセスで import するため、
   **1 ファイル目の `ref` が `jin_core.semantic.analyze` を差し替えると 2 ファイル目の本物の JIN060 が消え、
