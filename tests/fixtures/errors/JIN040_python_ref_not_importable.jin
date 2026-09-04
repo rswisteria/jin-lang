@@ -1,0 +1,18 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "A",
+  "circles": [
+    {
+      "name": "A",
+      "core": "gemini-2.5-flash",
+      "tools": [
+        {
+          "name": "search",
+          "kind": "tool",
+          "ref": "jin_no_such_module_for_fixture:web_search"
+        }
+      ]
+    }
+  ]
+}

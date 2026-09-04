@@ -1,0 +1,17 @@
+[project]
+name = "jin-core"
+version = "0.1.0"
+description = "Jin の意味モデル・パーサ（位置付き）・意味検査・診断・正準形・意味オペレーション"
+requires-python = ">=3.12"
+# 版の根拠: delivery/20260904-1445-jin/version-matrix.md（2026-09-04 実測）
+dependencies = [
+  "pydantic>=2.13,<3",
+  "lark>=1.3,<2",
+]
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jin_core"]

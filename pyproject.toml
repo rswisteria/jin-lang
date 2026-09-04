@@ -1,0 +1,86 @@
+[project]
+name = "jin-workspace"
+version = "0.1.0"
+description = "Jin(陣) — 魔法陣型エージェント記述言語 / uv workspace root"
+requires-python = ">=3.12"
+dependencies = [
+  "jin-core",
+  "jin-cli",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+jin-cli = { workspace = true }
+
+[dependency-groups]
+# バージョンは delivery/20260904-1445-jin/version-matrix.md の実測に基づく（2026-09-04 取得）
+dev = [
+  "pytest>=9.1,<10",
+  "ruff>=0.16,<1",
+  "import-linter>=2.14,<3",
+]
+
+[tool.pytest.ini_options]
+# ADR-003 (DP-COMMON-09): パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト。
+# rootdir 直下の tests/ と 各 packages/*/tests/ を単一の pytest 実行で集める。
+# **パッケージ名を列挙しない**。列挙すると新しい packages/<name>/tests/ が
+# 静かに収集対象から漏れる（wiring review W-03）。網羅は
+# tests/contract/test_packaging_contract.py が機械で確認する。
+testpaths = ["tests", "packages"]
+# importlib モードはテストモジュールをフルパス由来の一意な名前で読み込む。
+# prepend モードだと packages/*/tests/ に同名ファイル（test_model.py など）が
+# 2 つできた瞬間に collection 全体が Interrupted になる（conventions review A-1）。
+addopts = "-q --import-mode=importlib"
+consider_namespace_packages = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# delivery/ と docs/ は別モジュール由来の成果物・仕様書。ruff format が Markdown 内の
+# コードブロックを書き換えてしまうため対象から外す（実測: lsp-api-probe.md が整形された）。
+extend-exclude = ["delivery", "docs", ".venv"]
+
+[tool.importlinter]
+# ADR-004 (DP-COMMON-11): 依存の一方向性を機械で落とす。
+# 契約の正本は design.yaml architecture.dependency_direction.rules の 8 行。
+root_packages = ["jin_core", "jin_cli"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "jin レイヤは一方向（jin_core が最下層）"
+type = "layers"
+# **兄弟パッケージは 1 要素の中に "|" 区切りで並べる**（wiring review W-05）。
+# 単純なリストに並べると「jin_adk → jin_render は許す / jin_render → jin_adk は禁じる」
+# という**実際の契約より強い順序**を宣言してしまう。
+# Phase 2 以降の最終形（design.yaml architecture.dependency_direction.rules 3〜4）:
+#   layers = ["jin_cli", "jin_lsp", "jin_adk | jin_render", "jin_core"]
+# パッケージを足すときは root_packages とこの行を同時に直すこと
+# （tests/contract/test_packaging_contract.py が網羅を機械で確認する）。
+layers = [
+  "jin_cli",
+  "jin_core",
+]
+
+[[tool.importlinter.contracts]]
+name = "jin_core は google-adk に依存しない"
+type = "forbidden"
+# jin_render も ADK に依存してはいけない（design.yaml のルール 2）。
+# Phase 3 で jin_render を作ったら source_modules に足すこと（W-05）。
+source_modules = ["jin_core"]
+forbidden_modules = ["google"]
+
+[[tool.importlinter.contracts]]
+# security review S1: `ref` を実際に import する実装（任意コード実行）は jin_cli にだけ置く。
+# Phase 4 の jin-lsp は ws で外に出るので、そこから到達できないことを**機械で**落とす。
+# 新しい root package を足したら source_modules にも足すこと
+# （tests/contract/test_packaging_contract.py がそれを強制する）。
+name = "ref の解決実装（任意コード実行）は jin_cli に閉じる"
+type = "forbidden"
+source_modules = ["jin_core"]
+forbidden_modules = ["jin_cli.resolver"]

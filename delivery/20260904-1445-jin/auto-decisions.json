@@ -2,7 +2,7 @@
   "schema_version": "v1",
   "kind": "auto-decisions-ledger",
   "run_dir": "delivery/20260904-1445-jin",
-  "needs_attention_count": 12,
+  "needs_attention_count": 19,
   "decisions": [
     {
       "dp_id": "DP-COMMON-17",
@@ -35,6 +35,77 @@
         "案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる"
       ],
       "phase": "design"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-DIAGCODE-01",
+      "chosen": "JIN012 = 循環参照 / JIN013 = 多重親（01x = 名前と参照の整合性ブロックの空き番号）",
+      "rationale": "要件書 §2.4 のコードは 10 の位で関心事がブロック化されている（00x 入力の妥当性 / 01x 名前と参照 / 02x circle 単体の形 / 03x flow / 04x 外部解決 / 05x rune / 06x root / 07x await）。追加する 2 件はどちらも circle 名で張られた参照グラフ全体の整合性であり 01x の関心事に一致する。03x に採らなかったのは、多重親が delegate（flow ではない）でも起き、循環参照が summon を含むため。01x の空き番号 JIN012〜JIN019 の若い順に採った。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T07:10:00+00:00",
+      "constraints": [
+        {
+          "text": "要件書 §2.4 への追加であり人間の承認を要する。docs/spec/diagnostics.md では正典表（§2・12 件）と追加提案表（§3・2 件）を別の表に分け、§3 冒頭に未承認である旨を明記する",
+          "kind": "condition",
+          "verified_in": "docs/spec/diagnostics.md:§2,§3 / tests/spec/test_spec_consistency.py::test_diagnostics_proposed_codes_are_exactly_two"
+        },
+        {
+          "text": "3 件目を勝手に採番しない（DP-JIN-SEMANTIC-GAPS-01 が認めたのは 2 件のみ）",
+          "kind": "prohibition",
+          "verified_in": "tests/spec/test_spec_consistency.py::test_diagnostics_proposed_codes_are_exactly_two"
+        }
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-JIN-DIAGCODE-NUMBERING-01",
+      "chosen": "選択肢 1: JIN012（循環参照）/ JIN013（多重親）を承認し、要件書 §2.4 の表に 2 行追加する",
+      "rationale": "(1) ADR-007（DP-JIN-SEMANTIC-GAPS-01）は既に案 A『新しい JIN コードを 2 つ追加し jin-core の意味検査で検出する』を採択済みであり、本 DP はその採番値と §2.4 への追加そのものの承認を問うている。案 A を覆すに足る新事実は本ラウンドで得られていないため、案 B / 案 C への切り替え（選択肢 3）は採らない。(2) 採番根拠は docs/spec/diagnostics.md §3.1 に既に書かれており検証可能である。要件書 §2.4 のコードは 10 の位で関心事がブロック化されており（00x 入力の妥当性 / 01x 名前と参照の整合性 / 02x circle 単体の形 / 03x flow / 04x 外部解決 / 05x rune / 06x root / 07x await）、循環参照と多重親はいずれも『circle 名で張られた参照グラフ全体の整合性』であって 01x（JIN010 名前の重複 / JIN011 未解決の参照）と同じ関心事に属する。01x は JIN012〜JIN019 が空いており若い順に JIN012 / JIN013 を採るのは既存の採番規律と一致する。(3) 選択肢 2（03x ブロックの JIN032 / JIN033）は採らない。多重親は delegate（flow ではない）でも、循環参照は summon でも起きるため、03x（flow 自身の妥当性）に置くと 10 の位のブロック対応が崩れ、採番規律そのものが失われる。リネームコストが軽微であることは、規律を崩す理由にはならない。(4) 実害の大きさが追加を正当化する: 循環参照は Phase 3 レンダラの入れ子展開が無限再帰し、多重親は ADK の BaseAgent.parent_agent が単一値であるため Phase 2 のコード生成が破綻する。どちらも jin check で検出できなければ要件書 §0 成功条件 3（LLM が診断だけで直しきる）が成立しない。(5) 本判断は ai_provisional であり、ADR-007 constraints (b) が求める人間承認を代替しない。したがって要件書 §2.4 の実際の編集は人間承認後にのみ行う（constraints 参照）。confidence は ADR-007 自身の判断（『§2.4 の確定した 12 件の表への追加であり仕様変更の人間承認を要するため medium』）に合わせて medium とする。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-04T17:13:17+09:00",
+      "adr_ref": "docs/adr/ADR-012-DP-JIN-DIAGCODE-NUMBERING-01.md",
+      "constraints": [
+        {
+          "text": "本判断は ai_provisional であり、ADR-007 constraints (b)『要件書 §2.4 への追加であり仕様変更として人間の承認を要する』を代替しない。要件書 jin-requirements.md §2.4 の表への 2 行追加と、docs/spec/diagnostics.md §3（追加提案表）から §2（正典表）への統合は、本 DP が人間承認（PR マージまたは /aid decide による approved 昇格）を得たあとにのみ実施する。それまでは §2 と §3 の分離、および §3 冒頭の『人間承認待ち』警告を維持する。",
+          "kind": "condition"
+        },
+        {
+          "text": "統合を実施するときは『12 件』を前提にしている 3 箇所を同時に更新する: docs/spec/diagnostics.md §0 の機械可読の約束、tests/spec/test_spec_consistency.py（§2 が §2.4 の 12 件と過不足なく一致 / §3 が {JIN012, JIN013} であることの 2 検査）、delivery/20260904-1445-jin/design.yaml:541-543（Phase 0 の verification.machine が 12 件を明示列挙している）。1 箇所だけ直すと残りが赤くなる。",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断で JIN012 / JIN013 以外の新しい診断コード番号を発明しない（T-002）。既存 12 件の番号・重大度・意味も変更しない。",
+          "kind": "prohibition"
+        },
+        {
+          "text": "本判断の対象は採番値（JIN012 = 循環参照 / JIN013 = 多重親）と要件書 §2.4 への追加の是非に限る。ADR-007 が採択した案 A（jin-core の意味検査で検出し、jin-core は ADK に依存しない）の是非は本判断で再開しない。",
+          "kind": "scope"
+        },
+        {
+          "text": "JIN012 / JIN013 は意味検査の診断であり JSON Schema の語彙を変えないため schemas/jin.schema.json は変更しない（decision-conformance.md で確認済みの整理を維持する）。",
+          "kind": "limit"
+        }
+      ],
+      "compared": [
+        "選択肢 2: 03x ブロックの JIN032 / JIN033 に採り直す（リネーム影響は定数 2 個とファイル名 2 本で軽微だが、多重親が delegate でも起きるため flow ブロックへの配置は関心事の対応を崩す）",
+        "選択肢 3-B: 追加を却下し ADR-007 を案 B（jin-adk のコード生成時エラーに委ねる）へ切り替える（jin check が通ってしまい成功条件 3 が成立せず、レンダラ経路では検出されず無限再帰する）",
+        "選択肢 3-C: 追加を却下し ADR-007 を案 C（JIN011 / JIN031 に寄せる）へ切り替える（『未解決の参照』と『解決できる参照が循環している』は意味が違い、要件書 §9『fixture は対応コードを 1 つだけ出す』の意図から外れる）"
+      ],
+      "aliases": [
+        "JIN012 / JIN013 を承認し要件書 §2.4 の表に 2 行追加する"
+      ],
+      "phase": "implementation"
     },
     {
       "dp_id": "DP-JIN-DISTRIBUTION-01",
@@ -145,6 +216,48 @@
         "Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる"
       ],
       "phase": "requirements"
+    },
+    {
+      "dp_id": "DP-JIN-JIN050-LOOP-SCOPE-01",
+      "chosen": "現仕様を維持する: docs/spec/model.md §5 の loop 行「祖先が loop のとき、すべての兄弟枝の部分木を含める」を変えず、新しい診断コードも警告も追加しない（1 周目に未定義でありうることは仕様上の既知の限界として明記する）",
+      "rationale": "(1) 厳格化（loop を sequence と同じ『前の兄弟枝のみ』にする）は安全性を増やさない。厳格化しても、後続の兄弟枝の out state を読む loop step は、その key を自 circle の state[] に out: false で宣言すれば JIN050 を満たしてしまう（docs/spec/model.md §5 の第 1 行『自 circle の state[]（out の有無を問わない）は含める』、要件書 l.294『out: true 以外は静的検証(JIN050)とエディタ表示のための宣言』）。しかしこの宣言は実行時には何もせず、1 周目に key が未定義であることは変わらない。つまり厳格化は『前周の値を意図して読む正当な設計』と『1 周目に落ちるバグ』を区別できず、どちらにも同じ抜け道を与える。正当な作者には無意味な儀式を課し、バグのある作者には偽陰性を 1 手先に移すだけで、要件書 §0 成功条件 3（LLM が診断だけで直しきる）には寄与しない — 診断が促す『修正』が何も修正しないからである。(2) 1 周目の未定義は静的検査ではなく初期値の問題であり、v1 には表現手段がない。State には初期値のフィールドが無く（packages/jin-core/src/jin_core/model.py:75-78 は name / type / out のみ）、rune にも任意キー構文が無い（semantic.py:27 の抽出正規表現 {[A-Za-z_][A-Za-z0-9_]*} は ? を含まない・実測）。したがって jin-core の可視範囲をどう定義しても静的には閉じられない。(3) 起票時の懸念のうち『厳格化すると examples/pipeline.jin の Critic / Rewriter を誤検知する』は実測すると成立しない。loop の行だけを『前の兄弟枝のみ』に差し替えた semantic.py で examples/pipeline/pipeline.jin と examples/researcher/researcher.jin の全 circle の可視 state key を計算したところ、現行と完全に同一だった（Critic は {approved, draft, review}、Rewriter も {approved, draft, review}）。Critic の {draft} は loop の兄弟規則ではなく sequence 上流の Drafter から届いているためである。人間レビュー時にはこの事実に基づいて厳格化案を再評価できるよう記録しておく。厳格化を退ける理由は (1) の抜け道であって pipeline.jin が壊れるからではない。(4) warning 級の新コードを足す案も採らない。前周の値を参照するのは loop の主要な用途そのものなので、warning は正当なケースで恒常的に鳴り、LLM がバグでないものを『直す』方向に働く。これは成功条件 3 に逆行する。加えて新しいコード番号の発明は本判断の禁止事項である（T-002）。(5) 現行実装は仕様に準拠しており実装バグではない（semantic.py:196-200 と model.md §5 が一致）。confidence は medium とする: 起票時の根拠（pipeline.jin の誤検知）が実測で覆り、厳格化という実在の対案があるためである。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-04T17:13:17+09:00",
+      "adr_ref": "docs/adr/ADR-014-DP-JIN-JIN050-LOOP-SCOPE-01.md",
+      "constraints": [
+        {
+          "text": "docs/spec/model.md §5 の loop 行に、この規則が『1 周目には未定義でありうる値への参照』を意図的に許すこと、それは初期値の表現手段が v1 に無いため静的には検出できないこと、を注記として明記する。規則そのもの（すべての兄弟枝の部分木を含める）は変更しない。",
+          "kind": "scope"
+        },
+        {
+          "text": "loop の兄弟枝可視性の規則を固定するテストを追加する。現状この規則にはテストが 1 件も無く（packages/jin-core/tests および tests/ 配下に loop と可視範囲を同時に検査するテストは存在しない・実測）、docs/spec/model.md §5 の machine-readable: upstream-rule ブロックもどのテストからも参照されていない。どちらの選択をしても規則を無検査のままにしない。",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断では warning 級を含む新しい診断コードを追加しない。将来 1 周目未定義に対する診断を設けるときも、コード番号の採番は人間の承認を要する（要件書 §2.4 の表への追加であるため。ADR-007 constraints (b) と同じ扱い）。",
+          "kind": "prohibition"
+        },
+        {
+          "text": "State に初期値の宣言が導入された場合、または rune に任意キー構文が導入された場合は、本判断を再評価する。そのときは 1 周目未定義を作者が明示できるようになるため、厳格化の費用対効果が変わる。",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "厳格化案: loop の祖先でも sequence と同じく『自分より前の兄弟枝の部分木のみ』を可視にする。実測ではバンドル済みの 2 例に影響しないが、後続兄弟の key を自 circle に out: false で宣言すれば通るため安全性が増えず、正当な前周参照に無意味な宣言を強いる",
+        "warning 級の新診断コードを追加する案: loop の後続兄弟枝の state を参照したときに warning を出す。loop の主要用途で恒常的に鳴り、LLM がバグでないものを直す方向に働く。番号の新規発明も禁止事項",
+        "rune に任意キー構文（{key?} 相当）を導入し、厳格版と併用する案: 1 周目未定義を作者が明示できるようになるが、要件書 §2 と model.md §3.1 の rune 抽出規則の変更（言語仕様の拡張）であり、実装ラウンド 1 の範囲を超える"
+      ],
+      "aliases": [
+        "現仕様を維持し警告も出さない",
+        "現仕様維持（model.md §5 の loop 行を変更しない）"
+      ],
+      "phase": "implementation"
     },
     {
       "dp_id": "DP-JIN-SEMANTIC-GAPS-01",
@@ -320,6 +433,95 @@
         "案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる"
       ],
       "phase": "design"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-DIAGPREC-01",
+      "chosen": "より具体的なコードが勝つ。JIN011 の実効的な守備範囲は summon と delegate の 2 種",
+      "rationale": "要件書 §2.4 の JIN011 行は『未解決の参照（summon / delegate / steps / await / {key}）』と 5 種を挙げるが、steps / await / {key} には同じ表に JIN031 / JIN070 / JIN050 という専用コードが存在する。要件書 §9 の『fixture は対応コードを 1 つだけ出す』を成立させるには優先順位を決める必要がある。両方出す案は §9 に反し、JIN011 が勝つ案は専用コードを死文にする。専用コードのほうが hint を具体化できる（例: await なら自 circle の tool 名一覧）ので NFR-LLM-001 にも合う。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T07:10:00+00:00",
+      "constraints": [
+        {
+          "text": "優先順位は docs/spec/diagnostics.md §4 の表を正本とし、散文で散らさない",
+          "kind": "scope",
+          "verified_in": "docs/spec/diagnostics.md:§4 / tests/spec/test_spec_consistency.py::test_precedence_table_resolves_jin011_overlap"
+        }
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-TDD-P0-01",
+      "chosen": "TestAfter（仕様書を先に書き、突合テストを後から書く）。ただしミューテーションで非空虚性を実測する",
+      "rationale": "Phase 0 の成果物は仕様書そのものであり、突合テストは『既に存在する上位要件書と、これから書く仕様書が一致すること』を確かめる検査である。仕様書を書く前にテストを書いても、落ちる理由が『ファイルが無い』だけで設計上の情報を与えない。auto mode なので decided_by_kind = ai_agent の ai_provisional 相当として記録する（AI が実装都合で黙って引き下げたのではないことを残す）。tdd-protocol の Iron Law に従い、この単位には tdd-red の証跡を書かない（欠落のままにする）。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T06:58:00+00:00",
+      "constraints": [
+        {
+          "text": "TestAfter にする代わりに、仕様書と examples を意図的に壊すミューテーションでテストが実際に落ちることを実測する（偽 green でないことの担保）",
+          "kind": "condition",
+          "verified_in": "3 種のミューテーション（diagnostics.md の JIN070 行削除 / adk-mapping.md の root 行削除 / pipeline.jin の max: 3 → 5）でそれぞれ対応するテストが FAILED になることを実行確認。復元後に 25/25 PASS"
+        },
+        {
+          "text": "Phase 1 の実装単位は TDD のまま。引き下げは Phase 0 の突合テストに限る",
+          "kind": "scope",
+          "verified_in": "verification_status.evidence[] の tdd-red / tdd-green 行（7 単位）"
+        }
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-TOOLNAME-01",
+      "chosen": "3 種すべてで name を必須にする",
+      "rationale": "name は circle 内一意の ID として boundary.await[]・意味オペレーション moveTool / rename・JSON Pointer の安定性に使われる（要件書 §2.2『名前が ID』/ §6.3）。builtin だけ name を持たないと await に指定できず moveTool の対象も指せない。要件書 §2.2 の builtin の例は説明のための省略と読んだ。既定値を後から補う案は『名前が ID』という原則を暗黙の生成で濁す。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T07:10:00+00:00",
+      "constraints": [
+        {
+          "text": "要件書 §2.2 の例の書き方と食い違うため、レビューで人間の確認を得る",
+          "kind": "condition",
+          "verified_in": "docs/spec/model.md:§3.2 / delivery/20260904-1445-jin/implementation-notes.md の確認要求ブロック"
+        }
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-UPSTREAM-01",
+      "chosen": "sequence = 先行する兄弟枝の部分木 / loop = すべての兄弟枝の部分木 / parallel = なし / delegate = 親 → 子のみ / summon = なし",
+      "rationale": "要件書 §2.4 は『自 circle または flow 上流 circle の state』としか書かず実装には厳密な定義が要る。ADK の実行意味論に合わせ「その circle が動く前に確実に動きうるもの」を上流とした。loop で全兄弟を含めるのは 2 周目以降どの兄弟も先に実行されうるため。parallel を含めないのは実行順序の保証が無いため。妥当性の一次証拠は要件書 §2.2 の pipeline.jin がこの定義でちょうど通ること（Critic の {draft} は Refine の外・Pipeline 前段の Drafter が出す）。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T07:10:00+00:00",
+      "constraints": [
+        {
+          "text": "定義は docs/spec/model.md §5 の表を正本とする",
+          "kind": "scope",
+          "verified_in": "docs/spec/model.md:§5 / packages/jin-core/src/jin_core/semantic.py の _visible_state_keys"
+        }
+      ],
+      "phase": "implementation"
     },
     {
       "dp_id": "DP-JIN-CODEGEN-RUNTIME-01",
@@ -619,6 +821,53 @@
       "phase": "design"
     },
     {
+      "dp_id": "DP-IMPL-JIN-POSBASE-01",
+      "chosen": "1 始まり（line / col とも）/ range.end は排他 / 列は Unicode コードポイント単位",
+      "rationale": "(1) 要件書 §5 のフィールド名は col であり LSP の Position は character（lsp-api-probe.md §1 実測）。名前を変えている以上 LSP 座標をそのまま載せる意図ではないと読むのが素直。(2) lark がネイティブに 1 始まり（本ラウンドで再実測: '{\"a\": \"xy\"}' の \"a\" が L1C2-L1C5）。パーサの値をそのまま使えばオフバイワンが構造的に起きない。(3) jin check は人と LLM が直接読む出力で、ruff / mypy / gcc の慣行が 1 始まり。(4) end を排他にしたのは lark の end_column が排他だから（実測: 2 文字の 22 が C22-C24）。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": false,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T07:10:00+00:00",
+      "constraints": [
+        {
+          "text": "LSP（0 始まり / UTF-16 コードユニット）への変換は jin-lsp の 1 モジュールだけが行う。jin_core は LSP を知らない",
+          "kind": "scope",
+          "verified_in": "docs/spec/diagnostics.md:§5.1 / packages/jin-core/src/jin_core/diagnostics.py（LSP への言及は docstring の注意書きのみでコードに変換関数を持たない）"
+        },
+        {
+          "text": "変換は基点だけでなく UTF-16 コードユニット換算も含む。日本語 rune を含む .jin で実際に効くため Phase 4 で必ず実施する",
+          "kind": "condition",
+          "verified_in": "docs/spec/diagnostics.md:§5.1 の変換表"
+        }
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-TESTFIXTURE-01",
+      "chosen": "リポジトリ直下の tests/conftest.py に置き、pytest の rootdir を 1 つに保つ",
+      "rationale": "共有 fixture が要るのは tests/spec/ と tests/contract/ だけで、どちらもリポジトリ直下 tests/ の下にある。各パッケージのテストは自分のパッケージしか見ないので共有を必要としない。プラグイン自作は依存が増え追跡しにくい。pyproject.toml の testpaths に 3 ディレクトリを並べれば uv run pytest 1 発で全部通る（FR-TEST-001）。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": false,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "impl-p01 (implementer)",
+      "decided_at": "2026-09-04T07:10:00+00:00",
+      "constraints": [
+        {
+          "text": "テストはネットワークと API キーを必要としない（NFR-TEST-001）",
+          "kind": "scope",
+          "verified_in": "全 225 テストがネットワーク接続なしで通ることを実行確認"
+        }
+      ],
+      "phase": "implementation"
+    },
+    {
       "dp_id": "DP-JIN-CANONICAL-01",
       "chosen": "案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）",
       "rationale": "design.yaml fired_decision_points[DP-JIN-CANONICAL-01] の推奨案（案 C）をそのまま採用する。jin_core.canonical に独自 writer を書き、Pydantic のフィールド定義順を走査して直列化する。要件との適合根拠: 要件書 §2.3 は「キー順はスキーマ定義順」「省略可能なキーは既定値なら出力しない」「非 ASCII をエスケープしない」「2 スペースインデント」「末尾改行」の 5 規則を要求するが、json.dumps で直接制御できるのは indent と ensure_ascii の 2 つだけで、案 A / 案 B では規則がPydantic の設定と後処理の 2 箇所に分散し §2.3 との対応が読みにくくなる。正準形は NFR-DET-002（fmt(fmt(x)) == fmt(x) の冪等性・往復無損失）と成功条件 5 の土台であり、エディタ保存と jin fmt がバイト一致することの唯一の担保であるため、実装がライブラリの既定挙動に依存する状態は担保として弱い。後から差し替えると全スナップショットと決定性テストに波及するため ADR 化する。",
@@ -683,6 +932,47 @@
         "案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む"
       ],
       "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-RENAME-SCOPE-01",
+      "chosen": "案 (a): 仕様（docs/spec/ops.md §3「可視範囲に絞らない」）が正しい。実装と仕様は変えず、矛盾している packages/jin-core/src/jin_core/ops.py:405 のコメントを実装・仕様に合わせて修正して閉じる",
+      "rationale": "(1) 上位要件が可視範囲を要求していない: 要件書 §6.3 は rename を『circle / tool / state。参照を全て追随』とし、§10 #11 は『名前を ID とし、rename は参照追随の意味オペレーション』と決めている。可視範囲という限定はどこにも書かれていない。(2) 決定的な根拠は state 名の実行時の同一性である: state 名は ADK の output_key / session.state のキーそのものである（要件書 l.105『state[](out) → session.state / output_key』、l.294『out: true だけが output_key になる』、docs/spec/adk-mapping.md）。したがって circle が違っても同名の state は同一のセッションキーを指す。examples/pipeline/pipeline.jin の Critic / Rewriter の書き直しループはまさにこの同一性の上に成立している（Rewriter が out: true で書いた draft を、次周の Critic が {draft} で読む）。全 circle への追随は『過剰置換』ではなく実行時の同一性の追跡であり、ops.md §3 の判断は正しい。(3) 案 (b) は指摘された問題を解けないことが実測で分かる: packages/jin-core/src/jin_core/semantic.py の _visible_state_keys は state key の**名前の集合**を返すだけで、どの circle 由来かの情報を持たない（examples/pipeline/pipeline.jin で実測すると Critic / Rewriter はいずれも {'approved', 'draft', 'review'}）。可視範囲に絞る実装を書いても、rune 内の {draft} がどの circle の draft を指すのかを判定できないため、A-5 が挙げた『無関係な circle の rune が書き換わる』事象を防げない。さらに pipeline.jin の構造から導出すると、Drafter の state は sequence 上流として Critic / Rewriter からも可視なので、案 (b) でも同じ rune が書き換わる。(4) 案 (b) は編集途中の壊れたモデルで未定義になる: 可視範囲の判定（docs/spec/model.md §5）は flow の構造に依存するが、エディタは一時的に不正なモデルを編集する。ops が意味解析の結果に依存すると rename の結果が flow の妥当性に左右される。ops.md §3 が挙げている『rename の前後で可視範囲が変わりうる』という根拠と同じ問題である。(5) A-5 が実測した静かな意味変化（rename 後に jin check が 0 件）は残るが、その原因は可視範囲ではなく『rename が指し示した state 宣言だけを改名し、同名の別宣言を残す』ことにある。これは案 (c)（同名の state 宣言まで追随させる）でしか解けず、案 (b) では解けない。案 (c) を今回採らない理由: 逆オペレーションが複数の宣言にまたがるため要件書 §6.3 の『サーバは各オペレーションの逆オペレーションを応答に含める』という undo 契約が壊れる、意図的にキーを分岐させたい rename ができなくなる、ops.md §3 の追随表と §6.3 のオペレーション契約そのものの変更になる。残存リスクは constraints で仕様注記と Phase 5 エディタの可視化に回す。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": false,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-04T17:13:17+09:00",
+      "adr_ref": "docs/adr/ADR-013-DP-JIN-RENAME-SCOPE-01.md",
+      "constraints": [
+        {
+          "text": "packages/jin-core/src/jin_core/ops.py:405 のコメント『flow.exit.key と、その state が見える circle の rune 内 {key} を追随させる』から可視範囲の記述を取り除き、全 circle に追随させること・その根拠（同名 state は同一のセッションキー）・docs/spec/ops.md §3 への参照を書く。仕様（ops.md §3）と実装（ops.py の挙動）は変更しない。",
+          "kind": "condition"
+        },
+        {
+          "text": "docs/spec/ops.md §3 の注記を書き改める。現行の『同名の state key が別の circle にも存在する場合は過剰置換になりうる』という書き方は、同名 state が同一の session.state キーであるという事実と噛み合っていない。(i) 全 circle 追随の根拠を『同名 state は ADK の同一セッションキーである』に置き換え、(ii) 残存リスクとして『rename は指し示した state 宣言のみを改名するため、同名の別宣言が残ると rune の解決先が静かに移りうる。rename 後に jin check を通して JIN050 を確認すること』を明記する。",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断が決めるのは rename(state) が参照（flow.exit.key と instruction.rune 内の {key}）に及ぶ範囲だけである。同名の state 宣言まで追随させる案 (c) は採用しない。必要になった場合は本判断を上書きするのではなく、別の判断ポイントとして人間が判断する。",
+          "kind": "scope"
+        },
+        {
+          "text": "Phase 5 のエディタは rename(state) の効果が他の circle に及んだことを利用者に可視化すること。可視化の方式（確認ダイアログ・差分プレビュー・実行後の通知など）は Phase 5 で決める。",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 (b): 仕様が誤りとして rename(state) を可視範囲に絞る（docs/spec/ops.md §3・ops.py・テストを同時変更）。_visible_state_keys が名前の集合しか返さず由来を持たないため指摘された問題を解けず、可視範囲判定が flow 構造に依存するため編集途中のモデルで rename の結果が未定義になる",
+        "案 (c): 同名の state 宣言も全 circle で追随させる（同一 session key であることを宣言側にも及ぼす）。A-5 の静かな意味変化を唯一根本的に解けるが、undo の逆オペレーション契約が複数宣言にまたがって壊れ、キーを意図的に分岐させる rename ができなくなり、ops.md §3 と要件書 §6.3 の契約変更になる"
+      ],
+      "aliases": [
+        "(a) 仕様が正しく、矛盾しているのは ops.py:405 のコメントだけ",
+        "仕様維持・コメント修正"
+      ],
+      "phase": "implementation"
     }
   ]
 }

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Researcher",
+  "circles": [
+    {
+      "name": "Researcher",
+      "core": "gemini-2.5-flash",
+      "description": "調査と要約を行う",
+      "instruction": {
+        "rune": "あなたは慎重な調査アシスタントです。\n出典を必ず示し、公開前に人間の確認を求めてください。\nこれまでの知見: {findings}"
+      },
+      "tools": [
+        {
+          "name": "search",
+          "kind": "tool",
+          "ref": "research.tools:web_search"
+        },
+        {
+          "name": "fetch",
+          "kind": "tool",
+          "ref": "research.tools:fetch_page"
+        },
+        {
+          "name": "summarize",
+          "kind": "summon",
+          "circle": "Summarizer"
+        },
+        {
+          "name": "publish",
+          "kind": "tool",
+          "ref": "research.tools:publish"
+        }
+      ],
+      "state": [
+        {
+          "name": "query",
+          "type": "str"
+        },
+        {
+          "name": "findings",
+          "type": "str",
+          "out": true
+        }
+      ],
+      "boundary": {
+        "guards": [
+          {
+            "on": "before_model",
+            "ref": "research.guards:pii_filter"
+          },
+          {
+            "on": "before_tool",
+            "ref": "research.guards:audit_log"
+          }
+        ],
+        "await": [
+          "publish"
+        ]
+      }
+    },
+    {
+      "name": "Summarizer",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "与えられた本文を 200 字で要約する"
+      },
+      "state": [
+        {
+          "name": "summary",
+          "type": "str",
+          "out": true
+        }
+      ]
+    }
+  ]
+}

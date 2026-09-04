@@ -10,7 +10,17 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 
 `undecided[]` を集約。手書き編集は不可（編集は schema 側の `undecided[]` を更新し再生成）。
 
-_（schema 側に未決はありません）_
+| 起票元ファイル | DP ID |
+|---|---|
+| 20260904-1445-jin/implementation-plan.json | DP-JIN-RESOLVE-ISOLATION-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-001 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-002 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-004 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-005 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-006 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-007 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-008 |
 
 ## AI 仮決定（auto mode・レビュー待ち・自動生成）
 
@@ -38,6 +48,9 @@ auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/dec
 | 20260904-1445-jin/design.yaml | DP-JIN-SEMANTIC-GAPS-01 | 案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する | medium | pending_human_review | 2026-09-04T15:44:00+09:00 |
 | 20260904-1445-jin/design.yaml | DP-JIN-SVG-DETERMINISM-01 | 案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決） | medium | pending_human_review | 2026-09-04T15:44:00+09:00 |
 | 20260904-1445-jin/design.yaml | DP-JIN-TRACE-POINTER-01 | 案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く | medium | pending_human_review | 2026-09-04T15:44:00+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-JIN-DIAGCODE-NUMBERING-01 | 選択肢 1: JIN012（循環参照）/ JIN013（多重親）を承認し、要件書 §2.4 の表に 2 行追加する | medium | pending_human_review | 2026-09-04T17:13:17+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-JIN-JIN050-LOOP-SCOPE-01 | 現仕様を維持する: docs/spec/model.md §5 の loop 行「祖先が loop のとき、すべての兄弟枝の部分木を含める」を変えず、新しい診… | medium | pending_human_review | 2026-09-04T17:13:17+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-JIN-RENAME-SCOPE-01 | 案 (a): 仕様（docs/spec/ops.md §3「可視範囲に絞らない」）が正しい。実装と仕様は変えず、矛盾している packages/jin-cor… | high | pending_human_review | 2026-09-04T17:13:17+09:00 |
 
 ## 決定済み（schema 駆動・自動生成）
 
@@ -59,5 +72,12 @@ auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/dec
 | 20260904-1445-jin/requirements.json | DP-JIN-STACK-01 | 要件書 §1.1 技術選定表(人間確定済み) | 2026-09-04 | 要件書に選定理由が併記されている確定済みの技術スタック指定。design フェーズで比較をやり直さない |  |
 | 20260904-1445-jin/requirements.json | DP-JIN-TEXTREPR-01 | 要件書 §10 #2(人間確定済み) | 2026-09-04 | LLM が最も安定して書ける。既存 JSON ツールが使える。エディタとの往復が無損失(コメント・整形の保存問題がない) |  |
 | 20260904-1445-jin/requirements.json | DP-JIN-TOOLDEF-01 | 要件書 §10 #3(人間確定済み) | 2026-09-04 | 汎用計算は非目標。ツール実装は Python 側に置き Jin からは参照するだけ |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-DIAGCODE-01 | impl-p01 (implementer) | 2026-09-04T07:10:00+00:00 | 要件書 §2.4 のコードは 10 の位で関心事がブロック化されている（00x 入力の妥当性 / 01x 名前と参照 / 02x circle 単体の形 / 03x flow / 04x 外部解決 / 05x rune / 06x root / 07x await）。追加する 2 件はどちらも circle 名で張られた参照グラフ全体の整合性であり 01x の関心事に一致する。03x に採らなか… | docs/adr/ADR-007-DP-JIN-SEMANTIC-GAPS-01.md |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-DIAGPREC-01 | impl-p01 (implementer) | 2026-09-04T07:10:00+00:00 | 要件書 §2.4 の JIN011 行は『未解決の参照（summon / delegate / steps / await / {key}）』と 5 種を挙げるが、steps / await / {key} には同じ表に JIN031 / JIN070 / JIN050 という専用コードが存在する。要件書 §9 の『fixture は対応コードを 1 つだけ出す』を成立させるには優先順位を決める… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-POSBASE-01 | impl-p01 (implementer) | 2026-09-04T07:10:00+00:00 | (1) 要件書 §5 のフィールド名は col であり LSP の Position は character（lsp-api-probe.md §1 実測）。名前を変えている以上 LSP 座標をそのまま載せる意図ではないと読むのが素直。(2) lark がネイティブに 1 始まり（本ラウンドで再実測: '{"a": "xy"}' の "a" が L1C2-L1C5）。パーサの値をそのまま使えばオ… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-TDD-P0-01 | impl-p01 (implementer) | 2026-09-04T06:58:00+00:00 | Phase 0 の成果物は仕様書そのものであり、突合テストは『既に存在する上位要件書と、これから書く仕様書が一致すること』を確かめる検査である。仕様書を書く前にテストを書いても、落ちる理由が『ファイルが無い』だけで設計上の情報を与えない。auto mode なので decided_by_kind = ai_agent の ai_provisional 相当として記録する（AI が実装都合で黙って… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-TESTFIXTURE-01 | impl-p01 (implementer) | 2026-09-04T07:10:00+00:00 | 共有 fixture が要るのは tests/spec/ と tests/contract/ だけで、どちらもリポジトリ直下 tests/ の下にある。各パッケージのテストは自分のパッケージしか見ないので共有を必要としない。プラグイン自作は依存が増え追跡しにくい。pyproject.toml の testpaths に 3 ディレクトリを並べれば uv run pytest 1 発で全部通る（F… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-TOOLNAME-01 | impl-p01 (implementer) | 2026-09-04T07:10:00+00:00 | name は circle 内一意の ID として boundary.await[]・意味オペレーション moveTool / rename・JSON Pointer の安定性に使われる（要件書 §2.2『名前が ID』/ §6.3）。builtin だけ name を持たないと await に指定できず moveTool の対象も指せない。要件書 §2.2 の builtin の例は説明のため… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-UPSTREAM-01 | impl-p01 (implementer) | 2026-09-04T07:10:00+00:00 | 要件書 §2.4 は『自 circle または flow 上流 circle の state』としか書かず実装には厳密な定義が要る。ADK の実行意味論に合わせ「その circle が動く前に確実に動きうるもの」を上流とした。loop で全兄弟を含めるのは 2 周目以降どの兄弟も先に実行されうるため。parallel を含めないのは実行順序の保証が無いため。妥当性の一次証拠は要件書 §2.2 の… |  |
 
 <!-- AUTO-GENERATED END: pending-decisions-generator -->

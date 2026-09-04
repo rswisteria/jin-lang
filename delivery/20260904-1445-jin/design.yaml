@@ -546,7 +546,7 @@ implementation_phases:
         boundary 0.95）と一致する
       - layout.md が記す data-jin-kind の値集合が §2.5 の 9 種（circle / core / rune / tool /
         state / flow-edge / guard / await / delegate）と一致する
-      - adk-mapping.md の Jin キー集合が §2.1 対応表の 11 行と一致する
+      - adk-mapping.md の Jin キー集合が §2.1 対応表の 12 行と一致する（2026-09-04 親が訂正: 原文は「11 行」だったが要件書 §2.1 の実データ行数は 12、requirements.json の FR-MODEL-002.vocabulary[] も 12 件。上流 2 系統が一致するためそちらを正とした。§9 テストマトリクスの「11 行」は正しいので変更していない）
       - examples 2 本が JSON として parse でき、§2.2 掲載の内容と意味的に一致する（この時点では Pydantic 検証は存在しないため素の
         JSON 比較）
       human_only:

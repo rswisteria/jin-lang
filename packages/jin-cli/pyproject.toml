@@ -1,0 +1,23 @@
+[project]
+name = "jin-cli"
+version = "0.1.0"
+description = "Jin の CLI（Phase 1 は check / fmt / schema / dump）"
+requires-python = ">=3.12"
+# 版の根拠: delivery/20260904-1445-jin/version-matrix.md（2026-09-04 実測）
+dependencies = [
+  "jin-core",
+  "typer>=0.27,<1",
+]
+
+[project.scripts]
+jin = "jin_cli.main:app"
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jin_cli"]

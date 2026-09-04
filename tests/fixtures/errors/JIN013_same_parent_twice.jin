@@ -1,0 +1,21 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "A",
+  "circles": [
+    {
+      "name": "A",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "B",
+          "B"
+        ]
+      }
+    },
+    {
+      "name": "B",
+      "core": "gemini-2.5-flash"
+    }
+  ]
+}
