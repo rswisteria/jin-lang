@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# wiring review W-11: 既定の書き込み権限を渡さない（最小権限）。
+permissions:
+  contents: read
+
+# wiring review W-11: 同じ ref への push が重なったら古い実行を捨てる。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # wiring review W-11: ぶら下がったジョブが 6 時間走り続けないようにする。
+    timeout-minutes: 15
+    env:
+      # wiring review W-01: `uv sync --frozen` は stale な uv.lock を素通りさせ、
+      # その後の裸の `uv run` が lock を黙って書き換える（CI の中で lock が変わる）。
+      # UV_LOCKED=1 で全ての uv コマンドに「lock を書き換えるなら失敗せよ」を課す。
+      UV_LOCKED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          # wiring review N-01: 版を固定しないと入る uv によって lock 検証の挙動が変わる。
+          # 実測（2026-09-04）:
+          #   uv 0.7.8  … `UV_LOCKED=1 uv sync --frozen` がクリーンでも EXIT=2（usage エラー）
+          #   uv 0.12.9 … 同コマンドが warning のみで EXIT=0（lock 検証が飛ぶ）
+          # 0.12.9 は本リポジトリの uv.lock で `uv lock --check` EXIT=0 /
+          # `UV_LOCKED=1 uv sync` クリーン EXIT=0 / stale EXIT=1 を実測済み。
+          # 根拠は decision-conformance.md §2.12。
+          version: "0.12.9"
+      # wiring review W-06: CI の Python を runner の既定に任せない。
+      # uv は `.python-version` を**ネイティブに読む**ので、`uv sync` / `uv run` は
+      # そこに書いた版で環境を作る（`setup-uv` 側に版を渡すと二重管理になる）。
+      # 実測（2026-09-04）: astral-sh/setup-uv@v5 の action.yml が持つ入力は
+      # `python-version` であり `python-version-file` は**存在しない**
+      # （`curl -s https://raw.githubusercontent.com/astral-sh/setup-uv/v5/action.yml`）。
+      # 存在しない入力を渡しても Actions は警告するだけで失敗しないため、指定しない。
+
+      - name: Show Python version
+        run: uv run python -c "import sys; print(sys.version)"
+
+      # wiring review N-01: **`--frozen` を付けない**。`--frozen` は `UV_LOCKED` を打ち消し
+      # （uv 0.12.9: `warning: Ignoring UV_LOCKED because --frozen was provided`）、
+      # stale な uv.lock でも EXIT=0 になる。実測: stale lock で
+      # `--frozen` あり EXIT=0 / `--frozen` なし EXIT=1。
+      - name: Sync dependencies
+        run: uv sync
+
+      # FR-ARCH-002 / NFR-DEP-001 / ADR-004（DP-COMMON-11）:
+      # jin-core → google-adk と jin レイヤの一方向性を機械で落とす。
+      - name: Check dependency direction (import-linter)
+        run: uv run lint-imports
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      # NFR-TEST-001: ネットワーク・API キー不要で通ること。
+      # wiring review W-04: **テストより先にツリーを書き換えない**。
+      # 生成スクリプトを先に走らせると、テスト側のドリフト検出
+      # （test_committed_schema_has_no_drift）が常に整形済みのツリーを見ることになり、
+      # 2 重の網が独立しなくなる。
+      - name: Test
+        run: uv run pytest
+
+      # FR-MODEL-001: Pydantic 定義から再生成した JSON Schema がコミット済みと一致すること。
+      # 差分が出たら `uv run python scripts/generate_schema.py` して再コミットする。
+      # ツリーを書き換えずに比較する（W-04）。
+      - name: Detect JSON Schema drift
+        run: uv run jin schema | diff -u schemas/jin.schema.json -
+
+      # 要件書 §9「examples/**/*.jin が全て validate を通る」
+      - name: Check examples
+        run: uv run jin check examples
+
+      # NFR-DET-002: examples が正準形であること。
+      - name: Check canonical form of examples
+        run: uv run jin fmt --check examples

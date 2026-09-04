@@ -1,0 +1,770 @@
+{
+  "schema_version": "v1",
+  "kind": "auto-decisions-ledger",
+  "run_dir": "delivery/20260904-1445-jin",
+  "needs_attention_count": 9,
+  "decisions": [
+    {
+      "dp_id": "DP-COMMON-15",
+      "chosen": "案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:08+09:00",
+      "constraints": [
+        {
+          "text": ".env.example のキー名は本判断では確定しない。実装 Stage 1 の tech-version-check で google-adk 2.8.0 が読む環境変数名を実測し、その実測値のみをテンプレートに固定する",
+          "kind": "condition"
+        },
+        {
+          "text": "推測・記憶・一般論に基づくキー名を .env.example に書かない（T-002）",
+          "kind": "prohibition"
+        },
+        {
+          "text": "実測できなかった場合は .env.example をコメントのみ（キー名なし）で生成し、docs/pending-decisions.md に残す",
+          "kind": "condition"
+        },
+        {
+          "text": "テストは .env / API キー / ネットワークを必要としない（NFR-TEST-001）",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: 設計フェーズで代表的なキー名を書いてしまう",
+        "案 C: .env.example を生成せず README に案内だけ書く"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-17",
+      "chosen": "案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:07+09:00",
+      "constraints": [
+        {
+          "text": "具体的なライブラリの選定とバージョンは本判断では確定しない。実装 Stage 1 の tech-version-check で決定し根拠を残す",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断でライブラリ版を成果物に書かない（design.yaml DEG-VERSION-CHECK と同じ規律）",
+          "kind": "prohibition"
+        },
+        {
+          "text": "サーバ側 Python の型と二重管理になるため、同期のドリフト検出方法を実装 Phase 5 で決めること",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 A: 生の WebSocket に JSON-RPC を手書きする",
+        "案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-DIAGCODE-NUMBERING-01",
+      "chosen": "選択肢 1: JIN012（循環参照）/ JIN013（多重親）を承認し、要件書 §2.4 の表に 2 行追加する",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:12:47+09:00",
+      "adr_ref": "docs/adr/ADR-012-DP-JIN-DIAGCODE-NUMBERING-01.md",
+      "constraints": [
+        {
+          "text": "本判断は ai_provisional であり、ADR-007 constraints (b)『要件書 §2.4 への追加であり仕様変更として人間の承認を要する』を代替しない。要件書 jin-requirements.md §2.4 の表への 2 行追加と、docs/spec/diagnostics.md §3（追加提案表）から §2（正典表）への統合は、本 DP が人間承認（PR マージまたは /aid decide による approved 昇格）を得たあとにのみ実施する。それまでは §2 と §3 の分離、および §3 冒頭の『人間承認待ち』警告を維持する。",
+          "kind": "condition"
+        },
+        {
+          "text": "統合を実施するときは『12 件』を前提にしている 3 箇所を同時に更新する: docs/spec/diagnostics.md §0 の機械可読の約束、tests/spec/test_spec_consistency.py（§2 が §2.4 の 12 件と過不足なく一致 / §3 が {JIN012, JIN013} であることの 2 検査）、delivery/20260904-1445-jin/design.yaml:541-543（Phase 0 の verification.machine が 12 件を明示列挙している）。1 箇所だけ直すと残りが赤くなる。",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断で JIN012 / JIN013 以外の新しい診断コード番号を発明しない（T-002）。既存 12 件の番号・重大度・意味も変更しない。",
+          "kind": "prohibition"
+        },
+        {
+          "text": "本判断の対象は採番値（JIN012 = 循環参照 / JIN013 = 多重親）と要件書 §2.4 への追加の是非に限る。ADR-007 が採択した案 A（jin-core の意味検査で検出し、jin-core は ADK に依存しない）の是非は本判断で再開しない。",
+          "kind": "scope"
+        },
+        {
+          "text": "JIN012 / JIN013 は意味検査の診断であり JSON Schema の語彙を変えないため schemas/jin.schema.json は変更しない（decision-conformance.md で確認済みの整理を維持する）。",
+          "kind": "limit"
+        }
+      ],
+      "compared": [
+        "選択肢 2: 03x ブロックの JIN032 / JIN033 に採り直す（リネーム影響は定数 2 個とファイル名 2 本で軽微だが、多重親が delegate でも起きるため flow ブロックへの配置は関心事の対応を崩す）",
+        "選択肢 3-B: 追加を却下し ADR-007 を案 B（jin-adk のコード生成時エラーに委ねる）へ切り替える（jin check が通ってしまい成功条件 3 が成立せず、レンダラ経路では検出されず無限再帰する）",
+        "選択肢 3-C: 追加を却下し ADR-007 を案 C（JIN011 / JIN031 に寄せる）へ切り替える（『未解決の参照』と『解決できる参照が循環している』は意味が違い、要件書 §9『fixture は対応コードを 1 つだけ出す』の意図から外れる）"
+      ],
+      "aliases": [
+        "JIN012 / JIN013 を承認し要件書 §2.4 の表に 2 行追加する"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-JIN-DISTRIBUTION-01",
+      "chosen": "現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "requirements.json",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:07+09:00",
+      "constraints": [
+        {
+          "text": "社内 git / 社内 ai-delivery マーケットプレイス(要件書 §10 #8 / §8)への移管先が確定した時点で、README のインストール手順・plugins/claude-code/jin/ の SessionStart 案内文・マーケットプレイス登録先(git-subdir ソース / stable・beta チャネル)の URL を差し替える",
+          "kind": "condition"
+        },
+        {
+          "text": "社内 git ホスティングおよび社内 ai-delivery マーケットプレイスの具体的な URL・組織名・チャネル名は本セッションで確認できていないため、成果物に記載しない",
+          "kind": "prohibition"
+        },
+        {
+          "text": "本決定が及ぶのはドキュメント・プラグイン設定に記載する配布元 URL のみで、jin-core / jin-cli / jin-adk / jin-render / jin-lsp の実装本体には及ばない",
+          "kind": "scope"
+        },
+        {
+          "text": "配布元 URL の到達性は 2026-09-04 時点の実測(gh repo view rswisteria/jin-lang → visibility: PUBLIC)に基づく。リポジトリが非公開化された場合、uv tool install には別途認証手順が必要になる",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "README のインストール手順を <社内 git URL> のプレースホルダにして確定を保留する",
+        "社内 git への移管を先に行ってから配布導線を書く"
+      ],
+      "phase": "requirements"
+    },
+    {
+      "dp_id": "DP-JIN-EDITOR-PROTOCOL-01",
+      "chosen": "案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:07+09:00",
+      "adr_ref": "docs/adr/ADR-011-DP-JIN-EDITOR-PROTOCOL-01.md",
+      "constraints": [
+        {
+          "text": "jin/open と jin/save は ws モードのエディタだけが使う。stdio クライアント（Claude Code / VS Code）は使わず、従来どおりクライアントがファイル I/O を担う",
+          "kind": "scope"
+        },
+        {
+          "text": "リクエスト名 jin/open と jin/save は仮称であり本判断では確定しない。要件書 §6.3 の独自リクエスト 4 種への追加として仕様変更の人間承認を得たうえで、Phase 0 の docs/spec/ops.md 執筆時に確定する",
+          "kind": "prohibition"
+        },
+        {
+          "text": "ファイルが存在しない・読めない・書けない場合はプロトコル上のエラーとして返し、黙って握り潰さない（NFR-FAIL-001）",
+          "kind": "scope"
+        },
+        {
+          "text": "undo/redo の逆オペレーションはサーバが applyOps の応答に含め、クライアントが保持する（要件書 §6.3）。その表現と適用失敗時の扱いは実装 Phase 4 で確定し根拠を残す",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 A: サーバが暗黙にディスクを読み書きする（open は pygls の遅延読込に任せ、save は applyEdit 適用後に常に書く）",
+        "案 B: 標準 LSP メッセージに寄せる（エディタが didOpen でテキストを送り、didSave を書き込み契機にする）"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-EDITOR-UX-01",
+      "chosen": "機能要件(§7.1 / §7.2)だけを満たす最小 UI を AI 仮判断で作り、デザインは後で差し替える",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "requirements.json",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:12:47+09:00",
+      "adr_ref": "docs/adr/ADR-002-DP-JIN-EDITOR-UX-01.md",
+      "constraints": [
+        {
+          "text": "本決定が許すのは要件書 §7.1 / §7.2 の機能要件を満たす最小 UI までであり、装飾・ビジュアルデザイン・ブランド適用・モーション設計は本ランのスコープ外",
+          "kind": "scope"
+        },
+        {
+          "text": "Xtone の既存デザインシステム／UI ガイドラインは本リポジトリから参照できず存在確認もできていないため、それに準拠した旨の記述・実装・コメントを成果物に書かない",
+          "kind": "prohibition"
+        },
+        {
+          "text": "デザイナー参加後の差し替えを前提に、SVG 表示・ヒットテスト・JSON Schema 由来フォーム・jin/applyOps 疎通のロジックを見た目(スタイル)から分離して実装する",
+          "kind": "condition"
+        },
+        {
+          "text": "エディタの UI 設計(プロパティパネルのレイアウト、ドラッグ操作のインタラクション、診断バッジの見せ方、タイムラインスクラバ)は全て AI 仮判断であり人間確定ではない。PR レビューでデザイナーまたは依頼者の確認を受けるまで確定として扱わない",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする",
+        "Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる"
+      ],
+      "phase": "requirements"
+    },
+    {
+      "dp_id": "DP-JIN-JIN050-LOOP-SCOPE-01",
+      "chosen": "現仕様を維持する: docs/spec/model.md §5 の loop 行「祖先が loop のとき、すべての兄弟枝の部分木を含める」を変えず、新しい診断コードも警告も追加しない（1 周目に未定義でありうることは仕様上の既知の限界として明記する）",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:07+09:00",
+      "adr_ref": "docs/adr/ADR-014-DP-JIN-JIN050-LOOP-SCOPE-01.md",
+      "constraints": [
+        {
+          "text": "docs/spec/model.md §5 の loop 行に、この規則が『1 周目には未定義でありうる値への参照』を意図的に許すこと、それは初期値の表現手段が v1 に無いため静的には検出できないこと、を注記として明記する。規則そのもの（すべての兄弟枝の部分木を含める）は変更しない。",
+          "kind": "scope"
+        },
+        {
+          "text": "loop の兄弟枝可視性の規則を固定するテストを追加する。現状この規則にはテストが 1 件も無く（packages/jin-core/tests および tests/ 配下に loop と可視範囲を同時に検査するテストは存在しない・実測）、docs/spec/model.md §5 の machine-readable: upstream-rule ブロックもどのテストからも参照されていない。どちらの選択をしても規則を無検査のままにしない。",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断では warning 級を含む新しい診断コードを追加しない。将来 1 周目未定義に対する診断を設けるときも、コード番号の採番は人間の承認を要する（要件書 §2.4 の表への追加であるため。ADR-007 constraints (b) と同じ扱い）。",
+          "kind": "prohibition"
+        },
+        {
+          "text": "State に初期値の宣言が導入された場合、または rune に任意キー構文が導入された場合は、本判断を再評価する。そのときは 1 周目未定義を作者が明示できるようになるため、厳格化の費用対効果が変わる。",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "厳格化案: loop の祖先でも sequence と同じく『自分より前の兄弟枝の部分木のみ』を可視にする。実測ではバンドル済みの 2 例に影響しないが、後続兄弟の key を自 circle に out: false で宣言すれば通るため安全性が増えず、正当な前周参照に無意味な宣言を強いる",
+        "warning 級の新診断コードを追加する案: loop の後続兄弟枝の state を参照したときに warning を出す。loop の主要用途で恒常的に鳴り、LLM がバグでないものを直す方向に働く。番号の新規発明も禁止事項",
+        "rune に任意キー構文（{key?} 相当）を導入し、厳格版と併用する案: 1 周目未定義を作者が明示できるようになるが、要件書 §2 と model.md §3.1 の rune 抽出規則の変更（言語仕様の拡張）であり、実装ラウンド 1 の範囲を超える"
+      ],
+      "aliases": [
+        "現仕様を維持し警告も出さない",
+        "現仕様維持（model.md §5 の loop 行を変更しない）"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-JIN-SEMANTIC-GAPS-01",
+      "chosen": "案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:07+09:00",
+      "adr_ref": "docs/adr/ADR-007-DP-JIN-SEMANTIC-GAPS-01.md",
+      "constraints": [
+        {
+          "text": "新規 JIN 診断コードの採番値は本判断では確定しない。要件書 §2.4 は JIN001〜JIN070 の 12 件のみを定義しており、空き番号への採番は Phase 0 の docs/spec/diagnostics.md 執筆時に決定し根拠を残す",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断で具体的なコード番号を成果物に書かない（T-002・要件書に無い値を捏造しない）",
+          "kind": "prohibition"
+        },
+        {
+          "text": "要件書 §2.4 の診断コード表への追加であり、仕様変更として人間の承認を要する",
+          "kind": "condition"
+        },
+        {
+          "text": "追加後は docs/spec/diagnostics.md と schemas/jin.schema.json の整合を取り直すこと",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる）",
+        "案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う）"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-SVG-DETERMINISM-01",
+      "chosen": "案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": true,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:07+09:00",
+      "adr_ref": "docs/adr/ADR-010-DP-JIN-SVG-DETERMINISM-01.md",
+      "constraints": [
+        {
+          "text": "丸め桁数の具体値は本判断では確定しない。要件書に記載がないため、実装 Phase 3 で決定し根拠を docs/spec/layout.md に残す",
+          "kind": "condition"
+        },
+        {
+          "text": "推測に基づく丸め桁数を設計成果物に固定しない（T-002・具体値を捏造しない）",
+          "kind": "prohibition"
+        },
+        {
+          "text": "決定性テストは同一プロセス内 2 回ではなく、異なる PYTHONHASHSEED の別プロセス 2 回で行う（同一プロセス内の一致は辞書順序依存を検出できず偽 green になりうる）",
+          "kind": "condition"
+        },
+        {
+          "text": "星形多角形 {n/k} の k は gcd による整数演算で求める。n の範囲と k が複数候補あるときの選択規則は Phase 0 の docs/spec/layout.md で一意に明文化する",
+          "kind": "condition"
+        },
+        {
+          "text": "座標を SVG へ書き出す経路は必ずこの丸め関数 1 本を通す。素の float 文字列化を混在させない",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: Python の float をそのまま f-string で文字列化する",
+        "案 C: Decimal または整数座標系で計算する"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-07",
+      "chosen": "案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:09+09:00",
+      "constraints": [
+        {
+          "text": "last-good モデルの保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込める（design.yaml replaceability）",
+          "kind": "scope"
+        },
+        {
+          "text": "jin_core / jin_render はキャッシュの存在を知らない純関数のままとし、内部に状態を持たない",
+          "kind": "scope"
+        },
+        {
+          "text": "SVG はキャッシュしない。決定性テスト（NFR-DET-001）がキャッシュヒットを見る偽 green を作らないこと",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: キャッシュを持たず毎回フル再計算し、構文エラー時は診断のみ返す",
+        "案 C: last-good モデルに加え SVG も (uri, focus, trace, upto) をキーにキャッシュする"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-09",
+      "chosen": "案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:08+09:00",
+      "adr_ref": "docs/adr/ADR-003-DP-COMMON-09.md",
+      "constraints": [
+        {
+          "text": "横断契約テストの置き場は tests/contract/ とする。パッケージ横断 fixture の共有方法は実装 Stage で決め、根拠を残す",
+          "kind": "condition"
+        },
+        {
+          "text": "テストはネットワークアクセスと API キーを一切必要としない（NFR-TEST-001）",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: 単一の tests/ に §9 の 11 対象をフラットに並べる",
+        "案 B: テストピラミッド（unit / integration / e2e）で切る"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-11",
+      "chosen": "案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:09+09:00",
+      "adr_ref": "docs/adr/ADR-004-DP-COMMON-11.md",
+      "constraints": [
+        {
+          "text": "design.yaml architecture.dependency_direction.rules の 8 行を契約の正本とし、検査ツールを差し替えても契約は動かさない",
+          "kind": "scope"
+        },
+        {
+          "text": "CI は jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと",
+          "kind": "condition"
+        },
+        {
+          "text": "apps/editor は Python パッケージを直接 import しない（LSP プロトコルにのみ依存する）",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: uv workspace の依存宣言（pyproject.toml の dependencies）だけで担保する",
+        "案 C: 自前の AST 走査テスト（tests/contract/test_dependencies.py）を書く"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-14",
+      "chosen": "案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:09+09:00",
+      "constraints": [
+        {
+          "text": "stdio モードでは stdout に JSON-RPC 以外のいかなる出力も行わない",
+          "kind": "scope"
+        },
+        {
+          "text": "トレース JSONL は要件書 §3.4 のスキーマに従う成果物であり、ログとして扱わない",
+          "kind": "scope"
+        },
+        {
+          "text": "ログレベル・フォーマット・ローテーションの方針は本判断では確定しない。実装 Phase 4 で決定し根拠を残す",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 A: pygls / Python 標準 logging の既定に任せる",
+        "案 C: LSP の window/logMessage 通知にログを寄せる"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-16",
+      "chosen": "案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:09+09:00",
+      "constraints": [
+        {
+          "text": "tools[].name / state[].name は circle 内一意であって全体一意ではないため、選択は必ず circle 名で限定した 3 つ組で保持する",
+          "kind": "condition"
+        },
+        {
+          "text": "モデルの写し（circles 配列や tool 一覧）をクライアントに複製しない",
+          "kind": "scope"
+        },
+        {
+          "text": "rename 直後の選択再解決規則は本判断では確定しない。実装 Phase 5 で決定し根拠を残す",
+          "kind": "condition"
+        },
+        {
+          "text": "状態管理ライブラリは追加せず React の useReducer / Context の範囲に収める",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: 選択も含めて生の JSON Pointer で保持する",
+        "案 C: サーバがモデルの完全な写しをクライアントに持たせ、クライアント側で楽観更新する"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-18",
+      "chosen": "案 A: SSR なし単一ページ SPA。モードはページ内切替",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:10+09:00",
+      "constraints": [
+        {
+          "text": "エディタ単体のサーバを持たない。ビルド成果物は静的ファイル一式とし jin editor が配信する（FR-EDITOR-004）",
+          "kind": "scope"
+        },
+        {
+          "text": "開発時は Vite dev server から同一の WebSocket に接続する",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 B: クライアントルーティングで /edit と /debug を分ける",
+        "案 C: SSR / SSG を入れる"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-19",
+      "chosen": "案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:10+09:00",
+      "constraints": [
+        {
+          "text": "ステイル状態では「直前の正常モデルを表示している」ことを画面上で明示し、正常表示と混ぜない",
+          "kind": "condition"
+        },
+        {
+          "text": "正常モデルが 1 度も得られていない状態を「表示不能」として独立させ、接続断と同じ扱いにしない",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 A: 読込中 / 正常 / エラー の 3 状態",
+        "案 C: 診断バッジだけで伝え、画面全体の状態は持たない"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-COMMON-20",
+      "chosen": "案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:08+09:00",
+      "constraints": [
+        {
+          "text": "Playwright スモークは要件書 §9 の必須 1 本（開く → 紋を追加 → 保存 → 正準形バイト一致）と Phase 6 のスクラバ 1 本に限る",
+          "kind": "scope"
+        },
+        {
+          "text": "LSP プロトコルそのものの検証は Python 側の pytest-lsp が担い、エディタ側で重複させない",
+          "kind": "scope"
+        },
+        {
+          "text": "エディタ側テストもネットワーク・API キーを必要としない（NFR-TEST-001）",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: Playwright のみ（§9 の記述どおり 1 本）",
+        "案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-CANONICAL-01",
+      "chosen": "案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:10+09:00",
+      "adr_ref": "docs/adr/ADR-005-DP-JIN-CANONICAL-01.md",
+      "constraints": [
+        {
+          "text": "§2.3 の 5 規則は canonical writer 1 箇所にのみ実装し、Pydantic 設定と後処理へ分散させない",
+          "kind": "scope"
+        },
+        {
+          "text": "Pydantic のモデル定義変更に writer が追随することをテストで担保する（往復無損失と fmt(fmt(x)) == fmt(x)）",
+          "kind": "condition"
+        },
+        {
+          "text": "JSON エスケープ処理を自前で書くことによるバグリスクを、非 ASCII・制御文字・サロゲートペアの fixture で必ず検証する",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 A: json.dumps の引数調整のみ（indent=2, ensure_ascii=False, sort_keys=False）",
+        "案 B: Pydantic の model_dump（exclude_defaults / exclude_none）+ json.dumps 後処理"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-CODEGEN-RUNTIME-01",
+      "chosen": "案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:09+09:00",
+      "adr_ref": "docs/adr/ADR-008-DP-JIN-CODEGEN-RUNTIME-01.md",
+      "constraints": [
+        {
+          "text": "FakeLlm は生成物に埋め込まず jin_adk 側に置く（生成された agent.py に FakeLlm は現れない）",
+          "kind": "scope"
+        },
+        {
+          "text": "生成された agent.py は jin パッケージを一切 import しない",
+          "kind": "scope"
+        },
+        {
+          "text": "flow.exit を持つ circle が複数ある場合の StateCheckAgent 重複定義の扱い（1 定義に集約するか毎回展開するか）は実装 Phase 2 で決定し根拠を残す",
+          "kind": "condition"
+        },
+        {
+          "text": "StateCheckAgent の実装を変更しても既存の生成物には反映されないため、再生成が必要である旨を生成物のヘッダまたは README に明示する",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 B: jin_adk.runtime から import させる（生成物は jin に依存）",
+        "案 C: 生成時に別ファイル（_jin_runtime.py）を出力ディレクトリへ一緒に書き出す"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-PHASE-SCOPE-01",
+      "chosen": "Phase 0〜6(全フェーズ)",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "requirements.json",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:12:46+09:00",
+      "adr_ref": "docs/adr/ADR-001-DP-JIN-PHASE-SCOPE-01.md",
+      "constraints": [
+        {
+          "text": "Phase 0 の仕様書承認ゲート(jin-requirements.md §11)は auto mode に承認者がいないため、ai_provisional 記録 + PR レビューで代替する(出典: skills/common/auto-decision/DOMAIN-SKILL.md「人間レビュー(PR レビューで代替)」節)。人間確定(decided)としては扱わない",
+          "kind": "condition"
+        },
+        {
+          "text": "1 ラン内でも要件書 §11 の「各フェーズを独立した spec → plan → 実装のサイクルにする」を保つ。Phase 0 から 6 まで順に進め、§11 表の各 Phase 完了条件の充足を後続 Phase の着手条件とする",
+          "kind": "condition"
+        },
+        {
+          "text": "Phase 7(v1.1 候補: ライブ実行 / import / MCP による ops 露出 / VS Code 拡張。要件書 §11 で「任意」)および §0 の非目標(人間可読 DSL / LangChain・LangGraph ターゲット / 汎用計算 / 複数ファイル import / ライブストリーミング表示)は本ランのスコープ外",
+          "kind": "scope"
+        },
+        {
+          "text": "要件書 §9 のテスト要件を uv run pytest(エディタは pnpm test)でネットワーク・API キー不要のまま通すことを各 Phase の完了条件とする。満たせない Phase が出た場合は完了扱いにせず PR レビューに上げる",
+          "kind": "limit"
+        }
+      ],
+      "compared": [
+        "Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)",
+        "Phase 0〜2(+ jin-adk build/run/trace/FakeLlm)",
+        "Phase 0〜4(エディタを除く全 Python パッケージ + Claude Code プラグイン)"
+      ],
+      "phase": "requirements"
+    },
+    {
+      "dp_id": "DP-JIN-POINTER-RANGE-01",
+      "chosen": "案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:10+09:00",
+      "adr_ref": "docs/adr/ADR-006-DP-JIN-POINTER-RANGE-01.md",
+      "constraints": [
+        {
+          "text": "schemas/jin.schema.json は外部 JSON ツールと LLM 向けの公開契約であり、内部検証には使わない",
+          "kind": "scope"
+        },
+        {
+          "text": "JIN002 の検出器は Pydantic に一本化する。同じ違反に複数のメッセージ形式を生む検証器を併用しない",
+          "kind": "scope"
+        },
+        {
+          "text": "loc → pointer の変換規則を判別共用体（tools[].kind）・Optional・エイリアスについて網羅的にテストする",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 A: Lark の木にモデルを重ねず、行・列は構文エラー（JIN001）のみに付ける",
+        "案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む"
+      ],
+      "phase": "design"
+    },
+    {
+      "dp_id": "DP-JIN-RENAME-SCOPE-01",
+      "chosen": "案 (a): 仕様（docs/spec/ops.md §3「可視範囲に絞らない」）が正しい。実装と仕様は変えず、矛盾している packages/jin-core/src/jin_core/ops.py:405 のコメントを実装・仕様に合わせて修正して閉じる",
+      "rationale": "AI 仮判断（confidence: high）を承認。",
+      "status": "decided",
+      "source_file": "implementation-plan.json",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:12:47+09:00",
+      "adr_ref": "docs/adr/ADR-013-DP-JIN-RENAME-SCOPE-01.md",
+      "constraints": [
+        {
+          "text": "packages/jin-core/src/jin_core/ops.py:405 のコメント『flow.exit.key と、その state が見える circle の rune 内 {key} を追随させる』から可視範囲の記述を取り除き、全 circle に追随させること・その根拠（同名 state は同一のセッションキー）・docs/spec/ops.md §3 への参照を書く。仕様（ops.md §3）と実装（ops.py の挙動）は変更しない。",
+          "kind": "condition"
+        },
+        {
+          "text": "docs/spec/ops.md §3 の注記を書き改める。現行の『同名の state key が別の circle にも存在する場合は過剰置換になりうる』という書き方は、同名 state が同一の session.state キーであるという事実と噛み合っていない。(i) 全 circle 追随の根拠を『同名 state は ADK の同一セッションキーである』に置き換え、(ii) 残存リスクとして『rename は指し示した state 宣言のみを改名するため、同名の別宣言が残ると rune の解決先が静かに移りうる。rename 後に jin check を通して JIN050 を確認すること』を明記する。",
+          "kind": "condition"
+        },
+        {
+          "text": "本判断が決めるのは rename(state) が参照（flow.exit.key と instruction.rune 内の {key}）に及ぶ範囲だけである。同名の state 宣言まで追随させる案 (c) は採用しない。必要になった場合は本判断を上書きするのではなく、別の判断ポイントとして人間が判断する。",
+          "kind": "scope"
+        },
+        {
+          "text": "Phase 5 のエディタは rename(state) の効果が他の circle に及んだことを利用者に可視化すること。可視化の方式（確認ダイアログ・差分プレビュー・実行後の通知など）は Phase 5 で決める。",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "案 (b): 仕様が誤りとして rename(state) を可視範囲に絞る（docs/spec/ops.md §3・ops.py・テストを同時変更）。_visible_state_keys が名前の集合しか返さず由来を持たないため指摘された問題を解けず、可視範囲判定が flow 構造に依存するため編集途中のモデルで rename の結果が未定義になる",
+        "案 (c): 同名の state 宣言も全 circle で追随させる（同一 session key であることを宣言側にも及ぼす）。A-5 の静かな意味変化を唯一根本的に解けるが、undo の逆オペレーション契約が複数宣言にまたがって壊れ、キーを意図的に分岐させる rename ができなくなり、ops.md §3 と要件書 §6.3 の契約変更になる"
+      ],
+      "aliases": [
+        "(a) 仕様が正しく、矛盾しているのは ops.py:405 のコメントだけ",
+        "仕様維持・コメント修正"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-JIN-TRACE-POINTER-01",
+      "chosen": "案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く",
+      "rationale": "AI 仮判断（confidence: medium）を承認。",
+      "status": "decided",
+      "source_file": "design.yaml",
+      "needs_attention": false,
+      "review_status": "approved",
+      "decided_by": "toyota",
+      "decided_at": "2026-09-04T21:20:09+09:00",
+      "adr_ref": "docs/adr/ADR-009-DP-JIN-TRACE-POINTER-01.md",
+      "constraints": [
+        {
+          "text": "対応表を生成物（agent.py）に埋め込まない。生成コードは Jin を知らないままとする",
+          "kind": "scope"
+        },
+        {
+          "text": "引けなかったイベントは pointer を null にして黙って落とさず、対応不能であることを明示する（NFR-FAIL-001）",
+          "kind": "condition"
+        },
+        {
+          "text": "生成物を jin run を経由せず単体で adk run した場合はトレースの pointer が付かない。この制約をドキュメントに明示する",
+          "kind": "scope"
+        }
+      ],
+      "compared": [
+        "案 A: 実行時に Event の内容から jin-core のモデルを検索して逆引きする",
+        "案 C: 生成コード自体に pointer をコメントや属性として埋め込む"
+      ],
+      "phase": "design"
+    }
+  ]
+}

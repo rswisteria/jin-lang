@@ -1,0 +1,39 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Root",
+  "circles": [
+    {
+      "name": "Root",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "First",
+          "Second"
+        ]
+      }
+    },
+    {
+      "name": "First",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "Shared"
+        ]
+      }
+    },
+    {
+      "name": "Second",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "Shared"
+        ]
+      }
+    },
+    {
+      "name": "Shared",
+      "core": "gemini-2.5-flash"
+    }
+  ]
+}

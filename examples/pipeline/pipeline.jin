@@ -1,0 +1,89 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Pipeline",
+  "circles": [
+    {
+      "name": "Pipeline",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "Drafter",
+          "Reviewer",
+          "Refine"
+        ]
+      }
+    },
+    {
+      "name": "Refine",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Critic",
+          "Rewriter"
+        ],
+        "max": 3,
+        "exit": {
+          "key": "approved",
+          "equals": true
+        }
+      }
+    },
+    {
+      "name": "Drafter",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "下書きを書く"
+      },
+      "state": [
+        {
+          "name": "draft",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Reviewer",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "{draft} をレビューする"
+      },
+      "state": [
+        {
+          "name": "review",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Critic",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "{draft} を批評し、十分なら approved=true"
+      },
+      "state": [
+        {
+          "name": "approved",
+          "type": "bool",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Rewriter",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "{review} を踏まえて {draft} を書き直す"
+      },
+      "state": [
+        {
+          "name": "draft",
+          "type": "str",
+          "out": true
+        }
+      ]
+    }
+  ]
+}

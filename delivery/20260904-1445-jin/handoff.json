@@ -1,0 +1,1125 @@
+{
+ "handoff": "human-decision-request",
+ "schema_version": "v1",
+ "generated_at": "2026-09-04T15:32:57+0900",
+ "generated_by": "common-dev-architect",
+ "run_dir": "delivery/20260904-1445-jin",
+ "plugin": "xtone-ai-delivery-bundle（common-dev 相当・slug: jin）",
+ "decided_by_default": "toyota",
+ "phase": "Phase 2 設計",
+ "summary": "設計フェーズの未決が 17 件あります（発火 DP-COMMON 10 件 + 本案件固有 DP-JIN 7 件）。要件フェーズの 3 件（DP-JIN-PHASE-SCOPE-01 / DP-JIN-EDITOR-UX-01 / DP-JIN-DISTRIBUTION-01）は auto-decider が ai_provisional で決着済みのため本ファイルからは外しました（ADR-001 / ADR-002 参照・PR レビューでの人間確定は依然として必要）。実装着手前に決める必要がある順は Phase 1 をブロックする 4 件（DP-JIN-CANONICAL-01 / DP-JIN-POINTER-RANGE-01 / DP-JIN-SEMANTIC-GAPS-01 / DP-COMMON-11）→ Phase 2 の 3 件 → Phase 3 の 1 件 → Phase 4 の 3 件 → Phase 5〜6 の 6 件です。",
+ "degradation_notes": [
+  "docs/decision-points.md（DP-COMMON-01〜20 の選択肢・判断軸カタログ）が本環境のバンドルに同梱されていないため、各 DP の選択肢と判断軸は common-dev-architect が案件文脈から自前で組み立てた（発火条件の一覧のみ agents/common-dev-architect.md 本文の表を一次ソースとして使用）。",
+  "Notion DP-DB は本ランでは参照していないため、既存 DP との重複判定（DP-AID-02 の 80% 重複ルール）は未実施。DP-JIN-* 7 件は起票前の候補。",
+  "count_undecided.sh が同梱されていないため、件数は architect が目視で数えた値。"
+ ],
+ "requests": [
+  {
+   "id": "DP-COMMON-07",
+   "title": "LSP の診断・レンダリング再計算とキャッシュ / エラー回復の戦略",
+   "question": "DP-COMMON-07 LSP の診断・レンダリング再計算とキャッシュ / エラー回復の戦略 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 4,
+   "why_now": "NFR-PERF-001 が「1000 行以下のファイルで診断 1 秒以内」という閾値を明示し、\nNFR-AVAIL-001 が「JSON 構文エラー中も直前の正常なモデルで hover / renderSvg を提供する」を要求している。\n両者はどちらも「何をどこまで保持し、いつ捨てるか」の判断であり同一の設計論点。",
+   "impact_if_undecided": "Phase 4 で LSP の内部構造を作り直すことになる。特に案 C を後から入れると、\n決定性テスト（同一入力 2 回でバイト一致）がキャッシュヒットを見ているだけの偽 green になりうる。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない",
+   "recommendation_rationale": "推奨: ドキュメント単位の last-good モデル 1 世代のみを保持し、SVG はキャッシュしない（案 B）。\n1000 行の JSON の parse + Pydantic 検証は 1 秒に対して十分な余裕があり、\nキャッシュ層を厚くすると無効化漏れによるステイル表示（NFR-DET-001 の決定性への疑いを生む）の方が高くつく。",
+   "replaceability": "last-good の保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込め、jin_core / jin_render は\nキャッシュの存在を知らない純関数のままにする。後から案 C へ引き上げる場合も\njin-lsp 内の差し替えで済む（T-004）。",
+   "decision_axes": [
+    "応答時間（NFR-PERF-001 の 1 秒を満たせるか）",
+    "エラー回復の正しさ（古いモデルをどこまで信じてよいか）",
+    "実装の単純さ（無効化漏れによるステイル表示のリスク）",
+    "stdio と ws で同一実装を保てるか（FR-LSP-002）"
+   ],
+   "options": [
+    {
+     "label": "案 A: キャッシュを持たず毎回フル再計算し、構文エラー時は診断のみ返す",
+     "summary": "案 A: キャッシュを持たず毎回フル再計算し、構文エラー時は診断のみ返す",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "実装が最も単純で無効化漏れが起きない",
+      "常に最新のモデルしか返さないため決定性への疑いが生じない"
+     ],
+     "cons": [
+      "NFR-AVAIL-001（構文エラー中も hover / renderSvg を提供）を満たせない — 要件違反"
+     ]
+    },
+    {
+     "label": "案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない",
+     "summary": "案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "NFR-AVAIL-001 をちょうど満たす最小の保持量",
+      "保持するのが 1 世代だけなので無効化規則が単純（次に parse 成功したら差し替えるだけ）",
+      "stdio と ws で同一の保持ロジックを使える"
+     ],
+     "cons": [
+      "SVG を毎回生成するため renderSvg の応答は毎回フルコスト",
+      "last-good が古い場合、hover の内容が現在のテキストとズレる（要件が許容している挙動）"
+     ]
+    },
+    {
+     "label": "案 C: last-good モデルに加え SVG も (uri, focus, trace, upto) をキーにキャッシュする",
+     "summary": "案 C: last-good モデルに加え SVG も (uri, focus, trace, upto) をキーにキャッシュする",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "スクラバ操作（Phase 6）で同じ upto を往復するときの応答が速い"
+     ],
+     "cons": [
+      "キャッシュキーが 4 次元で無効化漏れのリスクが高い",
+      "SVG の決定性（NFR-DET-001）を検証するテストとキャッシュが干渉しうる",
+      "本ランでは性能上の必要性が実測されていない（早すぎる最適化）"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-09",
+   "title": "テスト戦略 — §9 のテストマトリクス 11 行をどう階層化するか",
+   "question": "DP-COMMON-09 テスト戦略 — §9 のテストマトリクス 11 行をどう階層化するか をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 1,
+   "why_now": "要件書 §9 が 11 対象 × 手法を表として確定させている一方、それらをどのテスト層に置き、\nどの粒度で CI を回すかは未確定。FR-TEST-001 / NFR-TEST-001 が「全て uv run pytest（エディタは pnpm test）で\nネットワーク・API キー不要で通る」を要求しており、層の切り方が CI の実行時間と偽 green リスクを左右する。",
+   "impact_if_undecided": "Phase 1 でテストの置き場が決まらないまま fixture が各パッケージに散り、\nPhase 4 の契約テスト（pointer の全層一致）を書く段になって fixture の重複と不整合が表面化する。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト",
+   "recommendation_rationale": "推奨: パッケージ単位の垂直分割 + 横断契約テストの二層（案 C）。\n§9 の 11 行のうち スキーマ / 診断 / 正準形 / モデル / オペレーション は jin-core、\nコード生成 / 実行 は jin-adk、レンダラ は jin-render、LSP は jin-lsp、\nエディタ / プラグイン は apps/editor と plugins/ に置き、\n「pointer が全層で解決できる」「jin render と jin/renderSvg がバイト一致」「fmt とエディタ保存がバイト一致」の\n3 本だけを tests/contract/ に横断テストとして置く。Phase ゲートと素直に対応する。",
+   "replaceability": "fixture（examples 2 本 + tests/fixtures/errors/JINxxx_*.jin）は層の切り方から独立させ、\nリポジトリ直下の tests/fixtures/ に置いて全層から参照する。層の切り方を後から変えても fixture は動かない。",
+   "decision_axes": [
+    "偽 green を出さないか（DP-IMPL-VERIFIED-01）",
+    "Phase ゲート（implementation_phases[].verification.machine）と 1:1 に対応づけられるか",
+    "CI 実行時間",
+    "パッケージ境界と一致するか（どのパッケージを壊すとどのテストが落ちるかが自明か）"
+   ],
+   "options": [
+    {
+     "label": "案 A: 単一の tests/ に §9 の 11 対象をフラットに並べる",
+     "summary": "案 A: 単一の tests/ に §9 の 11 対象をフラットに並べる",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "要件書の表と 1:1 で対応し、抜けが目視で分かる"
+     ],
+     "cons": [
+      "どのパッケージを壊すとどれが落ちるかが不明瞭で、Phase ゲートに対応づけにくい",
+      "jin-core だけを触ったときにも全テストが走り CI が遅い"
+     ]
+    },
+    {
+     "label": "案 B: テストピラミッド（unit / integration / e2e）で切る",
+     "summary": "案 B: テストピラミッド（unit / integration / e2e）で切る",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "一般的な語彙で分かりやすい"
+     ],
+     "cons": [
+      "本案件の主要検証は「スナップショット」「バイト一致」「往復」であり、ピラミッドの層と対応しない",
+      "§9 の 11 行がどの層に落ちるか判断が割れ、抜けが生じやすい"
+     ]
+    },
+    {
+     "label": "案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト",
+     "summary": "案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "Phase ゲートと 1:1 に対応し、machine 検証項目をそのままテスト名にできる",
+      "壊れた層が即座に分かる",
+      "契約テスト 3 本が「レンダラは 1 本」「ファイルが唯一の状態」という本案件の核心原則を守る番人になる"
+     ],
+     "cons": [
+      "契約テストがどのパッケージに属するかの置き場を別途決める必要がある",
+      "パッケージ横断の fixture 共有をどうするかを決める必要がある"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-11",
+   "title": "5 Python パッケージの分割境界と一方向依存の機械的担保方法",
+   "question": "DP-COMMON-11 5 Python パッケージの分割境界と一方向依存の機械的担保方法 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 1,
+   "why_now": "FR-ARCH-002 / NFR-DEP-001 が依存の一方向性を要求し、特に「jin-core は ADK に依存しない」\n「apps/editor は LSP にしか依存しない」は本案件の設計思想そのもの。\n分割自体は要件書 §1.2 で確定済みだが、それを破ったときに CI が落ちる仕掛けは未確定。",
+   "impact_if_undecided": "Phase 1 の途中で jin-core に ADK 由来の型ヒントが混入し、Phase 2 で気づいて\njin-core の公開インターフェースを作り直すことになる。この手戻りは全 Phase に波及する。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査",
+   "recommendation_rationale": "推奨: import-linter を導入して Python 側の layered contract を宣言し、\napps/editor 側は別途 pnpm スクリプトで Python 参照の静的検査を行う（案 B）。\nimport-linter は層の宣言が設定ファイル 1 本で済み、間接依存も追う。\nTypeScript 側は import-linter の対象外なので、そこだけ別の仕掛けが要る点を明示的に受け入れる。",
+   "replaceability": "どの案でも、担保対象の契約そのもの（architecture.dependency_direction.rules の 8 行）は\n設定ファイルやテストから独立した宣言として design.yaml と CLAUDE.md に残す。\n検査ツールを差し替えても契約は動かない。",
+   "decision_axes": [
+    "違反を確実に落とせるか（間接依存も見るか）",
+    "導入コストと依存の増加",
+    "TypeScript 側（apps/editor）も同じ仕掛けで見られるか",
+    "開発者が違反理由を理解できるエラーメッセージが出るか"
+   ],
+   "options": [
+    {
+     "label": "案 A: uv workspace の依存宣言（pyproject.toml の dependencies）だけで担保する",
+     "summary": "案 A: uv workspace の依存宣言（pyproject.toml の dependencies）だけで担保する",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "追加ツールが不要",
+      "パッケージのメタデータとして正しい場所に情報が載る"
+     ],
+     "cons": [
+      "宣言していないパッケージでも同一環境にインストールされていれば import は通ってしまう — 実効性が弱い",
+      "jin-core が google-adk を間接的に import してしまうケースを検出できない"
+     ]
+    },
+    {
+     "label": "案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査",
+     "summary": "案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "間接依存を含めて違反を確実に落とす",
+      "層の構造が設定ファイルに宣言として残り、ドキュメントを兼ねる",
+      "違反時に「どの import 連鎖が禁止か」が出力される"
+     ],
+     "cons": [
+      "開発依存が 1 つ増える",
+      "Python 側と TypeScript 側で仕掛けが 2 本になる"
+     ]
+    },
+    {
+     "label": "案 C: 自前の AST 走査テスト（tests/contract/test_dependencies.py）を書く",
+     "summary": "案 C: 自前の AST 走査テスト（tests/contract/test_dependencies.py）を書く",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "追加依存ゼロ",
+      "Python と TypeScript の両方を 1 つのテストで扱える設計にしうる"
+     ],
+     "cons": [
+      "間接依存の追跡を自前で書くと不完全になりやすい",
+      "「テストのためのテスト」が発生し保守対象が増える"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-14",
+   "title": "LSP サーバのログとトレース JSONL の出力設計",
+   "question": "DP-COMMON-14 LSP サーバのログとトレース JSONL の出力設計 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 4,
+   "why_now": "要件書 §3.4 がトレース JSONL を成果物として規定し、Phase 6 のデバッグモードがそれを消費する。\n加えて LSP は stdio トランスポートで動くため、標準出力へのログ出力が\nプロトコルを破壊するという固有の制約がある（stdout は JSON-RPC が占有する）。",
+   "impact_if_undecided": "Phase 4 で stdio モードの LSP が「なぜか初期化に失敗する」形で壊れ、\n原因（ログが stdout に混入）に辿り着くまでに時間を溶かす典型的な事故が起きる。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する",
+   "recommendation_rationale": "推奨: 2 系統を明確に分ける（案 B）。\n(1) トレース JSONL は jin-adk が --trace で指定されたファイルにのみ書く成果物であり、\n    スキーマは §3.4 で確定済み。ログではない。\n(2) LSP サーバの診断ログは stderr にのみ出す（stdio モードで stdout を絶対に使わない）。\nレベルと形式は未決。",
+   "replaceability": "ログ出力は jin-lsp のエントリポイント 1 箇所で設定し、機能モジュールは標準 logging の\ngetLogger 経由でのみ書く。出力先の差し替えがエントリポイントの変更で済む。",
+   "decision_axes": [
+    "stdio トランスポートを壊さないか",
+    "トレース JSONL（成果物）とサーバログ（診断用）が混ざらないか",
+    "Phase 6 のスクラバが読む形式として扱いやすいか",
+    "秘密情報（プロンプト・モデル出力）の扱い"
+   ],
+   "options": [
+    {
+     "label": "案 A: pygls / Python 標準 logging の既定に任せる",
+     "summary": "案 A: pygls / Python 標準 logging の既定に任せる",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "実装が不要"
+     ],
+     "cons": [
+      "既定のハンドラが stdout に出ると stdio トランスポートが壊れる — 実害が出てから気づく類の事故",
+      "トレース JSONL とログの区別が実装者に伝わらない"
+     ]
+    },
+    {
+     "label": "案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する",
+     "summary": "案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "stdio トランスポートの破壊を構造的に防ぐ",
+      "トレース JSONL のスキーマ検証テスト（Phase 2）とログが干渉しない",
+      "ws モードでも同じ実装で動く"
+     ],
+     "cons": [
+      "ログレベル・フォーマット・ローテーションの方針を別途決める必要がある（本 DP の未決部分）"
+     ]
+    },
+    {
+     "label": "案 C: LSP の window/logMessage 通知にログを寄せる",
+     "summary": "案 C: LSP の window/logMessage 通知にログを寄せる",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "クライアント（Claude Code / エディタ）側でログが見える",
+      "stdout を汚さない"
+     ],
+     "cons": [
+      "サーバ起動前・接続断後のログが失われる",
+      "CI でのデバッグに使えない"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-15",
+   "title": "生成 ADK プロジェクトの .env.example に載せるキー名と、テストがキー不要である担保",
+   "question": "DP-COMMON-15 生成 ADK プロジェクトの .env.example に載せるキー名と、テストがキー不要である担保 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 2,
+   "why_now": "FR-ADK-001 が生成物に .env.example を含めることを規定しているが、その中身のキー名は\n要件書・requirements.json のどこにも書かれていない。一方 NFR-TEST-001 は\n「テストはネットワーク・API キー不要で通る」を要求しており、両者の境界を決める必要がある。",
+   "impact_if_undecided": "生成プロジェクトが起動できず、その原因が Jin 側なのか利用者の環境なのか切り分けられない。\nあるいは推測のキー名が独り歩きして誤ったドキュメントが増える。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する",
+   "recommendation_rationale": "推奨: 実装 Stage 1 の tech-version-check で google-adk 2.8.0 が読む環境変数名を実測し、\nその実測値のみを .env.example のテンプレートに固定する（案 B）。\n実測できなかった場合は .env.example をコメントのみ（キー名なし）で生成し、\ndocs/pending-decisions.md に残す。空のキー名を推測で埋めない。",
+   "replaceability": ".env.example は Jinja2 テンプレート 1 本として jin-adk/templates/ に置き、\nキー名の実測結果はテンプレートの変数として渡す。実測値が変わってもテンプレート構造は変えない。",
+   "decision_axes": [
+    "キー名の出典が実測であるか（捏造でないか）",
+    "テストが本当にキーを要求しないことをどう証明するか",
+    "生成物の利用者が起動に必要な情報を得られるか"
+   ],
+   "options": [
+    {
+     "label": "案 A: 設計フェーズで代表的なキー名を書いてしまう",
+     "summary": "案 A: 設計フェーズで代表的なキー名を書いてしまう",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "下流が迷わない"
+     ],
+     "cons": [
+      "T-002 違反。実測していない値を成果物に固定することになる",
+      "ADK のバージョンや認証方式によってキー名が異なり、誤った値が利用者を誤誘導する"
+     ]
+    },
+    {
+     "label": "案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する",
+     "summary": "案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "出典が実測に限定される",
+      "実測できなかった事実が pending として残り、後から埋められる"
+     ],
+     "cons": [
+      "Phase 2 の完了時点で .env.example が空の可能性がある"
+     ]
+    },
+    {
+     "label": "案 C: .env.example を生成せず README に案内だけ書く",
+     "summary": "案 C: .env.example を生成せず README に案内だけ書く",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "誤った値を書くリスクがゼロ"
+     ],
+     "cons": [
+      "FR-ADK-001（生成物に .env.example を含める）に反する — 要件違反"
+     ]
+    }
+   ],
+   "recommendation_note": "これは「選択」ではなく大半が事実確認。案 B を採ったうえで、実測は実装 Stage 1 の tech-version-check が行う。",
+   "nature": "注意: これは「選択」ではなく大半が事実確認である。google-adk 2.8.0 が実際に読む環境変数名は\n実測しないと分からず、adk-api-probe.md には記載がない。AI がキー名を推測・補完してはならない\n（design.schema.json の required_build_env の記述と T-002）。\n決めるべきは「実測をいつ誰がやるか」と「実測できなかった場合にどうするか」。"
+  },
+  {
+   "id": "DP-COMMON-16",
+   "title": "エディタが保持してよい一時 UI 状態の境界と、applyOps 後の選択再解決",
+   "question": "DP-COMMON-16 エディタが保持してよい一時 UI 状態の境界と、applyOps 後の選択再解決 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 5,
+   "why_now": "「ファイルが唯一の状態」「エディタは独自のモデル状態を持たない」（要件書 §10 #10 / FR-EDITOR-001）は\n確定済みだが、エディタは実際には 選択中の pointer / focus 中の circle 名 / undo・redo スタック /\nトレースの upto / パネルの開閉 を必ず持つ。何を持ってよく何を禁じるかの線引きが未確定。\nさらに moveTool で配列が並び替わると選択中の pointer が別の要素を指すようになるため、\napplyOps 応答後に選択をどう再解決するかを決めないと編集操作でカーソルが飛ぶ。",
+   "impact_if_undecided": "Phase 5 で編集のたびに選択が飛ぶ・undo で選択が復元されない挙動になり、\nPlaywright スモーク（紋を追加 → 保存）は通るのに実用に耐えないエディタができる。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す",
+   "recommendation_rationale": "推奨: 案 B。保持してよいのは「モデルから導出できない UI 意図」だけと定義し、\n具体的には 選択（circle 名 + 要素の種別 + 要素名 の 3 つ組で保持し、生の pointer では保持しない。\ntools[].name / state[].name は circle 内一意であって全体一意ではないため、circle 名で限定しないと\n同名 tool を持つ circle 間で選択が飛ぶ）/ focus（circle 名）/\nundo・redo スタック（逆オペレーション列）/ upto（数値）/ パネル開閉 に限定する。\nモデルの写し（circles 配列や tool 一覧）をクライアントに複製しない。\napplyOps 応答後の選択再解決は「名前 ID から新モデル上の pointer を引き直す」方式にする。\n要件書 §10 #11 が名前を ID と定めているため、この再解決は要件の構造と一致する。\n状態管理ライブラリは追加せず React の useReducer / Context で足りる規模である。",
+   "replaceability": "選択の表現（circle 名 + 種別 + 要素名）を型として 1 箇所に定義し、pointer への解決関数を 1 本に集約する。\n再解決規則を変えてもその関数の差し替えで済む。",
+   "decision_axes": [
+    "「ファイルが唯一の状態」を実質的に守れるか（サーバ状態の二重保持を作らないか）",
+    "applyOps 後に選択・focus が意図した要素を指し続けるか",
+    "undo/redo が §6.3 の逆オペレーション方式と整合するか",
+    "状態管理ライブラリを増やすかどうか"
+   ],
+   "options": [
+    {
+     "label": "案 A: 選択も含めて生の JSON Pointer で保持する",
+     "summary": "案 A: 選択も含めて生の JSON Pointer で保持する",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "実装が単純で SVG の data-jin をそのまま使える"
+     ],
+     "cons": [
+      "moveTool / removeTool で配列が変わると選択が別要素を指す（要件書 §6.3 の moveTool は角度変更として日常的に使われる操作）",
+      "undo で戻したときに選択が復元されない"
+     ]
+    },
+    {
+     "label": "案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す",
+     "summary": "案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "要件書 §10 #11（名前が ID）と一致する",
+      "moveTool の並び替えでも選択が追随する",
+      "rename も参照追随の意味オペレーションなので、サーバが返す新モデルで名前を引き直せる"
+     ],
+     "cons": [
+      "名前が変わる rename 直後の再解決規則を別途決める必要がある",
+      "pointer → 名前 → pointer の変換層をエディタ側に持つ"
+     ]
+    },
+    {
+     "label": "案 C: サーバがモデルの完全な写しをクライアントに持たせ、クライアント側で楽観更新する",
+     "summary": "案 C: サーバがモデルの完全な写しをクライアントに持たせ、クライアント側で楽観更新する",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "操作の体感が速い"
+     ],
+     "cons": [
+      "「エディタは独自のモデル状態を持たない」に真正面から反する — 要件違反",
+      "楽観更新と実際の正準形がズレたときにファイルとの往復無損失が壊れる"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-17",
+   "title": "エディタ ↔ サーバのデータフェッチ境界（LSP over WebSocket のクライアント層）",
+   "question": "DP-COMMON-17 エディタ ↔ サーバのデータフェッチ境界（LSP over WebSocket のクライアント層） をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 5,
+   "why_now": "エディタはバックエンド API を持たず、通信相手は jin lsp --ws の WebSocket 1 本のみ（FR-EDITOR-004）。\nHTTP API / BFF が存在しないため、一般的な FE のフェッチ境界とは形が違うが、\n「どこで LSP の JSON-RPC を張り、どうリクエストを型付けし、切断時にどう振る舞うか」は未確定。",
+   "impact_if_undecided": "Phase 5 で通信層が UI コンポーネントに散り、Phase 6 のトレース読み込みで\n同じような通信コードが重複する。切断時の挙動も画面ごとにバラバラになる。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ",
+   "recommendation_rationale": "推奨: 案 B。vscode-jsonrpc 相当の JSON-RPC クライアントを 1 層置き、その上に\nJin 固有の 4 リクエストを型付きラッパとして薄く重ねる。\nLSP の標準機能はエディタからはほとんど使わず（診断の受信と formatting 程度）、\n主に使うのは独自リクエストであるため、フル機能の LSP クライアントライブラリは過剰。\n具体的なライブラリ選定は実装 Stage 1 の tech-version-check に委ねる（本フェーズでは版を書かない）。",
+   "replaceability": "Jin 固有 4 リクエストのラッパを 1 モジュールに閉じ込め、UI コンポーネントは\nそのモジュールの関数だけを呼ぶ。JSON-RPC 層を差し替えてもラッパのシグネチャは変えない。",
+   "decision_axes": [
+    "LSP の型定義をどこから得るか（手書きか既存ライブラリか）",
+    "独自リクエスト 4 種（jin/model / jin/renderSvg / jin/applyOps / jin/ops）の型付け",
+    "接続断・再接続時の振る舞い",
+    "Playwright テストからの制御しやすさ"
+   ],
+   "options": [
+    {
+     "label": "案 A: 生の WebSocket に JSON-RPC を手書きする",
+     "summary": "案 A: 生の WebSocket に JSON-RPC を手書きする",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "依存ゼロ"
+     ],
+     "cons": [
+      "リクエスト ID の採番・応答の対応付け・通知の振り分けを自前で書くことになる",
+      "LSP の仕様（$/cancelRequest 等）を取りこぼす"
+     ]
+    },
+    {
+     "label": "案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ",
+     "summary": "案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "プロトコルの面倒な部分をライブラリに任せ、Jin 固有部分だけ自前で型付けできる",
+      "独自リクエストの型定義が 1 ファイルに集まり、サーバ側との契約が見える",
+      "Playwright からはラッパをモックできる"
+     ],
+     "cons": [
+      "型定義がサーバ側 Python と二重管理になる（同期のドリフト検出を別途決める必要がある）"
+     ]
+    },
+    {
+     "label": "案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる",
+     "summary": "案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "標準機能をそのまま使える"
+     ],
+     "cons": [
+      "本エディタはテキストエディタではなく SVG のヒットテスト UI であり、テキストバッファ前提の機能が大半不要",
+      "依存が重く、ADR-002 の「最小 UI」方針と釣り合わない"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-18",
+   "title": "エディタのレンダリング方式と配信形態（Vite SPA / SSR なし）",
+   "question": "DP-COMMON-18 エディタのレンダリング方式と配信形態（Vite SPA / SSR なし） をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 5,
+   "why_now": "追加する FE ルートが存在するため発火条件に合致する。ただし要件書 §1.1 が Vite を、\nFR-EDITOR-004 が「jin editor がビルド済みエディタを配信し、エディタ単体のサーバは持たない」を\n確定させているため、選ぶ余地はルート構成と配信の詳細に限られる。",
+   "impact_if_undecided": "Phase 5 と Phase 6 で別々のページを作ってしまい、デバッグ中に編集へ戻れない\n（= トレースを見ながら直す、というデバッガの本来の用途が成立しない）エディタになる。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 A: SSR なし単一ページ SPA。モードはページ内切替",
+   "recommendation_rationale": "推奨: 案 A。SSR なしの単一ページ SPA とし、編集モード / デバッグモードはルーティングではなく\n同一ページ内のモード切替にする。理由は、両モードが同じ SVG・同じ選択状態・同じ LSP 接続を共有し、\nデバッグ中に編集へ戻る導線が自然だから。ビルド成果物は静的ファイル一式で、\njin editor がそれを配信する。開発時は Vite dev server から同じ WebSocket に繋ぐ。",
+   "replaceability": "対象ファイルの指定は URL のクエリパラメータで受ける形にしておき、\n将来ルーティングを入れる場合もエントリポイントの変更で済むようにする。",
+   "decision_axes": [
+    "FR-EDITOR-004（エディタ単体のサーバを持たない）を守れるか",
+    "編集モードとデバッグモードをルートで分けるか、同一ルートのモード切替にするか",
+    "開発時（Vite dev server）と配信時（jin editor による静的配信）で同じコードが動くか",
+    "ファイルパスをどう渡すか（jin editor [file] の引数）"
+   ],
+   "options": [
+    {
+     "label": "案 A: SSR なし単一ページ SPA。モードはページ内切替",
+     "summary": "案 A: SSR なし単一ページ SPA。モードはページ内切替",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "FR-EDITOR-004 と最も素直に整合する（配信するのは静的ファイルのみ）",
+      "LSP 接続・選択状態・SVG を両モードで共有でき、状態の同期問題が発生しない",
+      "ルーティングライブラリが不要"
+     ],
+     "cons": [
+      "モードごとの URL が無く、状態の共有・ブックマークができない"
+     ]
+    },
+    {
+     "label": "案 B: クライアントルーティングで /edit と /debug を分ける",
+     "summary": "案 B: クライアントルーティングで /edit と /debug を分ける",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "モードが URL に現れる"
+     ],
+     "cons": [
+      "モード間で LSP 接続と選択状態を引き継ぐ機構が別途必要",
+      "ローカル開発ツールで URL 共有の需要が薄い"
+     ]
+    },
+    {
+     "label": "案 C: SSR / SSG を入れる",
+     "summary": "案 C: SSR / SSG を入れる",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "初期表示が速い"
+     ],
+     "cons": [
+      "エディタ単体のサーバを持たない（FR-EDITOR-004）に反する — 要件違反",
+      "表示内容が LSP 応答に完全依存するため事前レンダリングの対象がない"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-19",
+   "title": "エディタのエラー・ローディング・空状態の設計",
+   "question": "DP-COMMON-19 エディタのエラー・ローディング・空状態の設計 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 5,
+   "why_now": "エディタは全ての表示内容を LSP から取得するため、外部データ取得を伴う UI に該当する。\n本案件固有の事情として、NFR-AVAIL-001 が「JSON 構文エラー中も直前の正常なモデルで\nhover / renderSvg を提供する」を要求しており、「エラーだが表示は出せる」という\n一般的でない第 4 の状態が存在する。",
+   "impact_if_undecided": "Phase 5 で「保存したのに反映されない」「壊れたファイルなのに図が出ている」という\n再現困難な混乱が生じる。Playwright スモークは通るため CI では検出できない。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態",
+   "recommendation_rationale": "推奨: 案 B。状態を 5 つに明示的に分ける。\n(1) LSP 未接続・接続中、(2) モデル取得中、(3) 正常表示、\n(4) ステイル表示（構文エラー中・直前の正常モデルを表示していることを画面上で明示する）、\n(5) 表示不能（正常モデルが 1 度も得られていない状態でのエラー）。\n(4) を独立した状態として持つことが本案件の要点で、これを (3) と混ぜると\nユーザは古い図を現在の状態だと誤認する。",
+   "replaceability": "表示状態を判別共用体（discriminated union）として型定義 1 箇所に置き、\nUI コンポーネントは網羅的に分岐する。状態を増やしたときに分岐漏れがコンパイルエラーになる形にする。",
+   "decision_axes": [
+    "「ファイルは壊れているが直前の描画は出せる」状態をユーザに正しく伝えられるか",
+    "エラーを握り潰さないか（NFR-FAIL-001「黙って落とさない」）",
+    "LSP 未接続 / 接続断と、ファイルが不正の区別がつくか",
+    "診断バッジ（FR-EDITOR-002）との関係"
+   ],
+   "options": [
+    {
+     "label": "案 A: 読込中 / 正常 / エラー の 3 状態",
+     "summary": "案 A: 読込中 / 正常 / エラー の 3 状態",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "一般的で実装が単純"
+     ],
+     "cons": [
+      "NFR-AVAIL-001 のステイル表示を表現できず、古い SVG を正常表示として見せてしまう",
+      "接続断とファイル不正が同じ「エラー」に潰れる"
+     ]
+    },
+    {
+     "label": "案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態",
+     "summary": "案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "NFR-AVAIL-001 の挙動を正直に見せられる",
+      "接続断とファイル不正が区別でき、ユーザの次の行動が変わる",
+      "NFR-FAIL-001（黙って落とさない）と整合する"
+     ],
+     "cons": [
+      "状態が増えるぶん UI とテストの分岐が増える"
+     ]
+    },
+    {
+     "label": "案 C: 診断バッジだけで伝え、画面全体の状態は持たない",
+     "summary": "案 C: 診断バッジだけで伝え、画面全体の状態は持たない",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "実装が最小"
+     ],
+     "cons": [
+      "LSP 接続断のときバッジが更新されないまま古い診断が残り、ユーザが気づけない"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-COMMON-20",
+   "title": "エディタ側テスト層の構成（pnpm test と Playwright の分担）",
+   "question": "DP-COMMON-20 エディタ側テスト層の構成（pnpm test と Playwright の分担） をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 5,
+   "why_now": "§9 が「エディタ: Playwright スモーク」1 行しか規定しておらず、その 1 本だけでは\nDP-COMMON-16 の選択再解決や DP-COMMON-19 の 5 状態を検証できない。\nFR-TEST-001 は「エディタは pnpm test」と規定するが、その中身が未確定。",
+   "impact_if_undecided": "Playwright 1 本だけで「エディタは動く」と報告する偽 green が発生する。\n§9 の 1 行を満たしていることが、エディタが実用に耐えることの証明にならない。",
+   "reversibility": "reversible",
+   "adr": false,
+   "recommended": "案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層",
+   "recommendation_rationale": "推奨: 案 B の 2 層。\n(1) ユニット層（pnpm test）— 選択再解決の関数、表示状態の判別、逆オペレーションのスタック操作を\n    LSP をモックして検証する。ここは純粋なロジックのテスト。\n(2) スモーク層（Playwright）— §9 の必須 1 本（開く → 紋を追加 → 保存 → 正準形バイト一致）に加え、\n    Phase 6 のスクラバ 1 本。実際の jin lsp --ws プロセスに繋いで実行する。\nLSP プロトコルそのものの検証は Python 側の pytest-lsp が担うため、エディタ側では重複させない。",
+   "replaceability": "モックする境界を DP-COMMON-17 のラッパモジュール 1 本に限定し、\nそれより下（JSON-RPC 層・WebSocket）はモックしない。境界が 1 箇所なのでズレの監視点も 1 箇所で済む。",
+   "decision_axes": [
+    "§9 の要求（Playwright スモーク 1 本）を満たしつつ十分か",
+    "偽 green を避けられるか（LSP をモックしたテストが実サーバとズレないか）",
+    "CI 実行時間とネットワーク非依存性（NFR-TEST-001）",
+    "Python 側の pytest-lsp テストとの重複を避けられるか"
+   ],
+   "options": [
+    {
+     "label": "案 A: Playwright のみ（§9 の記述どおり 1 本）",
+     "summary": "案 A: Playwright のみ（§9 の記述どおり 1 本）",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "§9 の要求に厳密に一致し、追加判断がない"
+     ],
+     "cons": [
+      "選択再解決・5 状態・undo/redo の分岐を網羅できない",
+      "失敗時に原因箇所の特定が難しい"
+     ]
+    },
+    {
+     "label": "案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層",
+     "summary": "案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "ロジックの分岐を高速に網羅しつつ、実プロセス往復も 2 本押さえる",
+      "スモークが実 LSP に繋がるため、モックのズレによる偽 green を検出できる",
+      "Python 側との責務が重複しない"
+     ],
+     "cons": [
+      "モックの保守が発生する",
+      "§9 に書かれていない層を足すことになる（要件の上乗せ）"
+     ]
+    },
+    {
+     "label": "案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる",
+     "summary": "案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "モックのズレが原理的に生じない"
+     ],
+     "cons": [
+      "実行時間が長くなり、分岐網羅のコストが高い",
+      "失敗の切り分けが困難"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-JIN-CANONICAL-01",
+   "title": "正準形（canonical form）の実装方式",
+   "question": "DP-JIN-CANONICAL-01 正準形（canonical form）の実装方式 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 1,
+   "why_now": "要件書 §2.3 が「キー順はスキーマ定義順」「省略可能なキーは既定値なら出力しない」\n「非 ASCII をエスケープしない」「2 スペースインデント」「末尾改行」を要求するが、\nこれは json.dumps の既定挙動（ensure_ascii=True・キー順は挿入順）と食い違う。\nさらに正準形は NFR-DET-002（冪等性・往復無損失）と成功条件 5 の土台であり、\nエディタ保存と jin fmt がバイト一致することの唯一の担保でもある。実装方式を決めないと後で全て崩れる。",
+   "impact_if_undecided": "Phase 1 で正準形が「たまたま動く」状態になり、Phase 5 でエディタ保存と jin fmt の\nバイト一致（成功条件 5）が破れたときに、原因が Pydantic の設定なのか後処理なのか切り分けられない。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）",
+   "recommendation_rationale": "推奨: 案 C（独自の canonical writer）。\n理由は 3 つ。(1) §2.3 の 5 規則のうち json.dumps で直接制御できるのは indent と ensure_ascii の 2 つだけで、\nキー順と既定値省略は結局 Pydantic 側の設定と後処理の組み合わせになり、規則が 2 箇所に分散する。\n(2) 「省略可能なキーは既定値なら出力しない」は model_dump(exclude_defaults=True) と近いが、\n判別共用体（tools[].kind）や入れ子の扱いで意図しない省略が起きうるため、明示的な制御が要る。\n(3) 正準形は本案件の中核契約であり、その実装が「ライブラリの既定挙動に依存する」状態は\nNFR-DET-002 の担保として弱い。1 関数に閉じて全規則をそこで読めるようにする価値が高い。",
+   "replaceability": "正準形の出力は jin_core.canonical の関数 1 本に閉じ込め、jin fmt / LSP formatting /\nエディタ保存 / applyOps 後の差分生成が全てそれを呼ぶ。実装方式を変えても呼び出し側は変わらない。\n冪等性・意味保存・バイト一致の 3 テストが方式に依存しない形で書けることを設計要件とする。",
+   "decision_axes": [
+    "キー順が「スキーマ定義順」に確実になるか（Pydantic のフィールド定義順に一致するか）",
+    "既定値の省略を「未設定」と「明示的に既定値と同じ値を書いた」で区別する必要があるか",
+    "非 ASCII 非エスケープ・インデント・末尾改行を制御できるか",
+    "出力が Python のバージョン・辞書実装に依存しないか",
+    "テスト（バイト一致）で検証しやすいか"
+   ],
+   "options": [
+    {
+     "label": "案 A: json.dumps の引数調整のみ（indent=2, ensure_ascii=False, sort_keys=False）",
+     "summary": "案 A: json.dumps の引数調整のみ（indent=2, ensure_ascii=False, sort_keys=False）",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "追加コードがほぼ不要"
+     ],
+     "cons": [
+      "キー順がモデルの dict 化時の順序に依存し「スキーマ定義順」の保証が実装の副作用になる",
+      "既定値の省略を制御できない"
+     ]
+    },
+    {
+     "label": "案 B: Pydantic の model_dump（exclude_defaults / exclude_none）+ json.dumps 後処理",
+     "summary": "案 B: Pydantic の model_dump（exclude_defaults / exclude_none）+ json.dumps 後処理",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "既定値省略が Pydantic の機能で得られる",
+      "キー順が Pydantic のフィールド定義順（= スキーマ定義順）になる"
+     ],
+     "cons": [
+      "exclude_defaults の挙動が判別共用体・入れ子・Optional で直感と異なる場合があり、意図しない省略が起きうる",
+      "規則が Pydantic の設定と後処理の 2 箇所に分散し、仕様書（§2.3）との対応が読みにくい"
+     ]
+    },
+    {
+     "label": "案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）",
+     "summary": "案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "§2.3 の 5 規則すべてが 1 つの関数に明示的に現れ、仕様書と 1:1 で対応する",
+      "既定値省略の判定規則を要素種別ごとに正確に書ける",
+      "出力がライブラリの既定挙動に依存しない"
+     ],
+     "cons": [
+      "実装量が増え、JSON の直列化を自前で書くことによるエスケープ処理のバグリスクがある",
+      "Pydantic のモデル定義変更に writer が追随する仕組みが別途必要"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-JIN-POINTER-RANGE-01",
+   "title": "位置情報付きパース（Lark）と Pydantic 検証の接続方式 — pointer→range 対応表の構築",
+   "question": "DP-JIN-POINTER-RANGE-01 位置情報付きパース（Lark）と Pydantic 検証の接続方式 — pointer→range 対応表の構築 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 1,
+   "why_now": "要件書 §5 の jin dump と §2.5 の data-jin 契約と §6.3 の独自リクエスト jin/model が\n共通して pointer→range 対応表を要求する。しかし Lark は構文木と位置を返し、\nPydantic の ValidationError は loc タプルを返すという、異なる 2 つの位置表現がある。\nこの接続を決めないと JIN002（スキーマ違反）の診断に行・列が付かない。",
+   "impact_if_undecided": "Phase 1 で診断に range が付かないまま進み、Phase 4 の LSP で\n「診断は出るがエディタ上のどこを指しているか分からない」状態になる。\nPhase 5 のヒットテストも成立しないため、Phase 1 まで戻る手戻りになる。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く",
+   "recommendation_rationale": "推奨: 案 B + JIN002 検出器は Pydantic 単独に一本化。\nLark の木を 1 回走査して「JSON Pointer → range」の完全な対応表を作り、\nPydantic の ValidationError.loc を JSON Pointer 文字列に変換してその表を引く。\n検出器を Pydantic に一本化するのは、jsonschema ライブラリを併用すると\n同じ違反に対して 2 種類のメッセージ形式が生まれ、NFR-LLM-001（hint は具体値）が破れるため。\nコミットされる schemas/jin.schema.json は外部 JSON ツールと LLM 向けの公開契約であり、\n内部検証には使わない、と役割を分ける。",
+   "replaceability": "pointer→range 対応表を独立した型（jin_core.parser の戻り値の一部）として定義し、\n意味モデルとは別のオブジェクトにする。診断生成もレンダラも「モデル」と「対応表」を\n別々の引数で受け取る形にすれば、構築方式を変えても下流は変わらない。",
+   "decision_axes": [
+    "Lark の木から JSON Pointer 空間への対応をどう作るか",
+    "Pydantic の loc タプルを JSON Pointer に変換する層をどこに置くか",
+    "JIN002 の検出器を Pydantic に一本化するか jsonschema ライブラリも併用するか",
+    "配列インデックスと判別共用体（tools[].kind）で loc がどう出るか",
+    "エラー回復（NFR-AVAIL-001）時に対応表をどう扱うか"
+   ],
+   "options": [
+    {
+     "label": "案 A: Lark の木にモデルを重ねず、行・列は構文エラー（JIN001）のみに付ける",
+     "summary": "案 A: Lark の木にモデルを重ねず、行・列は構文エラー（JIN001）のみに付ける",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "実装が単純"
+     ],
+     "cons": [
+      "JIN002 に range が付かず、要件書 §5 の診断 JSON 形式（range 必須）を満たせない",
+      "jin/model の pointer→range 対応表が作れず、エディタのヒットテストが成立しない"
+     ]
+    },
+    {
+     "label": "案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く",
+     "summary": "案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "全診断コードに range を付けられる",
+      "jin dump / jin/model / data-jin が同一の表を共有し、pointer 空間の一致がテストしやすい",
+      "表の構築が parse 直後の 1 箇所に閉じる"
+     ],
+     "cons": [
+      "loc → pointer の変換規則を判別共用体・Optional・エイリアスで正確に書く必要がある",
+      "大きなファイルで表がメモリを食う（本案件の 1000 行規模では問題にならない）"
+     ]
+    },
+    {
+     "label": "案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む",
+     "summary": "案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "走査が 1 回で済む",
+      "モデルと位置が同じオブジェクトに乗る"
+     ],
+     "cons": [
+      "意味モデル（Pydantic）に位置という永続化されない情報が混入し、NFR-SSOT-001 の「モデル定義が唯一の真実」が濁る",
+      "モデルの等価比較（往復無損失テスト）に位置が影響しないよう別途対策が要る"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-JIN-SEMANTIC-GAPS-01",
+   "title": "§2.4 に対応コードが無い意味制約（循環参照 / circle の多重親）をどう扱うか",
+   "question": "DP-JIN-SEMANTIC-GAPS-01 §2.4 に対応コードが無い意味制約（循環参照 / circle の多重親）をどう扱うか をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 1,
+   "why_now": "要件書 §2.4 の診断コード 12 件は、次の 2 つの不正を捕まえられない。\n(1) 循環参照 — summon（AgentTool）や delegate（sub_agents）が A → B → A になる場合。\n    コード生成は Python の定義順序で行き詰まる（A の定義に B が必要で、B の定義に A が必要）。\n(2) circle の多重親 — 1 つの circle が複数の flow.steps や複数の delegate に現れる場合。\n    adk-api-probe.md の実測どおり ADK の各 agent は parent_agent を 1 つしか持たない。\nこれらは §2.4 に無いため、新しい JIN コードを追加するか否かは仕様変更の判断であり、\nAI が勝手に決めてよい範囲を超える。",
+   "impact_if_undecided": "Phase 1 で検出が入らないまま Phase 2 のコード生成で無限ループ・再帰エラーに遭遇し、\n「どこで検出すべきだったか」の議論を Phase 2 でやり直すことになる。\nレンダラ（Phase 3）でも同じ問題が再発する。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する",
+   "recommendation_rationale": "推奨: 案 A。新しい診断コードを 2 つ追加し（採番は Phase 0 の diagnostics.md 執筆時に確定）、\njin-core の意味検査で検出する。理由は 2 つ。\n(1) jin-core は ADK に依存しないが、循環参照と多重親は ADK 固有ではなくモデル自身の整合性の問題であり、\n    jin-core で検出するのが層として正しい（レンダラも入れ子展開で無限再帰するため同じ検出が要る）。\n(2) コンパイル時エラー（案 B）だと jin check の時点で通ってしまい、LLM が jin check → 修正の\n    ループ（成功条件 3）で直せない。診断コードにすれば hint で候補を返せる。\nただしコード番号の採番は仕様への追加であり人間確認を要する。",
+   "replaceability": "検出ロジックを jin_core.semantic のチェック関数として他のチェックと同じ形で追加し、\n診断コードの定数を 1 箇所に集約する。コードを増やす / 減らすの判断が変わっても\n検出ロジック自体は再利用できる。",
+   "decision_axes": [
+    "診断コード一覧（§2.4 / docs/spec/diagnostics.md）を増やす仕様変更を認めるか",
+    "NFR-FAIL-001（黙って落とさない）をどの層で満たすか",
+    "LLM が修正できる形でエラーを返せるか（NFR-LLM-001）",
+    "検出をどの層（jin-core の意味検査 / jin-adk のコード生成）で行うか"
+   ],
+   "options": [
+    {
+     "label": "案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する",
+     "summary": "案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "成功条件 3（jin check --json の出力だけで LLM が直せる）を保てる",
+      "レンダラの入れ子展開の無限再帰も同じ検出で防げる",
+      "Phase 1 の完了条件（全コードに fixture）に自然に含まれる"
+     ],
+     "cons": [
+      "§2.4 の 12 件という確定した表を増やすことになり、仕様変更の承認が要る",
+      "docs/spec/diagnostics.md と schemas 側の整合を取り直す必要がある"
+     ]
+    },
+    {
+     "label": "案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる）",
+     "summary": "案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる）",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "§2.4 の表を動かさない",
+      "NFR-FAIL-001「黙って落とさない」の文言には従う"
+     ],
+     "cons": [
+      "jin check が通ってしまい、LLM は build まで進まないとエラーに気づけない",
+      "レンダラ（jin build を通らない経路）では検出されず、無限再帰する",
+      "エラーメッセージが診断 JSON 形式にならず hint を返せない"
+     ]
+    },
+    {
+     "label": "案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う）",
+     "summary": "案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う）",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "表を増やさず jin-core で検出できる"
+     ],
+     "cons": [
+      "JIN011 は「未解決の参照」であり、解決できる参照が循環している状態とは意味が違う。hint（候補名の提示）も成立しない",
+      "コード → 原因の対応が崩れ、fixture が「対応コードを 1 つだけ出す」テスト（§9）の意図から外れる"
+     ]
+    }
+   ],
+   "recommendation_note": "案 A を採る場合、新規 JIN コードの番号採番は Phase 0 の docs/spec/diagnostics.md 執筆時に確定する。設計フェーズでは番号を決めない（要件書 §2.4 の表への追加は仕様変更）。"
+  },
+  {
+   "id": "DP-JIN-CODEGEN-RUNTIME-01",
+   "title": "生成される ADK プロジェクトが jin パッケージに依存してよいか（StateCheckAgent / FakeLlm の配置）",
+   "question": "DP-JIN-CODEGEN-RUNTIME-01 生成される ADK プロジェクトが jin パッケージに依存してよいか（StateCheckAgent / FakeLlm の配置） をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 2,
+   "why_now": "要件書 §3.1 は「adk run <out>/<root_name> と adk web <out> でそのまま動くこと」を要求する。\n一方 §3.3 は flow.exit に対して BaseAgent を継承した StateCheckAgent を「生成する」と書き、\n§3.4 は FakeLlm（BaseLlm 継承）を実行時に差し替えると書く。\nこれらのクラス本体を生成物に埋め込むのか jin_adk から import させるのかで、\n生成プロジェクトの自己完結性が変わる。実測 API（BaseAgent._run_async_impl を override し\nEventActions(escalate=True) を返す）は adk-api-probe.md で確定しているが、配置は未決。",
+   "impact_if_undecided": "Phase 2 で生成物のスナップショットを取った後に方式を変えると、全スナップショットが作り直しになる。\nまた §3.1 の「そのまま動く」を検証する human_only 項目の意味が方式によって変わるため、\nPhase 2 の完了判定そのものが揺れる。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）",
+   "recommendation_rationale": "推奨: 案 A（StateCheckAgent は生成物に埋め込む）と案 B の併用（FakeLlm は jin_adk 側に置く）。\n根拠は 2 つの役割の違い。StateCheckAgent は生成された agent 木の構成要素であり、\n§3.1 の「そのまま動く」を満たすには生成物が自己完結している必要がある。\n一方 FakeLlm は jin run --model fake という Jin の CLI が実行時に差し替えるもので、\n生成物の一部ではない（生成された agent.py に FakeLlm が現れる必要はない）。\nただしこの併用は「生成物の自己完結性」と「DRY」のどちらを優先するかの判断であり、確定は人間に委ねる。",
+   "replaceability": "StateCheckAgent の実装は Jinja2 テンプレートの部分テンプレートとして 1 箇所に置き、\n「埋め込む / import する」の切替をテンプレート側の条件で表現できる形にする。\n方式を変えてもコード生成の呼び出し側は変わらない。",
+   "decision_axes": [
+    "生成プロジェクトが jin をインストールせずに動くか（配布したときの体験）",
+    "生成コードの diff しやすさ（NFR-GEN-001「生成物は diff できる形」）",
+    "StateCheckAgent の実装が変わったとき既存の生成物をどうするか",
+    "FakeLlm がテスト専用であることをどう表現するか"
+   ],
+   "options": [
+    {
+     "label": "案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）",
+     "summary": "案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "§3.1「adk run でそのまま動く」を jin 非依存で満たす",
+      "生成物を単体で配布・レビューできる",
+      "生成コードを読めば挙動が全て分かる"
+     ],
+     "cons": [
+      "flow.exit を持つ circle が複数あると同じクラス定義が繰り返される（ruff format 後も冗長）",
+      "StateCheckAgent の実装を直しても既存の生成物には反映されない（再生成が要る）"
+     ]
+    },
+    {
+     "label": "案 B: jin_adk.runtime から import させる（生成物は jin に依存）",
+     "summary": "案 B: jin_adk.runtime から import させる（生成物は jin に依存）",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "DRY で、実装修正が再生成なしに効く",
+      "生成コードが短く diff が読みやすい"
+     ],
+     "cons": [
+      "生成プロジェクトの実行に jin のインストールが必要になり、§3.1 の「そのまま動く」の意味が弱まる",
+      "生成物を配布したとき利用者に jin への依存を強いる"
+     ]
+    },
+    {
+     "label": "案 C: 生成時に別ファイル（_jin_runtime.py）を出力ディレクトリへ一緒に書き出す",
+     "summary": "案 C: 生成時に別ファイル（_jin_runtime.py）を出力ディレクトリへ一緒に書き出す",
+     "recommended": false,
+     "confidence": "medium",
+     "pros": [
+      "自己完結性を保ちつつ agent.py 内の重複がなくなる",
+      "生成物のファイル構成が §3.1 の規定（__init__.py と agent.py と .env.example）から増える点を除けば良い折衷"
+     ],
+     "cons": [
+      "§3.1 の出力形式に無いファイルが増える（要件書の記述との差分が生じる）",
+      "スナップショットテストの対象ファイルが増える"
+     ]
+    }
+   ],
+   "recommendation_note": "推奨は「案 A（StateCheckAgent は生成物に埋め込む）と 案 B（FakeLlm は jin_adk 側に置く）の併用」。recommended は案 A のラベルを指すが、FakeLlm については案 B を採る点を決定時に併記すること。"
+  },
+  {
+   "id": "DP-JIN-TRACE-POINTER-01",
+   "title": "トレース JSONL の pointer をどの層で採番するか",
+   "question": "DP-JIN-TRACE-POINTER-01 トレース JSONL の pointer をどの層で採番するか をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 2,
+   "why_now": "要件書 §3.4 はトレース行に pointer（発火した要素の JSON Pointer・レンダラの data-jin と同じ鍵）を\n要求するが、adk-api-probe.md の実測どおり ADK の Event は pointer を持たない\n（Event のフィールドは author / content / actions / branch / invocation_id 等）。\nつまり ADK の実行結果から Jin のモデル要素へ逆引きする対応付けを Jin 側で作る必要があり、\nその責務をどの層に置くかが未確定。Phase 6 のデバッグモードは pointer 一致フィルタに依存するため、\nここが曖昧だとトレースリプレイが成立しない。",
+   "impact_if_undecided": "Phase 2 で pointer が null のトレースが出て「後で埋める」となり、\nPhase 6 のスクラバとフィルタが動かないことが最後に判明する。\nPhase 2 の完了条件「トレースに pointer が入る」が形骸化する。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く",
+   "recommendation_rationale": "推奨: 案 B。jin-adk がコード生成時に「ADK 上の識別子（agent 名 + tool 名 + callback 名）→ JSON Pointer」の\n対応表を生成物とは別に保持し、実行時に Event.author と tool 名からその表を引いて pointer を埋める。\n理由は、コード生成の時点では Jin モデルと ADK オブジェクトの対応が完全に分かっており、\nその情報を捨てて実行時に推測するのは不必要に難しいため。\n対応表を生成物（agent.py）に埋め込まないので、生成コードは Jin を知らないままでいられる。\n引けなかったイベントは pointer を null にせず、対応不能であることを明示する\n（黙って落とさない・NFR-FAIL-001）方針を併せて決める必要がある。",
+   "replaceability": "トレース行の組み立てを jin_adk.runtime の 1 関数に閉じ込め、\npointer 解決を差し替え可能な引数（解決関数）として受け取る形にする。\n案 A / B / C のいずれに転んでもトレース行の組み立てコードは変わらない。",
+   "decision_axes": [
+    "逆引きの確実性（同名の tool が複数 circle にあるとき正しく引けるか）",
+    "jin-core が ADK を知らない（NFR-DEP-001）を守れるか",
+    "生成コードに Jin 固有の情報を埋め込むことの是非",
+    "トレースが取れなかった要素をどう扱うか（黙って落とさない・NFR-FAIL-001）"
+   ],
+   "options": [
+    {
+     "label": "案 A: 実行時に Event の内容から jin-core のモデルを検索して逆引きする",
+     "summary": "案 A: 実行時に Event の内容から jin-core のモデルを検索して逆引きする",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "コード生成に追加の出力物が不要"
+     ],
+     "cons": [
+      "同名の tool が複数の circle にある場合に一意に引けない（tools[].name は circle 内一意であって全体一意ではない）",
+      "jin-adk が jin-core のモデル検索に強く依存し、モデル構造の変更に脆い"
+     ]
+    },
+    {
+     "label": "案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く",
+     "summary": "案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く",
+     "recommended": true,
+     "confidence": "high",
+     "pros": [
+      "対応が生成時点で確定するため一意で確実",
+      "生成コード自体には Jin 固有情報が入らず、§3.1 の自己完結性を損なわない",
+      "対応表は jin-adk 内部に閉じ、jin-core は ADK を知らないまま"
+     ],
+     "cons": [
+      "jin run の実行経路で対応表を保持・受け渡す仕組みが要る",
+      "生成物を別途 adk run した場合はトレースの pointer が付かない（jin run 経由でのみ有効）"
+     ]
+    },
+    {
+     "label": "案 C: 生成コード自体に pointer をコメントや属性として埋め込む",
+     "summary": "案 C: 生成コード自体に pointer をコメントや属性として埋め込む",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "生成物を単体で adk run してもトレースに pointer を付けられる可能性がある",
+      "生成コードを読むと Jin のどこ由来か分かる"
+     ],
+     "cons": [
+      "生成コードに Jin 固有の情報が入り「そのまま動く ADK プロジェクト」の純粋さが落ちる",
+      "ADK 側にコメントを実行時イベントへ伝える機構がないため、結局実行時の対応付けが別に要る"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "DP-JIN-SVG-DETERMINISM-01",
+   "title": "SVG のバイト単位決定性の担保方法（浮動小数の文字列化 / 星形多角形の k / textPath 座標）",
+   "question": "DP-JIN-SVG-DETERMINISM-01 SVG のバイト単位決定性の担保方法（浮動小数の文字列化 / 星形多角形の k / textPath 座標） をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 3,
+   "why_now": "NFR-DET-001 が「同じ意味モデルからは常にバイト単位で同一の SVG」を要求し、\n§9 が「同一入力 2 回で完全一致」をテストする。しかし §2.5 のレイアウトは\n半径 R=1 の正規化座標での三角関数計算を経て px へ変換するため、\n浮動小数の文字列化がそのまま SVG のバイト列に現れる。\n加えて 星形多角形 {n/k} の k（n/2 未満の最大の互いに素な整数）の算出、\nSHA-256 由来の装飾、textPath の座標が同じ問題を持つ。",
+   "impact_if_undecided": "Phase 3 でスナップショットが「開発者のマシンでは通るが CI で落ちる」形で不安定になり、\n原因の切り分けに時間がかかる。あるいは同一プロセス内 2 回一致のテストだけで\n「決定的である」と報告する偽 green が発生する。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）",
+   "recommendation_rationale": "推奨: 案 B。座標を SVG に書き出す直前に固定桁数へ丸め、その丸めを行う関数 1 本を必ず通す規約にする。\n丸め桁数の具体値は要件書に記載がないため本フェーズでは確定せず undecided に残す\n（T-002・具体値を捏造しない）。\n加えて決定性テストを「同一プロセス内 2 回」ではなく「異なる PYTHONHASHSEED の別プロセス 2 回」で行う\n（implementation_phases[3] の machine 項目に反映済み）。同一プロセス内の 2 回一致は\n辞書順序依存を検出できず偽 green になりうるため。\n星形の k は整数演算（gcd）で求まるため浮動小数の問題はないが、\nn の範囲（n ≥ 5）と k が複数候補あるときの選択規則が §2.5 の文言だけでは一意に定まらない可能性があり、\nPhase 0 の layout.md で明文化する対象とする。",
+   "replaceability": "座標 → 文字列 の変換関数を jin_render 内の 1 箇所に置き、SVG 属性を書く全経路がそれを通る。\n丸め桁数を変えてもスナップショットの更新だけで済む。",
+   "decision_axes": [
+    "同一プロセス内の 2 回実行だけでなく、環境をまたいでバイト一致するか",
+    "テストが「決定的である」ことを本当に検証しているか（偽 green にならないか）",
+    "座標の精度が図の見た目に十分か",
+    "実装の単純さ"
+   ],
+   "options": [
+    {
+     "label": "案 A: Python の float をそのまま f-string で文字列化する",
+     "summary": "案 A: Python の float をそのまま f-string で文字列化する",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "追加コードが不要"
+     ],
+     "cons": [
+      "同一環境では再現するが、桁数が不揃いで SVG が読みにくく、丸め誤差が見た目に現れうる",
+      "決定性が「たまたま同じ実装だから」に依存し、担保として弱い"
+     ]
+    },
+    {
+     "label": "案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）",
+     "summary": "案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "決定性の担保点が 1 関数に集約され、レビューとテストの対象が明確",
+      "SVG のバイト列が安定し、スナップショットの差分が読みやすい",
+      "座標を扱う全経路がその関数を通ることをテストで検査できる"
+     ],
+     "cons": [
+      "丸め桁数の選定が必要（要件書に記載がないため未決として残る）",
+      "丸めによって図形が微妙にズレる（実用上は問題にならない範囲だが要検証）"
+     ]
+    },
+    {
+     "label": "案 C: Decimal または整数座標系で計算する",
+     "summary": "案 C: Decimal または整数座標系で計算する",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "浮動小数の問題が原理的に生じない"
+     ],
+     "cons": [
+      "§2.5 が「半径 R=1 の正規化座標で計算し最後に px へ変換」と三角関数の使用を前提にしており、Decimal では三角関数が扱いにくい",
+      "実装が重くなる"
+     ]
+    }
+   ],
+   "recommendation_note": "案 B を採っても「丸め桁数」の具体値は要件書に無いため確定しない。桁数は実装 Stage で実測して決め、本 DP の決定は「出力直前に丸め関数 1 本を通す規約にする」までとすること（T-002）。"
+  },
+  {
+   "id": "DP-JIN-EDITOR-PROTOCOL-01",
+   "title": "WebSocket モードでのファイル I/O 責務（open と save の両方向）と undo/redo の逆オペレーション往復",
+   "question": "DP-JIN-EDITOR-PROTOCOL-01 WebSocket モードでのファイル I/O 責務（open と save の両方向）と undo/redo の逆オペレーション往復 をどうしますか？",
+   "phase": "design",
+   "decide_by_phase": "design",
+   "blocks_implementation_phase": 4,
+   "why_now": "LSP は「クライアントがファイルを読んで textDocument/didOpen でテキストを送り、ドキュメントバッファを持ち、\n保存もクライアントが行う」ことを前提にしたプロトコルであり、要件書 §6.3 の jin/applyOps が\n「正準形テキストとの差分を workspace/applyEdit で適用する」のもその前提に立つ。\nstdio（Claude Code / VS Code）はこの前提を満たすが、ブラウザのエディタはファイルシステムを持たない。\n非対称は保存だけでなく読み込みにも同じ形で存在する。\n§9 の Playwright スモークの手順は「開く → 紋を追加 → 保存」であり、その最初の「開く」の時点で\njin editor [file] が指定したファイルを誰がディスクから読んでドキュメントを開くのかが決まっていない。\npygls の Workspace はドキュメント未オープン時にディスクから遅延読込する挙動を持つが、\nそれに黙って依存するのは NFR-FAIL-001「黙って落とさない」と噛み合わない。\nよって open と save の両方向について、ws モードで誰がディスクに触るかを決めなければならない。\n加えて undo/redo は「サーバが逆オペレーションを応答に含め、クライアントが保持する」（§6.3）方式であり、\nその往復の形（逆オペレーションの表現・失敗時の扱い）も未確定。",
+   "impact_if_undecided": "Phase 4 で LSP を作り終えた後、Phase 5 の Playwright スモークで\n「そもそもファイルを開けない」「保存してもファイルが変わらない」ことが判明し、Phase 4 の LSP 設計に戻る。\nADR-001 の Phase 順進行では最も高くつく手戻りであり、本 DP を Phase 4 着手前に決める必要がある。",
+   "reversibility": "reversible",
+   "adr": true,
+   "recommended": "案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う",
+   "recommendation_rationale": "推奨: 案 C。jin editor が起動する Python プロセス側に「ws クライアント向けのファイル I/O」責務を置き、\n独自リクエスト jin/open と jin/save（仮称・名称は未決）の対でエディタが読み込みと保存を要求する形にする。\njin/open は指定パスをサーバがディスクから読んで didOpen 相当のドキュメントを立て、\nその uri と初期モデルをエディタへ返す。jin/save はその逆。\n根拠は 3 つ。\n(1) 案 A（サーバが applyEdit 適用後に常にディスクへ書く）は stdio モードの挙動を変えてしまい、\n    Claude Code / VS Code が持つ「未保存バッファ」の概念と衝突する。FR-LSP-002 の同一サーバ実装が崩れる。\n(2) 案 B（didSave 相当を送る）は LSP の didSave がクライアント側の保存完了通知であり、\n    サーバに書き込みを依頼する意味を持たない。プロトコルの意味を曲げることになる。\n(3) 案 C なら stdio モードは jin/open / jin/save を使わず従来どおり、ws モードだけが追加リクエストを使う。\n    差分がリクエスト 2 本に閉じ、同一サーバ実装を保てる。\n(4) 読み込み側を明示的なリクエストにすることで、pygls の遅延読込という暗黙の挙動に依存せずに済み、\n    ファイルが存在しない・読めない場合のエラーをプロトコル上で返せる（NFR-FAIL-001）。\nただし独自リクエストを 2 本増やすことは要件書 §6.3 の 4 種という規定への追加であり、確定は人間に委ねる。",
+   "replaceability": "開く・保存の呼び出しを DP-COMMON-17 のラッパモジュール内の関数 2 本にし、\nUI からは「開く」「保存する」という 2 つの操作としてのみ見えるようにする。\n案 A / B / C のいずれに転んでも UI コンポーネントは変わらない。",
+   "decision_axes": [
+    "「ファイルが唯一の状態」（要件書 §10 #10）との整合",
+    "stdio と ws で同一サーバ実装を保てるか（FR-LSP-002）",
+    "§9 の Playwright スモークの「開く」と「保存」の両ステップが成立するか",
+    "ディスク I/O の責務がプロトコル上明示されるか（暗黙の遅延読込に依存しないか）",
+    "undo/redo の逆オペレーションが applyOps の失敗時にも整合するか",
+    "FR-EDITOR-004（エディタ単体のサーバを持たない）を守れるか"
+   ],
+   "options": [
+    {
+     "label": "案 A: サーバが暗黙にディスクを読み書きする（open は pygls の遅延読込に任せ、save は applyEdit 適用後に常に書く）",
+     "summary": "案 A: サーバが暗黙にディスクを読み書きする（open は pygls の遅延読込に任せ、save は applyEdit 適用後に常に書く）",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "エディタ側の実装が最も単純（開く・保存の操作が要らない）",
+      "常にファイルが最新で「ファイルが唯一の状態」に最も忠実",
+      "追加のリクエストが増えない"
+     ],
+     "cons": [
+      "stdio モードでも同じ挙動になると、エディタの未保存バッファを無視してディスクを書き換える",
+      "モードで挙動を分けると FR-LSP-002 の「同一サーバ実装」が実質崩れる",
+      "明示的な保存操作が無くなり、Playwright スモークの「保存」ステップが何を指すか曖昧になる",
+      "読み込みが pygls の内部挙動への暗黙依存になり、ファイルが無い・読めない場合を黙って握り潰す（NFR-FAIL-001 に反する）"
+     ]
+    },
+    {
+     "label": "案 B: 標準 LSP メッセージに寄せる（エディタが didOpen でテキストを送り、didSave を書き込み契機にする）",
+     "summary": "案 B: 標準 LSP メッセージに寄せる（エディタが didOpen でテキストを送り、didSave を書き込み契機にする）",
+     "recommended": false,
+     "confidence": "low",
+     "pros": [
+      "標準の LSP メッセージだけで済み、独自リクエストが増えない"
+     ],
+     "cons": [
+      "エディタはファイルを読めないため、didOpen に載せるテキストをそもそも取得できない（読み込み側が成立しない）",
+      "didSave は「クライアントが保存を完了した」通知であり、サーバへの書き込み依頼ではない。意味を曲げることになる",
+      "stdio クライアント（Claude Code / VS Code）も didSave を送るため、そちらでも二重書き込みが起きうる"
+     ]
+    },
+    {
+     "label": "案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う",
+     "summary": "案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う",
+     "recommended": true,
+     "confidence": "medium",
+     "pros": [
+      "stdio モードの挙動が一切変わらず FR-LSP-002 を保てる",
+      "開く・保存が明示的な操作になり Playwright スモークの手順（開く → 紋を追加 → 保存）と 1:1 で対応する",
+      "差分がリクエスト 2 本に閉じる",
+      "ファイルが無い・読めない・書けない場合をプロトコル上のエラーとして返せる（NFR-FAIL-001）"
+     ],
+     "cons": [
+      "要件書 §6.3 の独自リクエスト 4 種という規定に 2 本追加することになる（仕様変更の承認が要る）",
+      "docs/spec/ops.md と LSP のドキュメントを更新する必要がある"
+     ]
+    }
+   ],
+   "recommendation_note": "案 C は要件書 §6.3 の独自リクエスト 4 種に jin/open と jin/save の 2 本を追加する仕様変更を伴う。ws モードのファイル I/O は保存だけでなく読み込みにも同じ非対称があるため、open と save を 1 つの決定として扱うこと。undo/redo の逆オペレーション往復（sub_decision の 3 点）も同じ決定に含める。",
+   "sub_decision": "undo/redo の往復形式も本 DP に含む。決めるべきは 3 点。\n(1) 逆オペレーションの表現 — applyOps と同じオペレーション型で返すか、専用の表現にするか。\n    同じ型で返せばクライアントは逆を applyOps に投げるだけで済む（推奨）。\n(2) applyOps が途中で失敗したときの逆オペレーション — オペレーション列の一部だけ適用された状態を\n    作らない（全適用または全不適用）ことを契約にするのが望ましい。部分適用を許すと\n    クライアントの undo スタックとサーバの実状態が乖離する。\n(3) 外部からファイルが変更されたとき（jin fmt を別プロセスで実行した等）に\n    クライアントの undo スタックをどう扱うか。破棄する規則を明示するのが安全。"
+  }
+ ]
+}

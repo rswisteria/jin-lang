@@ -1,0 +1,2209 @@
+schema_version: v1
+generated_at: '2026-09-04'
+generated_by: common-dev-architect
+run_dir: delivery/20260904-1445-jin
+slug: jin
+module_id: MOD-CATALOG-OUT-jin
+degradation_notes:
+- id: DEG-DP-CATALOG
+  severity: warn
+  note: 'DP-COMMON-01〜20 の選択肢・判断軸カタログ（docs/decision-points.md）はバンドル
+
+    xtone-ai-delivery-bundle/0.4.6 に同梱されておらず本環境に存在しない。
+
+    発火条件の一覧は agents/common-dev-architect.md 本文の「Step 1: DP 発火判定」表を一次ソースとして使い、
+
+    各 DP の選択肢・判断軸は本 architect が案件文脈から 2 案以上を比較して自前で組み立てた。
+
+    カタログ入手後、fired_decision_points[] の選択肢が正本と食い違わないか再照合すること。'
+- id: DEG-NOTION
+  severity: warn
+  note: 'Notion DP-DB（判断ポイントカタログ）は本ランでは参照していない（親からの明示指示）。
+
+    既存 DP との重複判定（DP-AID-02 の 80% 重複ルール）は未実施。
+
+    新規採番した DP-JIN-* 7 件は Notion 起票前の候補であり、起票は開発者フロー /aid-dp-register に委ねる。'
+- id: DEG-KNOWLEDGE-DIGEST
+  severity: warn
+  note: 'delivery/20260904-1445-jin/knowledge-digest.md は存在しない（knowledge-import 未実行）。
+
+    要件書 §1.1 技術選定表が 11 領域すべてを人間確定済みで指定しているため、ライブラリ比較の一次資料は
+
+    本フェーズでは不要と判断した。バージョンの実測根拠は adk-api-probe.md 一本に依存する。'
+- id: DEG-COUNT-SCRIPT
+  severity: warn
+  note: 'count_undecided.sh は本環境のバンドルに同梱されていない。ステータス行の件数は本 architect が
+
+    undecided[] を目視で数えた値であり、スクリプトによる機械計数ではない。'
+- id: DEG-SCHEMA-DB-MISMATCH
+  severity: warn
+  note: "design.schema.json は Web 業務システム（RDB を持つ案件）を前提に db_schema を required とし、\n\
+    さらに db_schema.tables に minItems 1 を課している。本案件は RDB / KVS を一切持たないため、\nこの必須フィールドを実態どおりに埋めることができない。\n\
+    DB テーブルを捏造しない（T-002）ことを優先し、次の読み替えを行った。\n(1) architecture.db_type と db_schema.er_diagram_url\
+    \ は「該当なし」である旨の文字列を置く（存在しない URL は書かない）。\n(2) db_schema.tables には minItems を満たすためのプレースホルダ\
+    \ 1 件のみを置き、\n    そこに「本案件のデータモデルは RDB テーブルではなく Pydantic モデル（.jin の JSON スキーマ）である」ことを書く。\n\
+    (3) データモデルの実体は domain_specific.data_model に置き、正本は schemas/jin.schema.json と docs/spec/model.md\
+    \ とする。\nスキーマ側は編集しない（CONV-14）。下流ツールが db_schema.tables を実テーブル定義として読むと誤動作するため、\n\
+    本案件の design.yaml を機械処理する場合は必ず本注記を先に見ること。"
+- id: DEG-VERSION-CHECK
+  severity: warn
+  note: 'tech-version-check は本フェーズでは実行していない（実装 Stage 1 の責務）。
+
+    本ファイルに現れるバージョン値は adk-api-probe.md の実測値のみを出典とし、
+
+    実測に無いもの（React / TypeScript / Vite / Playwright / ruff の版）はバージョンを書いていない。'
+architecture:
+  stack: 'Python 3.12+（uv workspace・実行環境実測 3.13.1）/ Pydantic v2 / Lark（位置情報付き JSON
+    文法）/
+
+    Jinja2 + ruff format / 標準ライブラリによる SVG 文字列生成 / pygls（stdio + WebSocket 同一サーバ）/
+    typer /
+
+    React + TypeScript（Vite）/ pytest + syrupy + pytest-lsp + Playwright /
+
+    ターゲットランタイム google-adk 2.x 系（実測 2.8.0 でピン留め）'
+  cloud: '該当なし。ローカル開発ツールチェーンであり、開発者マシン上で完結する。
+
+    クラウド上の常駐サービス・マネージドサービスへの依存を持たない。
+
+    生成物（ADK プロジェクト）が実行時に呼ぶ LLM エンドポイントは Jin の管理外であり、
+
+    Jin 自身のテストは NFR-TEST-001 によりネットワーク・API キー不要で完結する。'
+  db_type: '該当なし。RDB / KVS を持たない。永続化されるのは .jin ファイル（JSON・正準形）のみで、
+
+    「ファイルが唯一の状態」（要件書 §10 #10）が本案件の一貫した原則。
+
+    レイアウト情報・エディタのモデル状態は一切永続化しない（視覚表現はモデルからの純関数）。
+
+    jin run の実行中に現れる session.state は google-adk の InMemorySessionService が保持する
+
+    プロセス内の一時状態であり、永続化されない（実測: adk-api-probe.md）。
+
+    トレース JSONL は --trace で明示指定したときだけ書かれる出力成果物であって、データストアではない。
+
+    データモデルの正本は schemas/jin.schema.json（Pydantic から生成）と docs/spec/model.md。
+
+    構造の要約は domain_specific.data_model を参照。'
+  rationale: '要件書 §1.1 技術選定表の 11 領域と §10 決定事項 11 件は人間が確定済みであり（requirements.json の
+
+    decision_record[] 17 件が正本）、本フェーズではスタック比較をやり直さない。
+
+    本フェーズが設計として決めたのは (1) 5 Python パッケージ + 1 SPA の分割境界と依存方向の機械的担保方法、
+
+    (2) Phase 0〜6 の進行順と各 Phase の検証可能な完了条件、(3) 実装前に決めないと手戻りする論点の洗い出し
+
+    （fired_decision_points[] 17 件）である。スタックそのものは所与の入力として扱う。'
+  predetermined_constraints:
+    note: '要件書 §1.1 / §10 と requirements.json の decision_record[] 17 件で人間が確定済みの制約。
+
+      本フェーズでは比較表を作らず、そのまま設計制約として下流へ渡す（DP として起票しない）。'
+    items:
+    - 永続化形式 = JSON（UTF-8・正準形）+ JSON Schema draft 2020-12
+    - 意味モデル = Pydantic v2。JSON Schema は Pydantic から生成して schemas/jin.schema.json にコミットし
+      CI でドリフト検出
+    - パーサ = Lark の JSON 文法（位置情報付き）。標準 json は位置を持たないため使わない
+    - 言語 = Python 3.12+ / uv ワークスペース
+    - コード生成 = Jinja2 テンプレート + ruff format 後処理
+    - SVG = 標準ライブラリで文字列生成（決定性担保のため描画ライブラリを使わない）
+    - LSP = pygls。stdio と WebSocket の両トランスポートを同一サーバ実装で提供
+    - CLI = typer。9 コマンド（check / fmt / schema / dump / build / run / render / lsp
+      / editor）
+    - エディタ = React + TypeScript（Vite）。SVG は LSP から取得し、エディタは独自に描画しない
+    - テスト = pytest / syrupy / pytest-lsp / Playwright（エディタのスモークのみ）
+    - ターゲット = google-adk 2.x 系。実測 2.8.0 でピン留めし、生成コードの引数名をその版で検証
+    - ファイルが唯一の状態。編集は全て jin/applyOps 経由
+    - 要素識別は名前 ID + JSON Pointer。rename は参照追随の意味オペレーション
+    - 本ランのスコープ = Phase 0〜6 全フェーズ（ADR-001・AI 仮判断）
+    - エディタ UI はデザイナー不在下で機能要件限定の最小 UI（ADR-002・AI 仮判断）
+  repository_layout:
+    note: '要件書 §1.2 のリポジトリ構成をそのまま採用する（FR-ARCH-001）。uv workspace root は
+
+      リポジトリ直下の pyproject.toml。'
+    tree: "jin/\n  pyproject.toml                  # uv workspace root\n  CLAUDE.md\
+      \                       # パッケージ境界 / uv run pytest / 正典の所在 / 生成コード編集禁止（FR-CC-006）\n\
+      \  schemas/jin.schema.json         # Pydantic から生成・コミットする（FR-MODEL-001）\n  docs/\n\
+      \    spec/model.md                 # モデル仕様（意味論とキーの説明・LLM の参照資料）\n    spec/adk-mapping.md\
+      \           # Jin 要素 → ADK クラスの対応表\n    spec/layout.md                # 決定的レイアウト規則と\
+      \ data-jin 属性の契約\n    spec/diagnostics.md           # エラーコード一覧（JINxxx）\n   \
+      \ spec/ops.md                   # 意味編集オペレーション一覧（エディタ / LSP 共通）\n    superpowers/specs/\n\
+      \    superpowers/plans/\n  packages/\n    jin-core/     src/jin_core/   # model,\
+      \ parser（位置付き）, semantic, diagnostics, canonical, ops\n    jin-adk/      src/jin_adk/\
+      \    # codegen, templates/, runtime（run / trace / FakeLlm）\n    jin-render/\
+      \   src/jin_render/ # layout, svg, ornament, trace overlay\n    jin-lsp/   \
+      \   src/jin_lsp/    # server, features/, custom requests\n    jin-cli/     \
+      \ src/jin_cli/    # main.py\n  apps/\n    editor/                       # 視覚エディタ\
+      \ / デバッガ（Phase 5–6）\n  plugins/\n    claude-code/jin/              # Claude\
+      \ Code プラグイン（.lsp.json, skills/, hooks/）\n  examples/\n    researcher/researcher.jin\n\
+      \    pipeline/pipeline.jin"
+  dependency_direction:
+    note: 依存は一方向（FR-ARCH-002 / NFR-DEP-001）。矢印は「左が右に依存される側」= jin-core が最下層。
+    rules:
+    - jin-core は他の jin-* パッケージに依存しない（最下層）
+    - jin-core は google-adk に依存しない（ADK 語彙は jin-adk 側にのみ現れる）
+    - jin-adk は jin-core に依存する。jin-render / jin-lsp / jin-cli に依存しない
+    - jin-render は jin-core に依存する。google-adk / jin-adk / jin-lsp に依存しない
+    - jin-lsp は jin-core / jin-adk / jin-render に依存する（言語サービスの唯一の入口）
+    - jin-cli は jin-core / jin-adk / jin-render / jin-lsp に依存する（最上層）
+    - apps/editor は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない
+    - 生成される ADK プロジェクトの jin パッケージへの依存可否は DP-JIN-CODEGEN-RUNTIME-01 で未決
+    enforcement: 'この一方向性を「レビューで気をつける」ではなく機械で落とす。
+
+      DP-COMMON-11 の判断対象であり、実装方式（import-linter を入れるか / 自前の AST 走査テストを書くか /
+
+      uv workspace の依存宣言だけで済ませるか）は未決。いずれを採るにせよ、
+
+      CI が jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと。'
+  boundary_contracts:
+    note: パッケージ間で交わされる契約。ここがブレると Phase 間で手戻りするため設計時点で固定する。
+    items:
+    - name: 意味モデル（jin_core.model）
+      producer: jin-core
+      consumers:
+      - jin-adk
+      - jin-render
+      - jin-lsp
+      - jin-cli
+      contract: 'Pydantic v2 のモデル定義が唯一の真実（NFR-SSOT-001）。
+
+        schemas/jin.schema.json は Pydantic から生成し、CI で生成物とコミット済みの差分を検出する。
+
+        jin-render は「入力は意味モデル。ファイルを直接読まない」（FR-RENDER-001）。'
+    - name: JSON Pointer
+      producer: jin-core
+      consumers:
+      - jin-adk
+      - jin-render
+      - jin-lsp
+      - apps/editor
+      contract: 'ファイル内の位置・描画要素・診断・トレースイベントを結ぶ唯一の鍵（要件書 §10 #11）。
+
+        レンダラの data-jin 属性、診断 JSON の pointer、トレース JSONL の pointer、
+
+        jin/model が返す pointer→range 対応表は同一の Pointer 空間を共有し、相互に解決可能でなければならない。
+
+        この一致はテストで担保する（§9「全要素に data-jin があり pointer がモデルに解決できる」）。'
+    - name: 診断（jin_core.diagnostics）
+      producer: jin-core
+      consumers:
+      - jin-cli
+      - jin-lsp
+      - apps/editor
+      - Claude Code プラグイン
+      contract: '診断の JSON 形式は LSP Diagnostic と 1:1（FR-CLI-002）。
+
+        file / pointer / range{start{line,col}, end{line,col}} / code / severity /
+        message / hint。
+
+        hint は LLM がそのまま編集に使うため具体値であること（NFR-LLM-001）。
+
+        jin check --json と LSP publishDiagnostics は同じ生成関数を通る。'
+    - name: 意味オペレーション（jin_core.ops）
+      producer: jin-core
+      consumers:
+      - jin-lsp
+      - apps/editor
+      contract: 'v1 は 19 種（FR-LSP-005）。各オペレーションは JSON Pointer で対象を指定し、
+
+        失敗時は診断コードで理由を返す。サーバは各オペレーションの逆オペレーションを応答に含める。
+
+        undo/redo はクライアントが逆オペレーション列を保持する（要件書 §6.3）。'
+    - name: SVG レンダリング
+      producer: jin-render
+      consumers:
+      - jin-cli
+      - jin-lsp
+      - apps/editor
+      contract: 'CLI の jin render と LSP の jin/renderSvg は同じ関数を呼び、同じ出力を返す（FR-RENDER-002）。
+
+        レンダラは Python 1 本（要件書 §10 #9）。エディタは SVG をそのまま埋め込むだけで独自描画しない。'
+    - name: LSP プロトコル
+      producer: jin-lsp
+      consumers:
+      - apps/editor
+      - Claude Code
+      - VS Code
+      contract: '言語サービスの唯一の入口（FR-LSP-001）。LSP 固有のロジックは位置変換とプロトコル露出だけに限定する。
+
+        stdio と WebSocket は同一サーバ実装（FR-LSP-002）。
+
+        ws モードでのファイル書き込み責務は DP-JIN-EDITOR-PROTOCOL-01 で未決。'
+    - name: トレース JSONL
+      producer: jin-adk
+      consumers:
+      - apps/editor
+      contract: 'スキーマは seq / ts / agent / kind / name / pointer / input / output（要件書
+        §3.4）。
+
+        adk-api-probe.md の実測どおり ADK Event はこの形を持たないため、Jin 側で組み立てる派生スキーマである。
+
+        agent は Event.author、ts は Event.timestamp から取る。pointer の採番箇所は DP-JIN-TRACE-POINTER-01
+        で未決。'
+  phase_order:
+    note: 'ADR-001 の constraints「1 ラン内でも Phase 順に進め、§11 表の各 Phase 完了条件の充足を後続 Phase
+      の
+
+      着手条件とする」を実装可能な形に落とす。詳細は本ファイルの implementation_phases[] を参照。'
+    order:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    gate_rule: 'Phase N の implementation_phases[].verification.machine がすべて PASS するまで
+      Phase N+1 に着手しない。
+
+      human_only の項目は auto mode では検証できないため、PASS 判定の要件に含めず PR レビューへ送る
+
+      （ADR-001「Phase 0 承認ゲートを PR レビューで代替する」に準拠）。
+
+      human_only を「実施済み」と報告してはならない（偽 green の禁止・DP-IMPL-VERIFIED-01）。'
+db_schema:
+  er_diagram_url: 該当なし（データベースを持たない）
+  normalization_level: 該当なし
+  note: 'design.schema.json は db_schema を required としているが、本案件はローカル開発ツールチェーンであり
+
+    データベースを一切持たない。永続化されるのは .jin ファイル（JSON・正準形）のみで、
+
+    その構造は schemas/jin.schema.json（Pydantic から生成）が正本である。
+
+    スキーマ必須項目を満たすため下記 1 件のプレースホルダを置くが、テーブルは存在しない。
+
+    スキーマ側は編集しない（CONV-14）。'
+  tables:
+  - name: （RDB テーブルは存在しない — スキーマの minItems 1 を満たすためのプレースホルダ）
+    is_placeholder: true
+    note: '本案件のデータモデルは RDB テーブルではなく、Pydantic v2 モデル（= .jin の JSON スキーマ）である。
+
+      列・型・インデックス・リレーションといった RDB の概念に対応するものを持たないため、
+
+      テーブル定義を捏造せずプレースホルダ 1 件のみを置いた（degradation_notes の DEG-SCHEMA-DB-MISMATCH 参照）。
+
+      データモデルの構造は domain_specific.data_model に置き、
+
+      正本は schemas/jin.schema.json（Pydantic から生成しコミット）と docs/spec/model.md。'
+    schema_of_record: schemas/jin.schema.json
+    structure_ref: domain_specific.data_model
+adr_list:
+- id: ADR-001
+  title: 本ランの実装範囲を Phase 0〜6 全フェーズとし、Phase 0 承認ゲートを PR レビューで代替する
+  status: proposed
+  path: docs/adr/ADR-001-DP-JIN-PHASE-SCOPE-01.md
+  dp_ref: DP-JIN-PHASE-SCOPE-01
+  decided_by_kind: ai_provisional
+- id: ADR-002
+  title: Phase 5〜6 エディタはデザイナー不在下で機能要件限定の最小 UI を AI 仮判断で実装しデザインは後日差し替える
+  status: proposed
+  path: docs/adr/ADR-002-DP-JIN-EDITOR-UX-01.md
+  dp_ref: DP-JIN-EDITOR-UX-01
+  decided_by_kind: ai_provisional
+adr_list_note: '本設計フェーズでは新規 ADR を起票していない。理由は、本 architect が発火判定した 17 件の DP を
+
+  すべて undecided[] に残しており（T-002・具体値を独断確定しない）、確定した決定が存在しないため。
+
+  auto mode では親が auto-decider に回して ai_provisional を確定させる。
+
+  ADR を起こす対象は下記 8 件で、ADR-003 以降を順に割り当てること（ADR-001 / ADR-002 は使用済み）。
+
+  候補: DP-JIN-CANONICAL-01 / DP-JIN-POINTER-RANGE-01 / DP-JIN-SEMANTIC-GAPS-01 /
+
+  DP-JIN-CODEGEN-RUNTIME-01 / DP-JIN-EDITOR-PROTOCOL-01 / DP-JIN-SVG-DETERMINISM-01
+  /
+
+  DP-COMMON-11 / DP-COMMON-09。'
+design_review_completed:
+  approved: false
+  approved_by: null
+  approved_at: null
+  note: 'auto mode（DP-AUTOMODE-01）のため人間の設計承認は未取得。
+
+    warn_and_document（T-002）で可視化し、実装フェーズへの移行はブロックしない。
+
+    承認は PR レビューで行う。'
+review_policy:
+  timing: after_verify
+  confidence_threshold_fix_now: 90
+  rationale: '既定（after_verify / confidence_threshold_fix_now 90）をそのまま採用する。変更しない。
+
+    根拠は本案件のテストの性質にある。§9 のテストマトリクス 11 対象はほぼ全てが機械判定可能
+
+    （スナップショット・バイト一致・fixture 対応・往復無損失）であり、verify Stage の結果が
+
+    レビューの一次情報として十分に強い。verify 前にレビューを走らせると、レビュアが
+
+    「SVG が決定的か」「fmt が冪等か」を人力で推測することになり精度が落ちる。
+
+    しきい値 90 を下げないのは、本案件が「黙って落とさない」（NFR-FAIL-001）を明示的な非機能要件に
+
+    掲げており、確信の低い自動修正でエラーを握り潰すリスクの方が高いため。'
+  review_axes_note: "Stage 5 Review の 4 並列（correctness / conventions / wiring / security）のうち\
+    \ security は\n本案件では監査対象が薄い（NFR-SEC-001 のとおり認証要件なし・ネットワーク接続なし）。\nただし 0 にはしない。security\
+    \ 観点で見るべきは次の 3 点に限定される。\n(1) jin run が生成コードを一時ディレクトリに書き出して import する経路（FR-ADK-004）—\
+    \ 一時ディレクトリの\n    パーミッションと、.jin 由来の文字列がコード生成でエスケープされずに Python 式へ流れないか。\n(2) LSP\
+    \ の WebSocket トランスポート（FR-LSP-002）が localhost 以外に bind しないか。\n(3) --resolve 指定時の\
+    \ Python 参照 import（SC-S-001 / SC-S-002）が任意モジュールを実行しうる点の明示。"
+responsibility_split:
+- item: jin-core（Pydantic 意味モデル / 位置付きパーサ / 意味検査 / 診断 / 正準形 / 意味オペレーション）
+  owner: backend
+  owned_by_this_plugin: true
+  port_adapter: '本案件の中核ドメイン層。ここに port はなく、他パッケージから見た「唯一の真実」側である。
+
+    逆に jin-core が外へ出す境界は boundary_contracts の 意味モデル / JSON Pointer / 診断 / 意味オペレーション
+    の 4 本。
+
+    google-adk / pygls / typer / Jinja2 のいずれにも import 依存しないことが機械担保の対象。'
+- item: jin-adk（Jinja2 コード生成 / templates / runtime / trace / FakeLlm）
+  owner: backend
+  owned_by_this_plugin: true
+  port_adapter: 'ADK への adapter。ADK 語彙（LlmAgent / SequentialAgent / LoopAgent / FunctionTool
+    / AgentTool /
+
+    LongRunningFunctionTool / Runner / InMemorySessionService / EventActions / BaseLlm）がリポジトリ内で
+
+    現れてよい唯一の Python パッケージ。google-adk のバージョン差分の吸収点をここ 1 箇所に閉じ込める
+
+    （T-004 差し替え可能設計）。adk-api-probe.md の実測 API がテンプレート固定の根拠。'
+- item: jin-render（決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay）
+  owner: backend
+  owned_by_this_plugin: true
+  port_adapter: '意味モデル → SVG 文字列の純関数。ファイルを読まない・ADK を知らない。
+
+    「レンダラは Python 1 本」（要件書 §10 #9）の実体であり、エディタ側に同等の描画コードを置かないことが
+
+    本パッケージの存在理由。描画ライブラリを使わず標準ライブラリで文字列生成するのは決定性の担保のため。'
+- item: jin-lsp（pygls サーバ / 標準機能 8 種 / 独自リクエスト 4 種 / stdio + WebSocket）
+  owner: backend
+  surface: api
+  owned_by_this_plugin: true
+  port_adapter: '言語サービスの唯一の入口（FR-LSP-001）。LSP 固有ロジックは位置変換とプロトコル露出だけに限定し、
+
+    機能本体は必ず jin_core / jin_render / jin_adk の関数を呼ぶ。
+
+    「LSP に業務ロジックが漏れていないか」はレビュー観点として明示する。'
+- item: jin-cli（typer・9 コマンド）
+  owner: backend
+  surface: api
+  owned_by_this_plugin: true
+  port_adapter: '最上層の薄い adapter。各コマンドは下位パッケージの関数を呼ぶだけで、独自ロジックを持たない。
+
+    jin render と jin/renderSvg が同じ関数を呼ぶ（FR-RENDER-002）ことがこの薄さの検証点。'
+- item: apps/editor（React + TypeScript + Vite の視覚エディタ / デバッガ）
+  owner: client
+  surface: public_ui
+  owned_by_this_plugin: true
+  port_adapter: 'LSP クライアントが唯一の外部境界（FR-EDITOR-001）。Python パッケージを直接 import しない。
+
+    独自のモデル状態を持たず、jin/model と jin/renderSvg の応答を表示するだけ。
+
+    許容される一時 UI 状態の境界は DP-COMMON-16 で未決。'
+- item: plugins/claude-code/jin（.claude-plugin/plugin.json / .lsp.json / skills/jin-lang
+    / hooks）
+  owner: shared
+  owned_by_this_plugin: true
+  port_adapter: 'Claude Code への adapter。skills/jin-lang/reference/ 配下の model.md と
+    jin.schema.json は
+
+    docs/spec/ と schemas/ からのビルド同期コピーであり、手書きしない（FR-CC-001）。
+
+    同期のドリフトは CI で検出する。'
+- item: schemas/jin.schema.json（Pydantic から生成しコミットする JSON Schema）
+  owner: shared
+  owned_by_this_plugin: true
+  port_adapter: 'LLM・エディタ・外部 JSON ツールへの公開契約。生成物であり手書きしない。
+
+    CI のドリフト検出（Pydantic 生成物とコミット済みの差分）が唯一の同期担保。'
+- item: docs/spec（model.md / adk-mapping.md / layout.md / diagnostics.md / ops.md）と
+    examples 2 本
+  owner: shared
+  owned_by_this_plugin: true
+  port_adapter: 'Phase 0 の成果物であり、後続 Phase の正典（CLAUDE.md にその旨を書く・FR-CC-006）。
+
+    仕様と実装の一致は Phase 0 で作る突合テストが担保する（implementation_phases[0] 参照）。'
+- item: パッケージ依存の一方向性を機械で担保する検査（import-linter 相当）
+  owner: backend
+  owned_by_this_plugin: true
+  port_adapter: 'NFR-DEP-001 を CI に落とす仕掛け。最低限、次の 2 本を必ず落とすこと。
+
+    (1) jin_core が google.adk を（直接・間接に）import したら FAIL。
+
+    (2) apps/editor のソースが Python パッケージを参照したら FAIL（TypeScript 側は import 文の静的検査）。
+
+    実装方式は DP-COMMON-11 で未決。'
+- item: ツール実装本体・guard 実装本体（Python の module:callable 参照先）
+  owner: shared
+  owned_by_this_plugin: false
+  port_adapter: 'Jin は参照するだけで実装は利用側 Python パッケージに置く（要件書 §0 非目標「汎用計算」）。
+
+    examples 用の最小スタブは本ランで作るが、それは fixture であり製品コードではない。'
+- item: google-adk ランタイム（LlmAgent / Runner / SessionService / BaseLlm 等）
+  owner: iaas
+  owned_by_this_plugin: false
+  port_adapter: '外部ライブラリ。jin-adk 越しにのみ触る。バージョンは 2.x 系メジャー固定（実測 2.8.0）。
+
+    LoopAgent の反復上限は max ではなく max_iterations（adk-api-probe.md 実測）である点に注意。'
+- item: 配布基盤（社内 git / ai-delivery マーケットプレイス）
+  owner: iaas
+  surface: infra
+  owned_by_this_plugin: false
+  port_adapter: 'uv tool install の取得元と Claude Code プラグインの配布チャネル。
+
+    具体的な移管先は DP-JIN-DISTRIBUTION-01（ai_provisional・レビュー待ち）で、
+
+    現 remote を暫定の配布元とする AI 仮判断が置かれている。'
+fe_delegation_assessment:
+  note: 'FE 委譲テーブル（skills/implementation/frontend-feature/DOMAIN-SKILL.md）の 9 領域を全件照合した結果、
+
+    本案件で委譲が必要な領域は 0 件。形式的に委譲先を並べることはせず、領域ごとに「該当なし」の根拠を残す。
+
+    本案件のエディタは業務 SPA ではなく、LSP の応答を表示するだけの開発ツールである点が全判定の共通根拠。'
+  items:
+  - area: 認証 UI・セッション確立
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: NFR-SEC-001 のとおり本件に認証要件は無い。ログイン・セッション・トークン発行の要素を含まない。
+  - area: コンポーネント設計・Design Token・スタイリング方式
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: 'ADR-002 でデザイナー不在下の機能要件限定 最小 UI と確定済み。Design Token 体系の新規設計・
+
+      Storybook 等のカタログ構築は本ランの成果物に含まれない。ロジックとスタイルを分離し
+
+      差し替え範囲をスタイル層に限定する方針も ADR-002 に記載済み。'
+  - area: フォーム・入力バリデーション
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: 'プロパティパネルのフォームは JSON Schema から生成し手書きのフォーム定義を持たない（FR-EDITOR-002・確定済み）。
+
+      バリデーションの正本は jin-core の意味検査であり、LSP の診断としてエディタへ返る。
+
+      FE/BE 二重化の設計余地が構造的に存在しないため、form-plugin の判断対象に該当しない。'
+  - area: アクセシビリティ実装・国際化
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: '要件書に WCAG 適合目標・多言語対応の記述がない。診断メッセージは日本語だが単一言語で、
+
+      i18n 基盤・locale ルーティングの要件はない。label 紐付け・focus 可視の最低限は common-dev に残る責務。'
+  - area: メタデータ・OGP・構造化データ
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: ローカルで jin editor が配信する開発ツールであり、検索エンジン・SNS シェアの対象にならない。
+  - area: 画像・動画最適化・Core Web Vitals
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: '表示するのは LSP が返す SVG 文字列 1 本のみで、画像・動画アセットを持たない。
+
+      Core Web Vitals の計測要件も要件書にない。性能要件は NFR-PERF-001（LSP 診断 1 秒）のみ。'
+  - area: サイト土台・レンダリング戦略・ホスティング
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: 'FW は要件書 §1.1 で React + TypeScript（Vite）と人間確定済み。ホスティングは存在せず
+
+      jin editor がローカルでビルド済み資産を配信する（FR-EDITOR-004・確定済み）。
+
+      追加ルート単位のレンダリング方式のみ common-dev に残り、それは DP-COMMON-18 として発火させた。'
+  - area: テスト品質監査・負荷・視覚回帰
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: '§9 のテストマトリクス 11 対象が要件として確定済み。負荷試験・VRT の要件はない。
+
+      SVG のスナップショット比較は視覚回帰テストではなく文字列のバイト一致検査であり、jin-render 側の責務。
+
+      テスト階層の設計は DP-COMMON-09 / DP-COMMON-20 として common-dev 内で扱う。'
+  - area: 3D・WebGL 描画
+    delegate_plugin: null
+    verdict: 該当なし
+    reason: 描画は 2 次元 SVG のみ。3D ライブラリを使わない。
+implementation_phases:
+  note: '§11 の完了条件は「仕様に自己矛盾がない」「Claude Code で診断が効く」のように人間の判断を前提にした文言で
+
+    書かれており、そのままでは auto mode で PASS 判定できない。各 Phase を
+
+    verification.machine（CI で判定可能な代理条件）と verification.human_only（人間にしか判定できず PR レビューへ送るもの）
+
+    に分解した。machine が全て PASS したときのみ次 Phase へ進む。
+
+    human_only を「実施済み」と報告してはならない（DP-IMPL-VERIFIED-01・偽 green の禁止）。'
+  items:
+  - phase: 0
+    name: 仕様書と examples
+    deliverables:
+    - docs/spec/model.md
+    - docs/spec/adk-mapping.md
+    - docs/spec/layout.md
+    - docs/spec/diagnostics.md
+    - docs/spec/ops.md
+    - examples/researcher/researcher.jin
+    - examples/pipeline/pipeline.jin
+    - tests/spec/test_spec_consistency.py
+    requirement_done_when: 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める
+    verification:
+      machine:
+      - diagnostics.md が列挙する JIN コード集合が §2.4 の 12 件（JIN001 / JIN002 / JIN010 / JIN011
+        / JIN020 / JIN022 / JIN030 / JIN031 / JIN040 / JIN050 / JIN060 / JIN070）と過不足なく一致する
+      - ops.md が列挙する意味オペレーション集合が §6.3 の 19 件と過不足なく一致する
+      - layout.md が記す環の半径が §2.5 の 4 値（instruction 0.35 / tools 0.55 / state 0.75 /
+        boundary 0.95）と一致する
+      - layout.md が記す data-jin-kind の値集合が §2.5 の 9 種（circle / core / rune / tool /
+        state / flow-edge / guard / await / delegate）と一致する
+      - adk-mapping.md の Jin キー集合が §2.1 対応表の 12 行と一致する（2026-09-04 親が訂正: 原文は「11 行」だったが要件書
+          §2.1 の実データ行数は 12、requirements.json の FR-MODEL-002.vocabulary[] も 12 件。上流
+          2 系統が一致するためそちらを正とした。§9 テストマトリクスの「11 行」は正しいので変更していない）
+      - examples 2 本が JSON として parse でき、§2.2 掲載の内容と意味的に一致する（この時点では Pydantic 検証は存在しないため素の
+        JSON 比較）
+      human_only:
+      - 仕様全体に自己矛盾がないことの最終判断（§11 の文言そのもの）。ADR-001 に従い PR レビューで代替する
+    note: '突合テスト tests/spec/test_spec_consistency.py を Phase 0 の成果物に含めるのが本設計の追加点。
+
+      これが無いと Phase 0 の完了条件が人間の目視だけになり、auto mode で検証不能になる。
+
+      テストは Markdown を機械可読な形（表 / 箇条書き）で読むため、docs/spec/*.md の該当箇所は
+
+      パースしやすい定型で書くことを Phase 0 の執筆制約とする。'
+  - phase: 1
+    name: jin-core + jin-cli（check / fmt / schema / dump）
+    deliverables:
+    - packages/jin-core
+    - packages/jin-cli（check / fmt / schema / dump のみ）
+    - schemas/jin.schema.json
+    - tests/fixtures/errors/JINxxx_*.jin
+    requirement_done_when: §2.4 の全コードに fixture があり examples が通る。schema がコミットされる
+    verification:
+      machine:
+      - §2.4 の 12 コードそれぞれに tests/fixtures/errors/JINxxx_*.jin が 1 つ以上存在し、そのファイルが対応コードをちょうど
+        1 つだけ出す
+      - examples 2 本が jin check で error 0 件（exit 0）
+      - Pydantic から生成した JSON Schema がコミット済み schemas/jin.schema.json とバイト一致する（ドリフト検出）
+      - '冪等性: examples と全 fixture について fmt(fmt(x)) == fmt(x) がバイト一致'
+      - '意味保存: model(fmt(x)) == model(x)'
+      - 正準形の 4 規則（2 スペースインデント / スキーマ定義順のキー順 / 非 ASCII 非エスケープ / 末尾改行）が出力に対して検査される
+      - '省略可能キーが既定値のとき出力されない（例: out が false のとき出力しない）'
+      - jin dump の JSON スナップショットが安定し、pointer→range 対応表の全 pointer がモデルに解決できる
+      - jin schema の標準出力が schemas/jin.schema.json とバイト一致
+      human_only: []
+    blocking_dps:
+    - DP-COMMON-09
+    - DP-COMMON-11
+    - DP-JIN-CANONICAL-01
+    - DP-JIN-POINTER-RANGE-01
+    - DP-JIN-SEMANTIC-GAPS-01
+  - phase: 2
+    name: jin-adk（build / run / trace / FakeLlm）
+    deliverables:
+    - packages/jin-adk
+    - packages/jin-cli（build / run を追加）
+    requirement_done_when: examples 両方が adk run で動く。トレースに pointer が入る
+    verification:
+      machine:
+      - 生成 agent.py のスナップショット（syrupy）が examples 2 本について安定
+      - 生成モジュールを import して ADK オブジェクト木を検証する（tools の型 / sub_agents の名前 / callback の同一性）。モデル呼び出しはしない
+      - 生成プロジェクトのディレクトリ構造が §3.1 と一致する（<out>/<root_name>/__init__.py と agent.py と .env.example）
+      - google-adk 2.8.0 に対する生成モジュールの import テストが通る（NFR-VER-001）
+      - jin run --model fake が examples 2 本で最後まで通り exit 0
+      - トレース JSONL の全行が §3.4 のスキーマ（seq / ts / agent / kind / name / pointer / input
+        / output）を満たす
+      - トレース JSONL の全 pointer がモデルに解決できる
+      - ADK に対応物のない Jin 構造がコンパイル時エラーになる（NFR-FAIL-001・黙って落とさないことの fixture テスト）
+      human_only:
+      - 実 adk run / adk web での対話動作。NFR-TEST-001 によりテストはネットワーク・API キー不要が要件のため CI では実行しない。§11
+        の完了条件『examples 両方が adk run で動く』のうち実モデル呼び出し部分はここに含める
+    blocking_dps:
+    - DP-JIN-CODEGEN-RUNTIME-01
+    - DP-JIN-TRACE-POINTER-01
+    - DP-COMMON-15
+  - phase: 3
+    name: jin-render（render / focus / trace overlay / data-jin）
+    deliverables:
+    - packages/jin-render
+    - packages/jin-cli（render を追加）
+    requirement_done_when: SVG スナップショットが安定。全要素に pointer がある
+    verification:
+      machine:
+      - SVG スナップショット（正規化後）が examples 2 本について安定
+      - 同一入力を 2 回レンダリングしてバイト単位で完全一致する
+      - SVG 内の全要素が data-jin と data-jin-kind を持ち、全 pointer がモデルに解決できる
+      - data-jin-kind の値が §2.5 の 9 種のいずれか
+      - trace + upto を渡したとき、upto を増やすと強調要素が単調増加する（減らない）
+      - focus を切り替えると展開対象の circle が変わる
+      - 同一モデルを異なる PYTHONHASHSEED で 2 回レンダリングしてバイト一致する（辞書順序非依存の担保）
+      - instruction.rune の SHA-256 由来の装飾が rune を変えると変わり、変えなければ変わらない
+      human_only:
+      - 図としての可読性・魔法陣としての見た目の妥当性。PR レビューで確認する
+    blocking_dps:
+    - DP-JIN-SVG-DETERMINISM-01
+  - phase: 4
+    name: jin-lsp（stdio + ws / 標準機能 / 独自リクエスト）+ Claude Code プラグイン
+    deliverables:
+    - packages/jin-lsp
+    - packages/jin-cli（lsp を追加）
+    - plugins/claude-code/jin
+    requirement_done_when: Claude Code で .jin の診断・定義ジャンプが効く。pytest-lsp が通る
+    verification:
+      machine:
+      - pytest-lsp で initialize → didOpen → publishDiagnostics が stdio と WebSocket
+        の両方で通る
+      - completion / definition / references / hover / documentSymbol / formatting
+        / rename / codeAction が pytest-lsp で往復する
+      - jin/model / jin/renderSvg / jin/applyOps / jin/ops の 4 リクエストが stdio と ws の両方で往復する
+      - jin/applyOps の各オペレーション（19 種）について applyOps → 再パース → 期待モデル と 逆オペレーションで元に戻る が通る
+      - formatting の出力が jin fmt の出力とバイト一致する
+      - jin/renderSvg の出力が jin render の出力とバイト一致する
+      - 1000 行の .jin に対する診断応答が 1 秒以内（NFR-PERF-001 の計測テスト）
+      - JSON 構文エラーを注入した状態で hover / jin/renderSvg が直前の正常モデルで応答する（NFR-AVAIL-001 エラー回復）
+      - 診断が JSON 構文 → スキーマ → 意味の順で段階的に出る（前段が通らなければ後段を出さない）
+      - claude plugin validate が plugins/claude-code/jin に対して PASS
+      - skills/jin-lang/reference/ の model.md と jin.schema.json が docs/spec/ と schemas/
+        の内容と一致する（同期ドリフト検出）
+      human_only:
+      - 実際の Claude Code セッションで .jin を開いて診断・定義ジャンプが効くことの確認。auto mode に人間が不在のため実施できない。PR
+        レビューへ送る
+    blocking_dps:
+    - DP-COMMON-07
+    - DP-COMMON-14
+    - DP-JIN-EDITOR-PROTOCOL-01
+  - phase: 5
+    name: エディタ 編集モード
+    deliverables:
+    - apps/editor
+    - packages/jin-cli（editor を追加）
+    requirement_done_when: 開く → 編集 → 保存の往復がバイト一致。Playwright スモークが通る
+    verification:
+      machine:
+      - 'Playwright スモーク: 開く → 紋を追加 → 保存 → ファイルが期待の正準形とバイト一致'
+      - '往復無損失: モデル → ファイル → モデル が同一、ファイル → モデル → ファイル がバイト同一（成功条件 5）'
+      - エディタ保存の出力が jin fmt の出力とバイト一致
+      - pnpm test / pnpm build が通る
+      - apps/editor のソースが Python パッケージを参照していない（依存方向の静的検査）
+      - プロパティパネルのフォームが JSON Schema から生成されており、手書きのフォーム定義ファイルが存在しない
+      - DP-COMMON-19 で確定した表示状態集合を判別共用体として網羅し、分岐漏れがコンパイルエラーになる（状態数を 3 に固定しない — 推奨案は
+        5 状態）
+      human_only:
+      - UI/UX の妥当性。ADR-002 によりデザイナー参加後に差し替える前提であり、本ランでは判定しない
+    blocking_dps:
+    - DP-COMMON-16
+    - DP-COMMON-17
+    - DP-COMMON-18
+    - DP-COMMON-19
+    - DP-COMMON-20
+    - DP-JIN-EDITOR-PROTOCOL-01
+  - phase: 6
+    name: エディタ デバッグモード（トレースリプレイ）
+    deliverables:
+    - apps/editor（デバッグモード）
+    requirement_done_when: run --trace → エディタで読み込み → スクラブでオーバーレイ
+    verification:
+      machine:
+      - 'Playwright: jin run --trace が出力した JSONL を読み込み、タイムラインスクラバで upto を動かすと SVG
+        のオーバーレイが変化する'
+      - 同一 upto では常に同じ SVG が表示される（renderSvg の決定性がエディタ経由でも保たれる）
+      - pointer 一致フィルタが、指定 pointer で発火したイベントだけを残す
+      - 選択イベントの詳細パネルがトレース行の input / output / name / kind を表示する
+      human_only:
+      - オーバーレイの視認性。PR レビューで確認する
+    blocking_dps:
+    - DP-JIN-TRACE-POINTER-01
+    - DP-COMMON-16
+fired_decision_points_note: 'DP-COMMON-01〜20 を全件スキャンし発火した 10 件と、本案件固有に採番した DP-JIN-*
+  7 件。
+
+  いずれも本 architect は決定しない（T-002）。recommendation は推奨であって決定ではなく、
+
+  全件を undecided[] に残して auto-decider / 人間へ回す。
+
+  docs/decision-points.md が本環境に無いため、選択肢と判断軸は本 architect が案件文脈から組み立てた
+
+  （degradation_notes の DEG-DP-CATALOG 参照）。'
+fired_decision_points:
+- id: DP-COMMON-07
+  category: common
+  title: LSP の診断・レンダリング再計算とキャッシュ / エラー回復の戦略
+  fired_because: 'NFR-PERF-001 が「1000 行以下のファイルで診断 1 秒以内」という閾値を明示し、
+
+    NFR-AVAIL-001 が「JSON 構文エラー中も直前の正常なモデルで hover / renderSvg を提供する」を要求している。
+
+    両者はどちらも「何をどこまで保持し、いつ捨てるか」の判断であり同一の設計論点。'
+  axes:
+  - 応答時間（NFR-PERF-001 の 1 秒を満たせるか）
+  - エラー回復の正しさ（古いモデルをどこまで信じてよいか）
+  - 実装の単純さ（無効化漏れによるステイル表示のリスク）
+  - stdio と ws で同一実装を保てるか（FR-LSP-002）
+  recommendation: '推奨: ドキュメント単位の last-good モデル 1 世代のみを保持し、SVG はキャッシュしない（案 B）。
+
+    1000 行の JSON の parse + Pydantic 検証は 1 秒に対して十分な余裕があり、
+
+    キャッシュ層を厚くすると無効化漏れによるステイル表示（NFR-DET-001 の決定性への疑いを生む）の方が高くつく。'
+  options:
+  - label: '案 A: キャッシュを持たず毎回フル再計算し、構文エラー時は診断のみ返す'
+    pros:
+    - 実装が最も単純で無効化漏れが起きない
+    - 常に最新のモデルしか返さないため決定性への疑いが生じない
+    cons:
+    - NFR-AVAIL-001（構文エラー中も hover / renderSvg を提供）を満たせない — 要件違反
+  - label: '案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない'
+    pros:
+    - NFR-AVAIL-001 をちょうど満たす最小の保持量
+    - 保持するのが 1 世代だけなので無効化規則が単純（次に parse 成功したら差し替えるだけ）
+    - stdio と ws で同一の保持ロジックを使える
+    cons:
+    - SVG を毎回生成するため renderSvg の応答は毎回フルコスト
+    - last-good が古い場合、hover の内容が現在のテキストとズレる（要件が許容している挙動）
+  - label: '案 C: last-good モデルに加え SVG も (uri, focus, trace, upto) をキーにキャッシュする'
+    pros:
+    - スクラバ操作（Phase 6）で同じ upto を往復するときの応答が速い
+    cons:
+    - キャッシュキーが 4 次元で無効化漏れのリスクが高い
+    - SVG の決定性（NFR-DET-001）を検証するテストとキャッシュが干渉しうる
+    - 本ランでは性能上の必要性が実測されていない（早すぎる最適化）
+  replaceability: 'last-good の保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込め、jin_core / jin_render
+    は
+
+    キャッシュの存在を知らない純関数のままにする。後から案 C へ引き上げる場合も
+
+    jin-lsp 内の差し替えで済む（T-004）。'
+  risk_if_not_decided: 'Phase 4 で LSP の内部構造を作り直すことになる。特に案 C を後から入れると、
+
+    決定性テスト（同一入力 2 回でバイト一致）がキャッシュヒットを見ているだけの偽 green になりうる。'
+- id: DP-COMMON-09
+  category: common
+  title: テスト戦略 — §9 のテストマトリクス 11 行をどう階層化するか
+  fired_because: '要件書 §9 が 11 対象 × 手法を表として確定させている一方、それらをどのテスト層に置き、
+
+    どの粒度で CI を回すかは未確定。FR-TEST-001 / NFR-TEST-001 が「全て uv run pytest（エディタは pnpm test）で
+
+    ネットワーク・API キー不要で通る」を要求しており、層の切り方が CI の実行時間と偽 green リスクを左右する。'
+  axes:
+  - 偽 green を出さないか（DP-IMPL-VERIFIED-01）
+  - Phase ゲート（implementation_phases[].verification.machine）と 1:1 に対応づけられるか
+  - CI 実行時間
+  - パッケージ境界と一致するか（どのパッケージを壊すとどのテストが落ちるかが自明か）
+  recommendation: '推奨: パッケージ単位の垂直分割 + 横断契約テストの二層（案 C）。
+
+    §9 の 11 行のうち スキーマ / 診断 / 正準形 / モデル / オペレーション は jin-core、
+
+    コード生成 / 実行 は jin-adk、レンダラ は jin-render、LSP は jin-lsp、
+
+    エディタ / プラグイン は apps/editor と plugins/ に置き、
+
+    「pointer が全層で解決できる」「jin render と jin/renderSvg がバイト一致」「fmt とエディタ保存がバイト一致」の
+
+    3 本だけを tests/contract/ に横断テストとして置く。Phase ゲートと素直に対応する。'
+  options:
+  - label: '案 A: 単一の tests/ に §9 の 11 対象をフラットに並べる'
+    pros:
+    - 要件書の表と 1:1 で対応し、抜けが目視で分かる
+    cons:
+    - どのパッケージを壊すとどれが落ちるかが不明瞭で、Phase ゲートに対応づけにくい
+    - jin-core だけを触ったときにも全テストが走り CI が遅い
+  - label: '案 B: テストピラミッド（unit / integration / e2e）で切る'
+    pros:
+    - 一般的な語彙で分かりやすい
+    cons:
+    - 本案件の主要検証は「スナップショット」「バイト一致」「往復」であり、ピラミッドの層と対応しない
+    - §9 の 11 行がどの層に落ちるか判断が割れ、抜けが生じやすい
+  - label: '案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト'
+    pros:
+    - Phase ゲートと 1:1 に対応し、machine 検証項目をそのままテスト名にできる
+    - 壊れた層が即座に分かる
+    - 契約テスト 3 本が「レンダラは 1 本」「ファイルが唯一の状態」という本案件の核心原則を守る番人になる
+    cons:
+    - 契約テストがどのパッケージに属するかの置き場を別途決める必要がある
+    - パッケージ横断の fixture 共有をどうするかを決める必要がある
+  replaceability: 'fixture（examples 2 本 + tests/fixtures/errors/JINxxx_*.jin）は層の切り方から独立させ、
+
+    リポジトリ直下の tests/fixtures/ に置いて全層から参照する。層の切り方を後から変えても fixture は動かない。'
+  risk_if_not_decided: 'Phase 1 でテストの置き場が決まらないまま fixture が各パッケージに散り、
+
+    Phase 4 の契約テスト（pointer の全層一致）を書く段になって fixture の重複と不整合が表面化する。'
+- id: DP-COMMON-11
+  category: common
+  title: 5 Python パッケージの分割境界と一方向依存の機械的担保方法
+  fired_because: 'FR-ARCH-002 / NFR-DEP-001 が依存の一方向性を要求し、特に「jin-core は ADK に依存しない」
+
+    「apps/editor は LSP にしか依存しない」は本案件の設計思想そのもの。
+
+    分割自体は要件書 §1.2 で確定済みだが、それを破ったときに CI が落ちる仕掛けは未確定。'
+  axes:
+  - 違反を確実に落とせるか（間接依存も見るか）
+  - 導入コストと依存の増加
+  - TypeScript 側（apps/editor）も同じ仕掛けで見られるか
+  - 開発者が違反理由を理解できるエラーメッセージが出るか
+  recommendation: '推奨: import-linter を導入して Python 側の layered contract を宣言し、
+
+    apps/editor 側は別途 pnpm スクリプトで Python 参照の静的検査を行う（案 B）。
+
+    import-linter は層の宣言が設定ファイル 1 本で済み、間接依存も追う。
+
+    TypeScript 側は import-linter の対象外なので、そこだけ別の仕掛けが要る点を明示的に受け入れる。'
+  options:
+  - label: '案 A: uv workspace の依存宣言（pyproject.toml の dependencies）だけで担保する'
+    pros:
+    - 追加ツールが不要
+    - パッケージのメタデータとして正しい場所に情報が載る
+    cons:
+    - 宣言していないパッケージでも同一環境にインストールされていれば import は通ってしまう — 実効性が弱い
+    - jin-core が google-adk を間接的に import してしまうケースを検出できない
+  - label: '案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査'
+    pros:
+    - 間接依存を含めて違反を確実に落とす
+    - 層の構造が設定ファイルに宣言として残り、ドキュメントを兼ねる
+    - 違反時に「どの import 連鎖が禁止か」が出力される
+    cons:
+    - 開発依存が 1 つ増える
+    - Python 側と TypeScript 側で仕掛けが 2 本になる
+  - label: '案 C: 自前の AST 走査テスト（tests/contract/test_dependencies.py）を書く'
+    pros:
+    - 追加依存ゼロ
+    - Python と TypeScript の両方を 1 つのテストで扱える設計にしうる
+    cons:
+    - 間接依存の追跡を自前で書くと不完全になりやすい
+    - 「テストのためのテスト」が発生し保守対象が増える
+  replaceability: 'どの案でも、担保対象の契約そのもの（architecture.dependency_direction.rules の 8 行）は
+
+    設定ファイルやテストから独立した宣言として design.yaml と CLAUDE.md に残す。
+
+    検査ツールを差し替えても契約は動かない。'
+  risk_if_not_decided: 'Phase 1 の途中で jin-core に ADK 由来の型ヒントが混入し、Phase 2 で気づいて
+
+    jin-core の公開インターフェースを作り直すことになる。この手戻りは全 Phase に波及する。'
+- id: DP-COMMON-14
+  category: common
+  title: LSP サーバのログとトレース JSONL の出力設計
+  fired_because: '要件書 §3.4 がトレース JSONL を成果物として規定し、Phase 6 のデバッグモードがそれを消費する。
+
+    加えて LSP は stdio トランスポートで動くため、標準出力へのログ出力が
+
+    プロトコルを破壊するという固有の制約がある（stdout は JSON-RPC が占有する）。'
+  axes:
+  - stdio トランスポートを壊さないか
+  - トレース JSONL（成果物）とサーバログ（診断用）が混ざらないか
+  - Phase 6 のスクラバが読む形式として扱いやすいか
+  - 秘密情報（プロンプト・モデル出力）の扱い
+  recommendation: "推奨: 2 系統を明確に分ける（案 B）。\n(1) トレース JSONL は jin-adk が --trace で指定されたファイルにのみ書く成果物であり、\n\
+    \    スキーマは §3.4 で確定済み。ログではない。\n(2) LSP サーバの診断ログは stderr にのみ出す（stdio モードで stdout\
+    \ を絶対に使わない）。\nレベルと形式は未決。"
+  options:
+  - label: '案 A: pygls / Python 標準 logging の既定に任せる'
+    pros:
+    - 実装が不要
+    cons:
+    - 既定のハンドラが stdout に出ると stdio トランスポートが壊れる — 実害が出てから気づく類の事故
+    - トレース JSONL とログの区別が実装者に伝わらない
+  - label: '案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する'
+    pros:
+    - stdio トランスポートの破壊を構造的に防ぐ
+    - トレース JSONL のスキーマ検証テスト（Phase 2）とログが干渉しない
+    - ws モードでも同じ実装で動く
+    cons:
+    - ログレベル・フォーマット・ローテーションの方針を別途決める必要がある（本 DP の未決部分）
+  - label: '案 C: LSP の window/logMessage 通知にログを寄せる'
+    pros:
+    - クライアント（Claude Code / エディタ）側でログが見える
+    - stdout を汚さない
+    cons:
+    - サーバ起動前・接続断後のログが失われる
+    - CI でのデバッグに使えない
+  replaceability: 'ログ出力は jin-lsp のエントリポイント 1 箇所で設定し、機能モジュールは標準 logging の
+
+    getLogger 経由でのみ書く。出力先の差し替えがエントリポイントの変更で済む。'
+  risk_if_not_decided: 'Phase 4 で stdio モードの LSP が「なぜか初期化に失敗する」形で壊れ、
+
+    原因（ログが stdout に混入）に辿り着くまでに時間を溶かす典型的な事故が起きる。'
+- id: DP-COMMON-15
+  category: common
+  title: 生成 ADK プロジェクトの .env.example に載せるキー名と、テストがキー不要である担保
+  fired_because: 'FR-ADK-001 が生成物に .env.example を含めることを規定しているが、その中身のキー名は
+
+    要件書・requirements.json のどこにも書かれていない。一方 NFR-TEST-001 は
+
+    「テストはネットワーク・API キー不要で通る」を要求しており、両者の境界を決める必要がある。'
+  nature: '注意: これは「選択」ではなく大半が事実確認である。google-adk 2.8.0 が実際に読む環境変数名は
+
+    実測しないと分からず、adk-api-probe.md には記載がない。AI がキー名を推測・補完してはならない
+
+    （design.schema.json の required_build_env の記述と T-002）。
+
+    決めるべきは「実測をいつ誰がやるか」と「実測できなかった場合にどうするか」。'
+  axes:
+  - キー名の出典が実測であるか（捏造でないか）
+  - テストが本当にキーを要求しないことをどう証明するか
+  - 生成物の利用者が起動に必要な情報を得られるか
+  recommendation: '推奨: 実装 Stage 1 の tech-version-check で google-adk 2.8.0 が読む環境変数名を実測し、
+
+    その実測値のみを .env.example のテンプレートに固定する（案 B）。
+
+    実測できなかった場合は .env.example をコメントのみ（キー名なし）で生成し、
+
+    docs/pending-decisions.md に残す。空のキー名を推測で埋めない。'
+  options:
+  - label: '案 A: 設計フェーズで代表的なキー名を書いてしまう'
+    pros:
+    - 下流が迷わない
+    cons:
+    - T-002 違反。実測していない値を成果物に固定することになる
+    - ADK のバージョンや認証方式によってキー名が異なり、誤った値が利用者を誤誘導する
+  - label: '案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する'
+    pros:
+    - 出典が実測に限定される
+    - 実測できなかった事実が pending として残り、後から埋められる
+    cons:
+    - Phase 2 の完了時点で .env.example が空の可能性がある
+  - label: '案 C: .env.example を生成せず README に案内だけ書く'
+    pros:
+    - 誤った値を書くリスクがゼロ
+    cons:
+    - FR-ADK-001（生成物に .env.example を含める）に反する — 要件違反
+  replaceability: '.env.example は Jinja2 テンプレート 1 本として jin-adk/templates/ に置き、
+
+    キー名の実測結果はテンプレートの変数として渡す。実測値が変わってもテンプレート構造は変えない。'
+  risk_if_not_decided: '生成プロジェクトが起動できず、その原因が Jin 側なのか利用者の環境なのか切り分けられない。
+
+    あるいは推測のキー名が独り歩きして誤ったドキュメントが増える。'
+- id: DP-COMMON-16
+  category: common
+  surface: client
+  title: エディタが保持してよい一時 UI 状態の境界と、applyOps 後の選択再解決
+  fired_because: '「ファイルが唯一の状態」「エディタは独自のモデル状態を持たない」（要件書 §10 #10 / FR-EDITOR-001）は
+
+    確定済みだが、エディタは実際には 選択中の pointer / focus 中の circle 名 / undo・redo スタック /
+
+    トレースの upto / パネルの開閉 を必ず持つ。何を持ってよく何を禁じるかの線引きが未確定。
+
+    さらに moveTool で配列が並び替わると選択中の pointer が別の要素を指すようになるため、
+
+    applyOps 応答後に選択をどう再解決するかを決めないと編集操作でカーソルが飛ぶ。'
+  axes:
+  - 「ファイルが唯一の状態」を実質的に守れるか（サーバ状態の二重保持を作らないか）
+  - applyOps 後に選択・focus が意図した要素を指し続けるか
+  - undo/redo が §6.3 の逆オペレーション方式と整合するか
+  - 状態管理ライブラリを増やすかどうか
+  recommendation: '推奨: 案 B。保持してよいのは「モデルから導出できない UI 意図」だけと定義し、
+
+    具体的には 選択（circle 名 + 要素の種別 + 要素名 の 3 つ組で保持し、生の pointer では保持しない。
+
+    tools[].name / state[].name は circle 内一意であって全体一意ではないため、circle 名で限定しないと
+
+    同名 tool を持つ circle 間で選択が飛ぶ）/ focus（circle 名）/
+
+    undo・redo スタック（逆オペレーション列）/ upto（数値）/ パネル開閉 に限定する。
+
+    モデルの写し（circles 配列や tool 一覧）をクライアントに複製しない。
+
+    applyOps 応答後の選択再解決は「名前 ID から新モデル上の pointer を引き直す」方式にする。
+
+    要件書 §10 #11 が名前を ID と定めているため、この再解決は要件の構造と一致する。
+
+    状態管理ライブラリは追加せず React の useReducer / Context で足りる規模である。'
+  options:
+  - label: '案 A: 選択も含めて生の JSON Pointer で保持する'
+    pros:
+    - 実装が単純で SVG の data-jin をそのまま使える
+    cons:
+    - moveTool / removeTool で配列が変わると選択が別要素を指す（要件書 §6.3 の moveTool は角度変更として日常的に使われる操作）
+    - undo で戻したときに選択が復元されない
+  - label: '案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す'
+    pros:
+    - '要件書 §10 #11（名前が ID）と一致する'
+    - moveTool の並び替えでも選択が追随する
+    - rename も参照追随の意味オペレーションなので、サーバが返す新モデルで名前を引き直せる
+    cons:
+    - 名前が変わる rename 直後の再解決規則を別途決める必要がある
+    - pointer → 名前 → pointer の変換層をエディタ側に持つ
+  - label: '案 C: サーバがモデルの完全な写しをクライアントに持たせ、クライアント側で楽観更新する'
+    pros:
+    - 操作の体感が速い
+    cons:
+    - 「エディタは独自のモデル状態を持たない」に真正面から反する — 要件違反
+    - 楽観更新と実際の正準形がズレたときにファイルとの往復無損失が壊れる
+  replaceability: '選択の表現（circle 名 + 種別 + 要素名）を型として 1 箇所に定義し、pointer への解決関数を 1 本に集約する。
+
+    再解決規則を変えてもその関数の差し替えで済む。'
+  risk_if_not_decided: 'Phase 5 で編集のたびに選択が飛ぶ・undo で選択が復元されない挙動になり、
+
+    Playwright スモーク（紋を追加 → 保存）は通るのに実用に耐えないエディタができる。'
+- id: DP-COMMON-17
+  category: common
+  surface: client
+  title: エディタ ↔ サーバのデータフェッチ境界（LSP over WebSocket のクライアント層）
+  fired_because: 'エディタはバックエンド API を持たず、通信相手は jin lsp --ws の WebSocket 1 本のみ（FR-EDITOR-004）。
+
+    HTTP API / BFF が存在しないため、一般的な FE のフェッチ境界とは形が違うが、
+
+    「どこで LSP の JSON-RPC を張り、どうリクエストを型付けし、切断時にどう振る舞うか」は未確定。'
+  axes:
+  - LSP の型定義をどこから得るか（手書きか既存ライブラリか）
+  - 独自リクエスト 4 種（jin/model / jin/renderSvg / jin/applyOps / jin/ops）の型付け
+  - 接続断・再接続時の振る舞い
+  - Playwright テストからの制御しやすさ
+  recommendation: '推奨: 案 B。vscode-jsonrpc 相当の JSON-RPC クライアントを 1 層置き、その上に
+
+    Jin 固有の 4 リクエストを型付きラッパとして薄く重ねる。
+
+    LSP の標準機能はエディタからはほとんど使わず（診断の受信と formatting 程度）、
+
+    主に使うのは独自リクエストであるため、フル機能の LSP クライアントライブラリは過剰。
+
+    具体的なライブラリ選定は実装 Stage 1 の tech-version-check に委ねる（本フェーズでは版を書かない）。'
+  options:
+  - label: '案 A: 生の WebSocket に JSON-RPC を手書きする'
+    pros:
+    - 依存ゼロ
+    cons:
+    - リクエスト ID の採番・応答の対応付け・通知の振り分けを自前で書くことになる
+    - LSP の仕様（$/cancelRequest 等）を取りこぼす
+  - label: '案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ'
+    pros:
+    - プロトコルの面倒な部分をライブラリに任せ、Jin 固有部分だけ自前で型付けできる
+    - 独自リクエストの型定義が 1 ファイルに集まり、サーバ側との契約が見える
+    - Playwright からはラッパをモックできる
+    cons:
+    - 型定義がサーバ側 Python と二重管理になる（同期のドリフト検出を別途決める必要がある）
+  - label: '案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる'
+    pros:
+    - 標準機能をそのまま使える
+    cons:
+    - 本エディタはテキストエディタではなく SVG のヒットテスト UI であり、テキストバッファ前提の機能が大半不要
+    - 依存が重く、ADR-002 の「最小 UI」方針と釣り合わない
+  replaceability: 'Jin 固有 4 リクエストのラッパを 1 モジュールに閉じ込め、UI コンポーネントは
+
+    そのモジュールの関数だけを呼ぶ。JSON-RPC 層を差し替えてもラッパのシグネチャは変えない。'
+  risk_if_not_decided: 'Phase 5 で通信層が UI コンポーネントに散り、Phase 6 のトレース読み込みで
+
+    同じような通信コードが重複する。切断時の挙動も画面ごとにバラバラになる。'
+- id: DP-COMMON-18
+  category: common
+  surface: client
+  title: エディタのレンダリング方式と配信形態（Vite SPA / SSR なし）
+  fired_because: '追加する FE ルートが存在するため発火条件に合致する。ただし要件書 §1.1 が Vite を、
+
+    FR-EDITOR-004 が「jin editor がビルド済みエディタを配信し、エディタ単体のサーバは持たない」を
+
+    確定させているため、選ぶ余地はルート構成と配信の詳細に限られる。'
+  axes:
+  - FR-EDITOR-004（エディタ単体のサーバを持たない）を守れるか
+  - 編集モードとデバッグモードをルートで分けるか、同一ルートのモード切替にするか
+  - 開発時（Vite dev server）と配信時（jin editor による静的配信）で同じコードが動くか
+  - ファイルパスをどう渡すか（jin editor [file] の引数）
+  recommendation: '推奨: 案 A。SSR なしの単一ページ SPA とし、編集モード / デバッグモードはルーティングではなく
+
+    同一ページ内のモード切替にする。理由は、両モードが同じ SVG・同じ選択状態・同じ LSP 接続を共有し、
+
+    デバッグ中に編集へ戻る導線が自然だから。ビルド成果物は静的ファイル一式で、
+
+    jin editor がそれを配信する。開発時は Vite dev server から同じ WebSocket に繋ぐ。'
+  options:
+  - label: '案 A: SSR なし単一ページ SPA。モードはページ内切替'
+    pros:
+    - FR-EDITOR-004 と最も素直に整合する（配信するのは静的ファイルのみ）
+    - LSP 接続・選択状態・SVG を両モードで共有でき、状態の同期問題が発生しない
+    - ルーティングライブラリが不要
+    cons:
+    - モードごとの URL が無く、状態の共有・ブックマークができない
+  - label: '案 B: クライアントルーティングで /edit と /debug を分ける'
+    pros:
+    - モードが URL に現れる
+    cons:
+    - モード間で LSP 接続と選択状態を引き継ぐ機構が別途必要
+    - ローカル開発ツールで URL 共有の需要が薄い
+  - label: '案 C: SSR / SSG を入れる'
+    pros:
+    - 初期表示が速い
+    cons:
+    - エディタ単体のサーバを持たない（FR-EDITOR-004）に反する — 要件違反
+    - 表示内容が LSP 応答に完全依存するため事前レンダリングの対象がない
+  replaceability: '対象ファイルの指定は URL のクエリパラメータで受ける形にしておき、
+
+    将来ルーティングを入れる場合もエントリポイントの変更で済むようにする。'
+  risk_if_not_decided: 'Phase 5 と Phase 6 で別々のページを作ってしまい、デバッグ中に編集へ戻れない
+
+    （= トレースを見ながら直す、というデバッガの本来の用途が成立しない）エディタになる。'
+- id: DP-COMMON-19
+  category: common
+  surface: client
+  title: エディタのエラー・ローディング・空状態の設計
+  fired_because: 'エディタは全ての表示内容を LSP から取得するため、外部データ取得を伴う UI に該当する。
+
+    本案件固有の事情として、NFR-AVAIL-001 が「JSON 構文エラー中も直前の正常なモデルで
+
+    hover / renderSvg を提供する」を要求しており、「エラーだが表示は出せる」という
+
+    一般的でない第 4 の状態が存在する。'
+  axes:
+  - 「ファイルは壊れているが直前の描画は出せる」状態をユーザに正しく伝えられるか
+  - エラーを握り潰さないか（NFR-FAIL-001「黙って落とさない」）
+  - LSP 未接続 / 接続断と、ファイルが不正の区別がつくか
+  - 診断バッジ（FR-EDITOR-002）との関係
+  recommendation: '推奨: 案 B。状態を 5 つに明示的に分ける。
+
+    (1) LSP 未接続・接続中、(2) モデル取得中、(3) 正常表示、
+
+    (4) ステイル表示（構文エラー中・直前の正常モデルを表示していることを画面上で明示する）、
+
+    (5) 表示不能（正常モデルが 1 度も得られていない状態でのエラー）。
+
+    (4) を独立した状態として持つことが本案件の要点で、これを (3) と混ぜると
+
+    ユーザは古い図を現在の状態だと誤認する。'
+  options:
+  - label: '案 A: 読込中 / 正常 / エラー の 3 状態'
+    pros:
+    - 一般的で実装が単純
+    cons:
+    - NFR-AVAIL-001 のステイル表示を表現できず、古い SVG を正常表示として見せてしまう
+    - 接続断とファイル不正が同じ「エラー」に潰れる
+  - label: '案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態'
+    pros:
+    - NFR-AVAIL-001 の挙動を正直に見せられる
+    - 接続断とファイル不正が区別でき、ユーザの次の行動が変わる
+    - NFR-FAIL-001（黙って落とさない）と整合する
+    cons:
+    - 状態が増えるぶん UI とテストの分岐が増える
+  - label: '案 C: 診断バッジだけで伝え、画面全体の状態は持たない'
+    pros:
+    - 実装が最小
+    cons:
+    - LSP 接続断のときバッジが更新されないまま古い診断が残り、ユーザが気づけない
+  replaceability: '表示状態を判別共用体（discriminated union）として型定義 1 箇所に置き、
+
+    UI コンポーネントは網羅的に分岐する。状態を増やしたときに分岐漏れがコンパイルエラーになる形にする。'
+  risk_if_not_decided: 'Phase 5 で「保存したのに反映されない」「壊れたファイルなのに図が出ている」という
+
+    再現困難な混乱が生じる。Playwright スモークは通るため CI では検出できない。'
+- id: DP-COMMON-20
+  category: common
+  surface: client
+  title: エディタ側テスト層の構成（pnpm test と Playwright の分担）
+  fired_because: '§9 が「エディタ: Playwright スモーク」1 行しか規定しておらず、その 1 本だけでは
+
+    DP-COMMON-16 の選択再解決や DP-COMMON-19 の 5 状態を検証できない。
+
+    FR-TEST-001 は「エディタは pnpm test」と規定するが、その中身が未確定。'
+  axes:
+  - §9 の要求（Playwright スモーク 1 本）を満たしつつ十分か
+  - 偽 green を避けられるか（LSP をモックしたテストが実サーバとズレないか）
+  - CI 実行時間とネットワーク非依存性（NFR-TEST-001）
+  - Python 側の pytest-lsp テストとの重複を避けられるか
+  recommendation: "推奨: 案 B の 2 層。\n(1) ユニット層（pnpm test）— 選択再解決の関数、表示状態の判別、逆オペレーションのスタック操作を\n\
+    \    LSP をモックして検証する。ここは純粋なロジックのテスト。\n(2) スモーク層（Playwright）— §9 の必須 1 本（開く → 紋を追加\
+    \ → 保存 → 正準形バイト一致）に加え、\n    Phase 6 のスクラバ 1 本。実際の jin lsp --ws プロセスに繋いで実行する。\n\
+    LSP プロトコルそのものの検証は Python 側の pytest-lsp が担うため、エディタ側では重複させない。"
+  options:
+  - label: '案 A: Playwright のみ（§9 の記述どおり 1 本）'
+    pros:
+    - §9 の要求に厳密に一致し、追加判断がない
+    cons:
+    - 選択再解決・5 状態・undo/redo の分岐を網羅できない
+    - 失敗時に原因箇所の特定が難しい
+  - label: '案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層'
+    pros:
+    - ロジックの分岐を高速に網羅しつつ、実プロセス往復も 2 本押さえる
+    - スモークが実 LSP に繋がるため、モックのズレによる偽 green を検出できる
+    - Python 側との責務が重複しない
+    cons:
+    - モックの保守が発生する
+    - §9 に書かれていない層を足すことになる（要件の上乗せ）
+  - label: '案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる'
+    pros:
+    - モックのズレが原理的に生じない
+    cons:
+    - 実行時間が長くなり、分岐網羅のコストが高い
+    - 失敗の切り分けが困難
+  replaceability: 'モックする境界を DP-COMMON-17 のラッパモジュール 1 本に限定し、
+
+    それより下（JSON-RPC 層・WebSocket）はモックしない。境界が 1 箇所なのでズレの監視点も 1 箇所で済む。'
+  risk_if_not_decided: 'Playwright 1 本だけで「エディタは動く」と報告する偽 green が発生する。
+
+    §9 の 1 行を満たしていることが、エディタが実用に耐えることの証明にならない。'
+- id: DP-JIN-CANONICAL-01
+  category: project
+  title: 正準形（canonical form）の実装方式
+  fired_because: '要件書 §2.3 が「キー順はスキーマ定義順」「省略可能なキーは既定値なら出力しない」
+
+    「非 ASCII をエスケープしない」「2 スペースインデント」「末尾改行」を要求するが、
+
+    これは json.dumps の既定挙動（ensure_ascii=True・キー順は挿入順）と食い違う。
+
+    さらに正準形は NFR-DET-002（冪等性・往復無損失）と成功条件 5 の土台であり、
+
+    エディタ保存と jin fmt がバイト一致することの唯一の担保でもある。実装方式を決めないと後で全て崩れる。'
+  axes:
+  - キー順が「スキーマ定義順」に確実になるか（Pydantic のフィールド定義順に一致するか）
+  - 既定値の省略を「未設定」と「明示的に既定値と同じ値を書いた」で区別する必要があるか
+  - 非 ASCII 非エスケープ・インデント・末尾改行を制御できるか
+  - 出力が Python のバージョン・辞書実装に依存しないか
+  - テスト（バイト一致）で検証しやすいか
+  recommendation: '推奨: 案 C（独自の canonical writer）。
+
+    理由は 3 つ。(1) §2.3 の 5 規則のうち json.dumps で直接制御できるのは indent と ensure_ascii の 2 つだけで、
+
+    キー順と既定値省略は結局 Pydantic 側の設定と後処理の組み合わせになり、規則が 2 箇所に分散する。
+
+    (2) 「省略可能なキーは既定値なら出力しない」は model_dump(exclude_defaults=True) と近いが、
+
+    判別共用体（tools[].kind）や入れ子の扱いで意図しない省略が起きうるため、明示的な制御が要る。
+
+    (3) 正準形は本案件の中核契約であり、その実装が「ライブラリの既定挙動に依存する」状態は
+
+    NFR-DET-002 の担保として弱い。1 関数に閉じて全規則をそこで読めるようにする価値が高い。'
+  options:
+  - label: '案 A: json.dumps の引数調整のみ（indent=2, ensure_ascii=False, sort_keys=False）'
+    pros:
+    - 追加コードがほぼ不要
+    cons:
+    - キー順がモデルの dict 化時の順序に依存し「スキーマ定義順」の保証が実装の副作用になる
+    - 既定値の省略を制御できない
+  - label: '案 B: Pydantic の model_dump（exclude_defaults / exclude_none）+ json.dumps
+      後処理'
+    pros:
+    - 既定値省略が Pydantic の機能で得られる
+    - キー順が Pydantic のフィールド定義順（= スキーマ定義順）になる
+    cons:
+    - exclude_defaults の挙動が判別共用体・入れ子・Optional で直感と異なる場合があり、意図しない省略が起きうる
+    - 規則が Pydantic の設定と後処理の 2 箇所に分散し、仕様書（§2.3）との対応が読みにくい
+  - label: '案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）'
+    pros:
+    - §2.3 の 5 規則すべてが 1 つの関数に明示的に現れ、仕様書と 1:1 で対応する
+    - 既定値省略の判定規則を要素種別ごとに正確に書ける
+    - 出力がライブラリの既定挙動に依存しない
+    cons:
+    - 実装量が増え、JSON の直列化を自前で書くことによるエスケープ処理のバグリスクがある
+    - Pydantic のモデル定義変更に writer が追随する仕組みが別途必要
+  replaceability: '正準形の出力は jin_core.canonical の関数 1 本に閉じ込め、jin fmt / LSP formatting
+    /
+
+    エディタ保存 / applyOps 後の差分生成が全てそれを呼ぶ。実装方式を変えても呼び出し側は変わらない。
+
+    冪等性・意味保存・バイト一致の 3 テストが方式に依存しない形で書けることを設計要件とする。'
+  risk_if_not_decided: 'Phase 1 で正準形が「たまたま動く」状態になり、Phase 5 でエディタ保存と jin fmt の
+
+    バイト一致（成功条件 5）が破れたときに、原因が Pydantic の設定なのか後処理なのか切り分けられない。'
+- id: DP-JIN-POINTER-RANGE-01
+  category: project
+  title: 位置情報付きパース（Lark）と Pydantic 検証の接続方式 — pointer→range 対応表の構築
+  fired_because: '要件書 §5 の jin dump と §2.5 の data-jin 契約と §6.3 の独自リクエスト jin/model
+    が
+
+    共通して pointer→range 対応表を要求する。しかし Lark は構文木と位置を返し、
+
+    Pydantic の ValidationError は loc タプルを返すという、異なる 2 つの位置表現がある。
+
+    この接続を決めないと JIN002（スキーマ違反）の診断に行・列が付かない。'
+  axes:
+  - Lark の木から JSON Pointer 空間への対応をどう作るか
+  - Pydantic の loc タプルを JSON Pointer に変換する層をどこに置くか
+  - JIN002 の検出器を Pydantic に一本化するか jsonschema ライブラリも併用するか
+  - 配列インデックスと判別共用体（tools[].kind）で loc がどう出るか
+  - エラー回復（NFR-AVAIL-001）時に対応表をどう扱うか
+  recommendation: '推奨: 案 B + JIN002 検出器は Pydantic 単独に一本化。
+
+    Lark の木を 1 回走査して「JSON Pointer → range」の完全な対応表を作り、
+
+    Pydantic の ValidationError.loc を JSON Pointer 文字列に変換してその表を引く。
+
+    検出器を Pydantic に一本化するのは、jsonschema ライブラリを併用すると
+
+    同じ違反に対して 2 種類のメッセージ形式が生まれ、NFR-LLM-001（hint は具体値）が破れるため。
+
+    コミットされる schemas/jin.schema.json は外部 JSON ツールと LLM 向けの公開契約であり、
+
+    内部検証には使わない、と役割を分ける。'
+  options:
+  - label: '案 A: Lark の木にモデルを重ねず、行・列は構文エラー（JIN001）のみに付ける'
+    pros:
+    - 実装が単純
+    cons:
+    - JIN002 に range が付かず、要件書 §5 の診断 JSON 形式（range 必須）を満たせない
+    - jin/model の pointer→range 対応表が作れず、エディタのヒットテストが成立しない
+  - label: '案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く'
+    pros:
+    - 全診断コードに range を付けられる
+    - jin dump / jin/model / data-jin が同一の表を共有し、pointer 空間の一致がテストしやすい
+    - 表の構築が parse 直後の 1 箇所に閉じる
+    cons:
+    - loc → pointer の変換規則を判別共用体・Optional・エイリアスで正確に書く必要がある
+    - 大きなファイルで表がメモリを食う（本案件の 1000 行規模では問題にならない）
+  - label: '案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む'
+    pros:
+    - 走査が 1 回で済む
+    - モデルと位置が同じオブジェクトに乗る
+    cons:
+    - 意味モデル（Pydantic）に位置という永続化されない情報が混入し、NFR-SSOT-001 の「モデル定義が唯一の真実」が濁る
+    - モデルの等価比較（往復無損失テスト）に位置が影響しないよう別途対策が要る
+  replaceability: 'pointer→range 対応表を独立した型（jin_core.parser の戻り値の一部）として定義し、
+
+    意味モデルとは別のオブジェクトにする。診断生成もレンダラも「モデル」と「対応表」を
+
+    別々の引数で受け取る形にすれば、構築方式を変えても下流は変わらない。'
+  risk_if_not_decided: 'Phase 1 で診断に range が付かないまま進み、Phase 4 の LSP で
+
+    「診断は出るがエディタ上のどこを指しているか分からない」状態になる。
+
+    Phase 5 のヒットテストも成立しないため、Phase 1 まで戻る手戻りになる。'
+- id: DP-JIN-SEMANTIC-GAPS-01
+  category: project
+  title: §2.4 に対応コードが無い意味制約（循環参照 / circle の多重親）をどう扱うか
+  fired_because: "要件書 §2.4 の診断コード 12 件は、次の 2 つの不正を捕まえられない。\n(1) 循環参照 — summon（AgentTool）や\
+    \ delegate（sub_agents）が A → B → A になる場合。\n    コード生成は Python の定義順序で行き詰まる（A の定義に\
+    \ B が必要で、B の定義に A が必要）。\n(2) circle の多重親 — 1 つの circle が複数の flow.steps や複数の delegate\
+    \ に現れる場合。\n    adk-api-probe.md の実測どおり ADK の各 agent は parent_agent を 1 つしか持たない。\n\
+    これらは §2.4 に無いため、新しい JIN コードを追加するか否かは仕様変更の判断であり、\nAI が勝手に決めてよい範囲を超える。"
+  axes:
+  - 診断コード一覧（§2.4 / docs/spec/diagnostics.md）を増やす仕様変更を認めるか
+  - NFR-FAIL-001（黙って落とさない）をどの層で満たすか
+  - LLM が修正できる形でエラーを返せるか（NFR-LLM-001）
+  - 検出をどの層（jin-core の意味検査 / jin-adk のコード生成）で行うか
+  recommendation: "推奨: 案 A。新しい診断コードを 2 つ追加し（採番は Phase 0 の diagnostics.md 執筆時に確定）、\n\
+    jin-core の意味検査で検出する。理由は 2 つ。\n(1) jin-core は ADK に依存しないが、循環参照と多重親は ADK 固有ではなくモデル自身の整合性の問題であり、\n\
+    \    jin-core で検出するのが層として正しい（レンダラも入れ子展開で無限再帰するため同じ検出が要る）。\n(2) コンパイル時エラー（案 B）だと\
+    \ jin check の時点で通ってしまい、LLM が jin check → 修正の\n    ループ（成功条件 3）で直せない。診断コードにすれば hint\
+    \ で候補を返せる。\nただしコード番号の採番は仕様への追加であり人間確認を要する。"
+  options:
+  - label: '案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する'
+    pros:
+    - 成功条件 3（jin check --json の出力だけで LLM が直せる）を保てる
+    - レンダラの入れ子展開の無限再帰も同じ検出で防げる
+    - Phase 1 の完了条件（全コードに fixture）に自然に含まれる
+    cons:
+    - §2.4 の 12 件という確定した表を増やすことになり、仕様変更の承認が要る
+    - docs/spec/diagnostics.md と schemas 側の整合を取り直す必要がある
+  - label: '案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる）'
+    pros:
+    - §2.4 の表を動かさない
+    - NFR-FAIL-001「黙って落とさない」の文言には従う
+    cons:
+    - jin check が通ってしまい、LLM は build まで進まないとエラーに気づけない
+    - レンダラ（jin build を通らない経路）では検出されず、無限再帰する
+    - エラーメッセージが診断 JSON 形式にならず hint を返せない
+  - label: '案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う）'
+    pros:
+    - 表を増やさず jin-core で検出できる
+    cons:
+    - JIN011 は「未解決の参照」であり、解決できる参照が循環している状態とは意味が違う。hint（候補名の提示）も成立しない
+    - コード → 原因の対応が崩れ、fixture が「対応コードを 1 つだけ出す」テスト（§9）の意図から外れる
+  replaceability: '検出ロジックを jin_core.semantic のチェック関数として他のチェックと同じ形で追加し、
+
+    診断コードの定数を 1 箇所に集約する。コードを増やす / 減らすの判断が変わっても
+
+    検出ロジック自体は再利用できる。'
+  risk_if_not_decided: 'Phase 1 で検出が入らないまま Phase 2 のコード生成で無限ループ・再帰エラーに遭遇し、
+
+    「どこで検出すべきだったか」の議論を Phase 2 でやり直すことになる。
+
+    レンダラ（Phase 3）でも同じ問題が再発する。'
+- id: DP-JIN-CODEGEN-RUNTIME-01
+  category: project
+  title: 生成される ADK プロジェクトが jin パッケージに依存してよいか（StateCheckAgent / FakeLlm の配置）
+  fired_because: '要件書 §3.1 は「adk run <out>/<root_name> と adk web <out> でそのまま動くこと」を要求する。
+
+    一方 §3.3 は flow.exit に対して BaseAgent を継承した StateCheckAgent を「生成する」と書き、
+
+    §3.4 は FakeLlm（BaseLlm 継承）を実行時に差し替えると書く。
+
+    これらのクラス本体を生成物に埋め込むのか jin_adk から import させるのかで、
+
+    生成プロジェクトの自己完結性が変わる。実測 API（BaseAgent._run_async_impl を override し
+
+    EventActions(escalate=True) を返す）は adk-api-probe.md で確定しているが、配置は未決。'
+  axes:
+  - 生成プロジェクトが jin をインストールせずに動くか（配布したときの体験）
+  - 生成コードの diff しやすさ（NFR-GEN-001「生成物は diff できる形」）
+  - StateCheckAgent の実装が変わったとき既存の生成物をどうするか
+  - FakeLlm がテスト専用であることをどう表現するか
+  recommendation: '推奨: 案 A（StateCheckAgent は生成物に埋め込む）と案 B の併用（FakeLlm は jin_adk 側に置く）。
+
+    根拠は 2 つの役割の違い。StateCheckAgent は生成された agent 木の構成要素であり、
+
+    §3.1 の「そのまま動く」を満たすには生成物が自己完結している必要がある。
+
+    一方 FakeLlm は jin run --model fake という Jin の CLI が実行時に差し替えるもので、
+
+    生成物の一部ではない（生成された agent.py に FakeLlm が現れる必要はない）。
+
+    ただしこの併用は「生成物の自己完結性」と「DRY」のどちらを優先するかの判断であり、確定は人間に委ねる。'
+  options:
+  - label: '案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）'
+    pros:
+    - §3.1「adk run でそのまま動く」を jin 非依存で満たす
+    - 生成物を単体で配布・レビューできる
+    - 生成コードを読めば挙動が全て分かる
+    cons:
+    - flow.exit を持つ circle が複数あると同じクラス定義が繰り返される（ruff format 後も冗長）
+    - StateCheckAgent の実装を直しても既存の生成物には反映されない（再生成が要る）
+  - label: '案 B: jin_adk.runtime から import させる（生成物は jin に依存）'
+    pros:
+    - DRY で、実装修正が再生成なしに効く
+    - 生成コードが短く diff が読みやすい
+    cons:
+    - 生成プロジェクトの実行に jin のインストールが必要になり、§3.1 の「そのまま動く」の意味が弱まる
+    - 生成物を配布したとき利用者に jin への依存を強いる
+  - label: '案 C: 生成時に別ファイル（_jin_runtime.py）を出力ディレクトリへ一緒に書き出す'
+    pros:
+    - 自己完結性を保ちつつ agent.py 内の重複がなくなる
+    - 生成物のファイル構成が §3.1 の規定（__init__.py と agent.py と .env.example）から増える点を除けば良い折衷
+    cons:
+    - §3.1 の出力形式に無いファイルが増える（要件書の記述との差分が生じる）
+    - スナップショットテストの対象ファイルが増える
+  replaceability: 'StateCheckAgent の実装は Jinja2 テンプレートの部分テンプレートとして 1 箇所に置き、
+
+    「埋め込む / import する」の切替をテンプレート側の条件で表現できる形にする。
+
+    方式を変えてもコード生成の呼び出し側は変わらない。'
+  risk_if_not_decided: 'Phase 2 で生成物のスナップショットを取った後に方式を変えると、全スナップショットが作り直しになる。
+
+    また §3.1 の「そのまま動く」を検証する human_only 項目の意味が方式によって変わるため、
+
+    Phase 2 の完了判定そのものが揺れる。'
+- id: DP-JIN-TRACE-POINTER-01
+  category: project
+  title: トレース JSONL の pointer をどの層で採番するか
+  fired_because: '要件書 §3.4 はトレース行に pointer（発火した要素の JSON Pointer・レンダラの data-jin と同じ鍵）を
+
+    要求するが、adk-api-probe.md の実測どおり ADK の Event は pointer を持たない
+
+    （Event のフィールドは author / content / actions / branch / invocation_id 等）。
+
+    つまり ADK の実行結果から Jin のモデル要素へ逆引きする対応付けを Jin 側で作る必要があり、
+
+    その責務をどの層に置くかが未確定。Phase 6 のデバッグモードは pointer 一致フィルタに依存するため、
+
+    ここが曖昧だとトレースリプレイが成立しない。'
+  axes:
+  - 逆引きの確実性（同名の tool が複数 circle にあるとき正しく引けるか）
+  - jin-core が ADK を知らない（NFR-DEP-001）を守れるか
+  - 生成コードに Jin 固有の情報を埋め込むことの是非
+  - トレースが取れなかった要素をどう扱うか（黙って落とさない・NFR-FAIL-001）
+  recommendation: '推奨: 案 B。jin-adk がコード生成時に「ADK 上の識別子（agent 名 + tool 名 + callback
+    名）→ JSON Pointer」の
+
+    対応表を生成物とは別に保持し、実行時に Event.author と tool 名からその表を引いて pointer を埋める。
+
+    理由は、コード生成の時点では Jin モデルと ADK オブジェクトの対応が完全に分かっており、
+
+    その情報を捨てて実行時に推測するのは不必要に難しいため。
+
+    対応表を生成物（agent.py）に埋め込まないので、生成コードは Jin を知らないままでいられる。
+
+    引けなかったイベントは pointer を null にせず、対応不能であることを明示する
+
+    （黙って落とさない・NFR-FAIL-001）方針を併せて決める必要がある。'
+  options:
+  - label: '案 A: 実行時に Event の内容から jin-core のモデルを検索して逆引きする'
+    pros:
+    - コード生成に追加の出力物が不要
+    cons:
+    - 同名の tool が複数の circle にある場合に一意に引けない（tools[].name は circle 内一意であって全体一意ではない）
+    - jin-adk が jin-core のモデル検索に強く依存し、モデル構造の変更に脆い
+  - label: '案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く'
+    pros:
+    - 対応が生成時点で確定するため一意で確実
+    - 生成コード自体には Jin 固有情報が入らず、§3.1 の自己完結性を損なわない
+    - 対応表は jin-adk 内部に閉じ、jin-core は ADK を知らないまま
+    cons:
+    - jin run の実行経路で対応表を保持・受け渡す仕組みが要る
+    - 生成物を別途 adk run した場合はトレースの pointer が付かない（jin run 経由でのみ有効）
+  - label: '案 C: 生成コード自体に pointer をコメントや属性として埋め込む'
+    pros:
+    - 生成物を単体で adk run してもトレースに pointer を付けられる可能性がある
+    - 生成コードを読むと Jin のどこ由来か分かる
+    cons:
+    - 生成コードに Jin 固有の情報が入り「そのまま動く ADK プロジェクト」の純粋さが落ちる
+    - ADK 側にコメントを実行時イベントへ伝える機構がないため、結局実行時の対応付けが別に要る
+  replaceability: 'トレース行の組み立てを jin_adk.runtime の 1 関数に閉じ込め、
+
+    pointer 解決を差し替え可能な引数（解決関数）として受け取る形にする。
+
+    案 A / B / C のいずれに転んでもトレース行の組み立てコードは変わらない。'
+  risk_if_not_decided: 'Phase 2 で pointer が null のトレースが出て「後で埋める」となり、
+
+    Phase 6 のスクラバとフィルタが動かないことが最後に判明する。
+
+    Phase 2 の完了条件「トレースに pointer が入る」が形骸化する。'
+- id: DP-JIN-SVG-DETERMINISM-01
+  category: project
+  title: SVG のバイト単位決定性の担保方法（浮動小数の文字列化 / 星形多角形の k / textPath 座標）
+  fired_because: 'NFR-DET-001 が「同じ意味モデルからは常にバイト単位で同一の SVG」を要求し、
+
+    §9 が「同一入力 2 回で完全一致」をテストする。しかし §2.5 のレイアウトは
+
+    半径 R=1 の正規化座標での三角関数計算を経て px へ変換するため、
+
+    浮動小数の文字列化がそのまま SVG のバイト列に現れる。
+
+    加えて 星形多角形 {n/k} の k（n/2 未満の最大の互いに素な整数）の算出、
+
+    SHA-256 由来の装飾、textPath の座標が同じ問題を持つ。'
+  axes:
+  - 同一プロセス内の 2 回実行だけでなく、環境をまたいでバイト一致するか
+  - テストが「決定的である」ことを本当に検証しているか（偽 green にならないか）
+  - 座標の精度が図の見た目に十分か
+  - 実装の単純さ
+  recommendation: '推奨: 案 B。座標を SVG に書き出す直前に固定桁数へ丸め、その丸めを行う関数 1 本を必ず通す規約にする。
+
+    丸め桁数の具体値は要件書に記載がないため本フェーズでは確定せず undecided に残す
+
+    （T-002・具体値を捏造しない）。
+
+    加えて決定性テストを「同一プロセス内 2 回」ではなく「異なる PYTHONHASHSEED の別プロセス 2 回」で行う
+
+    （implementation_phases[3] の machine 項目に反映済み）。同一プロセス内の 2 回一致は
+
+    辞書順序依存を検出できず偽 green になりうるため。
+
+    星形の k は整数演算（gcd）で求まるため浮動小数の問題はないが、
+
+    n の範囲（n ≥ 5）と k が複数候補あるときの選択規則が §2.5 の文言だけでは一意に定まらない可能性があり、
+
+    Phase 0 の layout.md で明文化する対象とする。'
+  options:
+  - label: '案 A: Python の float をそのまま f-string で文字列化する'
+    pros:
+    - 追加コードが不要
+    cons:
+    - 同一環境では再現するが、桁数が不揃いで SVG が読みにくく、丸め誤差が見た目に現れうる
+    - 決定性が「たまたま同じ実装だから」に依存し、担保として弱い
+  - label: '案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）'
+    pros:
+    - 決定性の担保点が 1 関数に集約され、レビューとテストの対象が明確
+    - SVG のバイト列が安定し、スナップショットの差分が読みやすい
+    - 座標を扱う全経路がその関数を通ることをテストで検査できる
+    cons:
+    - 丸め桁数の選定が必要（要件書に記載がないため未決として残る）
+    - 丸めによって図形が微妙にズレる（実用上は問題にならない範囲だが要検証）
+  - label: '案 C: Decimal または整数座標系で計算する'
+    pros:
+    - 浮動小数の問題が原理的に生じない
+    cons:
+    - §2.5 が「半径 R=1 の正規化座標で計算し最後に px へ変換」と三角関数の使用を前提にしており、Decimal では三角関数が扱いにくい
+    - 実装が重くなる
+  replaceability: '座標 → 文字列 の変換関数を jin_render 内の 1 箇所に置き、SVG 属性を書く全経路がそれを通る。
+
+    丸め桁数を変えてもスナップショットの更新だけで済む。'
+  risk_if_not_decided: 'Phase 3 でスナップショットが「開発者のマシンでは通るが CI で落ちる」形で不安定になり、
+
+    原因の切り分けに時間がかかる。あるいは同一プロセス内 2 回一致のテストだけで
+
+    「決定的である」と報告する偽 green が発生する。'
+- id: DP-JIN-EDITOR-PROTOCOL-01
+  category: project
+  title: WebSocket モードでのファイル I/O 責務（open と save の両方向）と undo/redo の逆オペレーション往復
+  fired_because: 'LSP は「クライアントがファイルを読んで textDocument/didOpen でテキストを送り、ドキュメントバッファを持ち、
+
+    保存もクライアントが行う」ことを前提にしたプロトコルであり、要件書 §6.3 の jin/applyOps が
+
+    「正準形テキストとの差分を workspace/applyEdit で適用する」のもその前提に立つ。
+
+    stdio（Claude Code / VS Code）はこの前提を満たすが、ブラウザのエディタはファイルシステムを持たない。
+
+    非対称は保存だけでなく読み込みにも同じ形で存在する。
+
+    §9 の Playwright スモークの手順は「開く → 紋を追加 → 保存」であり、その最初の「開く」の時点で
+
+    jin editor [file] が指定したファイルを誰がディスクから読んでドキュメントを開くのかが決まっていない。
+
+    pygls の Workspace はドキュメント未オープン時にディスクから遅延読込する挙動を持つが、
+
+    それに黙って依存するのは NFR-FAIL-001「黙って落とさない」と噛み合わない。
+
+    よって open と save の両方向について、ws モードで誰がディスクに触るかを決めなければならない。
+
+    加えて undo/redo は「サーバが逆オペレーションを応答に含め、クライアントが保持する」（§6.3）方式であり、
+
+    その往復の形（逆オペレーションの表現・失敗時の扱い）も未確定。'
+  axes:
+  - '「ファイルが唯一の状態」（要件書 §10 #10）との整合'
+  - stdio と ws で同一サーバ実装を保てるか（FR-LSP-002）
+  - §9 の Playwright スモークの「開く」と「保存」の両ステップが成立するか
+  - ディスク I/O の責務がプロトコル上明示されるか（暗黙の遅延読込に依存しないか）
+  - undo/redo の逆オペレーションが applyOps の失敗時にも整合するか
+  - FR-EDITOR-004（エディタ単体のサーバを持たない）を守れるか
+  recommendation: "推奨: 案 C。jin editor が起動する Python プロセス側に「ws クライアント向けのファイル I/O」責務を置き、\n\
+    独自リクエスト jin/open と jin/save（仮称・名称は未決）の対でエディタが読み込みと保存を要求する形にする。\njin/open は指定パスをサーバがディスクから読んで\
+    \ didOpen 相当のドキュメントを立て、\nその uri と初期モデルをエディタへ返す。jin/save はその逆。\n根拠は 3 つ。\n(1) 案\
+    \ A（サーバが applyEdit 適用後に常にディスクへ書く）は stdio モードの挙動を変えてしまい、\n    Claude Code / VS\
+    \ Code が持つ「未保存バッファ」の概念と衝突する。FR-LSP-002 の同一サーバ実装が崩れる。\n(2) 案 B（didSave 相当を送る）は\
+    \ LSP の didSave がクライアント側の保存完了通知であり、\n    サーバに書き込みを依頼する意味を持たない。プロトコルの意味を曲げることになる。\n\
+    (3) 案 C なら stdio モードは jin/open / jin/save を使わず従来どおり、ws モードだけが追加リクエストを使う。\n   \
+    \ 差分がリクエスト 2 本に閉じ、同一サーバ実装を保てる。\n(4) 読み込み側を明示的なリクエストにすることで、pygls の遅延読込という暗黙の挙動に依存せずに済み、\n\
+    \    ファイルが存在しない・読めない場合のエラーをプロトコル上で返せる（NFR-FAIL-001）。\nただし独自リクエストを 2 本増やすことは要件書\
+    \ §6.3 の 4 種という規定への追加であり、確定は人間に委ねる。"
+  options:
+  - label: '案 A: サーバが暗黙にディスクを読み書きする（open は pygls の遅延読込に任せ、save は applyEdit 適用後に常に書く）'
+    pros:
+    - エディタ側の実装が最も単純（開く・保存の操作が要らない）
+    - 常にファイルが最新で「ファイルが唯一の状態」に最も忠実
+    - 追加のリクエストが増えない
+    cons:
+    - stdio モードでも同じ挙動になると、エディタの未保存バッファを無視してディスクを書き換える
+    - モードで挙動を分けると FR-LSP-002 の「同一サーバ実装」が実質崩れる
+    - 明示的な保存操作が無くなり、Playwright スモークの「保存」ステップが何を指すか曖昧になる
+    - 読み込みが pygls の内部挙動への暗黙依存になり、ファイルが無い・読めない場合を黙って握り潰す（NFR-FAIL-001 に反する）
+  - label: '案 B: 標準 LSP メッセージに寄せる（エディタが didOpen でテキストを送り、didSave を書き込み契機にする）'
+    pros:
+    - 標準の LSP メッセージだけで済み、独自リクエストが増えない
+    cons:
+    - エディタはファイルを読めないため、didOpen に載せるテキストをそもそも取得できない（読み込み側が成立しない）
+    - didSave は「クライアントが保存を完了した」通知であり、サーバへの書き込み依頼ではない。意味を曲げることになる
+    - stdio クライアント（Claude Code / VS Code）も didSave を送るため、そちらでも二重書き込みが起きうる
+  - label: '案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う'
+    pros:
+    - stdio モードの挙動が一切変わらず FR-LSP-002 を保てる
+    - 開く・保存が明示的な操作になり Playwright スモークの手順（開く → 紋を追加 → 保存）と 1:1 で対応する
+    - 差分がリクエスト 2 本に閉じる
+    - ファイルが無い・読めない・書けない場合をプロトコル上のエラーとして返せる（NFR-FAIL-001）
+    cons:
+    - 要件書 §6.3 の独自リクエスト 4 種という規定に 2 本追加することになる（仕様変更の承認が要る）
+    - docs/spec/ops.md と LSP のドキュメントを更新する必要がある
+  sub_decision_undo_redo: "undo/redo の往復形式も本 DP に含む。決めるべきは 3 点。\n(1) 逆オペレーションの表現 —\
+    \ applyOps と同じオペレーション型で返すか、専用の表現にするか。\n    同じ型で返せばクライアントは逆を applyOps に投げるだけで済む（推奨）。\n\
+    (2) applyOps が途中で失敗したときの逆オペレーション — オペレーション列の一部だけ適用された状態を\n    作らない（全適用または全不適用）ことを契約にするのが望ましい。部分適用を許すと\n\
+    \    クライアントの undo スタックとサーバの実状態が乖離する。\n(3) 外部からファイルが変更されたとき（jin fmt を別プロセスで実行した等）に\n\
+    \    クライアントの undo スタックをどう扱うか。破棄する規則を明示するのが安全。"
+  replaceability: '開く・保存の呼び出しを DP-COMMON-17 のラッパモジュール内の関数 2 本にし、
+
+    UI からは「開く」「保存する」という 2 つの操作としてのみ見えるようにする。
+
+    案 A / B / C のいずれに転んでも UI コンポーネントは変わらない。'
+  risk_if_not_decided: 'Phase 4 で LSP を作り終えた後、Phase 5 の Playwright スモークで
+
+    「そもそもファイルを開けない」「保存してもファイルが変わらない」ことが判明し、Phase 4 の LSP 設計に戻る。
+
+    ADR-001 の Phase 順進行では最も高くつく手戻りであり、本 DP を Phase 4 着手前に決める必要がある。'
+excluded_decision_points:
+  note: 'DP-COMMON-01〜20 のうち発火しなかった 10 件。本案件は Web アプリケーションではなく
+
+    「言語処理系 + LSP サーバ + SPA エディタ」であり、DB / 認可 / セッション / 非同期ジョブ /
+
+    可用性 SLA といった Web 業務システム前提の DP が構造的に発火しない。
+
+    無理に発火させず、後段で「気づきを逃した」が監査できるよう理由を残す。'
+  items:
+  - id: DP-COMMON-01
+    title: FW 選定
+    skip_reason: '要件書 §1.1 技術選定表が 11 領域すべてを人間確定済み（requirements.json の DP-JIN-STACK-01）。
+
+      案件で選び直す合意はない。design フェーズで比較をやり直さないことが decision_record に明記されている。'
+  - id: DP-COMMON-02
+    title: API スタイル
+    skip_reason: '外部公開 API・クライアント連携 API が存在しない。エディタとサーバの通信は LSP の JSON-RPC であり、
+
+      要件書 §6 が標準機能 8 種と独自リクエスト 4 種として確定させている。
+
+      REST / GraphQL / tRPC / gRPC の選択余地はない。ただし ws モードのファイル書き込み責務は
+
+      プロトコルの設計論点として残るため DP-JIN-EDITOR-PROTOCOL-01 として別途起票した。'
+  - id: DP-COMMON-03
+    title: データモデル粒度
+    skip_reason: 'データベースを持たず、読取頻度・複雑な結合・履歴のいずれの要件も存在しない。
+
+      意味モデルの構造は要件書 §2.1 / §2.2 が語彙レベルで確定させており、
+
+      正本は Pydantic 定義（NFR-SSOT-001）。粒度の設計余地がない。'
+  - id: DP-COMMON-04
+    title: DB 製品
+    skip_reason: 'データベースを持たない。永続化は .jin ファイル（JSON）のみで、「ファイルが唯一の状態」が
+
+      要件書 §10 #10 で人間確定済み。規模・一貫性・コストの NFR も存在しない。'
+  - id: DP-COMMON-05
+    title: 認可モデル
+    skip_reason: 'NFR-SEC-001 のとおり本件に認証要件は無く、ロール・権限・組織・権限分離の記述が要件に一切現れない。
+
+      ローカル開発ツールチェーンであり、アクセス主体は開発者本人 1 人。'
+  - id: DP-COMMON-06
+    title: 状態管理（セッション / JWT）
+    skip_reason: 'ログイン状態・セッション・JWT・スケールアウトのいずれも要件に現れない。
+
+      LSP のドキュメント状態はプロトコルが規定するもので、設計で選ぶ対象ではない。
+
+      エディタ側の一時 UI 状態は別論点として DP-COMMON-16 で発火させた。'
+  - id: DP-COMMON-08
+    title: 非同期ジョブ
+    skip_reason: 'バッチ・メール配信・定期実行の要件がない。jin run はユーザが明示的に起動する同期実行で、
+
+      ライブストリーミング表示は要件書 §0 で v1 非目標と確定している。'
+  - id: DP-COMMON-10
+    title: デプロイ方式
+    skip_reason: '配布方式は要件書 §10 #8 で人間確定済み（uv tool install を社内 git から / Claude Code
+      プラグインは
+
+      ai-delivery マーケットプレイス経由）。リリース・ダウンタイム・フィーチャーフラグの要件はない。
+
+      配布先の具体的な移管先は DP-JIN-DISTRIBUTION-01（ai_provisional・レビュー待ち）で既に扱われている。'
+  - id: DP-COMMON-12
+    title: 性能 SLA
+    skip_reason: 'NFR-PERF-001 が「1000 行以下のファイルで診断 1 秒以内」と閾値を人間確定済みで、
+
+      設計で選ぶ余地は達成手段のみ。その手段（再計算とキャッシュの戦略）は DP-COMMON-07 に統合した。
+
+      同時ユーザ数・スループットの要件は存在しない（単一ユーザのローカルツール）。'
+  - id: DP-COMMON-13
+    title: 可用性目標
+    skip_reason: 'SLA が要件に存在しない。常駐サービスを持たないローカルツールであり稼働率の概念がない。
+
+      NFR-AVAIL-001 は「構文エラー中も直前の正常モデルで応答する」というエラー回復の要件であって
+
+      可用性 SLA ではないため、DP-COMMON-07 の判断軸に含めた。'
+decision_record:
+- id: DP-COMMON-07
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    constraints:
+    - text: last-good モデルの保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込める（design.yaml replaceability）
+      kind: scope
+    - text: jin_core / jin_render はキャッシュの存在を知らない純関数のままとし、内部に状態を持たない
+      kind: scope
+    - text: SVG はキャッシュしない。決定性テスト（NFR-DET-001）がキャッシュヒットを見る偽 green を作らないこと
+      kind: scope
+    review_status: approved
+  chosen: '案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない'
+  compared:
+  - '案 A: キャッシュを持たず毎回フル再計算し、構文エラー時は診断のみ返す'
+  - '案 C: last-good モデルに加え SVG も (uri, focus, trace, upto) をキーにキャッシュする'
+- id: DP-COMMON-09
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:08+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    adr_ref: docs/adr/ADR-003-DP-COMMON-09.md
+    constraints:
+    - text: 横断契約テストの置き場は tests/contract/ とする。パッケージ横断 fixture の共有方法は実装 Stage で決め、根拠を残す
+      kind: condition
+    - text: テストはネットワークアクセスと API キーを一切必要としない（NFR-TEST-001）
+      kind: scope
+    review_status: approved
+  chosen: '案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト'
+  compared:
+  - '案 A: 単一の tests/ に §9 の 11 対象をフラットに並べる'
+  - '案 B: テストピラミッド（unit / integration / e2e）で切る'
+- id: DP-COMMON-11
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    adr_ref: docs/adr/ADR-004-DP-COMMON-11.md
+    constraints:
+    - text: design.yaml architecture.dependency_direction.rules の 8 行を契約の正本とし、検査ツールを差し替えても契約は動かさない
+      kind: scope
+    - text: CI は jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと
+      kind: condition
+    - text: apps/editor は Python パッケージを直接 import しない（LSP プロトコルにのみ依存する）
+      kind: scope
+    review_status: approved
+  chosen: '案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査'
+  compared:
+  - '案 A: uv workspace の依存宣言（pyproject.toml の dependencies）だけで担保する'
+  - '案 C: 自前の AST 走査テスト（tests/contract/test_dependencies.py）を書く'
+- id: DP-COMMON-14
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    constraints:
+    - text: stdio モードでは stdout に JSON-RPC 以外のいかなる出力も行わない
+      kind: scope
+    - text: トレース JSONL は要件書 §3.4 のスキーマに従う成果物であり、ログとして扱わない
+      kind: scope
+    - text: ログレベル・フォーマット・ローテーションの方針は本判断では確定しない。実装 Phase 4 で決定し根拠を残す
+      kind: condition
+    review_status: approved
+  chosen: '案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する'
+  compared:
+  - '案 A: pygls / Python 標準 logging の既定に任せる'
+  - '案 C: LSP の window/logMessage 通知にログを寄せる'
+- id: DP-COMMON-15
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:08+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    constraints:
+    - text: .env.example のキー名は本判断では確定しない。実装 Stage 1 の tech-version-check で google-adk
+        2.8.0 が読む環境変数名を実測し、その実測値のみをテンプレートに固定する
+      kind: condition
+    - text: 推測・記憶・一般論に基づくキー名を .env.example に書かない（T-002）
+      kind: prohibition
+    - text: 実測できなかった場合は .env.example をコメントのみ（キー名なし）で生成し、docs/pending-decisions.md
+        に残す
+      kind: condition
+    - text: テストは .env / API キー / ネットワークを必要としない（NFR-TEST-001）
+      kind: scope
+    review_status: approved
+  chosen: '案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する'
+  compared:
+  - '案 A: 設計フェーズで代表的なキー名を書いてしまう'
+  - '案 C: .env.example を生成せず README に案内だけ書く'
+- id: DP-COMMON-16
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    constraints:
+    - text: tools[].name / state[].name は circle 内一意であって全体一意ではないため、選択は必ず circle 名で限定した
+        3 つ組で保持する
+      kind: condition
+    - text: モデルの写し（circles 配列や tool 一覧）をクライアントに複製しない
+      kind: scope
+    - text: rename 直後の選択再解決規則は本判断では確定しない。実装 Phase 5 で決定し根拠を残す
+      kind: condition
+    - text: 状態管理ライブラリは追加せず React の useReducer / Context の範囲に収める
+      kind: scope
+    review_status: approved
+  chosen: '案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す'
+  compared:
+  - '案 A: 選択も含めて生の JSON Pointer で保持する'
+  - '案 C: サーバがモデルの完全な写しをクライアントに持たせ、クライアント側で楽観更新する'
+- id: DP-COMMON-17
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    constraints:
+    - text: 具体的なライブラリの選定とバージョンは本判断では確定しない。実装 Stage 1 の tech-version-check で決定し根拠を残す
+      kind: condition
+    - text: 本判断でライブラリ版を成果物に書かない（design.yaml DEG-VERSION-CHECK と同じ規律）
+      kind: prohibition
+    - text: サーバ側 Python の型と二重管理になるため、同期のドリフト検出方法を実装 Phase 5 で決めること
+      kind: condition
+    review_status: approved
+  chosen: '案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ'
+  compared:
+  - '案 A: 生の WebSocket に JSON-RPC を手書きする'
+  - '案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる'
+- id: DP-COMMON-18
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    constraints:
+    - text: エディタ単体のサーバを持たない。ビルド成果物は静的ファイル一式とし jin editor が配信する（FR-EDITOR-004）
+      kind: scope
+    - text: 開発時は Vite dev server から同一の WebSocket に接続する
+      kind: scope
+    review_status: approved
+  chosen: '案 A: SSR なし単一ページ SPA。モードはページ内切替'
+  compared:
+  - '案 B: クライアントルーティングで /edit と /debug を分ける'
+  - '案 C: SSR / SSG を入れる'
+- id: DP-COMMON-19
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    constraints:
+    - text: ステイル状態では「直前の正常モデルを表示している」ことを画面上で明示し、正常表示と混ぜない
+      kind: condition
+    - text: 正常モデルが 1 度も得られていない状態を「表示不能」として独立させ、接続断と同じ扱いにしない
+      kind: condition
+    review_status: approved
+  chosen: '案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態'
+  compared:
+  - '案 A: 読込中 / 正常 / エラー の 3 状態'
+  - '案 C: 診断バッジだけで伝え、画面全体の状態は持たない'
+- id: DP-COMMON-20
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:08+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    constraints:
+    - text: Playwright スモークは要件書 §9 の必須 1 本（開く → 紋を追加 → 保存 → 正準形バイト一致）と Phase 6 のスクラバ
+        1 本に限る
+      kind: scope
+    - text: LSP プロトコルそのものの検証は Python 側の pytest-lsp が担い、エディタ側で重複させない
+      kind: scope
+    - text: エディタ側テストもネットワーク・API キーを必要としない（NFR-TEST-001）
+      kind: scope
+    review_status: approved
+  chosen: '案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層'
+  compared:
+  - '案 A: Playwright のみ（§9 の記述どおり 1 本）'
+  - '案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる'
+- id: DP-JIN-CANONICAL-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    adr_ref: docs/adr/ADR-005-DP-JIN-CANONICAL-01.md
+    constraints:
+    - text: §2.3 の 5 規則は canonical writer 1 箇所にのみ実装し、Pydantic 設定と後処理へ分散させない
+      kind: scope
+    - text: Pydantic のモデル定義変更に writer が追随することをテストで担保する（往復無損失と fmt(fmt(x)) == fmt(x)）
+      kind: condition
+    - text: JSON エスケープ処理を自前で書くことによるバグリスクを、非 ASCII・制御文字・サロゲートペアの fixture で必ず検証する
+      kind: condition
+    review_status: approved
+  chosen: '案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）'
+  compared:
+  - '案 A: json.dumps の引数調整のみ（indent=2, ensure_ascii=False, sort_keys=False）'
+  - '案 B: Pydantic の model_dump（exclude_defaults / exclude_none）+ json.dumps 後処理'
+- id: DP-JIN-POINTER-RANGE-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
+    adr_ref: docs/adr/ADR-006-DP-JIN-POINTER-RANGE-01.md
+    constraints:
+    - text: schemas/jin.schema.json は外部 JSON ツールと LLM 向けの公開契約であり、内部検証には使わない
+      kind: scope
+    - text: JIN002 の検出器は Pydantic に一本化する。同じ違反に複数のメッセージ形式を生む検証器を併用しない
+      kind: scope
+    - text: loc → pointer の変換規則を判別共用体（tools[].kind）・Optional・エイリアスについて網羅的にテストする
+      kind: condition
+    review_status: approved
+  chosen: '案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く'
+  compared:
+  - '案 A: Lark の木にモデルを重ねず、行・列は構文エラー（JIN001）のみに付ける'
+  - '案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む'
+- id: DP-JIN-SEMANTIC-GAPS-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    adr_ref: docs/adr/ADR-007-DP-JIN-SEMANTIC-GAPS-01.md
+    constraints:
+    - text: 新規 JIN 診断コードの採番値は本判断では確定しない。要件書 §2.4 は JIN001〜JIN070 の 12 件のみを定義しており、空き番号への採番は
+        Phase 0 の docs/spec/diagnostics.md 執筆時に決定し根拠を残す
+      kind: condition
+    - text: 本判断で具体的なコード番号を成果物に書かない（T-002・要件書に無い値を捏造しない）
+      kind: prohibition
+    - text: 要件書 §2.4 の診断コード表への追加であり、仕様変更として人間の承認を要する
+      kind: condition
+    - text: 追加後は docs/spec/diagnostics.md と schemas/jin.schema.json の整合を取り直すこと
+      kind: condition
+    review_status: approved
+  chosen: '案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する'
+  compared:
+  - '案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる）'
+  - '案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う）'
+- id: DP-JIN-CODEGEN-RUNTIME-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    adr_ref: docs/adr/ADR-008-DP-JIN-CODEGEN-RUNTIME-01.md
+    constraints:
+    - text: FakeLlm は生成物に埋め込まず jin_adk 側に置く（生成された agent.py に FakeLlm は現れない）
+      kind: scope
+    - text: 生成された agent.py は jin パッケージを一切 import しない
+      kind: scope
+    - text: flow.exit を持つ circle が複数ある場合の StateCheckAgent 重複定義の扱い（1 定義に集約するか毎回展開するか）は実装
+        Phase 2 で決定し根拠を残す
+      kind: condition
+    - text: StateCheckAgent の実装を変更しても既存の生成物には反映されないため、再生成が必要である旨を生成物のヘッダまたは README
+        に明示する
+      kind: condition
+    review_status: approved
+  chosen: '案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）'
+  compared:
+  - '案 B: jin_adk.runtime から import させる（生成物は jin に依存）'
+  - '案 C: 生成時に別ファイル（_jin_runtime.py）を出力ディレクトリへ一緒に書き出す'
+- id: DP-JIN-TRACE-POINTER-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    adr_ref: docs/adr/ADR-009-DP-JIN-TRACE-POINTER-01.md
+    constraints:
+    - text: 対応表を生成物（agent.py）に埋め込まない。生成コードは Jin を知らないままとする
+      kind: scope
+    - text: 引けなかったイベントは pointer を null にして黙って落とさず、対応不能であることを明示する（NFR-FAIL-001）
+      kind: condition
+    - text: 生成物を jin run を経由せず単体で adk run した場合はトレースの pointer が付かない。この制約をドキュメントに明示する
+      kind: scope
+    review_status: approved
+  chosen: '案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く'
+  compared:
+  - '案 A: 実行時に Event の内容から jin-core のモデルを検索して逆引きする'
+  - '案 C: 生成コード自体に pointer をコメントや属性として埋め込む'
+- id: DP-JIN-SVG-DETERMINISM-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    adr_ref: docs/adr/ADR-010-DP-JIN-SVG-DETERMINISM-01.md
+    constraints:
+    - text: 丸め桁数の具体値は本判断では確定しない。要件書に記載がないため、実装 Phase 3 で決定し根拠を docs/spec/layout.md
+        に残す
+      kind: condition
+    - text: 推測に基づく丸め桁数を設計成果物に固定しない（T-002・具体値を捏造しない）
+      kind: prohibition
+    - text: 決定性テストは同一プロセス内 2 回ではなく、異なる PYTHONHASHSEED の別プロセス 2 回で行う（同一プロセス内の一致は辞書順序依存を検出できず偽
+        green になりうる）
+      kind: condition
+    - text: 星形多角形 {n/k} の k は gcd による整数演算で求める。n の範囲と k が複数候補あるときの選択規則は Phase 0 の docs/spec/layout.md
+        で一意に明文化する
+      kind: condition
+    - text: 座標を SVG へ書き出す経路は必ずこの丸め関数 1 本を通す。素の float 文字列化を混在させない
+      kind: scope
+    review_status: approved
+  chosen: '案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）'
+  compared:
+  - '案 A: Python の float をそのまま f-string で文字列化する'
+  - '案 C: Decimal または整数座標系で計算する'
+- id: DP-JIN-EDITOR-PROTOCOL-01
+  status: decided
+  decision_record:
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
+    adr_ref: docs/adr/ADR-011-DP-JIN-EDITOR-PROTOCOL-01.md
+    constraints:
+    - text: jin/open と jin/save は ws モードのエディタだけが使う。stdio クライアント（Claude Code / VS Code）は使わず、従来どおりクライアントがファイル
+        I/O を担う
+      kind: scope
+    - text: リクエスト名 jin/open と jin/save は仮称であり本判断では確定しない。要件書 §6.3 の独自リクエスト 4 種への追加として仕様変更の人間承認を得たうえで、Phase
+        0 の docs/spec/ops.md 執筆時に確定する
+      kind: prohibition
+    - text: ファイルが存在しない・読めない・書けない場合はプロトコル上のエラーとして返し、黙って握り潰さない（NFR-FAIL-001）
+      kind: scope
+    - text: undo/redo の逆オペレーションはサーバが applyOps の応答に含め、クライアントが保持する（要件書 §6.3）。その表現と適用失敗時の扱いは実装
+        Phase 4 で確定し根拠を残す
+      kind: condition
+    review_status: approved
+  chosen: '案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う'
+  compared:
+  - '案 A: サーバが暗黙にディスクを読み書きする（open は pygls の遅延読込に任せ、save は applyEdit 適用後に常に書く）'
+  - '案 B: 標準 LSP メッセージに寄せる（エディタが didOpen でテキストを送り、didSave を書き込み契機にする）'
+decision_record_note: '本設計フェーズで新規に確定した判断は 0 件。
+
+  人間確定済みの 17 件は requirements.json の decision_record[] が正本であり、
+
+  本ファイルでは architecture.predetermined_constraints に設計制約として反映した（重複記録しない）。
+
+  本フェーズが発火判定した 17 件の DP は T-002 に従いすべて undecided[] に残す。
+
+  auto mode では親が auto-decider に回して ai_provisional として仮確定させる。'
+undecided: []
+required_build_env: []
+required_build_env_note: 'apps/editor のビルド時に解決が必要な環境変数は、要件書・requirements.json のいずれにも記載がない。
+
+  AI がキー名を推測・補完してはならない（design.schema.json の required_build_env の記述・T-002）ため空配列とする。
+
+  現時点の設計では、エディタが接続する WebSocket のポートは jin editor が実行時に決めて配信するため
+
+  ビルド時 env を必要としない見込みだが、これは実装 Stage で確認すべき事項であり、
+
+  必要なキーが判明したら本フィールドを更新すること。
+
+  なお生成 ADK プロジェクトの .env.example に載せるキー名は別論点で、DP-COMMON-15 として起票した。'
+domain_specific:
+  ui_design_note: 'design.schema.json の ui_design（figma_url / screen_count 必須）は本ファイルで省略した。
+
+    Figma のデザインファイルが存在せず（ADR-002 のとおりデザイナー不在）、
+
+    figma_url に書くべき値が無いため。捏造した URL を置くより省略が正しい（T-002）。
+
+    エディタの画面は実質 1 ページ（編集モード / デバッグモードをページ内で切り替える・DP-COMMON-18 推奨案）で、
+
+    その構成要素は SVG キャンバス / プロパティパネル / 診断バッジ / タイムラインスクラバ / イベント詳細パネル。
+
+    いずれも要件書 §7.1 / §7.2 が機能として規定しており、見た目の指定はない。'
+  api_spec_note: 'design.schema.json の api_spec（openapi_path / style 必須）も省略した。
+
+    style の enum は REST / GraphQL / tRPC / gRPC で、本案件の LSP JSON-RPC はいずれにも該当しない。
+
+    サーバとクライアントの契約は boundary_contracts の LSP プロトコル と、
+
+    要件書 §6.2（標準機能 8 種）/ §6.3（独自リクエスト 4 種 + 意味オペレーション 19 種）が正本。'
+  local_dev_stack_note: 'design.schema.json の local_dev_stack（emulator_docker / emulator_host
+    / cloud_direct）も省略した。
+
+    ローカル開発時に接続する依存サービスが存在しないため、3 つの選択肢のいずれにも当てはまらない。
+
+    テストは FakeLlm によりネットワークに一切出ない（NFR-TEST-001）。'
+  aws_note: aws_api_requirements は省略。AWS を使わない（cloud なし）。
+  data_model:
+    note: 'db_schema が RDB を前提としており本案件の実態を表せないため、データモデルの構造をここに置く
+
+      （degradation_notes の DEG-SCHEMA-DB-MISMATCH 参照）。
+
+      これは要約であり、正本は Pydantic 定義（NFR-SSOT-001）と、そこから生成される
+
+      schemas/jin.schema.json および docs/spec/model.md。本ファイルの記述と食い違う場合は正本が優先する。'
+    source_of_truth:
+    - Pydantic v2 のモデル定義（packages/jin-core/src/jin_core/model.py 相当）
+    - schemas/jin.schema.json（Pydantic から生成しコミット・CI でドリフト検出）
+    - docs/spec/model.md（意味論とキーの説明・LLM の参照資料）
+    persistence: '単一の .jin ファイル（JSON・UTF-8・正準形）。v1 は単一ファイルのみで import なし（要件書 §10 #6）'
+    root_keys:
+    - key: $schema
+      note: 先頭固定。スキーマの URL
+    - key: version
+      note: 先頭固定。将来拡張はこの値を上げる
+    - key: root
+      note: エントリポイントとなる circle 名。生成モジュールの root_agent になる
+    - key: circles[]
+      note: 配列順が描画順（12 時から時計回り）
+    circle_keys:
+    - key: name
+      note: ファイル内一意。名前が ID（要件書 §10
+    - key: core
+      note: モデル文字列。core を持つと LlmAgent。core と flow は排他で両方持つ / 両方無いのは JIN022
+    - key: description
+      note: 任意
+    - key: instruction.rune
+      note: 指示テキスト。{state_key} テンプレートは透過。SHA-256 が装飾の決定的な種になる
+    - key: tools[]
+      note: 判別共用体。kind は tool（FunctionTool）/ builtin / summon（AgentTool）。circle 内一意
+    - key: delegate[]
+      note: サブ陣への委譲。LlmAgent.sub_agents になる
+    - key: state[]
+      note: 'circle 内一意。out: true のものだけが output_key になる'
+    - key: flow
+      note: kind は sequence / parallel / loop。steps は circle 名の配列。loop は max（LoopAgent.max_iterations）と
+        exit の少なくとも一方が必須（JIN030）
+    - key: flow.exit
+      note: '{ key, equals } のみ（v1）。BaseAgent 継承の StateCheckAgent を生成する（DP-JIN-CODEGEN-RUNTIME-01）'
+    - key: boundary.guards[]
+      note: on は before_agent / after_agent / before_model / after_model / before_tool
+        / after_tool。ADK のコールバック引数名に対応
+    - key: boundary.await[]
+      note: 人の介入点。LongRunningFunctionTool になる。境界環の欠けとして描かれる
+    constraints:
+    - 'additionalProperties: false（未知のキーはスキーマ違反 JIN002）'
+    - 順序を持つものはすべて配列で、配列順が描画順を決める
+    - Python 参照は module.path:callable 形式のみ。インライン Python は不可
+    - 名前が ID であり、参照は名前で行う。rename は参照追随の意味オペレーション
+    - 位置の鍵は JSON Pointer。data-jin / 診断 / トレースが同一の Pointer 空間を共有する
+  success_criteria_mapping:
+    note: 要件書 §0 の成功条件 6 件が、本設計のどの Phase の検証項目で満たされるかの対応。
+    items:
+    - criterion: .jin 1 つから adk run / adk web で動く ADK プロジェクトが生成される
+      phase: 2
+      verified_by: 生成モジュールの import テストと ADK オブジェクト木の検証（machine）+ 実 adk run（human_only）
+    - criterion: 同じ .jin から常に同じ SVG が生成される
+      phase: 3
+      verified_by: 異なる PYTHONHASHSEED の別プロセス 2 回でのバイト一致テスト
+    - criterion: Claude Code が jin check --json と LSP 診断だけで構文・意味エラーを修正しきれる
+      phase: 1
+      verified_by: 全診断コードの fixture が対応コードを 1 つだけ出し、hint に具体値が入ることの検査
+    - criterion: LSP が Claude Code プラグインとして配布され .jin を開くと診断・定義ジャンプが効く
+      phase: 4
+      verified_by: pytest-lsp（stdio / ws）と claude plugin validate（machine）+ 実 Claude
+        Code での確認（human_only）
+    - criterion: 視覚エディタの編集がファイルに反映され開き直すと同じ状態に戻る
+      phase: 5
+      verified_by: 往復無損失テストと Playwright スモークのバイト一致
+    - criterion: jin run --trace の出力をエディタで読み込み魔法陣上でイベントを追える
+      phase: 6
+      verified_by: Playwright でのスクラバ操作とオーバーレイ変化の検証
+  next_actions:
+  - 親が本ファイルを yaml.safe_load で構文検証する
+  - 親が handoff.json の 17 件を auto-decider へ回し ai_provisional を確定させる
+  - 確定後、ADR-003 以降を 8 件の候補（adr_list.adr_note 参照）に割り当てて起票する
+  - 実装フェーズ Stage 1 で tech-version-check を実行し、adk-api-probe.md に無いバージョン（React / TypeScript
+    / Vite / Playwright / ruff / import-linter）を実測する

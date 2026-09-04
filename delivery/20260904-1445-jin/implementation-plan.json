@@ -1,0 +1,1303 @@
+{
+  "$comment": "implementation-plan.schema.json 準拠。実装ラウンド 1/5（Jin Phase 0 + Phase 1）が新規作成した。後続 4 ラウンドはこのファイルを extend すること。skill_plan[] / tasks[] / verification_status.evidence[] の各要素には jin_phase タグ（0..6）を付ける。",
+  "round": {
+    "index": 1,
+    "of": 5,
+    "jin_phases": [
+      0,
+      1
+    ],
+    "scope": "Phase 0（仕様書 5 本 + examples 2 本 + 突合テスト）と Phase 1（jin-core + jin-cli の check / fmt / schema / dump）。Phase 2 以降は別ラウンドの implementer が担当する。",
+    "implementer": "impl-p01"
+  },
+  "modules": [
+    {
+      "module_ref": "MOD-CATALOG-OUT-jin",
+      "priority": 1,
+      "note": "モジュールカタログ（MCS）に該当する正規採番が無い。本案件は Web 業務システムではなく言語処理系 + LSP + SPA エディタであり、カタログ外コアとして placeholder を置く（Issue #297 の MOD-CATALOG-OUT-* を使用）。推測で MOD-001 等を割り当てない（T-002 / DP-46）。"
+    }
+  ],
+  "tdd_strategy": "TDD",
+  "ci_cd_config": {
+    "type": "GitHub Actions",
+    "hooks": [
+      "uv sync --frozen",
+      "uv run lint-imports",
+      "uv run ruff check .",
+      "uv run ruff format --check .",
+      "uv run python scripts/generate_schema.py && git diff --exit-code -- schemas/jin.schema.json",
+      "uv run pytest",
+      "uv run jin check examples",
+      "uv run jin fmt --check examples"
+    ],
+    "workflow_path": ".github/workflows/ci.yml",
+    "note": "ワークフローファイルは本ラウンドで作成したが、GitHub Actions 上での実行は行っていない（verification_status.layers.pipeline_e2e = not_run）。同じコマンド列をローカルで実行して全て通ることは確認済み。"
+  },
+  "pr_strategy": {
+    "pr_max_size_lines": 4000,
+    "branch_naming": "feat/jin-phase-<N>-<slug>",
+    "merge_strategy": "squash",
+    "note": "本ラウンドの差分は新規リポジトリの初期実装で 4000 行程度になる。implementer は commit / push を行わず、親が Stage 5 のあとに行う。"
+  },
+  "skill_plan": [
+    {
+      "skill": "implementation-skill-planner",
+      "stage": "pre",
+      "trigger": "/aid implement の Step 0。design.yaml から skill_plan を導出する（B-13 / B-18）",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": null,
+      "applies_to": [
+        "design.yaml:implementation_phases",
+        "design.yaml:architecture.stack"
+      ],
+      "note": "本ファイルの skill_plan がその出力。"
+    },
+    {
+      "skill": "tech-version-check",
+      "stage": "pre",
+      "trigger": "architecture.stack に Python / Pydantic / Lark / typer が記述されている（実装フェーズ全案件で必須・B-11）",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": 1,
+      "evidence": "delivery/20260904-1445-jin/version-matrix.md",
+      "note": "一次証拠は親が隔離 venv で実インストールして introspection した adk-api-probe.md / lsp-api-probe.md。公式サイトへの WebFetch より強い証拠なのでこれを primary evidence とし、両プローブに無い 5 パッケージ（import-linter / ruff / pytest / pytest-cov / hatchling）だけ PyPI JSON API で本セッションが実測した。"
+    },
+    {
+      "skill": "scaffold-bootstrap",
+      "stage": "pre",
+      "trigger": "architecture.stack に rails / nextjs / laravel を含む場合に発火する",
+      "owners": [
+        "shared"
+      ],
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "jin_phase": 1,
+      "not_applicable_reason": "本案件は Python の uv ワークスペースであり、`rails new` 相当の scaffold ジェネレータを持つ FW を使わない。対応 FW（rails / nextjs / laravel）のいずれにも該当しないため本スキルの適用対象外。skipped ではない（省略指示を受けたのではなく、そもそも対象が存在しない）。"
+    },
+    {
+      "skill": "dependency-availability-check",
+      "stage": "pre",
+      "trigger": "宣言した依存が実在し解決できることの確認（B-31 / RULE-19）",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": 1,
+      "evidence": "delivery/20260904-1445-jin/implementation-notes.md#依存解決",
+      "note": "`uv sync` が exit 0 で 23 パッケージを解決・インストール。Gemfile / package.json / composer.json は存在しないので、対応する言語別レシピではなく uv による解決で代替した。"
+    },
+    {
+      "skill": "reserved-name-check",
+      "stage": "pre",
+      "trigger": "db_schema.tables[] に table 定義があり、rails / nextjs / laravel の予約語と衝突しうる場合に発火する",
+      "owners": [
+        "shared"
+      ],
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "jin_phase": 1,
+      "not_applicable_reason": "本案件は DB を持たず design.yaml の db_schema も『該当なし』。テーブル名も ORM モデル名も存在しないため予約語衝突の検査対象が無い。なお Python の予約語衝突（`await` / `type`）はモデル定義側で alias / 属性名により回避済み（jin_core.model.Boundary.await_）。skipped ではない。"
+    },
+    {
+      "skill": "tdd-protocol",
+      "stage": "core",
+      "trigger": "tdd_strategy = TDD（既定・Issue #253 決定 3）。core Stage の先頭に投入する",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": 1,
+      "note": "Phase 1 の 7 実装単位すべてで Red（ModuleNotFoundError / 実アサーション失敗）を観測してから実装した。証拠は verification_status.evidence[] の tdd-red / tdd-green 行。Phase 0 の突合テストのみ TestAfter（decision_record DP-IMPL-JIN-TDD-P0-01 を参照）。"
+    },
+    {
+      "skill": "wiring-check",
+      "stage": "post",
+      "trigger": "middleware / initializer / routes を生成するスキルが core Stage に入っている場合に発火する（B-35 / RULE-23）",
+      "owners": [
+        "shared"
+      ],
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "jin_phase": 1,
+      "not_applicable_reason": "本案件は CLI + ライブラリであり、middleware / initializer / routes という配線の概念が存在しない。config/application.rb 相当のファイルも無い。検証すべき『宣言した配線が実スタックに反映されているか』の対象が無いため適用対象外。skipped ではない。"
+    },
+    {
+      "skill": "error-handling-coverage",
+      "stage": "post",
+      "trigger": "Cookie / セッション / CSRF を扱うスキルが core Stage に入っている場合に発火する（B-35 / RULE-24）",
+      "owners": [
+        "shared"
+      ],
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "jin_phase": 1,
+      "not_applicable_reason": "HTTP サーフェスが無い。403 / 404 / 422 / 500 の HTML/JSON 応答も CSRF も本案件に存在しない。エラー処理の網羅性は CLI の exit code と診断で担保しており、それは spec-coverage 側で検証した。skipped ではない。"
+    },
+    {
+      "skill": "smoke-run",
+      "stage": "verify",
+      "trigger": "rails / typescript-node のバックエンドで bundle install → migrate → サーバ起動 → HTTP 200 を確認する（B-32 / RULE-21）",
+      "owners": [
+        "shared"
+      ],
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "jin_phase": 1,
+      "not_applicable_reason": "起動するサーバが無く HTTP 200 の検査対象が存在しない。本スキルの代わりに、本案件のスモークとして `uv run pytest` の全通過と `jin check examples` の exit 0 を実行し、verification_status.domain_checks[] と evidence[] に記録した。skipped ではない。"
+    },
+    {
+      "skill": "spec-coverage",
+      "stage": "verify",
+      "trigger": "design.yaml implementation_phases[].verification.machine の各条件を 1 つずつ検証する（B-34 / RULE-22）",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": 0,
+      "evidence": "delivery/20260904-1445-jin/implementation-notes.md#spec-coverage",
+      "applies_to": [
+        "implementation_phases.items[0].verification.machine (6 条件)",
+        "implementation_phases.items[1].verification.machine (9 条件)"
+      ],
+      "note": "Rails / iOS 前提の UC↔routes 網羅ではなく、本案件の machine 条件 15 件を 1 件ずつコマンドで検証する形に置き換えた。15/15 PASS。ただし Phase 0 の machine 条件 5（adk-mapping の行数）は design.yaml が『11 行』と書いており上流（要件書 §2.1 / requirements.json FR-MODEL-002）の 12 行と食い違う。上流 2 系統が一致するほうを正として PASS 判定し、design.yaml の転記誤りとして確認要求を返した。"
+    },
+    {
+      "skill": "decision-conformance-check",
+      "stage": "verify",
+      "trigger": "実装フェーズの全案件で verify Stage 末尾に必須（DP-CONFORMANCE-01 / Issue #120）",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": null,
+      "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+      "note": "reflected 14 / 部分 reflected 1 / not_reflected 0 / unknown 0 / out_of_scope 13。out_of_scope は Phase 2 以降でしか実装対象が現れない DP で、unknown とは区別している。"
+    },
+    {
+      "skill": "verification-status-aggregation",
+      "stage": "verify",
+      "trigger": "Stage 4 末尾で verification_status を確定する（B-39 / Issue #28 P1 / Issue #119）",
+      "owners": [
+        "shared"
+      ],
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "jin_phase": null,
+      "note": "required_layers を [backend_unit] と明示した。本案件にコンテナもブラウザも存在せず、既定の [container_smoke] のままでは overall が構造的に verified に到達できないため。"
+    },
+    {
+      "skill": "parallel-code-review",
+      "stage": "review",
+      "called": true,
+      "required": true,
+      "result": "passed",
+      "jin_phase": "0,1",
+      "note": "実施主体は親（/aid auto-deliver の実行主体）。/feature-dev の code-reviewer を correctness / conventions / wiring / security の 4 並列で起動し、初回 86 finding。修正 5 ラウンドののち同一観点 reviewer による defect-gone 確認を完了。生出力は delivery/20260904-1445-jin/code-review-raw/ に 13 本（初回 4 + round1 4 + round2 3 + round3 1 + round4 1）。集約は code-review-report.md。DP-IMPL-STAGE-06-REVIEW-CALLED-01 案 (i) に従い親が called を書き戻した。",
+      "trigger": "design.yaml.review_policy.stage_order=after_verify（既定）。実装コードを持つ案件は Stage 5 が必須（DP-IMPL-STAGE-03 / DP-REVIEW-SECURITY-01）",
+      "owners": [
+        "shared"
+      ],
+      "applies_to": [
+        "jin-core",
+        "jin-cli",
+        "docs/spec",
+        "examples",
+        "schemas",
+        "tests",
+        ".github/workflows/ci.yml"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T-P0-01",
+      "jin_phase": 0,
+      "title": "docs/spec/ の 5 仕様書を書く",
+      "outputs": [
+        "docs/spec/model.md",
+        "docs/spec/adk-mapping.md",
+        "docs/spec/layout.md",
+        "docs/spec/diagnostics.md",
+        "docs/spec/ops.md"
+      ],
+      "status": "done",
+      "note": "突合テストが読めるよう <!-- machine-readable: <ID> --> マーカー付きの Markdown 表という定型で書いた（design.yaml items[0].note の執筆制約）。"
+    },
+    {
+      "id": "T-P0-02",
+      "jin_phase": 0,
+      "title": "examples 2 本を要件書 §2.2 のとおり手書きする（正準形であること）",
+      "outputs": [
+        "examples/researcher/researcher.jin",
+        "examples/pipeline/pipeline.jin"
+      ],
+      "status": "done",
+      "note": "Phase 1 の canonical writer 完成後に `jin fmt --check examples` が exit 0 であることを確認済み。Phase 0 と Phase 1 の閉じ。"
+    },
+    {
+      "id": "T-P0-03",
+      "jin_phase": 0,
+      "title": "要件書との突合テストを書く",
+      "outputs": [
+        "tests/spec/test_spec_consistency.py"
+      ],
+      "status": "done",
+      "note": "25 件。仕様書 3 本と examples を意図的に壊す 3 種のミューテーションで、テストが実際に落ちることを確認した（偽 green でないことの証拠）。"
+    },
+    {
+      "id": "T-P1-01",
+      "jin_phase": 1,
+      "title": "意味モデル（Pydantic v2・strict・extra=forbid・判別共用体）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/model.py"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-02",
+      "jin_phase": 1,
+      "title": "正準形 writer（ADR-005 / 独自 writer）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/canonical.py"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-03",
+      "jin_phase": 1,
+      "title": "JSON Schema 生成 + コミット + ドリフト検出",
+      "outputs": [
+        "packages/jin-core/src/jin_core/schema_export.py",
+        "schemas/jin.schema.json",
+        "scripts/generate_schema.py"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-04",
+      "jin_phase": 1,
+      "title": "位置付きパーサと pointer→range 対応表（ADR-006）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/parser.py",
+        "packages/jin-core/src/jin_core/pointer.py"
+      ],
+      "status": "done",
+      "note": "lark の JSON 文法は同梱されていないので自前で書いた。スカラの値解釈は json.loads に委ね、不正エスケープ・生の制御文字は JIN001 にする。"
+    },
+    {
+      "id": "T-P1-05",
+      "jin_phase": 1,
+      "title": "診断の型・コード表・パイプライン（構文 → スキーマ → 意味）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/diagnostics.py",
+        "packages/jin-core/src/jin_core/check.py"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-06",
+      "jin_phase": 1,
+      "title": "意味検査（正典 10 件 + 追加提案 2 件）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/semantic.py"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-07",
+      "jin_phase": 1,
+      "title": "意味オペレーション 19 件（純関数・逆オペレーション付き）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/ops.py"
+      ],
+      "status": "done",
+      "note": "design.yaml Phase 1 の machine 条件には ops の動作は含まれていないが、要件書 §11 Phase 1 と §1.2 が jin-core の構成要素に ops を挙げているため実装した。LSP への露出は Phase 4。"
+    },
+    {
+      "id": "T-P1-08",
+      "jin_phase": 1,
+      "title": "CLI（check / fmt / schema / dump のみ）",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py"
+      ],
+      "status": "done",
+      "note": "build / run / render / lsp / editor は**サブコマンドごと未定義**にした。空実装を置くと jin --help が嘘をつくため。"
+    },
+    {
+      "id": "T-P1-09",
+      "jin_phase": 1,
+      "title": "診断コード fixture（14 本）",
+      "outputs": [
+        "tests/fixtures/errors/JIN*.jin"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-10",
+      "jin_phase": 1,
+      "title": "横断契約テスト（依存方向 / 正準形 / pointer 空間 / CLI）",
+      "outputs": [
+        "tests/conftest.py",
+        "tests/contract/test_canonical_contract.py",
+        "tests/contract/test_pointer_contract.py",
+        "tests/contract/test_dependency_direction.py",
+        "tests/contract/test_cli_contract.py"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-P1-11",
+      "jin_phase": 1,
+      "title": "uv ワークスペース / import-linter / ruff / CI / CLAUDE.md",
+      "outputs": [
+        "pyproject.toml",
+        "packages/jin-core/pyproject.toml",
+        "packages/jin-cli/pyproject.toml",
+        ".github/workflows/ci.yml",
+        "CLAUDE.md",
+        "README.md",
+        ".gitignore"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "T-R1-01",
+      "jin_phase": 1,
+      "title": "security: fail-closed 化（S1 / S2 / S3 / S4 / S5 / S6 / S8 / S9 / S10 / S11 / S12 / S13 / S14 / S19）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/resolver.py",
+        "packages/jin-cli/src/jin_cli/resolver.py",
+        "packages/jin-core/src/jin_core/model.py",
+        "packages/jin-core/src/jin_core/parser.py",
+        "packages/jin-core/src/jin_core/pointer.py",
+        "packages/jin-core/src/jin_core/semantic.py",
+        "packages/jin-core/src/jin_core/check.py",
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-core/tests/test_pointer.py",
+        "packages/jin-core/tests/test_semantic.py",
+        "README.md",
+        "CLAUDE.md",
+        "pyproject.toml"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] S1 は bool フラグを RefResolver プロトコル注入へ置換し、import 実装を jin_cli に隔離。import-linter の forbidden contract 1 本で機械的に落とす（違反注入テストで実効性を実測）。S13 の具体値は decision-conformance.md §2.7 に根拠つきで記録。"
+    },
+    {
+      "id": "T-R1-02",
+      "jin_phase": 1,
+      "title": "correctness: 逆オペレーション契約（A-1 / A-2 / A-3 / A-4）と仕様側 S-1",
+      "outputs": [
+        "packages/jin-core/src/jin_core/ops.py",
+        "docs/spec/ops.md",
+        "packages/jin-core/tests/test_ops.py",
+        "tests/spec/test_spec_consistency.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] toggleAwait の逆に index を、boundary を新設した場合は pruneBoundary を持たせた。ops.md §2.1 に機械可読の復元条件表を新設し、突合テストが引数名の実在まで確認する。全 19 ハンドラについて誤った配列を指す pointer が OpError になることを検証。"
+    },
+    {
+      "id": "T-R1-03",
+      "jin_phase": 1,
+      "title": "correctness: パーサ・正準形・CLI（C-1 / C-2 / D-1 / D-2）と仕様側 S-4",
+      "outputs": [
+        "packages/jin-core/src/jin_core/parser.py",
+        "packages/jin-core/src/jin_core/canonical.py",
+        "packages/jin-core/src/jin_core/check.py",
+        "packages/jin-cli/src/jin_cli/main.py",
+        "docs/spec/model.md",
+        "tests/fixtures/errors/JIN001_duplicate_key.jin",
+        "packages/jin-core/tests/test_parser.py",
+        "packages/jin-cli/tests/test_cli.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] UnexpectedCharacters（.char）経路のテストは修正前 0 件だった。重複キーは段 1 の JIN001 として落とし、model.md §6 の「pointer は 1 つの値を指す」を成立させた。"
+    },
+    {
+      "id": "T-R1-04",
+      "jin_phase": 1,
+      "title": "correctness: 意味検査（B-1 / B-2 / B-3 / B-8）と仕様側 S-2 / S-3",
+      "outputs": [
+        "packages/jin-core/src/jin_core/semantic.py",
+        "packages/jin-core/src/jin_core/model.py",
+        "docs/spec/diagnostics.md",
+        "docs/spec/model.md",
+        "tests/fixtures/errors/JIN002_max_on_sequence.jin",
+        "tests/fixtures/errors/JIN011_exit_key_unresolved.jin",
+        "tests/fixtures/errors/JIN013_same_parent_twice.jin",
+        "packages/jin-core/tests/test_semantic.py",
+        "packages/jin-core/tests/test_model.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] flow.exit.key の未解決参照を JIN011 に入れ、diagnostics.md §4 の優先順位表へ 1 行追加。max / exit の loop 限定は Pydantic の model_validator（段 2 / JIN002）で落とす。"
+    },
+    {
+      "id": "T-R1-05",
+      "jin_phase": 1,
+      "title": "docs/spec の正典側の誤り（S-1 〜 S-6）と突合テストの強化",
+      "outputs": [
+        "docs/spec/ops.md",
+        "docs/spec/diagnostics.md",
+        "docs/spec/model.md",
+        "docs/spec/layout.md",
+        "tests/spec/test_spec_consistency.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] S-5 は adk-api-probe.md に実測が無いので「未確認」と明記（捏造しない・T-002）。S-6 は結論 k=1 を変えず根拠の説明のみ訂正し、式からの検算テストを足した。ADR-014 が求める machine-readable: upstream-rule の消費テストも追加。"
+    },
+    {
+      "id": "T-R1-06",
+      "jin_phase": 1,
+      "title": "wiring: CI と拡張性（W-01 / W-02 / W-03 / W-04 / W-05 / W-06 / W-08 / W-11）",
+      "outputs": [
+        ".github/workflows/ci.yml",
+        ".python-version",
+        "pyproject.toml",
+        "tests/conftest.py",
+        "tests/contract/test_ci_contract.py",
+        "tests/contract/test_packaging_contract.py",
+        "tests/contract/test_dependency_direction.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] testpaths からパッケージ名の列挙を外し、packages/*/pyproject.toml のディスク列挙と突き合わせる契約テストを新設。packages/jin-zz を実際に作って 4 本が赤くなること・新パッケージのテストが収集されることを実測し、削除した。"
+    },
+    {
+      "id": "T-R1-07",
+      "jin_phase": 1,
+      "title": "conventions: 拡張性（CONV A-1 / A-2 / A-3 / C-1）",
+      "outputs": [
+        "packages/jin-core/tests/__init__.py",
+        "packages/jin-cli/tests/__init__.py",
+        "CLAUDE.md",
+        "tests/contract/test_dependency_direction.py",
+        "delivery/20260904-1445-jin/version-matrix.md"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] __init__.py に加えて --import-mode=importlib も設定し、同名テストファイルで collection 全体が止まる経路を二重に塞いだ。CLAUDE.md にパッケージ追加時の 6 項目チェックリストを追加。"
+    },
+    {
+      "id": "T-R1-08",
+      "jin_phase": 1,
+      "title": "全 fix のミューテーション実測（偽 green 防止 / DP-IMPL-VERIFIED-01）",
+      "outputs": [
+        "delivery/20260904-1445-jin/replay-commands.md"
+      ],
+      "status": "done",
+      "note": "[fix_round=1] 38 パターン。修正を 1 つずつ元に戻し、対応テストが赤くなることを確認。初回に緑のままだった 8 件のうち 4 件はテスト自体が弱かったため強化した（A-4 / S3 / S1 契約 / W-08）。最終 38/38 が赤。"
+    },
+    {
+      "id": "T-R2-01",
+      "jin_phase": 1,
+      "title": "wiring: CI の lock 検証を実際に効かせる（N-01）",
+      "outputs": [
+        ".github/workflows/ci.yml",
+        "tests/contract/test_ci_contract.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] `uv sync --frozen` が job env の UV_LOCKED を打ち消していた。--frozen を外し setup-uv に version: \"0.12.9\" を明示。契約テストは env の有無ではなく **ワークフロー内の全 uv コマンドを走査して打ち消しフラグが無いこと**を見る形へ強化（複数行 run ブロック・&& / ; 連結も展開）。UV_FROZEN の環境変数形も塞いだ。"
+    },
+    {
+      "id": "T-R2-02",
+      "jin_phase": 1,
+      "title": "wiring: 兄弟パッケージの同居を契約テストで落とす（W-05 残件）",
+      "outputs": [
+        "tests/contract/test_packaging_contract.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] design.yaml architecture.dependency_direction.rules を読んで「双方向に依存しないと宣言されたペア」を導出し、そのペアが layers の同一要素に `|` で並ぶことを検査する。純関数（mutually_independent_pairs / independence_violations）に切り出し、reviewer が実測した 2 つの層宣言で単体検査もする（jin_adk / jin_render が未存在の今でも非空虚）。"
+    },
+    {
+      "id": "T-R2-03",
+      "jin_phase": 1,
+      "title": "wiring: tests を持たないパッケージを skip ではなく失敗させる（N-02）",
+      "outputs": [
+        "tests/contract/test_packaging_contract.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] PACKAGES_WITHOUT_TESTS（空の allowlist）を導入。allowlist に無いパッケージが tests/ を持たなければ失敗する。allowlist の死んだエントリも落とす。"
+    },
+    {
+      "id": "T-R2-04",
+      "jin_phase": 1,
+      "title": "security: jin fmt の書き込み経路（N1 / N2）",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-cli/tests/test_cli.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] os.replace の前に shutil.copymode を入れて元ファイルのモードを引き継ぐ（N1: 664 → 600 に落ちていた）。ディレクトリに書けない場合は AtomicWriteUnavailable とし、ファイルが書けるなら直接書き込みへ退避して警告、書けなければ診断として exit 1（N2: 未捕捉 PermissionError と機能後退）。決定根拠は decision-conformance.md §2.11。"
+    },
+    {
+      "id": "T-R2-05",
+      "jin_phase": 1,
+      "title": "correctness: 未消滅 4 件（D-4 / E-1 / E-2 / E-3）",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "tests/contract/test_canonical_contract.py",
+        "packages/jin-cli/tests/test_cli.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] D-4 は _collect と dump の両方で拡張子を検査。E-1 は深さ × 2 の期待値計算に変え INDENT の値も固定。E-2 は「現れる \\\\uXXXX はすべて制御文字」という writer の出力集合に触れる形へ。E-3 は parametrize を 2 値にし、既定でない値が残ることも検査。"
+    },
+    {
+      "id": "T-R2-06",
+      "jin_phase": 1,
+      "title": "correctness: E-5 の残り 2 項目（BOM / rename の flow.steps 追随）",
+      "outputs": [
+        "packages/jin-core/src/jin_core/parser.py",
+        "tests/fixtures/errors/JIN001_utf8_bom.jin",
+        "packages/jin-core/tests/test_parser.py",
+        "packages/jin-core/tests/test_ops.py",
+        "packages/jin-cli/tests/test_cli.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] BOM は段 1 の JIN001 にし、メッセージで名指しする（黙って剥がすと jin fmt が頼まれていないバイト列変更をする）。rename(circle) の flow.steps / delegate / summon / root の 4 経路を、flow を持つ circle のある文書で名指し検証（sample() には flow が無く経路が 1 度も実行されていなかった）。"
+    },
+    {
+      "id": "T-R2-07",
+      "jin_phase": 1,
+      "title": "docs: 実装に足した制約を正典に書く（N-2 / N-3）",
+      "outputs": [
+        "docs/spec/model.md",
+        "docs/spec/diagnostics.md",
+        "tests/spec/test_spec_consistency.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] model.md §3.6（文字列の制約・機械可読表）と §3.7（公開スキーマが表現しない制約）を新設。§7 の書き出し規則に受理範囲との関係を明記して矛盾を解いた。突合テストは表の上限値を model.py の定数と直接比較し、全文字列フィールドが表に載っていることも検査する。"
+    },
+    {
+      "id": "T-R2-08",
+      "jin_phase": 1,
+      "title": "全 fix のミューテーション実測（ラウンド 2 分 21 件 + ラウンド 1 分 43 件の再実測）",
+      "outputs": [
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate3.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] 64/64 が赤。スクリプトが pytest の「収集ゼロ（exit 5）」を赤と誤認していたのを見つけて修正し、対象テストが存在しない状態を別表示にした。"
+    },
+    {
+      "id": "T-R2-09",
+      "jin_phase": 1,
+      "title": "検査機構そのものの空回りを塞ぐ（走査関数の件数下限 / allowlist の門 / pattern アサーションの絞り込み）",
+      "outputs": [
+        "tests/contract/test_ci_contract.py",
+        "tests/contract/test_packaging_contract.py",
+        "tests/spec/test_spec_consistency.py",
+        "delivery/20260904-1445-jin/implementation-notes.md",
+        "delivery/20260904-1445-jin/decision-conformance.md"
+      ],
+      "status": "done",
+      "note": "[fix_round=2] uv_commands の検出下限 9 件と run: | ブロックの合成入力テスト、PACKAGES_WITHOUT_TESTS == frozenset() の固定、schema の pattern 不在検査を maxLength 保持プロパティ 12 件に限定。あわせて Q-JIN-IMPL-11 / Q-JIN-IMPL-12 を確認要求へ追加し、uv 0.12.9 が .python-version から Python 3.14.6 を選ぶことを実測。"
+    },
+    {
+      "id": "T-R3-01",
+      "jin_phase": 1,
+      "title": "R-1: `_write_in_place` の symlink TOCTOU を `O_NOFOLLOW` で塞ぐ",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-cli/tests/test_cli.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=3] `path.open(\"w\")` → `os.open(..., O_NOFOLLOW)`。ELOOP を SymlinkWriteRefused に。例外階層を WriteRefused 基底へ整理。`_write_atomically` は os.replace がリンクの実体を置き換えるため書き抜けは無いが、S12 の方針を守るため os.replace 直前に lstat 判定を追加。"
+    },
+    {
+      "id": "T-R3-02",
+      "jin_phase": 1,
+      "title": "R-2: 危険側に誤っていた docstring を訂正（main.py と decision-conformance.md §2.11 の 2 箇所）",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "delivery/20260904-1445-jin/decision-conformance.md"
+      ],
+      "status": "done",
+      "note": "[fix_round=3] `_collect` に symlink フィルタは無い。実際の防御位置を表で明記し、`test_collect_does_not_filter_symlinks` でテストからも固定。"
+    },
+    {
+      "id": "T-R3-03",
+      "jin_phase": 1,
+      "title": "R-2 追記: 安全宣言そのものを機械で固定する（`guard:` 記法 + 契約テスト）",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-cli/tests/test_cli.py",
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate4.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=3] 親の 2 案のうち「機械で固定」を採用（実装依存の主張を消す案は、R-2 の実効的な緩和がその情報の伝達そのものなので不採用）。手書き複製表を作らず、docstring / コメント中の `guard: <関数> -> <トークン>` 行を解析対象にする（W-02 の轍を踏まない）。"
+    },
+    {
+      "id": "T-R4-01",
+      "jin_phase": 1,
+      "title": "T-1: `PermissionError` 以外の `OSError` を診断へ落とす（S5 → N2 → T-1 の同型欠陥を型として閉じる）",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-cli/tests/test_cli.py",
+        "delivery/20260904-1445-jin/decision-conformance.md"
+      ],
+      "status": "done",
+      "note": "[fix_round=4] except を OSError へ広げ、_classify_write_failure で分類。退避可能なのは PermissionError のときだけ（容量不足での退避は O_TRUNC で元の内容を消す）。errno を利用者向けの言葉にする表を追加。KeyboardInterrupt の伝播は維持。"
+    },
+    {
+      "id": "T-R4-02",
+      "jin_phase": 1,
+      "title": "点 3: `lstat` 配置の理由づけを訂正し、`Path.is_symlink` の使用を guard: で機械固定",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "delivery/20260904-1445-jin/decision-conformance.md"
+      ],
+      "status": "done",
+      "note": "[fix_round=4] reviewer の実測反証を受け入れた。効いているのは配置ではなく Path.is_symlink を使っていること（monkeypatch がそこを殺すため）。os.path.islink への書き換えを P3-islink 変異で捕まえる。"
+    },
+    {
+      "id": "T-R4-03",
+      "jin_phase": 1,
+      "title": "変異ハーネスの偽 green 欠陥（stale .pyc）を修正し、86 件を再実測",
+      "outputs": [
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate.py",
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate2.py",
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate3.py",
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate4.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=4] .pyc の無効化は mtime(秒)+サイズ。同一サイズの変異が同じ秒内に連続すると 2 本目が 1 本目のバイトコードを再利用して緑になる。__pycache__ の毎回削除 + PYTHONDONTWRITEBYTECODE=1 で修正。偽 green のみを生む欠陥で偽 red は起きない。"
+    },
+    {
+      "id": "T-R4-04",
+      "jin_phase": 1,
+      "title": "U-1 / E-B: `guard:` の照合を AST 照合にして緩いトークンを塞ぐ",
+      "outputs": [
+        "packages/jin-cli/tests/test_cli.py",
+        "packages/jin-cli/src/jin_cli/main.py",
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate4.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=4] 部分文字列一致 → AST 照合。裸の名前を拒み、属性参照の土台は数えない。E-A / E-C は reviewer 判定どおり未対処（機械的に塞げない性質）。"
+    },
+    {
+      "id": "T-R5-01",
+      "jin_phase": 1,
+      "title": "V-1: 退避路の書き込みが途中で失敗したとき「内容が失われた」ことを伝える",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-cli/tests/test_cli.py",
+        "delivery/20260904-1445-jin/decision-conformance.md",
+        "delivery/20260904-1445-jin/fix-round-1-mutations/mutate4.py"
+      ],
+      "status": "done",
+      "note": "[fix_round=5] 失敗を 3 つに分けた（診断由来 / 書き始める前＝無傷 / 書き始めたあと＝内容喪失）。ContentLostOnWrite を新設し、要約行も別々に。例外の文言からパスを外して二重出力を解消。文言そのものを回帰テストで固定。"
+    }
+  ],
+  "milestones": [
+    "Phase 0 完了: machine 条件 6/6 PASS（2026-09-04）",
+    "Phase 1 完了: machine 条件 9/9 PASS（2026-09-04）",
+    "Phase 2 以降: 別ラウンドの implementer が担当（未着手）"
+  ],
+  "dependencies": [
+    "pydantic>=2.13,<3（実測 2.13.5）",
+    "lark>=1.3,<2（実測 1.3.1）",
+    "typer>=0.27,<1（実測 0.27.2）",
+    "dev: pytest>=9.1,<10 / ruff>=0.16,<1 / import-linter>=2.14,<3",
+    "build backend: hatchling>=1.32"
+  ],
+  "test_plan": "ADR-003（DP-COMMON-09 案 C）に従い、パッケージ単位の垂直分割（packages/<pkg>/tests/）+ 横断契約テスト（tests/contract/）+ 要件突合（tests/spec/）。全て `uv run pytest` 1 発で通り、ネットワークと API キーを必要としない（NFR-TEST-001）。合計 225 件。",
+  "decision_record": [
+    {
+      "id": "DP-IMPL-JIN-DIAGCODE-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "要件書 §2.4 への追加であり人間の承認を要する。docs/spec/diagnostics.md では正典表（§2・12 件）と追加提案表（§3・2 件）を別の表に分け、§3 冒頭に未承認である旨を明記する",
+            "kind": "condition",
+            "verified_in": "docs/spec/diagnostics.md:§2,§3 / tests/spec/test_spec_consistency.py::test_diagnostics_proposed_codes_are_exactly_two"
+          },
+          {
+            "text": "3 件目を勝手に採番しない（DP-JIN-SEMANTIC-GAPS-01 が認めたのは 2 件のみ）",
+            "kind": "prohibition",
+            "verified_in": "tests/spec/test_spec_consistency.py::test_diagnostics_proposed_codes_are_exactly_two"
+          }
+        ]
+      },
+      "chosen": "JIN012 = 循環参照 / JIN013 = 多重親（01x = 名前と参照の整合性ブロックの空き番号）"
+    },
+    {
+      "id": "DP-IMPL-JIN-POSBASE-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "LSP（0 始まり / UTF-16 コードユニット）への変換は jin-lsp の 1 モジュールだけが行う。jin_core は LSP を知らない",
+            "kind": "scope",
+            "verified_in": "docs/spec/diagnostics.md:§5.1 / packages/jin-core/src/jin_core/diagnostics.py（LSP への言及は docstring の注意書きのみでコードに変換関数を持たない）"
+          },
+          {
+            "text": "変換は基点だけでなく UTF-16 コードユニット換算も含む。日本語 rune を含む .jin で実際に効くため Phase 4 で必ず実施する",
+            "kind": "condition",
+            "verified_in": "docs/spec/diagnostics.md:§5.1 の変換表"
+          }
+        ]
+      },
+      "chosen": "1 始まり（line / col とも）/ range.end は排他 / 列は Unicode コードポイント単位"
+    },
+    {
+      "id": "DP-IMPL-JIN-DIAGPREC-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "優先順位は docs/spec/diagnostics.md §4 の表を正本とし、散文で散らさない",
+            "kind": "scope",
+            "verified_in": "docs/spec/diagnostics.md:§4 / tests/spec/test_spec_consistency.py::test_precedence_table_resolves_jin011_overlap"
+          }
+        ]
+      },
+      "chosen": "より具体的なコードが勝つ。JIN011 の実効的な守備範囲は summon と delegate の 2 種"
+    },
+    {
+      "id": "DP-IMPL-JIN-UPSTREAM-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "定義は docs/spec/model.md §5 の表を正本とする",
+            "kind": "scope",
+            "verified_in": "docs/spec/model.md:§5 / packages/jin-core/src/jin_core/semantic.py の _visible_state_keys"
+          }
+        ]
+      },
+      "chosen": "sequence = 先行する兄弟枝の部分木 / loop = すべての兄弟枝の部分木 / parallel = なし / delegate = 親 → 子のみ / summon = なし"
+    },
+    {
+      "id": "DP-IMPL-JIN-TOOLNAME-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "要件書 §2.2 の例の書き方と食い違うため、レビューで人間の確認を得る",
+            "kind": "condition",
+            "verified_in": "docs/spec/model.md:§3.2 / delivery/20260904-1445-jin/implementation-notes.md の確認要求ブロック"
+          }
+        ]
+      },
+      "chosen": "3 種すべてで name を必須にする"
+    },
+    {
+      "id": "DP-IMPL-JIN-TESTFIXTURE-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "テストはネットワークと API キーを必要としない（NFR-TEST-001）",
+            "kind": "scope",
+            "verified_in": "全 225 テストがネットワーク接続なしで通ることを実行確認"
+          }
+        ]
+      },
+      "chosen": "リポジトリ直下の tests/conftest.py に置き、pytest の rootdir を 1 つに保つ"
+    },
+    {
+      "id": "DP-IMPL-JIN-TDD-P0-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:59+09:00",
+        "rationale": "人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。",
+        "constraints": [
+          {
+            "text": "TestAfter にする代わりに、仕様書と examples を意図的に壊すミューテーションでテストが実際に落ちることを実測する（偽 green でないことの担保）",
+            "kind": "condition",
+            "verified_in": "3 種のミューテーション（diagnostics.md の JIN070 行削除 / adk-mapping.md の root 行削除 / pipeline.jin の max: 3 → 5）でそれぞれ対応するテストが FAILED になることを実行確認。復元後に 25/25 PASS"
+          },
+          {
+            "text": "Phase 1 の実装単位は TDD のまま。引き下げは Phase 0 の突合テストに限る",
+            "kind": "scope",
+            "verified_in": "verification_status.evidence[] の tdd-red / tdd-green 行（7 単位）"
+          }
+        ]
+      },
+      "chosen": "TestAfter（仕様書を先に書き、突合テストを後から書く）。ただしミューテーションで非空虚性を実測する"
+    },
+    {
+      "id": "DP-JIN-DIAGCODE-NUMBERING-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:12:47+09:00",
+        "rationale": "AI 仮判断（confidence: medium）を承認。",
+        "adr_ref": "docs/adr/ADR-012-DP-JIN-DIAGCODE-NUMBERING-01.md",
+        "constraints": [
+          {
+            "text": "本判断は ai_provisional であり、ADR-007 constraints (b)『要件書 §2.4 への追加であり仕様変更として人間の承認を要する』を代替しない。要件書 jin-requirements.md §2.4 の表への 2 行追加と、docs/spec/diagnostics.md §3（追加提案表）から §2（正典表）への統合は、本 DP が人間承認（PR マージまたは /aid decide による approved 昇格）を得たあとにのみ実施する。それまでは §2 と §3 の分離、および §3 冒頭の『人間承認待ち』警告を維持する。",
+            "kind": "condition"
+          },
+          {
+            "text": "統合を実施するときは『12 件』を前提にしている 3 箇所を同時に更新する: docs/spec/diagnostics.md §0 の機械可読の約束、tests/spec/test_spec_consistency.py（§2 が §2.4 の 12 件と過不足なく一致 / §3 が {JIN012, JIN013} であることの 2 検査）、delivery/20260904-1445-jin/design.yaml:541-543（Phase 0 の verification.machine が 12 件を明示列挙している）。1 箇所だけ直すと残りが赤くなる。",
+            "kind": "condition"
+          },
+          {
+            "text": "本判断で JIN012 / JIN013 以外の新しい診断コード番号を発明しない（T-002）。既存 12 件の番号・重大度・意味も変更しない。",
+            "kind": "prohibition"
+          },
+          {
+            "text": "本判断の対象は採番値（JIN012 = 循環参照 / JIN013 = 多重親）と要件書 §2.4 への追加の是非に限る。ADR-007 が採択した案 A（jin-core の意味検査で検出し、jin-core は ADK に依存しない）の是非は本判断で再開しない。",
+            "kind": "scope"
+          },
+          {
+            "text": "JIN012 / JIN013 は意味検査の診断であり JSON Schema の語彙を変えないため schemas/jin.schema.json は変更しない（decision-conformance.md で確認済みの整理を維持する）。",
+            "kind": "limit"
+          }
+        ],
+        "review_status": "approved"
+      },
+      "aliases": [
+        "JIN012 / JIN013 を承認し要件書 §2.4 の表に 2 行追加する"
+      ],
+      "chosen": "選択肢 1: JIN012（循環参照）/ JIN013（多重親）を承認し、要件書 §2.4 の表に 2 行追加する",
+      "compared": [
+        "選択肢 2: 03x ブロックの JIN032 / JIN033 に採り直す（リネーム影響は定数 2 個とファイル名 2 本で軽微だが、多重親が delegate でも起きるため flow ブロックへの配置は関心事の対応を崩す）",
+        "選択肢 3-B: 追加を却下し ADR-007 を案 B（jin-adk のコード生成時エラーに委ねる）へ切り替える（jin check が通ってしまい成功条件 3 が成立せず、レンダラ経路では検出されず無限再帰する）",
+        "選択肢 3-C: 追加を却下し ADR-007 を案 C（JIN011 / JIN031 に寄せる）へ切り替える（『未解決の参照』と『解決できる参照が循環している』は意味が違い、要件書 §9『fixture は対応コードを 1 つだけ出す』の意図から外れる）"
+      ]
+    },
+    {
+      "id": "DP-JIN-RENAME-SCOPE-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:12:47+09:00",
+        "rationale": "AI 仮判断（confidence: high）を承認。",
+        "adr_ref": "docs/adr/ADR-013-DP-JIN-RENAME-SCOPE-01.md",
+        "constraints": [
+          {
+            "text": "packages/jin-core/src/jin_core/ops.py:405 のコメント『flow.exit.key と、その state が見える circle の rune 内 {key} を追随させる』から可視範囲の記述を取り除き、全 circle に追随させること・その根拠（同名 state は同一のセッションキー）・docs/spec/ops.md §3 への参照を書く。仕様（ops.md §3）と実装（ops.py の挙動）は変更しない。",
+            "kind": "condition"
+          },
+          {
+            "text": "docs/spec/ops.md §3 の注記を書き改める。現行の『同名の state key が別の circle にも存在する場合は過剰置換になりうる』という書き方は、同名 state が同一の session.state キーであるという事実と噛み合っていない。(i) 全 circle 追随の根拠を『同名 state は ADK の同一セッションキーである』に置き換え、(ii) 残存リスクとして『rename は指し示した state 宣言のみを改名するため、同名の別宣言が残ると rune の解決先が静かに移りうる。rename 後に jin check を通して JIN050 を確認すること』を明記する。",
+            "kind": "condition"
+          },
+          {
+            "text": "本判断が決めるのは rename(state) が参照（flow.exit.key と instruction.rune 内の {key}）に及ぶ範囲だけである。同名の state 宣言まで追随させる案 (c) は採用しない。必要になった場合は本判断を上書きするのではなく、別の判断ポイントとして人間が判断する。",
+            "kind": "scope"
+          },
+          {
+            "text": "Phase 5 のエディタは rename(state) の効果が他の circle に及んだことを利用者に可視化すること。可視化の方式（確認ダイアログ・差分プレビュー・実行後の通知など）は Phase 5 で決める。",
+            "kind": "condition"
+          }
+        ],
+        "review_status": "approved"
+      },
+      "aliases": [
+        "(a) 仕様が正しく、矛盾しているのは ops.py:405 のコメントだけ",
+        "仕様維持・コメント修正"
+      ],
+      "chosen": "案 (a): 仕様（docs/spec/ops.md §3「可視範囲に絞らない」）が正しい。実装と仕様は変えず、矛盾している packages/jin-core/src/jin_core/ops.py:405 のコメントを実装・仕様に合わせて修正して閉じる",
+      "compared": [
+        "案 (b): 仕様が誤りとして rename(state) を可視範囲に絞る（docs/spec/ops.md §3・ops.py・テストを同時変更）。_visible_state_keys が名前の集合しか返さず由来を持たないため指摘された問題を解けず、可視範囲判定が flow 構造に依存するため編集途中のモデルで rename の結果が未定義になる",
+        "案 (c): 同名の state 宣言も全 circle で追随させる（同一 session key であることを宣言側にも及ぼす）。A-5 の静かな意味変化を唯一根本的に解けるが、undo の逆オペレーション契約が複数宣言にまたがって壊れ、キーを意図的に分岐させる rename ができなくなり、ops.md §3 と要件書 §6.3 の契約変更になる"
+      ]
+    },
+    {
+      "id": "DP-JIN-JIN050-LOOP-SCOPE-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:07+09:00",
+        "rationale": "AI 仮判断（confidence: medium）を承認。",
+        "adr_ref": "docs/adr/ADR-014-DP-JIN-JIN050-LOOP-SCOPE-01.md",
+        "constraints": [
+          {
+            "text": "docs/spec/model.md §5 の loop 行に、この規則が『1 周目には未定義でありうる値への参照』を意図的に許すこと、それは初期値の表現手段が v1 に無いため静的には検出できないこと、を注記として明記する。規則そのもの（すべての兄弟枝の部分木を含める）は変更しない。",
+            "kind": "scope"
+          },
+          {
+            "text": "loop の兄弟枝可視性の規則を固定するテストを追加する。現状この規則にはテストが 1 件も無く（packages/jin-core/tests および tests/ 配下に loop と可視範囲を同時に検査するテストは存在しない・実測）、docs/spec/model.md §5 の machine-readable: upstream-rule ブロックもどのテストからも参照されていない。どちらの選択をしても規則を無検査のままにしない。",
+            "kind": "condition"
+          },
+          {
+            "text": "本判断では warning 級を含む新しい診断コードを追加しない。将来 1 周目未定義に対する診断を設けるときも、コード番号の採番は人間の承認を要する（要件書 §2.4 の表への追加であるため。ADR-007 constraints (b) と同じ扱い）。",
+            "kind": "prohibition"
+          },
+          {
+            "text": "State に初期値の宣言が導入された場合、または rune に任意キー構文が導入された場合は、本判断を再評価する。そのときは 1 周目未定義を作者が明示できるようになるため、厳格化の費用対効果が変わる。",
+            "kind": "condition"
+          }
+        ],
+        "review_status": "approved"
+      },
+      "aliases": [
+        "現仕様を維持し警告も出さない",
+        "現仕様維持（model.md §5 の loop 行を変更しない）"
+      ],
+      "chosen": "現仕様を維持する: docs/spec/model.md §5 の loop 行「祖先が loop のとき、すべての兄弟枝の部分木を含める」を変えず、新しい診断コードも警告も追加しない（1 周目に未定義でありうることは仕様上の既知の限界として明記する）",
+      "compared": [
+        "厳格化案: loop の祖先でも sequence と同じく『自分より前の兄弟枝の部分木のみ』を可視にする。実測ではバンドル済みの 2 例に影響しないが、後続兄弟の key を自 circle に out: false で宣言すれば通るため安全性が増えず、正当な前周参照に無意味な宣言を強いる",
+        "warning 級の新診断コードを追加する案: loop の後続兄弟枝の state を参照したときに warning を出す。loop の主要用途で恒常的に鳴り、LLM がバグでないものを直す方向に働く。番号の新規発明も禁止事項",
+        "rune に任意キー構文（{key?} 相当）を導入し、厳格版と併用する案: 1 周目未定義を作者が明示できるようになるが、要件書 §2 と model.md §3.1 の rune 抽出規則の変更（言語仕様の拡張）であり、実装ラウンド 1 の範囲を超える"
+      ]
+    }
+  ],
+  "undecided": [
+    "DP-JIN-RESOLVE-ISOLATION-01",
+    "DP-REVIEW-JIN-001",
+    "DP-REVIEW-JIN-002",
+    "DP-REVIEW-JIN-003",
+    "DP-REVIEW-JIN-004",
+    "DP-REVIEW-JIN-005",
+    "DP-REVIEW-JIN-006",
+    "DP-REVIEW-JIN-007",
+    "DP-REVIEW-JIN-008"
+  ],
+  "verification_status": {
+    "smoke": "not_applicable",
+    "spec_coverage": "passed",
+    "e2e": "not_applicable",
+    "layers": {
+      "backend_unit": "passed",
+      "container_smoke": "not_applicable",
+      "browser_e2e": "not_applicable",
+      "pipeline_e2e": "not_run"
+    },
+    "required_layers": [
+      "backend_unit"
+    ],
+    "scope_labels": [
+      "backend-unit-verified"
+    ],
+    "overall": "verified",
+    "domain_checks": [
+      {
+        "skill": "uv-run-pytest",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#スモーク",
+        "jin_phase": null,
+        "detail": "`uv run pytest` → 225 passed in 2.47s（0 failed / 0 skipped / 0 xfail）"
+      },
+      {
+        "skill": "jin-check-examples",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#スモーク",
+        "jin_phase": 1,
+        "detail": "`uv run jin check examples` → `2 ファイル / error 0 件 / warning 0 件` / exit 0"
+      },
+      {
+        "skill": "jin-fmt-check-examples",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 1,
+        "detail": "`uv run jin fmt --check examples` → exit 0（Phase 0 で手書きした examples が Phase 1 の正準形とバイト一致）"
+      },
+      {
+        "skill": "import-linter-dependency-contract",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 1,
+        "detail": "`uv run lint-imports` → `Contracts: 2 kept, 0 broken.`。さらに jin_core のコピーに `import google.adk` を注入して `no adk BROKEN` / exit 1 になることを実測（契約が効いていることの証拠）"
+      },
+      {
+        "skill": "schema-drift-detection",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 1,
+        "detail": "`uv run pytest packages/jin-core/tests/test_schema_export.py::test_committed_schema_has_no_drift` → PASS（ファイル内容と serialize(build_schema()) の文字列比較）。`uv run jin schema | diff - schemas/jin.schema.json` → 差分なし。**`git diff --exit-code -- schemas/jin.schema.json` は本ラウンドでは空振り**（implementer は commit しないので当該ファイルは untracked で常に exit 0）。CI ではコミット後に走るため同ステップは有効に機能する。"
+      },
+      {
+        "skill": "ruff-lint-and-format",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 1,
+        "detail": "`uv run ruff check .` → All checks passed! / `uv run ruff format --check .` → 28 files already formatted"
+      },
+      {
+        "skill": "spec-coverage",
+        "result": "passed",
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#spec-coverage",
+        "jin_phase": 0,
+        "detail": "design.yaml Phase 0 の machine 6 条件 + Phase 1 の machine 9 条件 = 15/15 PASS。各条件を 1 つずつ個別コマンドで検証した"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "jin_phase": null,
+        "detail": "not_reflected 0 / unknown 0。DP-CONFORMANCE-FAIL の起票なし"
+      },
+      {
+        "skill": "github-actions-ci",
+        "result": "not_run",
+        "layer": "pipeline_e2e",
+        "jin_phase": 1,
+        "detail": ".github/workflows/ci.yml を作成したが GitHub Actions 上での実行は行っていない（push しないため）。同じコマンド列をローカルで実行して全て通ることは確認済み。実パイプライン通しは未検証"
+      },
+      {
+        "skill": "phase-0-human-only-review",
+        "result": "not_run",
+        "jin_phase": 0,
+        "detail": "design.yaml items[0].verification.human_only「仕様全体に自己矛盾がないことの最終判断」は human_only であり実施していない。ADR-001 に従い **PR レビューで人間が判定する**。実施済みと報告してはならない"
+      }
+    ],
+    "skip_policy": {
+      "probed": [
+        "which uv",
+        "uv --version",
+        "uv run python -c \"import sys;print(sys.version)\"",
+        "curl https://pypi.org/pypi/import-linter/json",
+        "ls .venv/bin/lint-imports",
+        "ls .venv/bin/jin"
+      ],
+      "probe_results": [
+        {
+          "probe": "which uv",
+          "exit_code": 0,
+          "summary": "/Users/toyota/.local/bin/uv"
+        },
+        {
+          "probe": "uv --version",
+          "exit_code": 0,
+          "summary": "uv 0.7.8"
+        },
+        {
+          "probe": "uv run python -c \"import sys;print(sys.version)\"",
+          "exit_code": 0,
+          "summary": "3.14.6（NFR-ENV-001 が記録するホストの 3.13.1 とは別。requires-python >=3.12 は満たす）"
+        },
+        {
+          "probe": "curl https://pypi.org/pypi/import-linter/json",
+          "exit_code": 0,
+          "summary": "HTTP 200。ネットワーク到達可能（テスト実行には不要）"
+        },
+        {
+          "probe": "ls .venv/bin/lint-imports",
+          "exit_code": 0,
+          "summary": "存在する"
+        },
+        {
+          "probe": "ls .venv/bin/jin",
+          "exit_code": 0,
+          "summary": "存在する（jin-cli の console script）"
+        }
+      ],
+      "note": "smoke-run / e2e を not_applicable にしたのは、プローブの結果ランタイムが無かったからではなく、本案件に HTTP サーバとブラウザという検査対象が構造的に存在しないため。試行前の推測 SKIP ではない。"
+    },
+    "evidence": [
+      "[jin_phase=1][tdd-red] tdd-red: jin_core.model — `uv run pytest packages/jin-core/tests/test_model.py -q` → `E ModuleNotFoundError: No module named 'jin_core.model'`（collection error 1）",
+      "[jin_phase=1][tdd-green] tdd-green: jin_core.model — `uv run pytest packages/jin-core/tests/test_model.py -q` → 10 passed",
+      "[jin_phase=1][tdd-red] tdd-red: jin_core.canonical — `uv run pytest packages/jin-core/tests/test_canonical.py -q` → `E ModuleNotFoundError: No module named 'jin_core.canonical'`",
+      "[jin_phase=1][tdd-green] tdd-green: jin_core.canonical — `uv run pytest packages/jin-core/tests/test_canonical.py -q` → 15 passed（examples が正準形とバイト一致する test_examples_are_already_canonical を含む）",
+      "[jin_phase=1][tdd-red] tdd-red: jin_core.schema_export — `uv run pytest packages/jin-core/tests/test_schema_export.py -q` → `E ModuleNotFoundError: No module named 'jin_core.schema_export'`",
+      "[jin_phase=1][tdd-green] tdd-green: jin_core.schema_export — 7 passed（コミット済み schemas/jin.schema.json とのバイト一致を含む）",
+      "[jin_phase=1][tdd-red] tdd-red: jin_core.parser / jin_core.pointer — `uv run pytest packages/jin-core/tests/test_parser.py -q` → `E ModuleNotFoundError: No module named 'jin_core.parser'`",
+      "[jin_phase=1][tdd-red] tdd-red（2 巡目・テスト側の誤り）: 実装後の再実行で `test_columns_count_code_points_not_bytes` が `assert 7 == 8` で FAILED。期待値の数え間違い（`{\"あ\": 1}` の `1` は 7 文字目）だったのでテスト側を修正した。バイト単位で数えるなら 9 になるため、コードポイント単位であることの検証としては成立している",
+      "[jin_phase=1][tdd-green] tdd-green: jin_core.parser / jin_core.pointer — 27 passed",
+      "[jin_phase=1][tdd-red] tdd-red: jin_core.check / jin_core.semantic — `uv run pytest packages/jin-core/tests/test_check.py -q` → `E ModuleNotFoundError: No module named 'jin_core.check'`",
+      "[jin_phase=1][tdd-green] tdd-green: jin_core.check / jin_core.semantic — 46 passed（14 fixture が対応コードをちょうど 1 つだけ出すことを含む）",
+      "[jin_phase=1][tdd-red] tdd-red: jin_core.ops — `uv run pytest packages/jin-core/tests/test_ops.py -q` → `E ModuleNotFoundError: No module named 'jin_core.ops'`",
+      "[jin_phase=1][tdd-red] tdd-red（2 巡目・テスト側の誤り）: `test_remove_state` が `OpError: 添字 0 は範囲外です（要素数 0）` で FAILED。テストが state を持たない circle を指していたので対象を直した",
+      "[jin_phase=1][tdd-green] tdd-green: jin_core.ops — 34 passed（19 オペレーション全件で 適用 → 正準形 → 再パース → 期待モデル と 逆オペレーションでバイト一致復元）",
+      "[jin_phase=1][tdd-red] tdd-red: jin_cli.main — `uv run pytest packages/jin-cli/tests -q` → `E ModuleNotFoundError: No module named 'jin_cli.main'`",
+      "[jin_phase=1][tdd-green] tdd-green: jin_cli.main — 23 passed",
+      "[jin_phase=1][tdd-red] tdd-red: 依存方向の契約テスト — `test_import_linter_actually_bites_on_a_forbidden_import` が 2 回続けて実際に FAILED した。1 回目は `python -m importlinter.cli` が何も出さず exit 0（`importlinter.cli` に `__main__` 入口が無い）、2 回目は setup.cfg の複数値フィールドを 1 行で書いたため `Could not find package 'j'`。どちらも本物の失敗で、修正後に BROKEN 検出を確認した",
+      "[jin_phase=1][tdd-green] tdd-green: 依存方向の契約テスト — 9 passed。注入した違反に対し `no adk BROKEN` / `jin_core.canonical -> google (l.1)` / exit 1",
+      "[jin_phase=0][note] Phase 0 の tests/spec/test_spec_consistency.py には tdd-red の証跡が**無い**。仕様書を先に書いて突合テストを後から書いたため（TestAfter）。tdd-protocol の Iron Law に従い証跡を捏造せず欠落のままにし、引き下げの根拠を decision_record DP-IMPL-JIN-TDD-P0-01 に記録した",
+      "[jin_phase=0][mutation] 偽 green でないことの検証: diagnostics.md から JIN070 行を削除 → `test_diagnostics_canonical_matches_requirements` / `test_diagnostics_canonical_severity_matches_requirements` が FAILED。adk-mapping.md から root 行を削除 → `test_adk_vocabulary_matches_requirements` が FAILED。pipeline.jin の `\"max\": 3` を 5 に変更 → `test_examples_match_requirements_section_2_2` が FAILED。いずれも復元後に 25/25 PASS",
+      "[jin_phase=-][smoke] スモーク（smoke-run の代替）: `uv run pytest` → 225 passed in 2.47s / `uv run jin check examples` → exit 0 / `uv run jin fmt --check examples` → exit 0 / `uv run lint-imports` → 2 kept, 0 broken / `uv run ruff check .` → All checks passed!",
+      "[jin_phase=-][report] delivery/20260904-1445-jin/version-matrix.md",
+      "[jin_phase=-][report] delivery/20260904-1445-jin/implementation-notes.md",
+      "[jin_phase=-][report] delivery/20260904-1445-jin/decision-conformance.md",
+      "[jin_phase=-][report] delivery/20260904-1445-jin/replay-commands.md",
+      "[jin_phase=1][fix_round=1][test] `uv run pytest -p no:randomly` → `432 passed in 5.21s`（修正ラウンド 1 前は 225 passed。新規 207 件はすべて finding の回帰テスト）",
+      "[jin_phase=1][fix_round=1][lint] `uv run ruff check .` → `All checks passed!` / `uv run ruff format --check .` → `40 files already formatted`",
+      "[jin_phase=1][fix_round=1][contract] `uv run lint-imports` → `Contracts: 3 kept, 0 broken.`（S1 の forbidden contract「ref の解決実装（任意コード実行）は jin_cli に閉じる」を追加）",
+      "[jin_phase=1][fix_round=1][mutation] ミューテーション 38 パターンを実測。各修正を 1 つずつ元に戻し、対応テストが赤くなることを確認 → 38/38 が赤。初回に緑だった 8 件は原因を切り分け、4 件はテスト強化・4 件はミューテーション強化で再実測",
+      "[jin_phase=1][fix_round=1][wiring] W-03 の実測: `packages/jin-zz/` を実際に作成 → `test_every_package_test_directory_is_a_package[jin-zz]` / `test_every_package_is_a_root_package[jin-zz]` / `test_every_package_appears_in_the_layers_contract[jin-zz]` / `test_every_package_is_declared_in_the_workspace[jin-zz]` の 4 本が FAILED。新パッケージのテスト 1 件は収集された。削除後 `git status --porcelain | grep jin-zz` → 0 件",
+      "[jin_phase=1][fix_round=1][security] S2 の実測: `sys.exit(0)` を持つモジュールを ref に指定 → `ImportResolver().resolve` が `SystemExit` を含む理由文字列を返す（修正前は例外が素通りして診断ゼロ・exit 0）",
+      "[jin_phase=1][fix_round=1][schema] `uv run jin schema | diff -u schemas/jin.schema.json -` → 差分なし（S13 の maxLength 追加を反映して再生成済み）",
+      "[jin_phase=1][fix_round=1][fixture] 診断 fixture を 14 → 18 に追加（JIN001_duplicate_key / JIN002_max_on_sequence / JIN011_exit_key_unresolved / JIN013_same_parent_twice）。いずれも `test_fixture_emits_exactly_its_own_code` を通る（対応コードをちょうど 1 つだけ出す）",
+      "[jin_phase=1][fix_round=2][test] `UV_LOCKED=1 uv run pytest --color=no` → `488 passed`（ラウンド 1 終了時 442 → +46）",
+      "[jin_phase=1][fix_round=2][mutation] ラウンド 2 の 21 パターン + ラウンド 1 の 43 パターン再実測 = **64/64 が赤**",
+      "[jin_phase=1][fix_round=2][wiring] N-01 の実測（同一リポジトリ・2 版）: `UV_LOCKED=1 uv sync --frozen` は uv 0.7.8 で clean でも EXIT=2、uv 0.12.9 で stale でも EXIT=0。`--frozen` なしなら clean EXIT=0 / stale は 0.7.8 EXIT=2・0.12.9 EXIT=1。0.12.9 で `uv lock --check` EXIT=0 を確認",
+      "[jin_phase=1][fix_round=2][wiring] W-05 の実測: layers を `[jin_cli, jin_adk, jin_render, jin_core]` に書き換えると `test_layers_contract_keeps_sibling_packages_in_one_element` が FAILED。`jin_adk | jin_render` に直すと 3 passed",
+      "[jin_phase=1][fix_round=2][wiring] N-02 の実測: `packages/jin-cli/tests` を消すと SKIPPED ではなく 3 件が FAILED（has_tests / test_directory_is_collected / test_directory_is_a_package）",
+      "[jin_phase=1][fix_round=2][security] N1 の実測: `chmod 664` → `jin fmt` → `-rw-rw-r--` のまま（修正前は `-rw-------`）",
+      "[jin_phase=1][fix_round=2][security] N2 の実測: `chmod 555` のディレクトリ内の `.jin` を `jin fmt` → EXIT=0 で整形され、stderr に「原子的に差し替えできませんでした」の警告。トレースバックは出ない。一時ファイルも残らない",
+      "[jin_phase=1][fix_round=2][correctness] E-5 の実測: `ops.py` の `flow[\"steps\"] = [...]` を `pass` にすると `test_rename_circle_follows_flow_steps` が FAILED（修正前は 442 件全緑だった）",
+      "[jin_phase=1][fix_round=2][fixture] 診断 fixture を 18 → 19 に追加（JIN001_utf8_bom）",
+      "[jin_phase=1][fix_round=2][pytest] uv run pytest → 491 passed（ラウンド 2 追記後: 488 → 491）",
+      "[jin_phase=1][fix_round=2][mutation] pattern 注入変異（Field(max_length=..., pattern=r\"^x$\")）で test_generated_schema_really_lacks_the_conditional_constraints が FAILED",
+      "[jin_phase=1][fix_round=2][measured] 隔離コピーで uv 0.12.9 sync → .python-version の 3.14 から Python 3.14.6 が選ばれた（W-06 は版固定で壊れていない）",
+      "[jin_phase=1][fix_round=2][doc] 確認要求を 10 → 12 件に追加（Q-JIN-IMPL-11 = N2 の非原子的退避 / Q-JIN-IMPL-12 = uv 版固定の保守手順）。JSON の妥当性を再確認",
+      "[jin_phase=1][fix_round=3][pytest] uv run pytest → 496 passed（491 → 496）",
+      "[jin_phase=1][fix_round=3][mutation] mutate4.py 6/6 赤（O_NOFOLLOW 除去 / getattr 握り潰し / ELOOP 握り潰し / 原子的経路の lstat 除去 / fmt 事前ガード除去 / _collect に symlink フィルタ追加）。総計 70/70 赤",
+      "[jin_phase=1][fix_round=3][measured] darwin で symlink に O_NOFOLLOW open → errno 62 ELOOP。リンク先は未変更",
+      "[jin_phase=1][fix_round=3][measured] lstat ガードを外した _write_atomically 直接呼び出し → victim は '元の中身\\n' のまま、swapped.jin のみ通常ファイル化（境界越えは起きない）",
+      "[jin_phase=1][fix_round=3][pytest] uv run pytest → 498 passed（496 → 498）",
+      "[jin_phase=1][fix_round=3][mutation] mutate4.py 10/10 赤（R-1 系 5 + R-2 系 5）。総計 74/74 赤",
+      "[jin_phase=1][fix_round=3][mutation] R-2 の嘘そのもの（guard: _collect -> is_symlink）を書き戻すと test_guard_claims_point_at_real_guards が FAILED",
+      "[jin_phase=1][fix_round=4][pytest] uv run pytest → 505 passed（498 → 505）",
+      "[jin_phase=1][fix_round=4][mutation] 修正版ハーネスで再実測: mutate.py 32 / mutate2.py 11 / mutate3.py 21 / mutate4.py 16 = 80/80 赤",
+      "[jin_phase=1][fix_round=4][mutation] T-1-mkstemp（except を PermissionError に戻す）で 3 件 FAILED（result.exception が OSError のまま表に出る）",
+      "[jin_phase=1][fix_round=4][defect] 変異ハーネス自体の偽 green を発見・修正（stale .pyc / T-1-mkstemp と T-1-replace の変異後サイズがともに 16574）",
+      "[jin_phase=1][fix_round=4][lint] uv run ruff check . → All checks passed! / EXIT=0、uv run ruff format --check . → 40 files already formatted / EXIT=0",
+      "[jin_phase=1][fix_round=4][pytest] uv run pytest → 518 passed（505 → 518）",
+      "[jin_phase=1][fix_round=4][mutation] mutate4.py 19/19 赤。4 本合計 83/83 赤（32 + 11 + 21 + 19）",
+      "[jin_phase=1][fix_round=4][mutation] U-1-substring（部分文字列一致に戻す）で test_a_bare_name_is_not_accepted_as_a_guard[os/path/Path] が FAILED",
+      "[jin_phase=1][fix_round=5][repro] V-1 を CLI 経由で再現（0o555 のディレクトリ + 書き込みハンドルの ENOSPC）: exit 1 / 「書き込めません」+「診断を先に直してください」/ 0 バイト",
+      "[jin_phase=1][fix_round=5][fixed] 修正後の同じ再現: 「ファイルの内容が失われています。バックアップから復元してください」+ 専用の要約行 / パス 1 回",
+      "[jin_phase=1][fix_round=5][mutation] mutate4.py 24/24 赤。4 本合計 88/88 赤",
+      "[jin_phase=1][fix_round=5][pytest] uv run pytest → 521 passed（518 → 521）",
+      "[jin_phase=0,1][parent-final] 2026-09-04 20:12 親が全ゲートを再実行して再導出: UV_LOCKED=1 uv run pytest → 521 passed / ruff check → All checks passed / ruff format --check → 40 files already formatted / lint-imports → Contracts: 3 kept, 0 broken / jin check examples → error 0 warning 0 EXIT=0 / jin fmt --check examples → EXIT=0 / jin schema diff → ドリフト無し / UV_LOCKED=1 uv sync → EXIT=0",
+      "[jin_phase=0,1][parent-final] Stage 5 は 4 観点 86 finding → 修正 5 ラウンド。同一観点 reviewer による defect-gone 確認済み（conventions 5/5 / security 初回14+新規6 / wiring 3/3+6/7 / correctness 20/25+7/7）。変異検証は実装者 88/88 赤（stale .pyc 対策済みハーネス）＋ 親と各 reviewer の独立検証",
+      "[jin_phase=0,1][parent-final] pipeline_e2e は not_run（GitHub Actions 未実行）。human_only 条件は not_run で PR レビュー送り。実施済みと報告していない"
+    ],
+    "replay_commands_ref": "delivery/20260904-1445-jin/replay-commands.md",
+    "note": "overall は **backend_unit レイヤに限った判定**である（scope_labels 参照）。本案件に HTTP サーバもブラウザも存在しないため container_smoke / browser_e2e は not_applicable。GitHub Actions の実パイプライン通し（pipeline_e2e）は未実行。Phase 0 の human_only 条件は not_run で、PR レビューで人間が判定する。 【修正ラウンド 1】backend_unit は passed（432 件・ミューテーション 38/38 で非空虚性を実測）であり、機械規則だけを当てれば verified になる。しかし fix-round-1-instructions.md §0 が 「同一観点の code-reviewer による再レビューで defect-gone を確認するまでクローズしない」と定めており、親から「overall を自己判断で verified に戻さないこと」と明示指示があるため、**実装者側では verified を主張せず partially_verified に置く**。最終値は再レビュー後に親が再導出する。 【修正ラウンド 2】同じ理由で overall は partially_verified のまま置く。backend_unit は passed（488 件・ミューテーション 64/64 が赤）。",
+    "evidence_format_note": "implementation-plan.schema.json は evidence[] を文字列配列と定めているため、親の指示にある jin_phase タグは各要素の先頭に [jin_phase=N][kind] の形で埋め込んだ。N は Jin の Phase 番号、'-' は Phase 非依存。後続ラウンドも同じ形式で追記すること。",
+    "review_status_note": "overall=verified は Jin Phase 0+1 のスコープ（backend-unit-verified）に対するもの。本ランの全体スコープは Phase 0〜6（ADR-001）であり Phase 2〜6 は未着手。"
+  },
+  "coverage_gate": {
+    "executed_at_step_0": true,
+    "executed_at_phase_end": true,
+    "warnings": [],
+    "note": "C1（client owner があるのに client 系スキル 0 件）/ C2（backend owner …）/ C3（page_access_control）/ C4（Firebase Auth）はいずれも本案件で発火しない。responsibility_split に client / backend の区別が無く（単一の CLI + ライブラリ）、page_access_control も authentication.stack も design.yaml に存在しないため。"
+  },
+  "undecided_details": [
+    {
+      "id": "DP-JIN-DIAGCODE-NUMBERING-01",
+      "title": "要件書 §2.4 の診断コード表への 2 件追加（循環参照 / 多重親）と採番値の承認",
+      "raised_by": "impl-p01 (実装ラウンド 1)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "未承認のまま進めると docs/spec/diagnostics.md §3 が提案のまま残り、jin-core の意味検査 2 件・fixture 2 本・仕様書の該当節が『正典に無いコード』を実装している状態になる。Phase 3 レンダラの入れ子展開の無限再帰防止と Phase 2 コード生成の破綻防止が、承認されない場合に別手段を要する。",
+      "parent_dp": "DP-JIN-SEMANTIC-GAPS-01 (ADR-007) の constraints (b)「要件書 §2.4 への追加であり仕様変更として人間の承認を要する」に基づく起票",
+      "note": "実装は未承認であることを担保済み（diagnostics.md は正典表 §2 と追加提案表 §3 を分離し §3 に承認待ちを明記。Phase 0 の machine 条件『§2.4 の 12 件と過不足なく一致』と両立している）。"
+    },
+    {
+      "id": "DP-JIN-RENAME-SCOPE-01",
+      "title": "rename(state) の {key} 追随を可視範囲に絞るか、全 circle に及ぼすか（仕様 vs 実装の食い違い）",
+      "raised_by": "Stage 5 code review (rv1-correctness)",
+      "decide_by_phase": "design",
+      "phase_impact": "correctness A-5（confidence 100・挙動は実測済み）。docs/spec/ops.md §3 は「可視範囲に絞らない」と根拠つきで明記し実装もそのとおりだが、ops.py:405 のコメントは「その state が見える circle の rune 内 {key} を追随させる」と書いており実装とも ops.md とも矛盾している。examples/pipeline と同型（Drafter と Rewriter がどちらも draft を持つ）で /circles/1/state/0 を draft→draft2 にすると無関係な circle の rune {draft} まで書き換わり、rename 後に jin check を通しても診断 0 件（静かな意味変化）。flow.exit.key も同様。",
+      "note": "実装者に「仕様とコードのどちらを直すか」を選ばせてはならない（片方を消すだけで矛盾が消えてしまう）。(a) 仕様が正しくコメントだけが誤り → コメント修正で閉じる (b) 仕様が誤りで rename は可視範囲に絞るべき → ops.md §3 と実装とテストを同時に変更する。Phase 5 のエディタは rename をドラッグ/フォームから呼ぶので、選択によってエディタの挙動が変わる。"
+    },
+    {
+      "id": "DP-JIN-JIN050-LOOP-SCOPE-01",
+      "title": "loop の JIN050 可視範囲が「1 周目に存在しない state」を許すことの是非（仕様どおりだがリスク）",
+      "raised_by": "Stage 5 code review (rv1-correctness)",
+      "decide_by_phase": "design",
+      "phase_impact": "correctness B-4（confidence 90）。semantic.py:196-200 は loop の祖先を辿るとき自分以外の全 step の部分木を可視にするため、loop steps:[\"X\",\"Y\"] で X の rune が Y の out state を参照しても診断が出ない。1 周目には未定義の値。docs/spec/model.md §5 の表「祖先が loop のとき、すべての兄弟枝の部分木を含める」に準拠しており実装バグではない。仕様上のリスクとして起票する。",
+      "note": "厳格化すると正当な loop パターン（前周の結果を参照する書き直しループ。examples/pipeline.jin の Critic/Rewriter がまさにこれ）を誤検知する恐れがある。緩いままにすると LLM が 1 周目に落ちる .jin を書いても jin check が通る。要件書 §0 成功条件 3（LLM が診断だけで直しきる）との兼ね合いで判断が要る。"
+    },
+    {
+      "id": "DP-JIN-RESOLVE-ISOLATION-01",
+      "title": "--resolve の参照解決を同一プロセスで行うことによるファイル間汚染への対処方式",
+      "raised_by": "Stage 5 再レビュー (rv1-security round1)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "親が実測で再現: `jin check --resolve <ディレクトリ>` で 1 ファイル目の ref が `jin_core.semantic.analyze` を差し替えると、2 ファイル目の本物の JIN060 が消えて「2 ファイル / error 0 件」exit 0 になる。S2（SystemExit）修正後も残る別経路であり、プロセスが死なずもっともらしい正常レポートを出す点で os._exit より実害が大きい。--resolve にタイムアウトも無くハングしうる。",
+      "note": "実装者に方式を選ばせない。少なくとも次を比較すること: (a) 参照解決を別プロセス + タイムアウトで行う（security reviewer が S1 の代替案として挙げた案。根本解決だが実装コストが高い） (b) --resolve を単一ファイルのみに制限し、複数ファイル/ディレクトリ指定では拒否する（安価だが機能制限） (c) 現状を受け入れ、--resolve は信頼できる .jin にのみ使う旨を README/CLAUDE.md と CLI の警告に明記する（要件書 §2.4 は JIN040 を warning 止まりと規定しており、--resolve は既定オフ）。**Phase 4 で jin lsp が長寿命プロセスになる前、および --resolve を CI や複数ファイルの検証ゲートとして推奨する前の必須条件**として扱う（security reviewer の提案）。",
+      "decide_by_phase_note": "本ラン内で決める。Phase 4 着手前がデッドライン。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-001",
+      "title": "jin check のディレクトリ探索が symlink を辿る（security R-3 / Info conf 90）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`jin check` はディレクトリ探索で symlink を辿るため、対象ディレクトリ外のファイルの先頭 40 文字が JIN001 の診断に載りうる。読み取りのみで、修正ラウンド由来でもない（Phase 1 の初期実装から存在）。`jin fmt` 側は R-1 / S12 で塞いだが check 側は未対応。",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-002",
+      "title": "ruff の lint ルールセットが既定のまま（wiring W-09）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`[tool.ruff.lint]` に `select` が無く、既定の E4/E7/E9 + F のみ。CI の Lint ステップが捕まえるのは構文エラーと未使用 import 程度で、import 順序（I）・bugbear（B）・pyupgrade（UP）は走らない。「lint が CI にある」ことと「lint が意味のある量を検査している」ことは別。方針判断（どのルールを入れるか）が要るため fix-later。",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-003",
+      "title": "CI に pnpm / Node ジョブの受け皿が無い（wiring W-07）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "design.yaml の enforcement は「CI が jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと」と定めるが、2 本目に対応する Node ジョブが ci.yml に存在しない。apps/editor が未作成の現時点では正しいが、Phase 5 で足す人が pytest の赤（`test_editor_contract_is_not_yet_enforced`）を「テストを差し替える」だけで消す動線になっている。要件書 §9 の `claude plugin validate`（Phase 4）の受け皿も同様に無い。**Phase 5 着手時に必ず参照すること。**",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-004",
+      "title": "actions のバージョンがミュータブルタグ（wiring W-12）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`actions/checkout@v4` がメジャータグ参照。サプライチェーン厳格化を求めるなら SHA ピン。`setup-uv` は N-01 の修正で `version: \"0.12.9\"` を明示済みだが action 自体のタグは `@v5` のまま。方針判断（社内標準に合わせるか）が要る。",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-005",
+      "title": "テストが日付入りランディレクトリのパスに依存している（wiring O-2）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "契約テストが `delivery/20260904-1445-jin/design.yaml` を直接参照している。次のランで別のタイムスタンプのランディレクトリが切られると壊れる。壊れ方は loud なので安全側だが、**修正するときにパスをハードコードし直すのではなく、ランディレクトリを解決する形に変えること**（`delivery/` を走査して辞書順最新の `*-jin` を選ぶ）。Phase 2 以降の implementer への申し送り。",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-006",
+      "title": "MINIMUM_UV_COMMANDS の引き下げに可視化の門が無い（wiring O-1）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "N-01 の走査関数が自認する盲点（`sh -c` 入れ子等）は `MINIMUM_UV_COMMANDS` の下限で実効的に塞がれているが、この定数を下げること自体には allowlist のような明示の門が無い。N-02 で allowlist に `test_the_allowlist_is_empty` を付けたのと同型の可視化を検討する。",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-007",
+      "title": "テスト名が示唆する保護範囲と実際の守備範囲のずれ（correctness R2-1 / R2-2）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`test_rule1_detects_a_wider_indent_unit` は自作テキストに対する検査ロジックの自己検証であり、`INDENT` を 4 に変える変異では赤くならない（実効ガードは `test_rule1_indent_is_two_spaces` 側で、そちらは確実に赤くなるため E-1 自体は defect-gone）。削除ではなく命名かコメントの調整で足りる。R2-1 の常に真の assert 1 件も同様。",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-008",
+      "title": "LSP 応答性のための check_text 高速化（security S3 残存）",
+      "raised_by": "Stage 5 code review (fix-later)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`levenshtein` の二次爆発は総予算 `MAX_DISTANCE_COMPUTATIONS = 20000` で消滅し、115KB〜861KB が 8.2〜8.4 秒に平坦化した。ただし最悪 8.4 秒の定数が残る。**Phase 4 の LSP は打鍵ごとに `check_text` を呼ぶ設計**なので、要件書 §6.4「1000 行以下で診断 1 秒以内」を満たすかを Phase 4 で必ず実測し、必要なら候補数上限・名前長上限・インクリメンタル化を入れること。**Phase 4 着手時に必ず参照。**",
+      "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "A",
+  "circles": [
+    {
+      "name": "A",
+      "core": "gemini-2.5-flash",
+      "tools": [
+        {
+          "name": "t00",
+          "kind": "tool",
+          "ref": "pkg.mod:fn00"
+        },
+        {
+          "name": "t01",
+          "kind": "tool",
+          "ref": "pkg.mod:fn01"
+        },
+        {
+          "name": "t02",
+          "kind": "tool",
+          "ref": "pkg.mod:fn02"
+        },
+        {
+          "name": "t03",
+          "kind": "tool",
+          "ref": "pkg.mod:fn03"
+        },
+        {
+          "name": "t04",
+          "kind": "tool",
+          "ref": "pkg.mod:fn04"
+        },
+        {
+          "name": "t05",
+          "kind": "tool",
+          "ref": "pkg.mod:fn05"
+        },
+        {
+          "name": "t06",
+          "kind": "tool",
+          "ref": "pkg.mod:fn06"
+        },
+        {
+          "name": "t07",
+          "kind": "tool",
+          "ref": "pkg.mod:fn07"
+        },
+        {
+          "name": "t08",
+          "kind": "tool",
+          "ref": "pkg.mod:fn08"
+        },
+        {
+          "name": "t09",
+          "kind": "tool",
+          "ref": "pkg.mod:fn09"
+        },
+        {
+          "name": "t10",
+          "kind": "tool",
+          "ref": "pkg.mod:fn10"
+        },
+        {
+          "name": "t11",
+          "kind": "tool",
+          "ref": "pkg.mod:fn11"
+        },
+        {
+          "name": "t12",
+          "kind": "tool",
+          "ref": "pkg.mod:fn12"
+        }
+      ]
+    }
+  ]
+}
