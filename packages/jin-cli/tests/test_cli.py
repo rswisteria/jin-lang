@@ -34,17 +34,18 @@ def run(*args: str):
 
 
 # --------------------------------------------------------------------------------------
-# Phase 1 で実装するのは 4 つだけ（build / run / render / lsp / editor は後続 Phase）
+# Phase 2 までに実装するのは 6 つ（render / lsp / editor は後続 Phase）
 # --------------------------------------------------------------------------------------
-def test_help_lists_only_phase1_commands() -> None:
+def test_help_lists_the_implemented_commands() -> None:
     result = run("--help")
     assert result.exit_code == 0
-    for name in ("check", "fmt", "schema", "dump"):
+    for name in ("check", "fmt", "schema", "dump", "build", "run"):
         assert name in result.output
 
 
-@pytest.mark.parametrize("name", ["build", "run", "render", "lsp", "editor"])
+@pytest.mark.parametrize("name", ["render", "lsp", "editor"])
 def test_later_phase_commands_are_not_defined_yet(name: str) -> None:
+    """空実装を置かない（`jin --help` が嘘をつかない）。Phase 3 以降で実装する。"""
     result = run(name, "x.jin")
     assert result.exit_code != 0
 

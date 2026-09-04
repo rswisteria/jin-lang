@@ -1,18 +1,21 @@
 """Jin CLI。
 
-**Phase 1 で実装するのは check / fmt / schema / dump の 4 つだけ。**
-要件書 §5 の残り 5 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
+**Phase 2 までに実装するのは check / fmt / schema / dump / build / run の 6 つ。**
+要件書 §5 の残り 3 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
 
 | コマンド | 実装 Phase | 担当パッケージ |
 |---|---|---|
-| `jin build` | Phase 2 | jin-adk |
-| `jin run` | Phase 2 | jin-adk |
 | `jin render` | Phase 3 | jin-render |
 | `jin lsp` | Phase 4 | jin-lsp |
 | `jin editor` | Phase 5 | apps/editor |
 
 空実装のサブコマンドを先に置くと「あるのに動かない」状態になり、`jin --help` が嘘をつく。
 未定義なら typer が "No such command" で落ちるので、未実装であることが利用者に正しく伝わる。
+
+## `jin_adk` は**関数の中で** import する（起動時間）
+
+`jin_adk.run` は `google.adk` を読み、それだけで数秒かかる。モジュールの先頭で読むと
+`jin check` / `jin fmt` / `jin schema` まで道連れになる。`build` / `run` の本体でだけ読む。
 
 ## `guard:` 記法（security review R-2 の再発防止）
 
@@ -38,7 +41,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 from jin_core.canonical import dumps
@@ -48,9 +51,16 @@ from jin_core.schema_export import render as render_schema
 
 from jin_cli.resolver import ImportResolver
 
+if TYPE_CHECKING:  # `google.adk` を起動時に読ませないため実行時には import しない
+    from jin_adk.errors import CompileError
+    from jin_core.model import JinFile
+
 app = typer.Typer(
     name="jin",
-    help="Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン（Phase 1: check / fmt / schema / dump）",
+    help=(
+        "Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン"
+        "（check / fmt / schema / dump / build / run）"
+    ),
     no_args_is_help=True,
     add_completion=False,
     # 例外のトレースバックにローカル変数（環境変数・パスなど）を載せない（security review S5）。
@@ -516,6 +526,149 @@ def dump(file: Annotated[Path, typer.Argument(help="対象の .jin")]) -> None:
         },
     }
     typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _model_of(file: Path) -> JinFile:
+    """`.jin` を読んで意味モデルにする。診断に error があれば exit 1。
+
+    `build` / `run` は**診断を通ったファイルにしか使わない**。壊れたモデルから
+    生成物を作ると、生成コードの構文エラーという遠い場所で失敗して原因が追えなくなる。
+    """
+    if not file.exists():
+        typer.echo(f"ファイルがありません: {file}", err=True)
+        raise typer.Exit(code=2)
+    if file.is_file() and file.suffix != ".jin":
+        # `_collect` / `dump` と同じ規則（correctness review D-4）。
+        typer.echo(
+            f"'.jin' ではありません: {file}（Jin が読むのは拡張子 .jin のファイルだけです）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    try:
+        result = check_file(file)
+    except JinReadError as exc:
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=2) from exc
+    if result.model is None or has_error(result.diagnostics):
+        for diagnostic in result.diagnostics:
+            typer.echo(_format_human(diagnostic), err=True)
+        typer.echo("診断に error があるのでコンパイルできません", err=True)
+        raise typer.Exit(code=1)
+    return result.model
+
+
+def _report_compile_error(file: Path, exc: CompileError) -> None:
+    """ADK に写せない構造を診断と同じ体裁で出す（NFR-FAIL-001）。"""
+    for issue in exc.issues:
+        typer.echo(
+            f"{_safe(str(file))}:{_safe(issue.pointer) or '(root)'}: "
+            f"ADK に写せません: {_safe(issue.message)}\n  hint: {_safe(issue.hint)}",
+            err=True,
+        )
+    typer.echo(f"ADK へコンパイルできませんでした: {len(exc.issues)} 件", err=True)
+
+
+@app.command()
+def build(
+    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    out: Annotated[Path, typer.Option("--out", help="生成先ディレクトリ")],
+) -> None:
+    """ADK プロジェクトを生成する（要件書 §3.1）。
+
+    `<out>/<root_name>/__init__.py` と `agent.py`、`<out>/.env.example` を書く。
+    **生成物は編集しない。** 直すのは `.jin` のほうで、`jin build` をやり直す。
+    """
+    from jin_adk.errors import CompileError
+    from jin_adk.project import write_project
+
+    model = _model_of(file)
+    try:
+        project = write_project(model, out)
+    except CompileError as exc:
+        _report_compile_error(file, exc)
+        raise typer.Exit(code=1) from exc
+    for path in sorted(project_paths_for(out, project.root_name)):
+        typer.echo(f"生成しました: {path}")
+    typer.echo(
+        f"adk run {out / project.root_name} / adk web {out} で動かせます"
+        "（.env.example を .env にコピーして値を入れてください）",
+        err=True,
+    )
+
+
+def project_paths_for(out: Path, root_name: str) -> list[Path]:
+    """`jin_adk.project.project_paths` の薄い包み（import を関数の中に閉じるため）。"""
+    from jin_adk.project import project_paths
+
+    return project_paths(out, root_name)
+
+
+@app.command()
+def run(
+    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    prompt: Annotated[str, typer.Argument(help="最初の利用者メッセージ")],
+    session: Annotated[
+        str | None, typer.Option("--session", help="セッション ID（省略時は自動採番）")
+    ] = None,
+    trace: Annotated[
+        Path | None, typer.Option("--trace", help="トレースを JSONL で書き出す先")
+    ] = None,
+    model_option: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            help="fake を指定すると固定応答の FakeLlm に差し替える（ネットワークに出ない）",
+        ),
+    ] = None,
+) -> None:
+    """生成コードを一時ディレクトリへ書き出して実行する（要件書 §3.4）。
+
+    【危険】実行は `.jin` の `tools[].ref` / `boundary.guards[].ref` が指すモジュールを
+    import する。Python の import は**モジュールのトップレベルを実行する**ので、
+    これは `.jin` を書いた相手にこのプロセスの権限で任意のコードを実行させることと同じである。
+    中身を確認した `.jin` にだけ使うこと（`jin check --resolve` と同じ危険性）。
+    """
+    from jin_adk.errors import CompileError
+    from jin_adk.loader import GeneratedModuleError
+    from jin_adk.run import run as run_model
+    from jin_adk.trace import write_jsonl
+
+    if model_option is not None and model_option != "fake":
+        typer.echo(
+            f"--model に指定できるのは fake だけです: {_safe(model_option)}"
+            "（実モデルは .jin の core で指定します）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    model = _model_of(file)
+    try:
+        result = run_model(
+            model,
+            prompt,
+            source_dir=file.parent,
+            session_id=session,
+            use_fake_model=model_option == "fake",
+            on_event=lambda event: typer.echo(_safe(event.to_jsonl())),
+        )
+    except CompileError as exc:
+        _report_compile_error(file, exc)
+        raise typer.Exit(code=1) from exc
+    except GeneratedModuleError as exc:
+        # `ref` が指すモジュールが無い / トップレベルで落ちた。トレースバックではなく
+        # 診断として出す（`jin check --resolve` の JIN040 と同じ性質の失敗）。
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=1) from exc
+
+    if trace is not None:
+        write_jsonl(trace, result.trace)
+        typer.echo(f"トレースを書きました: {trace}（{len(result.trace)} 行）", err=True)
+    if result.faked_agents:
+        typer.echo(
+            "FakeLlm に差し替えました: " + " / ".join(result.faked_agents),
+            err=True,
+        )
+    raise typer.Exit(code=0)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -977,6 +977,7 @@
   ],
   "undecided": [
     "DP-JIN-RESOLVE-ISOLATION-01",
+    "DP-JIN-STATE-SEED-01",
     "DP-REVIEW-JIN-001",
     "DP-REVIEW-JIN-002",
     "DP-REVIEW-JIN-003",
@@ -1300,6 +1301,15 @@
       "decide_by_phase": "implementation",
       "phase_impact": "`levenshtein` の二次爆発は総予算 `MAX_DISTANCE_COMPUTATIONS = 20000` で消滅し、115KB〜861KB が 8.2〜8.4 秒に平坦化した。ただし最悪 8.4 秒の定数が残る。**Phase 4 の LSP は打鍵ごとに `check_text` を呼ぶ設計**なので、要件書 §6.4「1000 行以下で診断 1 秒以内」を満たすかを Phase 4 で必ず実測し、必要なら候補数上限・名前長上限・インクリメンタル化を入れること。**Phase 4 着手時に必ず参照。**",
       "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "DP-JIN-STATE-SEED-01",
+      "title": "instruction の {state_key} を、生成された ADK プロジェクトが空セッションで展開できるようにするか",
+      "raised_by": "impl-p02 (実装ラウンド 2 / Phase 2)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "未決のままだと jin build の生成物は adk run / adk web の 1 ターン目で KeyError になる。要件書 §11 Phase 2 の完了条件『examples 両方が adk run で動く』のうち human_only 側がそのままでは満たせない。jin run --model fake（machine 条件 5）は runner 側の種まきで通っているので CI は緑。",
+      "parent_dp": "要件書 §2.1（{state_key} テンプレートは透過）と §3.3（out: true 以外の state[] は静的検証とエディタ表示のための宣言）のどちらを曲げるかという仕様側の判断",
+      "note": "google-adk 2.8.0 実測: google/adk/utils/instructions_utils.py の _replace_match は、{key} の key が session.state に無いと KeyError を投げる（{key?} と書けば空文字に落ちる）。examples/researcher の rune は自分の output_key である {findings} を参照するので必ず踏む。実装ラウンド 2 では jin run 側だけ session を種まきして通した（jin_adk.run.initial_state / 値は空文字。型ごとのゼロ値を当てると要件書に無い値の捏造になるため）。生成コードには何も出していない（§3.3 のとおり）。選択肢: (a) 生成物に state 種まきの before_agent_callback を出す（§3.3 を緩める）/ (b) rune 側に {key?} を書かせる（§2.1 の透過を緩める。JIN050 の扱いも要検討）/ (c) 現状維持で adk run 前に .env や session を人が用意する。実装者は決めない。"
     }
   ]
 }

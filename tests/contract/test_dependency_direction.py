@@ -179,9 +179,13 @@ def test_jin_core_does_not_import_jin_cli() -> None:
                 assert "jin_cli" not in stripped, f"{path}: {stripped}"
 
 
-@pytest.mark.parametrize("later_package", ["jin_adk", "jin_render", "jin_lsp"])
+@pytest.mark.parametrize("later_package", ["jin_render", "jin_lsp"])
 def test_later_packages_do_not_exist_yet(later_package: str) -> None:
-    """本ラウンドのスコープは Phase 0 / 1。後続 Phase のパッケージはまだ無い。
+    """本ラウンドのスコープは Phase 2 まで。Phase 3 以降のパッケージはまだ無い。
+
+    ``jin_adk`` は Phase 2 で実在するようになったのでこの列挙から外した
+    （外すときに下の 6 項目を同時に直した。外し方を間違えると
+    ``tests/contract/test_packaging_contract.py`` が名指しで落とす）。
 
     存在するようになったらこのテストが赤くなる。そのとき直すのは**この 1 行ではなく**
     `CLAUDE.md` の「パッケージを足すときのチェックリスト」の 6 項目である

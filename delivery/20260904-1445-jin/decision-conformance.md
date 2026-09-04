@@ -368,6 +368,85 @@ job env の `UV_LOCKED` が**打ち消されていた**。実測（2026-09-04・
 ことだけで、特定の版番号は固定していない。**版を上げてもテストは緑のまま通る**ので、
 上げるときは上の 2 コマンドの再実測が人間側の責務になる。
 
+### 2.13 `.env.example` のキー名（DP-COMMON-15 / 実装ラウンド 2・Phase 2）
+
+DP-COMMON-15 の決定内容は「**実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する**」
+（人間承認済み）。**実測できた**ので、コメントのみではなく次の 4 キーを出す。
+
+| キー | 根拠（google-adk 2.8.0 のソースを実測） |
+|---|---|
+| `GOOGLE_GENAI_USE_ENTERPRISE` | `google/adk/cli/cli_create.py` L127/L129 — `adk create` が `.env` の 1 行目に書く（1=Vertex AI / 0=Gemini API）。`google/adk/agents/_managed_agent.py` L189-190 が「`GOOGLE_GENAI_USE_ENTERPRISE` または**旧称の** `GOOGLE_GENAI_USE_VERTEXAI`」と書いており、現行名はこちら |
+| `GOOGLE_API_KEY` | `cli_create.py` L131 が書き、`google/genai/_api_client.py` L136 が実際に読む（`GEMINI_API_KEY` より優先。L130 の docstring に明記） |
+| `GOOGLE_CLOUD_PROJECT` | `cli_create.py` L132 / `_api_client.py` L714 |
+| `GOOGLE_CLOUD_LOCATION` | `cli_create.py` L133 / `_api_client.py` L715 |
+
+**推測で足したキーは無い。** `GEMINI_API_KEY` は `GOOGLE_API_KEY` の別名にすぎず（同 L137-140 が
+「両方あれば `GOOGLE_API_KEY` を使う」と警告する）、雛形に 2 通りの書き方を並べると
+どちらが効くのか分からなくなるので載せない。
+
+置き場所も実測に合わせた。`google/adk/cli/utils/envs.py` の `_walk_to_root_until_found` は
+`<out>/<root_name>` から**上へ辿って**最初に見つけた `.env` を読むので、要件書 §3.1 のとおり
+`<out>/.env.example` に置けば `<out>/.env` にコピーするだけで効く。
+
+値は入れない（`GOOGLE_GENAI_USE_ENTERPRISE=0` の既定だけ置く）。雛形は秘密を書く場所ではない。
+
+検査: `packages/jin-adk/tests/test_project.py`
+
+- `test_env_example_has_exactly_the_measured_keys` — キーと**その並び**を固定
+- `test_every_env_key_is_actually_read_by_the_installed_adk` — 4 キーが実物の
+  google-adk / google-genai のソースに**実在する**ことを毎回確かめる（捏造の検出）
+- `test_env_example_has_no_values` — 雛形に値を書かない
+
+### 2.14 Python を 3.13 に固定（実装ラウンド 2・Phase 2）
+
+`.python-version` を `3.14` から **`3.13`** に下げた。**google-adk 2.8.0 が Python 3.14 で import できない**。
+
+実測（2026-09-04・同一マシン・隔離 venv 2 つ）:
+
+| Python | `from google.adk.agents import LlmAgent` |
+|---|---|
+| 3.14.0rc2 | **失敗**（`google/genai/types.py` の `PartMediaResolution` 定義中に `pydantic/_internal/_typing_extra.py` `eval_type_backport` が `AssertionError`。原因は `typing._eval_type() got an unexpected keyword argument 'prefer_fwd_module'`） |
+| 3.13.12 | 成功 |
+
+- pydantic は 2026-09-04 時点で **2.13.5 が最新**（PyPI 実測）。3.14 対応の新しい版は無い
+- 3.14 は当時 `.python-version` の `3.14` から **3.14.0rc2**（リリース候補）が選ばれていた。
+  安定版に固定するという W-06 の趣旨からも 3.13 のほうが妥当
+- design.yaml Phase 2 の machine 条件「google-adk 2.8.0 に対する生成モジュールの import テストが
+  通る（NFR-VER-001）」は 3.14 では**原理的に満たせない**
+
+`requires-python = ">=3.12"` は変えていない（3.13 はその範囲内）。上げ直すときは、上の 1 行
+（`from google.adk.agents import LlmAgent`）を実際に通してから確定すること。
+`packages/jin-adk/tests/test_adk_surface.py::test_the_installed_adk_is_the_pinned_version` が
+入っている google-adk の版を固定しているので、版と Python の組を変えるときは同時に見直す。
+
+### 2.15 `builtin` に許す名前（Phase 2 で新たに必要になった判断）
+
+要件書 §2.2 は `builtin` の例として `google_search` しか挙げておらず、許容集合を定めていない。
+`google.adk.tools` が**インスタンスとして**公開しているツール（= `tools=[...]` にそのまま置けるもの）を
+実測して、その 9 個を許容集合とした:
+`enterprise_web_search` / `get_user_choice` / `google_maps_grounding` / `google_search` /
+`load_artifacts` / `load_memory` / `preload_memory` / `request_input` / `url_context`。
+
+**列挙は `jin_adk.codegen.BUILTIN_TOOLS` の 1 箇所**にあり、
+`packages/jin-adk/tests/test_adk_surface.py::test_builtin_tools_constant_matches_what_adk_actually_exports`
+が実物の `google.adk.tools` と突き合わせる。ADK が増減したら赤くなるので、記憶で足したり消したりできない。
+
+ここに無い `builtin` は**コンパイル時エラー**にする（NFR-FAIL-001「黙って落とさない」）。
+
+### 2.16 生成コードの変数名が衝突したときの別名（Phase 2 で新たに必要になった判断）
+
+要件書 §3.2 の生成例は `from research.tools import web_search, fetch_page, publish` と
+**素の名前**で import する。しかし `ref` の callable 名は別モジュール間で重複しうるし、
+circle 名や ADK の import 名（`FunctionTool` など）ともぶつかりうる。
+
+- ぶつからない限り §3.2 のとおり素の名前を使う（examples の生成物は要件書の見た目のまま）
+- ぶつかったときだけ `beta.tools:run` → `beta_tools__run` のようにモジュール修飾の別名を付ける
+- **黙って 1 つに潰さない**（潰すと別の関数が呼ばれる）
+
+root 以外の circle が `root_agent` という名前だった場合と、`flow.exit` の判定エージェント名
+（`<circle 名>__exit`）が既存の circle 名とぶつかった場合は、別名にせず**コンパイル時エラー**にする。
+生成コードの中の名前と `.jin` の名前が食い違うと、生成物を読んだ人が混乱するため。
+
 ## 3. `DP-CONFORMANCE-FAIL` の起票
 
 `not_reflected` / `unknown` は **0 件**のため起票なし。

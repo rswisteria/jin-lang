@@ -1,0 +1,41 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Loop",
+  "circles": [
+    {
+      "name": "Loop",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Step"
+        ],
+        "exit": {
+          "key": "done",
+          "equals": true
+        }
+      }
+    },
+    {
+      "name": "Step",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "y"
+      },
+      "state": [
+        {
+          "name": "done",
+          "type": "bool",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Loop__exit",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "z"
+      }
+    }
+  ]
+}

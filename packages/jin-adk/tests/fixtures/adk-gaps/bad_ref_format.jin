@@ -1,0 +1,21 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Root",
+  "circles": [
+    {
+      "name": "Root",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "x"
+      },
+      "tools": [
+        {
+          "name": "t",
+          "kind": "tool",
+          "ref": "コロンの無い参照"
+        }
+      ]
+    }
+  ]
+}

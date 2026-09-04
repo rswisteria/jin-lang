@@ -1,0 +1,23 @@
+[project]
+name = "jin-adk"
+version = "0.1.0"
+description = "Jin の ADK コンパイラ（build / run / trace / FakeLlm）"
+requires-python = ">=3.12"
+# 版の根拠: delivery/20260904-1445-jin/version-matrix.md（2026-09-04 実測）と
+# delivery/20260904-1445-jin/adk-api-probe.md（google-adk 2.8.0 を実インストールして introspection）。
+# **上限を固定する**。生成コードの引数名は 2.8.0 の実測に固定してあるので、
+# 2.9 以降で引数が変わると生成物が黙って壊れる（NFR-VER-001）。
+dependencies = [
+  "jin-core",
+  "google-adk>=2.8,<2.9",
+]
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jin_adk"]

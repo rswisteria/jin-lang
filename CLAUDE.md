@@ -24,6 +24,11 @@ Jin(陣) は Google ADK 上の LLM エージェントを魔法陣として記述
 jin-core  ←  jin-adk / jin-render  ←  jin-lsp / jin-cli
 ```
 
+**ADK の語彙が現れてよいのは `jin-adk` だけ。** `jin-adk` の中でも `google.adk` を import するのは
+実行系（`fake_llm` / `loader` / `run`）だけで、コード生成（`codegen` / `project`）はテキストしか作らない
+（`jin build` に ADK のロード＝数秒を強いないため）。`jin_cli` も `build` / `run` の**関数の中で**
+`jin_adk` を import する。
+
 - `jin-core` は他の `jin-*` に依存しない（最下層）
 - **`jin-core` は `google-adk` に依存しない。** ADK の語彙は `jin-adk` 側にだけ現れる
 - `apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない
@@ -49,9 +54,15 @@ jin-core  ←  jin-adk / jin-render  ←  jin-lsp / jin-cli
 5. forbidden 契約の `source_modules` — 「google-adk に依存しない」「resolver は jin_cli に閉じる」の
    対象に加える（`jin_cli` 自身は後者の対象外）
 6. `packages/<name>/tests/__init__.py` — 無いと同名テストファイル 1 個でスイート全体が `Interrupted` になる
+7. 共有 fixture は **`packages/<name>/conftest.py`**（`tests/` の 1 つ上）に置く。
+   `packages/<name>/tests/conftest.py` に置くと**スイート全体が collection error で止まる**
+   （6 で必須にした `tests/__init__.py` のせいで、リポジトリ直下の `tests/conftest.py` と
+   どちらも `tests.conftest` に解決され、2 つ目の登録で `ValueError: Plugin already registered` になる）。
+   しかも**パッケージ単体で走らせると緑**なので気づきにくい。テストモジュールからの
+   `from .conftest import ...` も同じ理由で禁止（共有は fixture で渡す）
 
 `testpaths` は `packages` をディレクトリごと指すので追記は要らない。
-1〜6 の抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。
+1〜7 の抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。
 
 ## 実装の進み具合
 
@@ -59,12 +70,12 @@ jin-core  ←  jin-adk / jin-render  ←  jin-lsp / jin-cli
 |---|---|---|
 | 0 | 仕様書 5 本 + examples 2 本 + 突合テスト | 実装済み |
 | 1 | `jin-core` + `jin-cli`（check / fmt / schema / dump） | 実装済み |
-| 2 | `jin-adk`（build / run / trace / FakeLlm） | 未着手 |
+| 2 | `jin-adk`（build / run / trace / FakeLlm） | 実装済み |
 | 3 | `jin-render`（render / focus / trace overlay） | 未着手 |
 | 4 | `jin-lsp`（stdio + ws）+ Claude Code プラグイン | 未着手 |
 | 5–6 | `apps/editor`（編集モード / デバッグモード） | 未着手 |
 
-`jin build` / `jin run` / `jin render` / `jin lsp` / `jin editor` は**まだ定義していない**。
+`jin render` / `jin lsp` / `jin editor` は**まだ定義していない**。
 空実装を先に置くと `jin --help` が嘘をつくので、未実装のものはサブコマンドごと存在させない。
 
 ## 開発コマンド
@@ -89,8 +100,12 @@ uv run jin fmt --check examples           # examples が正準形か
 
 ## 書くときの約束
 
-- **生成コードは編集しない。** `jin build` の出力（Phase 2 以降）はテンプレートを直して再生成する
-- **テストはネットワークと API キーを必要としない。** モデル呼び出しはせず `FakeLlm` に差し替える（Phase 2）
+- **生成コードは編集しない。** `jin build` の出力はテンプレート（`jin_adk.codegen`）を直して再生成する
+- **テストはネットワークと API キーを必要としない。** モデル呼び出しはせず `FakeLlm` に差し替える
+  （`jin_adk.fake_llm`。`summon` の先まで差し替えること。`sub_agents` だけ辿ると `AgentTool` の
+  内側に実モデルが残る）
+- **ADK の実 API を記憶で書かない。** 正本は `delivery/20260904-1445-jin/adk-api-probe.md` と、
+  実物に対して assert する `packages/jin-adk/tests/test_adk_surface.py`
 - 正準形の規則は `jin_core.canonical` の 1 箇所にだけ実装する。Pydantic 設定や後処理へ分散させない
 - 診断の行・列は **1 始まり・end 排他・コードポイント単位**。LSP（0 始まり / UTF-16）への変換は
   `jin-lsp` の 1 モジュールだけが行う（`docs/spec/diagnostics.md` §5.1）
@@ -109,3 +124,17 @@ uv run jin fmt --check examples           # examples が正準形か
   `jin_core` には置かない（Phase 4 の `jin-lsp` は `jin_core` にしか依存しないので、
   ws で公開されるコードパスからこの実装へ到達できない）。この隔離は import-linter の
   forbidden contract で機械的に落とす
+
+## `jin run` の危険性
+
+`jin run` は `.jin` から生成したコードを一時ディレクトリへ書き出して **import する**（要件書 §3.4）。
+生成コードは `tools[].ref` / `boundary.guards[].ref` が指すモジュールを import するので、
+`jin check --resolve` と**同じ危険性**がある: `.jin` を書いた相手に、このプロセスの権限で
+任意のコードを実行させることになる。
+
+違いは「`jin run` は実行するためのコマンドなので、それが目的である」ことだけ。
+出どころの分からない `.jin` には使わないこと。`--model fake` はモデル呼び出しを止めるだけで、
+**`ref` の import は止めない**。
+
+実装は `packages/jin-adk/src/jin_adk/loader.py` の 1 モジュールに閉じてある
+（`jin_adk` の中で `importlib` を使うのはここだけ。`tests/contract/test_packaging_contract.py` が固定）。

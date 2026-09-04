@@ -125,6 +125,53 @@ def test_every_package_test_directory_is_a_package(package: Path) -> None:
     )
 
 
+#: パッケージ内の共有 fixture を置いてよい場所（`packages/<name>/conftest.py`）。
+#: `packages/<name>/tests/conftest.py` に置くと**スイート全体が collection error で止まる**。
+CONFTEST_INSIDE_TESTS_MESSAGE = (
+    "packages/<name>/tests/conftest.py はスイート全体を止める。"
+    "packages/<name>/conftest.py（tests/ の 1 つ上）へ移すこと"
+)
+
+
+@pytest.mark.parametrize("package", package_dirs(), ids=PACKAGE_IDS)
+def test_no_package_puts_conftest_inside_its_tests_package(package: Path) -> None:
+    """Phase 2 で踏んだ罠。**気づきにくい壊れ方**なので機械で固定する。
+
+    `packages/<name>/tests/__init__.py` は必須（A-1）なので、そのディレクトリの
+    Python 上の名前は `tests` になる。リポジトリ直下の `tests/` も同じ `tests` なので、
+    `consider_namespace_packages = true` の下ではどちらの `conftest.py` も
+    `tests.conftest` に解決される。2 つ目を登録するところで pytest が落ちる::
+
+        ValueError: Plugin already registered under a different name:
+          packages/jin-adk/tests/conftest.py=<module 'tests.conftest' from 'tests/conftest.py'>
+
+    しかも**パッケージ単体で走らせると緑**（リポジトリ直下の `tests/` を収集しないので
+    衝突しない）。`uv run pytest` で初めて全体が止まる。
+
+    `packages/<name>/` には `__init__.py` が無いので、そこへ置いた `conftest.py` は
+    素の `conftest` として登録され、衝突しない。同じ理由で、テストモジュールから
+    `from .conftest import ...` のような相対 import もしてはいけない
+    （`tests` パッケージがどちらを指すかが収集順で変わる）。共有は fixture で行う。
+    """
+    assert not (package / "tests" / "conftest.py").exists(), (
+        f"{package.name}: {CONFTEST_INSIDE_TESTS_MESSAGE}"
+    )
+
+
+@pytest.mark.parametrize("package", package_dirs(), ids=PACKAGE_IDS)
+def test_no_test_module_imports_its_conftest_relatively(package: Path) -> None:
+    """`from .conftest import ...` は収集順に依存する（上の docstring）。"""
+    tests_dir = package / "tests"
+    if not tests_dir.is_dir():
+        return
+    for path in sorted(tests_dir.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        assert "from .conftest import" not in text, (
+            f"{path.relative_to(REPO_ROOT)} が conftest を相対 import している。"
+            "共有したいものは fixture として渡すこと"
+        )
+
+
 def test_import_mode_is_importlib() -> None:
     """A-1 の二重の網。`__init__.py` を消しても同名衝突で全滅しないようにする設定。"""
     addopts = root_config()["tool"]["pytest"]["ini_options"]["addopts"]
@@ -182,10 +229,10 @@ def test_the_only_module_importing_importlib_is_the_cli_resolver() -> None:
     import する実装が ``jin_cli`` の resolver 1 箇所に閉じている」ことであって、
     「importlib を使う場所が 1 箇所しかない」ことではない。
 
-    **Phase 2 で赤くなるのは想定どおり**: 要件書 §3.4 が ``jin run`` を「生成コードを
+    **Phase 2 で ``jin_adk`` を 1 件足した**: 要件書 §3.4 が ``jin run`` を「生成コードを
     一時ディレクトリに書き出して import」と定めているため、``jin_adk`` は importlib を
-    使う。そのときは ``expected`` に ``packages/jin-adk/src/jin_adk/<module>.py`` を
-    **足して通すのが正しい**。
+    使う。使うのは ``jin_adk.loader`` **1 モジュールだけ**で、そこへ足して通した
+    （足す以外の直し方をしていない）。
 
     やってはいけない修正:
 
@@ -206,7 +253,10 @@ def test_the_only_module_importing_importlib_is_the_cli_resolver() -> None:
                 stripped = line.strip()
                 if stripped.startswith(("import importlib", "from importlib")):
                     offenders.append(str(path.relative_to(REPO_ROOT)))
-    assert offenders == ["packages/jin-cli/src/jin_cli/resolver.py"]
+    assert offenders == [
+        "packages/jin-adk/src/jin_adk/loader.py",
+        "packages/jin-cli/src/jin_cli/resolver.py",
+    ]
 
 
 # --------------------------------------------------------------------------------------

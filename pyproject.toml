@@ -5,6 +5,7 @@ description = "Jin(陣) — 魔法陣型エージェント記述言語 / uv work
 requires-python = ">=3.12"
 dependencies = [
   "jin-core",
+  "jin-adk",
   "jin-cli",
 ]
 
@@ -16,6 +17,7 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 jin-core = { workspace = true }
+jin-adk = { workspace = true }
 jin-cli = { workspace = true }
 
 [dependency-groups]
@@ -24,6 +26,8 @@ dev = [
   "pytest>=9.1,<10",
   "ruff>=0.16,<1",
   "import-linter>=2.14,<3",
+  # design.yaml Phase 2 の machine 条件「生成 agent.py のスナップショット（syrupy）」。
+  "syrupy>=6.0,<7",
 ]
 
 [tool.pytest.ini_options]
@@ -49,7 +53,7 @@ extend-exclude = ["delivery", "docs", ".venv"]
 [tool.importlinter]
 # ADR-004 (DP-COMMON-11): 依存の一方向性を機械で落とす。
 # 契約の正本は design.yaml architecture.dependency_direction.rules の 8 行。
-root_packages = ["jin_core", "jin_cli"]
+root_packages = ["jin_core", "jin_adk", "jin_cli"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -64,14 +68,16 @@ type = "layers"
 # （tests/contract/test_packaging_contract.py が網羅を機械で確認する）。
 layers = [
   "jin_cli",
+  "jin_adk",
   "jin_core",
 ]
 
 [[tool.importlinter.contracts]]
 name = "jin_core は google-adk に依存しない"
 type = "forbidden"
-# jin_render も ADK に依存してはいけない（design.yaml のルール 2）。
-# Phase 3 で jin_render を作ったら source_modules に足すこと（W-05）。
+# **jin_adk はここに足さない**。ADK の語彙が現れてよい唯一のパッケージである
+# （CLAUDE.md「パッケージ境界」/ design.yaml のルール 2）。
+# jin_render も ADK に依存してはいけない。Phase 3 で作ったら source_modules に足すこと（W-05）。
 source_modules = ["jin_core"]
 forbidden_modules = ["google"]
 
@@ -82,5 +88,5 @@ forbidden_modules = ["google"]
 # （tests/contract/test_packaging_contract.py がそれを強制する）。
 name = "ref の解決実装（任意コード実行）は jin_cli に閉じる"
 type = "forbidden"
-source_modules = ["jin_core"]
+source_modules = ["jin_core", "jin_adk"]
 forbidden_modules = ["jin_cli.resolver"]

@@ -145,7 +145,7 @@ architecture:
     - jin-lsp は jin-core / jin-adk / jin-render に依存する（言語サービスの唯一の入口）
     - jin-cli は jin-core / jin-adk / jin-render / jin-lsp に依存する（最上層）
     - apps/editor は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない
-    - 生成される ADK プロジェクトの jin パッケージへの依存可否は DP-JIN-CODEGEN-RUNTIME-01 で未決
+    - 生成される ADK プロジェクトは jin パッケージに依存しない（DP-JIN-CODEGEN-RUNTIME-01 / ADR-008 で確定・実装ラウンド 2 で実装）
     enforcement: 'この一方向性を「レビューで気をつける」ではなく機械で落とす。
 
       DP-COMMON-11 の判断対象であり、実装方式（import-linter を入れるか / 自前の AST 走査テストを書くか /
@@ -2101,7 +2101,10 @@ required_build_env_note: 'apps/editor のビルド時に解決が必要な環境
 
   必要なキーが判明したら本フィールドを更新すること。
 
-  なお生成 ADK プロジェクトの .env.example に載せるキー名は別論点で、DP-COMMON-15 として起票した。'
+  なお生成 ADK プロジェクトの .env.example に載せるキー名は別論点で、DP-COMMON-15 として起票した。
+DP-COMMON-15 は実装ラウンド 2（Phase 2）で google-adk 2.8.0 のソースを実測して確定した
+（GOOGLE_GENAI_USE_ENTERPRISE / GOOGLE_API_KEY / GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION。
+根拠は decision-conformance.md §2.13）。'
 domain_specific:
   ui_design_note: 'design.schema.json の ui_design（figma_url / screen_count 必須）は本ファイルで省略した。
 
