@@ -994,13 +994,14 @@
       "backend_unit": "passed",
       "container_smoke": "not_applicable",
       "browser_e2e": "not_applicable",
-      "pipeline_e2e": "not_run"
+      "pipeline_e2e": "passed"
     },
     "required_layers": [
       "backend_unit"
     ],
     "scope_labels": [
-      "backend-unit-verified"
+      "backend-unit-verified",
+      "pipeline-verified"
     ],
     "overall": "verified",
     "domain_checks": [
@@ -1187,7 +1188,8 @@
       "[jin_phase=1][fix_round=5][pytest] uv run pytest → 521 passed（518 → 521）",
       "[jin_phase=0,1][parent-final] 2026-09-04 20:12 親が全ゲートを再実行して再導出: UV_LOCKED=1 uv run pytest → 521 passed / ruff check → All checks passed / ruff format --check → 40 files already formatted / lint-imports → Contracts: 3 kept, 0 broken / jin check examples → error 0 warning 0 EXIT=0 / jin fmt --check examples → EXIT=0 / jin schema diff → ドリフト無し / UV_LOCKED=1 uv sync → EXIT=0",
       "[jin_phase=0,1][parent-final] Stage 5 は 4 観点 86 finding → 修正 5 ラウンド。同一観点 reviewer による defect-gone 確認済み（conventions 5/5 / security 初回14+新規6 / wiring 3/3+6/7 / correctness 20/25+7/7）。変異検証は実装者 88/88 赤（stale .pyc 対策済みハーネス）＋ 親と各 reviewer の独立検証",
-      "[jin_phase=0,1][parent-final] pipeline_e2e は not_run（GitHub Actions 未実行）。human_only 条件は not_run で PR レビュー送り。実施済みと報告していない"
+      "[jin_phase=0,1][parent-final] pipeline_e2e は not_run（GitHub Actions 未実行）。human_only 条件は not_run で PR レビュー送り。実施済みと報告していない",
+      "[jin_phase=0,1][post-merge] 2026-09-04 PR #1 マージ後に GitHub Actions が実機で成功: pull_request 2 回 + push/main 1 回とも conclusion=success。pipeline_e2e を not_run から passed に更新（親が gh run list で確認）"
     ],
     "replay_commands_ref": "delivery/20260904-1445-jin/replay-commands.md",
     "note": "overall は **backend_unit レイヤに限った判定**である（scope_labels 参照）。本案件に HTTP サーバもブラウザも存在しないため container_smoke / browser_e2e は not_applicable。GitHub Actions の実パイプライン通し（pipeline_e2e）は未実行。Phase 0 の human_only 条件は not_run で、PR レビューで人間が判定する。 【修正ラウンド 1】backend_unit は passed（432 件・ミューテーション 38/38 で非空虚性を実測）であり、機械規則だけを当てれば verified になる。しかし fix-round-1-instructions.md §0 が 「同一観点の code-reviewer による再レビューで defect-gone を確認するまでクローズしない」と定めており、親から「overall を自己判断で verified に戻さないこと」と明示指示があるため、**実装者側では verified を主張せず partially_verified に置く**。最終値は再レビュー後に親が再導出する。 【修正ラウンド 2】同じ理由で overall は partially_verified のまま置く。backend_unit は passed（488 件・ミューテーション 64/64 が赤）。",

@@ -9,7 +9,7 @@
 - **本レポートのスコープは Jin Phase 0+1 のみ。** 本ランの全体スコープは Phase 0〜6（ADR-001）であり、
   Phase 2〜6（jin-adk / jin-render / jin-lsp / apps/editor）は未着手。**Jin 成果物全体は FINAL からは程遠い。**
 - verification_status.overall: **`verified`**（親が再導出。実装者は最後まで `partially_verified` のまま返し、自己判断で戻していない）
-- `pipeline_e2e` は `not_run`（GitHub Actions 未実行）。`human_only` 条件も `not_run` で PR レビュー送り。**実施済みと報告していない**
+- `pipeline_e2e` は **`passed`**（2026-09-04 の PR #1 マージ時に GitHub Actions が実機で成功。pull_request 2 回 + push/main 1 回とも conclusion=success）。`human_only` 条件は `not_run` のまま PR レビュー送り。**実施済みと報告していない**
 - scope_labels: `backend-unit-verified`
 - 起動した観点: correctness / conventions / wiring / security（並列度 = 4）
 - 各観点の findings 件数: **correctness=33 / conventions=21 / wiring=13 / security=19（合計 86 件）**
