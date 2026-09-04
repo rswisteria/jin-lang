@@ -204,3 +204,7 @@
 | — | **契約からの逸脱を記録**: `DP-IMPL-JIN-*` 7 件は AI（impl-p01）が記録したのに `status=decided` になっており `ai_provisional` ではなかった。`review_status=pending_human_review` だったため台帳では要確認に出ていた。内容を変えず `decided_by=toyota` で再記録し、`constraints` は省略して既存値（`verified_in` 付き）を維持 | `--approve` は ai_provisional 専用のため使えなかった |
 | 2026-09-04 21:25 | 人間の指示: **§2.4 統合（JIN012/JIN013）は Phase 2 のラウンド冒頭にまとめて実施**。Phase 0+1 のコミット境界を保つため | `phase2-handoff.md` §0-A に最優先タスクとして記載 |
 | 2026-09-04 21:25 | 人間の指示: **未決 9 件は期限まで未決のままで良い**。Phase 4 着手の直前に `DP-JIN-RESOLVE-ISOLATION-01` と `DP-REVIEW-JIN-008` を改めて人間へ提示すること（親の責務） | `phase2-handoff.md` §6 に記載 |
+| 2026-09-04 21:32 | **PR #1 がマージされた**（`c00e07a`）。`delivery/` と `docs/adr/` の成果物はすべて main にあり、別環境から参照可能 | https://github.com/rswisteria/jin-lang/pull/1 |
+| 2026-09-04 21:35 | **CI が実機で成功**（pull_request 2 回 + push/main 1 回とも success）。`pipeline_e2e` を `not_run` → `passed` に更新し `scope_labels` に `pipeline-verified` を追加 | 親が `gh run list` で確認 |
+| 2026-09-04 21:40 | **残作業を Issue 化**（8 本・自己完結型）。#2 §2.4 統合 / #3〜#7 Phase 2〜6 / #8 Phase 4 ブロッカー 2 件 / #9 fix-later 7 件。各 Issue に完了条件（design.yaml の machine 条件を転記）・確定済み判断・踏んではいけない罠・参照パス・依存関係を記載 | 別環境から Issue だけ読んで着手できる形 |
+| — | 本ラン（Phase 0+1）の実行記録はここで終了。以降は Issue 単位で引き継ぐ | |
