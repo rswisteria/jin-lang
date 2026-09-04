@@ -1,0 +1,28 @@
+# ADR-007: DP-JIN-SEMANTIC-GAPS-01 案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する
+
+> ⚠️ **AI 仮決定（ai_provisional）** — auto mode の仮判断であり人間確定ではない（DP-AUTOMODE-01）。PR レビュー後、`/decide` で approved / overridden に確定する。
+
+- **ステータス**: proposed (ai_provisional)
+- **日付**: 2026-09-04
+- **決定者**: auto-decider
+- **関連判断ポイント**: DP-JIN-SEMANTIC-GAPS-01
+
+## コンテキスト
+
+_（コンテキストは案件側で追記）_
+
+## 選択肢
+
+| 選択肢 | 採否 |
+|---|---|
+| 案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する | 採用 |
+| 案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる） | 不採用 |
+| 案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う） | 不採用 |
+
+## 決定
+
+design.yaml fired_decision_points[DP-JIN-SEMANTIC-GAPS-01] の推奨案（案 A）を採用する。循環参照（summon / delegate が A → B → A）と circle の多重親を新しい JIN 診断コード 2 件として追加し、jin-core の意味検査で検出する。要件との適合根拠: (1) 循環参照と多重親は ADK 固有ではなくモデル自身の整合性の問題であり、レンダラも入れ子展開で無限再帰するため、jin-core は ADK に依存しないという制約を保ったまま jin-core で検出するのが層として正しい。(2) 案 B（jin-adk のコード生成時エラーに委ねる）は jin check が通ってしまい、成功条件 3 の「LLM が jin check → 修正のループで直せる」が成立せず、レンダラ経路では検出されず無限再帰する。(3) 案 C（JIN011 / JIN031 に寄せる）は「未解決の参照」と「解決できる参照が循環している状態」の意味が違い、要件書 §9 の「対応コードを 1 つだけ出す」fixture の意図から外れる。要件書 §2.4 の確定した 12 件の表への追加であり仕様変更の人間承認を要するため confidence は medium とする。
+
+## 影響
+
+_（影響は案件側で追記）_

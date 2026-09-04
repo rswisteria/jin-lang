@@ -24,3 +24,4 @@
 | 2026-09-04 15:34 | Phase 2 設計完了・発火 DP 17 件すべて undecided | `design.yaml`（schema 検証 OK） |
 | 2026-09-04 15:40 | 親が pygls 2.1.1 / pytest-lsp 1.0.1 / lark 1.3.1 を実インストールして API 実測 | `lsp-api-probe.md` |
 | 2026-09-04 15:44 | 親が更新後 design.yaml を再検証（yaml + jsonschema とも PASS） | — |
+| 2026-09-04 15:44 | auto-decider が設計 17 DP を ai_provisional で仮判断 → design.yaml undecided 0 / ADR-003〜011 起票 | `auto-decisions.md`（要人間確認 12 件） |
