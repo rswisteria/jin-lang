@@ -1,0 +1,213 @@
+{
+  "handoff": "human-decision-request",
+  "schema_version": "v1",
+  "generated_at": "2026-09-04T14:45:00+09:00",
+  "run_dir": "delivery/20260904-1445-jin",
+  "plugin": "xtone-ai-delivery-bundle（common-dev 相当・slug: jin）",
+  "decided_by_default": "toyota",
+  "summary": "要件フェーズの未決が 3 件あります。まず本ランで通す Phase 範囲（DP-JIN-PHASE-SCOPE-01）を決めると残り 2 件のうち決定が必要なものが絞れます（Phase 0〜1 に絞るなら他 2 件は決定不要）。google-adk のバージョンは親の実測プローブで解消済みのため起票していません。",
+  "requests": [
+    {
+      "id": "DP-JIN-PHASE-SCOPE-01",
+      "title": "本ランでどこまで実装するか / Phase 0 承認ゲートを auto mode でどう扱うか",
+      "question": "DP-JIN-PHASE-SCOPE-01 本ランでどこまで実装するか / Phase 0 承認ゲートを auto mode でどう扱うか をどうしますか？",
+      "phase": "design",
+      "why_now": "要件書 §11 / §12 が人間の承認ゲート（Phase 0 の仕様書を承認してから Phase 1 に入る）を前提に書かれているが、auto mode には承認する人間がいないため。",
+      "impact_if_undecided": "決めないと design.yaml のスコープが確定せず、実装フェーズが Phase 0（仕様書と examples のみ）に縮退します。undecided[] に残り続けます（warn_and_document・T-002）。",
+      "reversibility": "reversible",
+      "adr": true,
+      "recommended": "Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)",
+      "options": [
+        {
+          "label": "Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)",
+          "summary": "要件書 §12 の指示に最も忠実。Phase 0 の仕様書が正典になるのでここを固めてから先へ進む",
+          "recommended": true,
+          "confidence": "high",
+          "pros": [
+            "要件書 §11 の「Phase 1 は jin-core 単体に絞る」指示に一致",
+            "診断コード 12 件の fixture と正準形の冪等性を確実に検証できる",
+            "Phase 0 の仕様書レビューを人間が PR で行える"
+          ],
+          "cons": [
+            "成功条件 1(adk run で動く)・2(SVG)・4(LSP)・5(エディタ往復)・6(トレースリプレイ)は次ラン以降になる"
+          ]
+        },
+        {
+          "label": "Phase 0〜2(+ jin-adk build/run/trace/FakeLlm)",
+          "summary": "成功条件 1 まで到達し、.jin が実際に動くところまで通す",
+          "confidence": "medium",
+          "pros": [
+            "成功条件 1 を満たし価値が目に見える",
+            "実測済み google-adk 2.8.0 API に対する生成モジュールの import テストが同ラン内で通せる"
+          ],
+          "cons": [
+            "google-adk のインストールと import テストが必要で外部依存が増える",
+            "Phase 0 仕様書の承認前に Phase 2 まで進むことになる"
+          ]
+        },
+        {
+          "label": "Phase 0〜4(エディタを除く全 Python パッケージ + Claude Code プラグイン)",
+          "summary": "成功条件 1〜4 を満たし、LLM が .jin を書ける状態まで一気に通す",
+          "confidence": "low",
+          "pros": [
+            "Claude Code から実際に使える状態になる",
+            "エディタ(TypeScript)を切り離せるので言語が Python に一本化される"
+          ],
+          "cons": [
+            "1 ランの実装量が大きく検証が薄くなる",
+            "レイアウト仕様(§2.5)の星形多角形など細部の作り込みが必要"
+          ]
+        },
+        {
+          "label": "Phase 0〜6(全フェーズ)",
+          "summary": "要件書の v1 スコープを 1 ランで通す",
+          "confidence": "low",
+          "pros": [
+            "v1 が完成する"
+          ],
+          "cons": [
+            "Python 5 パッケージ + React エディタ + Playwright を 1 ランで作ることになり品質担保が困難",
+            "要件書自身が「各フェーズを独立した spec → plan → 実装のサイクルにする」と指定している方針に反する"
+          ]
+        }
+      ],
+      "context": "選択肢・推奨は jin-requirements.md（§11 / §12 / §10 #8 / §8）と実行環境実測に由来。要件書に無い具体値は補っていない（T-002）。",
+      "on_decide": "record.py --batch の decisions[] に chosen / rationale で反映。decided_by_kind は ai_provisional。",
+      "refs": [
+        {
+          "label": "jin-requirements.md"
+        },
+        {
+          "label": "delivery/20260904-1445-jin/requirements.json"
+        },
+        {
+          "label": "delivery/20260904-1445-jin/adk-api-probe.md"
+        }
+      ]
+    },
+    {
+      "id": "DP-JIN-EDITOR-UX-01",
+      "title": "Phase 5 エディタの UI/UX をデザイナー不在でどう決めるか",
+      "question": "DP-JIN-EDITOR-UX-01 Phase 5 エディタの UI/UX をデザイナー不在でどう決めるか をどうしますか？",
+      "phase": "design",
+      "why_now": "要件書 §11 が「Phase 5 はデザイナーを巻き込む前提でよい」と明記しているが、auto mode にデザイナーが参加しないため。",
+      "impact_if_undecided": "決めなくても Phase 0〜4 は進みます。Phase 5 を含める場合、エディタの UI 設計がすべて AI 仮判断になります。",
+      "reversibility": "reversible",
+      "adr": false,
+      "recommended": "Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする",
+      "options": [
+        {
+          "label": "Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする",
+          "summary": "要件書の指定に従いデザイナー不在では着手しない。DP-JIN-PHASE-SCOPE-01 で Phase 0〜4 以下を選ぶことと整合する",
+          "recommended": true,
+          "confidence": "high",
+          "pros": [
+            "要件書 §11 の指定を尊重する",
+            "後から UI をやり直すコストを避けられる"
+          ],
+          "cons": [
+            "成功条件 5(エディタ往復無損失)が本ランでは未達成になる"
+          ]
+        },
+        {
+          "label": "機能要件(§7.1 / §7.2)だけを満たす最小 UI を AI 仮判断で作り、デザインは後で差し替える",
+          "summary": "SVG 表示・ヒットテスト・JSON Schema 由来のフォーム・applyOps 疎通のみを実装し、見た目は装飾なしにする",
+          "confidence": "medium",
+          "pros": [
+            "Playwright スモーク(開く→紋を追加→保存→正準形)まで到達できる",
+            "フォームは JSON Schema から生成する指定なので手書きデザインの余地が元々小さい"
+          ],
+          "cons": [
+            "デザイナーが入った時点で作り直しになる可能性がある",
+            "auto mode の AI 判断が UI 全般に及ぶ"
+          ]
+        },
+        {
+          "label": "Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる",
+          "summary": "社内標準に寄せることでデザイナー不在のリスクを下げる",
+          "confidence": "low",
+          "pros": [
+            "社内の見た目に揃う"
+          ],
+          "cons": [
+            "参照すべき具体的なデザインシステムが要件書にもリポジトリにも示されておらず、存在を確認できていない"
+          ]
+        }
+      ],
+      "context": "選択肢・推奨は jin-requirements.md（§11 / §12 / §10 #8 / §8）と実行環境実測に由来。要件書に無い具体値は補っていない（T-002）。",
+      "on_decide": "record.py --batch の decisions[] に chosen / rationale で反映。decided_by_kind は ai_provisional。",
+      "refs": [
+        {
+          "label": "jin-requirements.md"
+        },
+        {
+          "label": "delivery/20260904-1445-jin/requirements.json"
+        },
+        {
+          "label": "delivery/20260904-1445-jin/adk-api-probe.md"
+        }
+      ]
+    },
+    {
+      "id": "DP-JIN-DISTRIBUTION-01",
+      "title": "「社内 git」からの配布と実 remote(個人 GitHub)の整合をどうするか",
+      "question": "DP-JIN-DISTRIBUTION-01 「社内 git」からの配布と実 remote(個人 GitHub)の整合をどうするか をどうしますか？",
+      "phase": "implementation",
+      "why_now": "要件書 §10 #8 / §8 が「社内 git」「社内 ai-delivery マーケットプレイス」を配布元とするが、実 remote が github.com:rswisteria/jin-lang.git（社内 git ホスティングではない）であるため。",
+      "impact_if_undecided": "決めなくても実装は進みます。Claude Code プラグインの README / SessionStart 案内の URL がプレースホルダのままになります。",
+      "reversibility": "reversible",
+      "adr": false,
+      "recommended": "現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う",
+      "options": [
+        {
+          "label": "現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う",
+          "summary": "uv tool install git+https://github.com/rswisteria/jin-lang を手順に書き、社内移管時に URL を差し替える",
+          "recommended": true,
+          "confidence": "medium",
+          "pros": [
+            "実在する remote を使うので手順が今すぐ検証できる",
+            "移管はドキュメントの URL 差し替えで済む"
+          ],
+          "cons": [
+            "要件書が言う「社内 git」とは異なるので移管タスクが残る"
+          ]
+        },
+        {
+          "label": "README のインストール手順を <社内 git URL> のプレースホルダにして確定を保留する",
+          "summary": "実在しない URL を書かず、移管先が決まってから埋める",
+          "confidence": "medium",
+          "pros": [
+            "存在しない URL を捏造しない"
+          ],
+          "cons": [
+            "そのままでは Claude Code プラグインの SessionStart 案内が機能しない"
+          ]
+        },
+        {
+          "label": "社内 git への移管を先に行ってから配布導線を書く",
+          "summary": "移管先リポジトリを確定させてから Phase 4 に入る",
+          "confidence": "low",
+          "pros": [
+            "要件書の指定に完全に一致する"
+          ],
+          "cons": [
+            "移管先の情報が要件書にもリポジトリにも無く、auto mode では確認できない"
+          ]
+        }
+      ],
+      "context": "選択肢・推奨は jin-requirements.md（§11 / §12 / §10 #8 / §8）と実行環境実測に由来。要件書に無い具体値は補っていない（T-002）。",
+      "on_decide": "record.py --batch の decisions[] に chosen / rationale で反映。decided_by_kind は ai_provisional。",
+      "refs": [
+        {
+          "label": "jin-requirements.md"
+        },
+        {
+          "label": "delivery/20260904-1445-jin/requirements.json"
+        },
+        {
+          "label": "delivery/20260904-1445-jin/adk-api-probe.md"
+        }
+      ]
+    }
+  ]
+}

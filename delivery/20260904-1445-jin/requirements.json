@@ -1,0 +1,1457 @@
+{
+  "project_name": "Jin(陣) — 魔法陣型エージェント記述言語",
+  "overview": "Google ADK 上の LLM エージェントを、同心円と幾何学図形(魔法陣)として決定的に描画されるモデルとして記述・編集・実行・デバッグできるようにする言語ツールチェーン。テキスト表現(.jin)は JSON であり人間可読性を要件にしない。人間は視覚エディタで、LLM(Claude Code)は LSP 診断を頼りにテキストで書く。レンダラは Python 1 本に集約し、エディタは LSP 経由で SVG を受け取る。入力要件書: jin-requirements.md(= docs/superpowers/specs/2026-09-04-jin-overview.md と同一内容、ドラフト v0.2 / 2026-09-04)。",
+  "slug": "jin",
+  "module_id": "MOD-CATALOG-OUT-jin",
+  "delivery_mode": "greenfield",
+  "delivery_mode_note": "リポジトリには jin-requirements.md 1 ファイルとコミット 1 本しか無く既存コードベースが存在しないため新規構築。scenarios.existing_modification は false 相当。",
+  "source_documents": [
+    {
+      "path": "jin-requirements.md",
+      "title": "Jin(陣) 魔法陣型エージェント記述言語 要件定義 ドラフト v0.2",
+      "date": "2026-09-04"
+    },
+    {
+      "path": "delivery/20260904-1445-jin/adk-api-probe.md",
+      "title": "ADK / 依存ライブラリ 実測プローブ",
+      "date": "2026-09-04",
+      "author": "親セッション（team-lead）",
+      "note": "PyPI JSON API + uv venv 隔離環境への実インストール後の inspect / Pydantic model_fields 走査による実機 introspection 結果"
+    }
+  ],
+  "predetermined_stack": {
+    "note": "§1.1 技術選定は要件書で人間が確定済みの技術スタック指定。design フェーズの selected_stack(候補から選んだ採用案) の入力として扱い、比較のやり直し対象にしない。",
+    "items": [
+      {
+        "area": "永続化形式",
+        "choice": "JSON(UTF-8、正準形) + JSON Schema draft 2020-12",
+        "rationale": "LLM が最も安定して書ける。既存 JSON ツールが使える。エディタとの往復が無損失"
+      },
+      {
+        "area": "意味モデル",
+        "choice": "Pydantic v2(JSON Schema は Pydantic から生成しリポジトリへコミット、CI でドリフト検出)",
+        "rationale": "モデル定義が唯一の真実"
+      },
+      {
+        "area": "パーサ",
+        "choice": "Lark の JSON 文法(位置情報付き)",
+        "rationale": "LSP 診断に行・列が必要。標準 json は位置を持たない"
+      },
+      {
+        "area": "言語・パッケージ管理",
+        "choice": "Python 3.12+ / uv ワークスペース",
+        "rationale": "ADK Python がターゲット。バリデータ・コンパイラ・レンダラ・LSP を同一プロセスで共有"
+      },
+      {
+        "area": "コード生成",
+        "choice": "Jinja2 + ruff format 後処理",
+        "rationale": "生成物が diff できる"
+      },
+      {
+        "area": "SVG",
+        "choice": "標準ライブラリで文字列生成",
+        "rationale": "決定性の担保が容易"
+      },
+      {
+        "area": "LSP",
+        "choice": "pygls(stdio と WebSocket の両トランスポート・同一サーバ)",
+        "rationale": "stdio は Claude Code / VS Code 向け、WebSocket はブラウザのエディタ向け"
+      },
+      {
+        "area": "CLI",
+        "choice": "typer",
+        "rationale": "要件書指定"
+      },
+      {
+        "area": "エディタ",
+        "choice": "React + TypeScript(Vite)。SVG は LSP から取得",
+        "rationale": "描画は Python レンダラに一本化。エディタはヒットテストとフォームだけを持つ"
+      },
+      {
+        "area": "テスト",
+        "choice": "pytest / syrupy / pytest-lsp / Playwright(エディタのスモークのみ)",
+        "rationale": "要件書指定"
+      },
+      {
+        "area": "ターゲット",
+        "choice": "google-adk 2.x 系(メジャーを固定)",
+        "rationale": "要件書指定。実在バージョンは親セッションの実測プローブ（adk-api-probe.md）で 2.8.0 を確認済み（DP-JIN-ADK-VERSION-01 = decided）"
+      }
+    ]
+  },
+  "scope": {
+    "must": [
+      {
+        "id": "SC-M-001",
+        "title": ".jin(JSON)の意味モデル・JSON Schema・位置付きパーサ・静的意味検査・正準形・意味オペレーションを提供する jin-core",
+        "phase": "1"
+      },
+      {
+        "id": "SC-M-002",
+        "title": ".jin から adk run / adk web で動く ADK Python プロジェクトを生成する jin-adk(build)",
+        "phase": "2"
+      },
+      {
+        "id": "SC-M-003",
+        "title": "生成コードを実行しイベントを標準出力/トレース JSONL に出す jin run(--trace / --model fake)",
+        "phase": "2"
+      },
+      {
+        "id": "SC-M-004",
+        "title": "意味モデルから決定的に単一 SVG を生成する jin-render(data-jin 属性・focus・trace overlay)",
+        "phase": "3"
+      },
+      {
+        "id": "SC-M-005",
+        "title": "9 コマンドの CLI(check / fmt / schema / dump / build / run / render / lsp / editor)",
+        "phase": "1〜5"
+      },
+      {
+        "id": "SC-M-006",
+        "title": "stdio と WebSocket の両トランスポートを持つ jin-lsp(標準機能 8 種 + 独自リクエスト 4 種 + 意味オペレーション 19 種)",
+        "phase": "4"
+      },
+      {
+        "id": "SC-M-007",
+        "title": "Claude Code プラグイン(.lsp.json / skills/jin-lang / hooks)と社内 ai-delivery マーケットプレイス配布",
+        "phase": "4"
+      },
+      {
+        "id": "SC-M-008",
+        "title": "視覚エディタ 編集モード(SVG ヒットテスト・JSON Schema 由来のプロパティフォーム・applyOps・undo/redo)",
+        "phase": "5"
+      },
+      {
+        "id": "SC-M-009",
+        "title": "視覚エディタ デバッグモード(トレース JSONL 読み込み・タイムラインスクラバ・オーバーレイ)",
+        "phase": "6"
+      },
+      {
+        "id": "SC-M-010",
+        "title": "docs/spec 5 本(model.md / adk-mapping.md / layout.md / diagnostics.md / ops.md)と examples 2 本",
+        "phase": "0"
+      },
+      {
+        "id": "SC-M-011",
+        "title": "ネットワーク・API キー不要で uv run pytest / pnpm test が通るテスト一式(§9 の 11 対象)",
+        "phase": "0〜6"
+      }
+    ],
+    "should": [
+      {
+        "id": "SC-S-001",
+        "title": "JIN040(Python 参照が import できない)の --resolve オプション付き検査",
+        "note": "warning 相当・オプション指定時のみ"
+      },
+      {
+        "id": "SC-S-002",
+        "title": "hover での Python 参照 docstring 表示(--resolve 相当)"
+      },
+      {
+        "id": "SC-S-003",
+        "title": "JSON 構文エラー中も直前の正常モデルで hover / renderSvg を提供するエラー回復"
+      },
+      {
+        "id": "SC-S-004",
+        "title": "リポジトリ直下 CLAUDE.md(パッケージ境界・uv run pytest・正典の所在・生成コード編集禁止)"
+      }
+    ],
+    "could": [
+      {
+        "id": "SC-C-001",
+        "title": "rune のグリフフォント描画",
+        "note": "要件書は v2 と明記"
+      },
+      {
+        "id": "SC-C-002",
+        "title": "loop 終了判定の LLM 判定",
+        "note": "要件書 §10 #5 は v2"
+      }
+    ],
+    "wont": [
+      {
+        "id": "SC-W-001",
+        "title": "人間可読な独自 DSL(v0.1 の circle Researcher { ... } 構文)",
+        "reason": "§0 非目標。v0.2 で廃止済み"
+      },
+      {
+        "id": "SC-W-002",
+        "title": "LangChain / LangGraph ターゲット",
+        "reason": "§0 非目標"
+      },
+      {
+        "id": "SC-W-003",
+        "title": "汎用計算(式・条件分岐・関数定義)。ツール実装は Python 側に置き Jin からは参照するだけ",
+        "reason": "§0 非目標"
+      },
+      {
+        "id": "SC-W-004",
+        "title": "複数ファイルの import",
+        "reason": "§0 非目標。§10 #6 で v1 は単一ファイル、import は v1.1"
+      },
+      {
+        "id": "SC-W-005",
+        "title": "実行中のライブストリーミング表示",
+        "reason": "§0 非目標。v1 はトレースの事後リプレイまで。§7.2 でライブ実行は v1.1"
+      },
+      {
+        "id": "SC-W-006",
+        "title": "ADK YAML Agent Config 対応",
+        "reason": "§10 #7 で見送り決定(callback を表現できない)"
+      },
+      {
+        "id": "SC-W-007",
+        "title": "LiteLLM ラッパー",
+        "reason": "§10 #4 で v1.1"
+      },
+      {
+        "id": "SC-W-008",
+        "title": "Phase 7(v1.1 候補: ライブ実行 / import / MCP による ops 露出 / VS Code 拡張)",
+        "reason": "§11 Phase 7 は「任意」。本デリバリのスコープ外"
+      },
+      {
+        "id": "SC-W-009",
+        "title": "Jin で表現できない ADK 機能(planner / output_schema / MCPToolset 等)の生成",
+        "reason": "§3.3 で v1 では生成しない"
+      },
+      {
+        "id": "SC-W-010",
+        "title": "エディタ単体のサーバ",
+        "reason": "§7.3。jin editor が LSP(ws)を起動しビルド済みエディタを配信する"
+      }
+    ]
+  },
+  "representative_use_cases": [
+    {
+      "id": "UC-001",
+      "name": ".jin 1 つから adk run / adk web で動く ADK プロジェクトを生成する",
+      "kind": "core",
+      "source": "§0 成功条件 1",
+      "acceptance": "jin build <file> --out <dir> の出力に対し adk run <out>/<root_name> と adk web <out> がそのまま動く"
+    },
+    {
+      "id": "UC-002",
+      "name": "同じ .jin から常に同じ SVG が生成される",
+      "kind": "core",
+      "source": "§0 成功条件 2",
+      "acceptance": "SVG スナップショットテスト(syrupy)で担保。同一入力 2 回で完全一致"
+    },
+    {
+      "id": "UC-003",
+      "name": "Claude Code が JSON Schema と jin check --json / LSP 診断の出力だけで構文・意味エラーを修正しきる",
+      "kind": "core",
+      "source": "§0 成功条件 3",
+      "acceptance": "診断メッセージが「何が悪いか + どう直すか」を含み、hint が具体値である"
+    },
+    {
+      "id": "UC-004",
+      "name": "LSP が Claude Code プラグインとして配布され .jin を開くと診断・定義ジャンプが効く",
+      "kind": "core",
+      "source": "§0 成功条件 4",
+      "acceptance": "Claude Code で .jin の診断・定義ジャンプが効く。pytest-lsp が通る。claude plugin validate が CI で通る"
+    },
+    {
+      "id": "UC-005",
+      "name": "視覚エディタで編集 → 保存 → 開き直しで同じ状態に戻る(往復無損失)",
+      "kind": "core",
+      "source": "§0 成功条件 5",
+      "acceptance": "モデル→ファイル→モデルが同一、ファイル→モデル→ファイルがバイト同一。Playwright スモークで開く→紋を追加→保存→期待の正準形"
+    },
+    {
+      "id": "UC-006",
+      "name": "jin run --trace の出力をエディタで読み込み魔法陣上でイベントを追う",
+      "kind": "core",
+      "source": "§0 成功条件 6",
+      "acceptance": "タイムラインスクラバで upto を動かすとオーバーレイが更新される。pointer 一致でイベントをフィルタできる"
+    },
+    {
+      "id": "UC-010",
+      "name": "Phase 0: 仕様書 5 本と手書き examples 2 本を書く",
+      "kind": "sub",
+      "source": "§11 Phase 0",
+      "acceptance": "仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める"
+    },
+    {
+      "id": "UC-011",
+      "name": "Phase 1: jin-core + jin-cli(check / fmt / schema / dump)",
+      "kind": "sub",
+      "source": "§11 Phase 1",
+      "acceptance": "§2.4 の全診断コードに fixture があり examples が通る。schema がコミットされる"
+    },
+    {
+      "id": "UC-012",
+      "name": "Phase 2: jin-adk(build / run / trace / FakeLlm)",
+      "kind": "sub",
+      "source": "§11 Phase 2",
+      "acceptance": "examples 両方が adk run で動く。トレースに pointer が入る"
+    },
+    {
+      "id": "UC-013",
+      "name": "Phase 3: jin-render(render / focus / trace overlay / data-jin 付与)",
+      "kind": "sub",
+      "source": "§11 Phase 3",
+      "acceptance": "SVG スナップショットが安定。全要素に pointer がある"
+    },
+    {
+      "id": "UC-014",
+      "name": "Phase 4: jin-lsp(stdio + ws / 標準機能 / 独自リクエスト) + Claude Code プラグイン",
+      "kind": "sub",
+      "source": "§11 Phase 4",
+      "acceptance": "Claude Code で .jin の診断・定義ジャンプが効く。pytest-lsp が通る"
+    },
+    {
+      "id": "UC-015",
+      "name": "Phase 5: エディタ 編集モード",
+      "kind": "sub",
+      "source": "§11 Phase 5",
+      "acceptance": "開く→編集→保存の往復がバイト一致。Playwright スモークが通る"
+    },
+    {
+      "id": "UC-016",
+      "name": "Phase 6: エディタ デバッグモード(トレースリプレイ)",
+      "kind": "sub",
+      "source": "§11 Phase 6",
+      "acceptance": "run --trace → エディタで読み込み → スクラブでオーバーレイ"
+    }
+  ],
+  "phases": {
+    "note": "§11 実装フェーズ(Claude Code への発注単位)。各フェーズを独立した spec → plan → 実装のサイクルにし、成果物はそれ単体で動作・テスト可能であること。本ランでどこまで通すかは DP-JIN-PHASE-SCOPE-01 で未決。",
+    "items": [
+      {
+        "phase": 0,
+        "content": "docs/spec/model.md / adk-mapping.md / layout.md / diagnostics.md / ops.md と examples 2 本(手書き JSON)",
+        "done_when": "仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める",
+        "in_scope": true
+      },
+      {
+        "phase": 1,
+        "content": "jin-core(Pydantic モデル・schema 生成・位置付きパーサ・意味検査・正準形・ops) + jin-cli(check / fmt / schema / dump)",
+        "done_when": "§2.4 の全コードに fixture があり examples が通る。schema がコミットされる",
+        "in_scope": true,
+        "note": "要件書は「Phase 1 は brainstorming で jin-core 単体に絞る」「Phase 0 の仕様書を先に承認してから Phase 1 に入る」と指定"
+      },
+      {
+        "phase": 2,
+        "content": "jin-adk(build / run / trace / FakeLlm)",
+        "done_when": "examples 両方が adk run で動く。トレースに pointer が入る",
+        "in_scope": true
+      },
+      {
+        "phase": 3,
+        "content": "jin-render(render / focus / trace overlay / data-jin 付与)",
+        "done_when": "SVG スナップショットが安定。全要素に pointer がある",
+        "in_scope": true
+      },
+      {
+        "phase": 4,
+        "content": "jin-lsp(stdio + ws / 標準機能 / 独自リクエスト) + Claude Code プラグイン",
+        "done_when": "Claude Code で .jin の診断・定義ジャンプが効く。pytest-lsp が通る",
+        "in_scope": true
+      },
+      {
+        "phase": 5,
+        "content": "エディタ 編集モード",
+        "done_when": "開く→編集→保存の往復がバイト一致。Playwright スモークが通る",
+        "in_scope": true,
+        "note": "要件書 §11 は「Xtone の UI/UX の知見を入れる工程なので brainstorming の段階でデザイナーを巻き込む前提でよい」と指定。auto mode にデザイナーは不在(DP-JIN-EDITOR-UX-01)"
+      },
+      {
+        "phase": 6,
+        "content": "エディタ デバッグモード(トレースリプレイ)",
+        "done_when": "run --trace → エディタで読み込み → スクラブでオーバーレイ",
+        "in_scope": true
+      },
+      {
+        "phase": 7,
+        "content": "v1.1 候補: ライブ実行 / import / MCP による ops 露出 / VS Code 拡張",
+        "done_when": "任意",
+        "in_scope": false,
+        "note": "scope.wont(SC-W-008)"
+      }
+    ]
+  },
+  "functional_requirements": [
+    {
+      "id": "FR-ARCH-001",
+      "description": "リポジトリを uv ワークスペースとして構成する。packages/ に jin-core / jin-adk / jin-render / jin-lsp / jin-cli、apps/editor に視覚エディタ、plugins/claude-code/jin に Claude Code プラグイン、schemas/jin.schema.json、docs/spec/、examples/(researcher, pipeline)を置く(§1.2)。",
+      "source": "§1.2"
+    },
+    {
+      "id": "FR-ARCH-002",
+      "description": "パッケージ依存は一方向とする: jin-core ← jin-adk / jin-render ← jin-lsp / jin-cli。jin-core は ADK に依存しない。apps/editor は LSP にしか依存せず Python パッケージを直接 import しない。",
+      "source": "§1.2"
+    },
+    {
+      "id": "FR-MODEL-001",
+      "description": "意味モデルを Pydantic v2 で定義し、JSON Schema draft 2020-12 を Pydantic から生成して schemas/jin.schema.json にコミットする。CI でスキーマのドリフトを検出する。モデル定義が唯一の真実。",
+      "source": "§1.1 / §9"
+    },
+    {
+      "id": "FR-MODEL-002",
+      "description": "Jin の語彙(JSON キー)と ADK / 描画の対応を規定する。circles[] / core / instruction.rune / tools[] / delegate[] / state[] / flow.kind(sequence|parallel|loop) / boundary.guards[] / boundary.await[] / root の 12 項目。",
+      "source": "§2.1",
+      "vocabulary": [
+        {
+          "key": "circles[]",
+          "meaning": "エージェント/プログラム単位",
+          "adk": "LlmAgent または workflow agent",
+          "render": "陣(同心円)"
+        },
+        {
+          "key": "core",
+          "meaning": "モデル",
+          "adk": "LlmAgent.model",
+          "render": "核(中心)"
+        },
+        {
+          "key": "instruction.rune",
+          "meaning": "指示テキスト",
+          "adk": "LlmAgent.instruction({state_key} テンプレートは透過)",
+          "render": "指示環(環に沿う文字列)"
+        },
+        {
+          "key": "tools[](kind: tool / builtin / summon)",
+          "meaning": "ツール",
+          "adk": "FunctionTool / 組み込み / AgentTool",
+          "render": "道具環の紋。核から放射線"
+        },
+        {
+          "key": "delegate[]",
+          "meaning": "サブ陣への委譲(LLM が transfer)",
+          "adk": "LlmAgent.sub_agents",
+          "render": "境界環内側の小円、核と破線"
+        },
+        {
+          "key": "state[](out)",
+          "meaning": "セッション状態",
+          "adk": "session.state / output_key",
+          "render": "記憶環の四角"
+        },
+        {
+          "key": "flow.kind = sequence",
+          "meaning": "直列",
+          "adk": "SequentialAgent",
+          "render": "開いた弦列"
+        },
+        {
+          "key": "flow.kind = parallel",
+          "meaning": "並列",
+          "adk": "ParallelAgent",
+          "render": "弦なし対称配置"
+        },
+        {
+          "key": "flow.kind = loop",
+          "meaning": "ループ",
+          "adk": "LoopAgent + 終了判定エージェント",
+          "render": "閉じた多角形/星形"
+        },
+        {
+          "key": "boundary.guards[]",
+          "meaning": "コールバック",
+          "adk": "before_/after_{agent,model,tool}_callback",
+          "render": "境界環の刻印"
+        },
+        {
+          "key": "boundary.await[]",
+          "meaning": "人の介入点",
+          "adk": "LongRunningFunctionTool",
+          "render": "境界環の欠け"
+        },
+        {
+          "key": "root",
+          "meaning": "エントリポイント",
+          "adk": "生成モジュールの root_agent",
+          "render": "最外の陣"
+        }
+      ]
+    },
+    {
+      "id": "FR-MODEL-003",
+      "description": "circle は 2 種類。核あり(core を持つ → LlmAgent)と核なし(flow だけ → workflow agent)。両方持つ・両方無いのは JIN022 エラーとする。",
+      "source": "§2.1"
+    },
+    {
+      "id": "FR-MODEL-004",
+      "description": "ファイル拡張子は .jin、中身は JSON。.json にしないのは Claude Code の LSP ルーティングが拡張子単位であり .json を奪うと他の JSON ファイルと衝突するため。エディタ側は .jin を JSON 言語として扱う設定を持つ。",
+      "source": "§2.2 / §10 #1"
+    },
+    {
+      "id": "FR-MODEL-005",
+      "description": "シリアライズ形式上の決定事項を実装する(8 項目)。",
+      "source": "§2.2",
+      "rules": [
+        "順序を持つものは配列(circles / tools / state / steps / guards / await)。配列順が描画順(12 時から時計回り)になる",
+        "名前が ID。name は circle ではファイル内一意、tools/state では circle 内一意。参照は名前で行い rename は参照を追随させる意味オペレーション(§6.3)として提供する",
+        "Python 参照は module.path:callable 形式のみ。インライン Python は不可",
+        "tools[].kind は tool | builtin | summon の判別共用体。builtin は { kind: builtin, builtin: google_search } の形",
+        "flow.steps は circle 名のみ。flow.exit は { key, equals } のみ(v1)",
+        "guards[].on は before_agent | after_agent | before_model | after_model | before_tool | after_tool の 6 値",
+        "未知のキーはスキーマ違反(additionalProperties: false)",
+        "将来拡張は version を上げる"
+      ]
+    },
+    {
+      "id": "FR-CANON-001",
+      "description": "正準形(canonical form)を実装する。model → text は関数であり、jin fmt とエディタの保存は同じバイト列を出す。2 スペースインデント / キー順はスキーマ定義順 / 配列は宣言順を保持 / 末尾改行 / 非 ASCII はエスケープしない。$schema と version は先頭固定。省略可能なキーは値が既定値のとき出力しない(\"out\": false は書かない)。冪等 fmt(fmt(x)) == fmt(x)、意味保存 model(fmt(x)) == model(x)。",
+      "source": "§2.3"
+    },
+    {
+      "id": "FR-DIAG-001",
+      "description": "静的意味制約(=美的制約)として 12 の診断コードを実装する。各コードは fixture を 1 つ以上持ち、対応コードを 1 つだけ出す(§9)。",
+      "source": "§2.4",
+      "diagnostics_catalog": [
+        {
+          "code": "JIN001",
+          "severity": "error",
+          "content": "JSON 構文エラー",
+          "hint": "位置と期待トークン"
+        },
+        {
+          "code": "JIN002",
+          "severity": "error",
+          "content": "スキーマ違反(必須キー欠落・未知キー・型不一致・enum 外)",
+          "hint": "JSON Pointer と許容値"
+        },
+        {
+          "code": "JIN010",
+          "severity": "error",
+          "content": "名前の重複(circle/tool/state)",
+          "hint": null
+        },
+        {
+          "code": "JIN011",
+          "severity": "error",
+          "content": "未解決の参照(summon / delegate / steps / await / {key})",
+          "hint": "候補名を提示(編集距離)"
+        },
+        {
+          "code": "JIN020",
+          "severity": "error",
+          "content": "tools または state が 12 を超えた",
+          "hint": "「サブ陣に抽出」のコードアクション"
+        },
+        {
+          "code": "JIN022",
+          "severity": "error",
+          "content": "core と flow の両立、または両方欠落",
+          "hint": null
+        },
+        {
+          "code": "JIN030",
+          "severity": "error",
+          "content": "flow.kind = loop に max も exit もない",
+          "hint": "max: 5 を追加"
+        },
+        {
+          "code": "JIN031",
+          "severity": "error",
+          "content": "flow.steps の要素が circle でない",
+          "hint": null
+        },
+        {
+          "code": "JIN040",
+          "severity": "warning",
+          "content": "Python 参照が import できない(--resolve 指定時のみ)",
+          "hint": null
+        },
+        {
+          "code": "JIN050",
+          "severity": "error",
+          "content": "rune 内 {key} が自 circle または flow 上流 circle の state に無い",
+          "hint": null
+        },
+        {
+          "code": "JIN060",
+          "severity": "error",
+          "content": "root が存在しない circle を指す",
+          "hint": null
+        },
+        {
+          "code": "JIN070",
+          "severity": "warning",
+          "content": "await 対象が tools に無い",
+          "hint": null
+        }
+      ]
+    },
+    {
+      "id": "FR-LAYOUT-001",
+      "description": "決定的レイアウト仕様(docs/spec/layout.md)を実装する。正方形キャンバス、半径 R=1 の正規化座標で計算し最後に px へ変換。環の半径は固定(instruction 0.35 / tools 0.55 / state 0.75 / boundary 0.95)。存在しない環は描かず半径も詰めない。紋は 12 時位置から時計回り・配列順・等角配置。核 → tools の各紋へ放射線。summon は紋を入れ子の小陣として描く(深さ 1 まで展開、以下は点)。delegate は境界環の内側に小円を並べ核と破線で結ぶ。sequence = 開いた弦列(矢印)、parallel = 弦なし対称配置、loop = 閉じた多角形。n >= 5 の loop は星形多角形 {n/k}(k は n/2 未満の最大の互いに素な整数)で描き辺の順を訪問順に一致させる。await の紋の角度に境界環の欠けを作る。装飾(小点・飾り)は instruction.rune の SHA-256 から決定的に生成する(識別紋章)。rune は instruction 環に沿った textPath(v1 は可読フォント、グリフフォントは v2)。白黒 2 値 + 強調 1 色(トレース時のみ)。style 要素は不使用で属性のみで完結させる。",
+      "source": "§2.5"
+    },
+    {
+      "id": "FR-LAYOUT-002",
+      "description": "data-jin 属性の契約(エディタとの接点)。描画された全ての要素は data-jin=\"<JSON Pointer>\"(例 /circles/0/tools/2)と data-jin-kind=\"circle|core|rune|tool|state|flow-edge|guard|await|delegate\" を持つ。ポインタはファイル内の位置とレンダリングとを結ぶ唯一の鍵であり、jin/model が返す pointer→range 対応表と一致すること。",
+      "source": "§2.5"
+    },
+    {
+      "id": "FR-ADK-001",
+      "description": "jin build <file> --out <dir> は ADK CLI の規約に従う Python プロジェクトを生成する。出力は <out>/<root_name>/__init__.py(from .agent import root_agent)、<out>/<root_name>/agent.py(root_agent を公開)、<out>/.env.example。adk run <out>/<root_name> と adk web <out> でそのまま動くこと。",
+      "source": "§3.1"
+    },
+    {
+      "id": "FR-ADK-002",
+      "description": "生成コードは Jinja2 テンプレート + ruff format 後処理で作り、先頭に「generated by jin — do not edit」を置く。コンストラクタの引数名は実装時にインストールした google-adk のバージョンで検証してテンプレートに固定する(バージョンをピン留めし CI で import テストを走らせる)。",
+      "source": "§3.2"
+    },
+    {
+      "id": "FR-ADK-003",
+      "description": "ADK マッピング規則を実装する。flow.exit は BaseAgent を継承した判定エージェント(StateCheckAgent)を生成し条件成立時に EventActions(escalate=True) を返す(LoopAgent の sub_agents 末尾に置く)。state[] のうち out: true だけが output_key になり、他は静的検証(JIN050)とエディタ表示のための宣言。guards[].on をそのままコールバック引数名に対応させ、同種が複数あればリストで渡す。Jin で表現できない ADK 機能(planner / output_schema / MCPToolset など)は v1 では生成しない。ADK に対応物のない Jin 構造はコンパイル時エラーとし、黙って落とさない。",
+      "source": "§3.3",
+      "measured_api_constraints": [
+        "flow.max は LoopAgent(max_iterations=...) にマップする（引数名は max ではない）",
+        "builtin: google_search の google.adk.tools.google_search は GoogleSearchTool の『インスタンス』であり、クラスではない。tools=[...] にそのまま置く",
+        "StateCheckAgent は BaseAgent._run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None] を override し EventActions(escalate=True) を返す",
+        "LlmAgent には name / model / description / instruction / tools / before_model_callback / before_tool_callback / output_key / sub_agents がすべて存在する（google-adk 2.8.0 実測）",
+        "FunctionTool(func, *, require_confirmation=False) / LongRunningFunctionTool(func) / AgentTool(agent, skip_summarization=False, *, include_plugins=True, propagate_grounding_metadata=False)"
+      ],
+      "evidence": "delivery/20260904-1445-jin/adk-api-probe.md（親セッション実測・google-adk 2.8.0）"
+    },
+    {
+      "id": "FR-ADK-004",
+      "description": "jin run <file> \"<prompt>\" [--session <id>] [--trace out.jsonl] [--model fake] は生成コードを一時ディレクトリに書き出して import し、Runner + InMemorySessionService で実行しイベントを標準出力に流す。--trace は ADK の Event を 1 行 1 JSON で保存する(スキーマ: seq / ts / agent / kind(model|tool|transfer|escalate|final) / name / pointer / input / output。pointer は発火した要素の JSON Pointer でレンダラの data-jin と同じ鍵)。--model fake は BaseLlm を継承した FakeLlm(固定応答)に差し替え、テストではネットワークに出ない。",
+      "source": "§3.4",
+      "measured_api_constraints": [
+        "Runner は全キーワード引数で session_service が必須。§3.4 の用途では agent と app_name を渡す形にする",
+        "InMemorySessionService は google.adk.sessions から import する",
+        "トレース JSONL（seq / ts / agent / kind / name / pointer / input / output）は ADK Event をそのまま書くのではなく Jin 側で組み立てる派生スキーマ。agent は Event.author、ts は Event.timestamp から取る",
+        "FakeLlm は BaseLlm.generate_content_async(self, llm_request: LlmRequest, stream: bool = False) -> AsyncGenerator[LlmResponse, None] を override する（supported_models も存在）"
+      ],
+      "evidence": "delivery/20260904-1445-jin/adk-api-probe.md（親セッション実測・google-adk 2.8.0）"
+    },
+    {
+      "id": "FR-RENDER-001",
+      "description": "jin-render の入力は意味モデルとし、ファイルを直接読まない。出力は単一 SVG 文字列で、同じ入力ならバイト単位で同一(乱数・時刻・辞書順序に依存しない)。全要素に data-jin / data-jin-kind を付与する。",
+      "source": "§4"
+    },
+    {
+      "id": "FR-RENDER-002",
+      "description": "trace(イベント配列)と upto(seq)を渡すと upto までに発火した要素を強調色でオーバーレイし、境界環の外側にイベント数ぶんの点を並べる。focus(circle 名)で入れ子の展開対象を切り替える。CLI の jin render と LSP の jin/renderSvg は同じ関数を呼び同じ出力を返す。",
+      "source": "§4"
+    },
+    {
+      "id": "FR-CLI-001",
+      "description": "CLI(typer)は 9 コマンドを提供する。",
+      "source": "§5",
+      "commands": [
+        {
+          "command": "jin check [paths] [--json] [--resolve]",
+          "role": "診断(JSON 構文・スキーマ・意味)",
+          "note": "error があれば exit 1"
+        },
+        {
+          "command": "jin fmt [paths] [--check]",
+          "role": "正準形へ正規化",
+          "note": "--check は差分があれば exit 1"
+        },
+        {
+          "command": "jin schema",
+          "role": "JSON Schema を標準出力",
+          "note": "LLM やエディタが取得する"
+        },
+        {
+          "command": "jin dump <file>",
+          "role": "モデル JSON + pointer→range 対応表",
+          "note": null
+        },
+        {
+          "command": "jin build <file> --out <dir>",
+          "role": "ADK プロジェクト生成",
+          "note": "§3.1"
+        },
+        {
+          "command": "jin run <file> \"<prompt>\"",
+          "role": "実行",
+          "note": "§3.4"
+        },
+        {
+          "command": "jin render <file> [-o out.svg] [--trace t.jsonl] [--upto N] [--focus name]",
+          "role": "SVG 出力",
+          "note": null
+        },
+        {
+          "command": "jin lsp [--stdio | --ws PORT]",
+          "role": "LSP サーバ起動",
+          "note": "既定は stdio"
+        },
+        {
+          "command": "jin editor [file]",
+          "role": "LSP(ws)を起動しエディタを配信してブラウザを開く",
+          "note": "Phase 5"
+        }
+      ]
+    },
+    {
+      "id": "FR-CLI-002",
+      "description": "診断の JSON 形式は LSP Diagnostic と 1:1 とする。フィールドは file / pointer / range{start{line,col}, end{line,col}} / code / severity / message / hint。メッセージは「何が悪いか + どう直すか」を必ず含める。LLM は hint をそのまま編集に使うので hint は具体的な値にする。",
+      "source": "§5"
+    },
+    {
+      "id": "FR-LSP-001",
+      "description": "LSP を言語サービスの唯一の入口とする。CLI・Claude Code・VS Code・視覚エディタの全てが jin_core の同じ関数を LSP 経由で使い、LSP 固有のロジックは位置変換とプロトコル露出だけに限定する。",
+      "source": "§6"
+    },
+    {
+      "id": "FR-LSP-002",
+      "description": "トランスポートは stdio(Claude Code / VS Code)と WebSocket(jin lsp --ws PORT / ブラウザのエディタ)の 2 系統を同一サーバ実装で提供する。",
+      "source": "§6.1"
+    },
+    {
+      "id": "FR-LSP-003",
+      "description": "LSP 標準機能 8 種を実装する。",
+      "source": "§6.2",
+      "features": [
+        {
+          "feature": "diagnostics",
+          "content": "open / change / save で再計算。JSON 構文 → スキーマ → 意味の順で、前段が通らなければ後段は出さない"
+        },
+        {
+          "feature": "completion",
+          "content": "スキーマ由来のキー、enum 値、参照名(circle / steps / delegate / await の位置で circle 名・tool 名)、rune 内 { の後で state key"
+        },
+        {
+          "feature": "hover",
+          "content": "要素 → ADK クラス名と生成される引数、rune の全文、Python 参照の docstring(--resolve 相当)"
+        },
+        {
+          "feature": "definition / references",
+          "content": "circle 参照、state key 参照"
+        },
+        {
+          "feature": "documentSymbol",
+          "content": "circle > tools / state / flow の階層"
+        },
+        {
+          "feature": "formatting",
+          "content": "正準形(jin fmt と同一)"
+        },
+        {
+          "feature": "rename",
+          "content": "circle / tool / state。参照を全て追随"
+        },
+        {
+          "feature": "codeAction",
+          "content": "JIN011 → 名前置換、JIN020 → 選択要素をサブ陣に抽出、JIN030 → max: 5 追加。加えて §6.3 の全オペレーションを command として露出"
+        }
+      ]
+    },
+    {
+      "id": "FR-LSP-004",
+      "description": "独自リクエスト(エディタ API)4 種を実装する。jin/model(現在のドキュメントのモデル JSON と pointer→range 対応表)、jin/renderSvg({ uri, focus?, trace?, upto? } → SVG 文字列)、jin/applyOps(意味オペレーション列 → サーバがモデルを更新し正準形テキストとの差分を workspace/applyEdit で適用、結果として新モデルと診断を返す)、jin/ops(利用可能なオペレーションの一覧 = docs/spec/ops.md と同内容)。",
+      "source": "§6.3"
+    },
+    {
+      "id": "FR-LSP-005",
+      "description": "意味オペレーション 19 種(v1)を実装する: addCircle / removeCircle / setCore / setDescription / setRune / addTool / removeTool / moveTool(配列内の順序変更 = 角度変更) / addState / removeState / setState / setFlow / addDelegate / removeDelegate / setGuard / removeGuard / toggleAwait / setRoot / rename。各オペレーションは JSON Pointer で対象を指定し、失敗時は診断コードで理由を返す。undo/redo はクライアント側がオペレーションの逆を保持し、サーバは各オペレーションの逆オペレーションを応答に含める。",
+      "source": "§6.3"
+    },
+    {
+      "id": "FR-LSP-006",
+      "description": "LSP 動作要件。起動は jin lsp で、uv tool install した jin コマンドがあればそれだけで動く。1000 行以下のファイルで診断 1 秒以内。JSON 構文エラー中も直前の正常なモデルで hover / renderSvg を提供する(エラー回復)。",
+      "source": "§6.4"
+    },
+    {
+      "id": "FR-EDITOR-001",
+      "description": "視覚エディタ(apps/editor/)は人間の主要インターフェースとする。ファイルが唯一の状態であり、エディタは LSP の返すモデルと SVG を表示するだけで独自のモデル状態を持たない。",
+      "source": "§7 / §10 #10"
+    },
+    {
+      "id": "FR-EDITOR-002",
+      "description": "編集モードを実装する。jin/renderSvg の SVG をそのまま埋め込み data-jin でヒットテストし選択要素をハイライトする。プロパティパネルは選択要素の種類に応じたフォームで、フォームは JSON Schema から生成する(手書きのフォーム定義を持たない)。操作はすべて jin/applyOps 経由: ドラッグで紋を環上で並べ替える → moveTool、核をクリック → setCore、環の空き位置をクリック → addTool / addState、circle 同士を結ぶ → addDelegate または summon ツール追加。診断は SVG 上の該当要素にバッジで表示しクリックで hint を出し codeAction を実行できる。入れ子の小陣をダブルクリックで focus を切り替える。undo / redo に対応する。",
+      "source": "§7.1"
+    },
+    {
+      "id": "FR-EDITOR-003",
+      "description": "デバッグモード(トレースリプレイ)を実装する。jin run --trace の JSONL を読み込みタイムラインスクラバで upto を動かし、各位置で jin/renderSvg を trace + upto 付きで呼びオーバーレイを表示する。選択イベントの詳細パネルにモデル入出力・ツール引数と結果・transfer 先・escalate を出す。「この紋で発火したイベントだけ」のフィルタ(pointer 一致)を持つ。",
+      "source": "§7.2"
+    },
+    {
+      "id": "FR-EDITOR-004",
+      "description": "起動は jin editor [file] が LSP(ws)を起動しビルド済みエディタを配信してブラウザを開く。エディタ単体のサーバは持たない。",
+      "source": "§7.3"
+    },
+    {
+      "id": "FR-CC-001",
+      "description": "Claude Code プラグイン(plugins/claude-code/jin/)を構成する。.claude-plugin/plugin.json、.lsp.json、skills/jin-lang/SKILL.md、skills/jin-lang/reference/model.md(docs/spec/model.md のコピー・ビルドで同期)、skills/jin-lang/reference/jin.schema.json(schemas/ のコピー・ビルドで同期)、hooks/hooks.json、README.md。",
+      "source": "§8"
+    },
+    {
+      "id": "FR-CC-002",
+      "description": ".lsp.json は { \"jin\": { \"command\": \"jin\", \"args\": [\"lsp\"], \"extensionToLanguage\": { \".jin\": \"jin\" } } } とする。",
+      "source": "§8"
+    },
+    {
+      "id": "FR-CC-003",
+      "description": "skills/jin-lang/SKILL.md は手順を規定する:「reference/jin.schema.json と model.md を読む → .jin を書く → jin check --json → hint に従って修正 → jin fmt → jin build → jin run --model fake で疎通 → 必要なら jin render で SVG を確認」。例は 2 つだけ載せ、仕様は reference を参照させる。",
+      "source": "§8"
+    },
+    {
+      "id": "FR-CC-004",
+      "description": "hooks/hooks.json は PostToolUse(Write / Edit で .jin を触ったとき)に jin check --json を走らせ error があれば結果を返す。SessionStart で jin --version を確認し、無ければインストール手順を出す。",
+      "source": "§8"
+    },
+    {
+      "id": "FR-CC-005",
+      "description": "配布は社内 ai-delivery マーケットプレイスに git-subdir ソースで登録し stable / beta のチャネル運用に乗せる。CLI 本体は uv tool install を社内 git から行う。",
+      "source": "§8 / §10 #8",
+      "note": "実 remote は github.com:rswisteria/jin-lang.git。「社内 git」との整合は DP-JIN-DISTRIBUTION-01 で未決"
+    },
+    {
+      "id": "FR-CC-006",
+      "description": "リポジトリ直下の CLAUDE.md に、パッケージ境界、uv run pytest の実行方法、schemas/jin.schema.json と docs/spec/*.md が正典であること、生成コードは編集しないことを書く。",
+      "source": "§8"
+    },
+    {
+      "id": "FR-CC-007",
+      "description": "v1 の前提として、Claude Code の LSP 連携は診断・定義ジャンプ・参照などの読み取り系が中心であり jin/applyOps のような独自リクエストをモデル側から呼ぶ経路はない。LLM はテキストを直接編集し診断で修正する。意味オペレーションを LLM からも使わせる場合は同じ jin_core.ops を MCP サーバとして露出する(v1.1 候補・scope.wont)。",
+      "source": "§8"
+    },
+    {
+      "id": "FR-TEST-001",
+      "description": "§9 のテスト要件 11 対象をすべて実装する。全て uv run pytest(エディタは pnpm test)で通ること。",
+      "source": "§9",
+      "test_matrix": [
+        {
+          "target": "スキーマ",
+          "method": "Pydantic から生成した schema がコミット済みのものと一致(CI)。examples/**/*.jin が全て validate を通る"
+        },
+        {
+          "target": "診断",
+          "method": "tests/fixtures/errors/JINxxx_*.jin が対応コードを 1 つだけ出す"
+        },
+        {
+          "target": "正準形",
+          "method": "冪等性、意味保存、エディタ保存と jin fmt の出力がバイト一致"
+        },
+        {
+          "target": "モデル",
+          "method": "jin dump の JSON スナップショット"
+        },
+        {
+          "target": "オペレーション",
+          "method": "各オペレーションについて applyOps → 再パース → 期待モデル と 逆オペレーションで元に戻る"
+        },
+        {
+          "target": "コード生成",
+          "method": "生成 agent.py のスナップショット + 生成モジュールを import して ADK オブジェクト木を検証(tools の型、sub_agents の名前、callback の同一性)。モデル呼び出しはしない"
+        },
+        {
+          "target": "実行",
+          "method": "FakeLlm で jin run が最後まで通る。トレース JSONL のスキーマ検証と pointer の解決"
+        },
+        {
+          "target": "レンダラ",
+          "method": "SVG スナップショット(正規化後)。同一入力 2 回で完全一致。全要素に data-jin があり pointer がモデルに解決できる"
+        },
+        {
+          "target": "LSP",
+          "method": "pytest-lsp で initialize → didOpen → publishDiagnostics、completion、definition、formatting、jin/renderSvg、jin/applyOps の各ラウンドトリップ。stdio と ws 両方"
+        },
+        {
+          "target": "エディタ",
+          "method": "Playwright スモーク: 開く → 紋を追加 → 保存 → ファイルが期待の正準形になる"
+        },
+        {
+          "target": "プラグイン",
+          "method": "claude plugin validate を CI で実行"
+        }
+      ]
+    },
+    {
+      "id": "FR-DOC-001",
+      "description": "docs/spec/ に model.md(モデル仕様・意味論とキーの説明。LLM の参照資料)、adk-mapping.md(Jin 要素 → ADK クラスの対応表)、layout.md(決定的レイアウト規則と data-jin 属性の契約)、diagnostics.md(エラーコード一覧 JINxxx)、ops.md(意味編集オペレーションの一覧・エディタ/LSP 共通)を置き、これらと schemas/jin.schema.json を正典とする。",
+      "source": "§1.2 / §8 / §11 Phase 0"
+    },
+    {
+      "id": "FR-EXAMPLE-001",
+      "description": "examples/ に researcher/researcher.jin(核あり circle・tools 4 種・state・guards・await)と pipeline/pipeline.jin(sequence / loop の workflow agent 構成)の 2 本を置く。§2.2 の例が仕様どおりに読めること。",
+      "source": "§1.2 / §2.2 / §11 Phase 0"
+    }
+  ],
+  "non_functional_requirements": [
+    {
+      "category": "maintainability",
+      "id": "NFR-DET-001",
+      "description": "決定性: 同じ意味モデルからは常にバイト単位で同一の SVG が出る。乱数・時刻・辞書順序に依存しない。装飾は instruction.rune の SHA-256 から決定的に生成する。",
+      "source": "§0 成功条件 2 / §2.5 / §4"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-DET-002",
+      "description": "冪等性・往復無損失: fmt(fmt(x)) == fmt(x)、model(fmt(x)) == model(x)。モデル→ファイル→モデルが同一、ファイル→モデル→ファイルがバイト同一。エディタ保存と jin fmt の出力がバイト一致する。",
+      "source": "§0 成功条件 5 / §2.3"
+    },
+    {
+      "category": "performance",
+      "id": "NFR-PERF-001",
+      "description": "LSP は 1000 行以下のファイルで診断 1 秒以内に応答する。",
+      "source": "§6.4"
+    },
+    {
+      "category": "availability",
+      "id": "NFR-AVAIL-001",
+      "description": "JSON 構文エラー中も直前の正常なモデルで hover / renderSvg を提供する(エラー回復)。診断は JSON 構文 → スキーマ → 意味の順に段階的で、前段が通らなければ後段は出さない。",
+      "source": "§6.2 / §6.4"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-TEST-001",
+      "description": "テストはネットワーク・API キー不要で通る。モデル呼び出しは行わず、実行系は FakeLlm(BaseLlm 継承・固定応答)に差し替える。全て uv run pytest(エディタは pnpm test)で完了する。",
+      "source": "§3.4 / §9"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-DEP-001",
+      "description": "パッケージ依存は一方向: jin-core ← jin-adk / jin-render ← jin-lsp / jin-cli。jin-core は ADK に依存しない。apps/editor は LSP にしか依存せず Python パッケージを直接 import しない。レンダラは Python 1 本に集約し、エディタは独自に描画しない(描画のズレをゼロにするため)。",
+      "source": "§0 設計前提 / §1.2 / §10 #9"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-SSOT-001",
+      "description": "真実の源を単一化する: Pydantic モデル定義が意味モデルの唯一の真実で JSON Schema はそこから生成する(CI でドリフト検出)。ファイルが唯一の状態でありエディタは独自モデル状態を持たない。レイアウト情報はファイルに保存しない(視覚表現はモデルからの純関数)。",
+      "source": "§0 設計前提 / §1.1 / §10 #10"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-LLM-001",
+      "description": "LLM 可読性を最優先し人間可読性は要件にしない。診断メッセージは「何が悪いか + どう直すか」を必ず含め、hint は具体値にする(LLM がそのまま編集に使う)。JIN011 は編集距離で候補名を提示する。",
+      "source": "§0 設計前提 / §2.4 / §5 / §10 #2"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-ENV-001",
+      "description": "実行環境の実測値(2026-09-04): Python 3.13.1 / uv 0.7.8 / Node v22.12.0 / pnpm 10.15.1 / gh 認証済 / git remote あり(github.com:rswisteria/jin-lang.git)。要件書は Python 3.12+ を要求しており 3.13.1 は満たす。 依存ライブラリの PyPI 最新安定版（2026-09-04 実測）: google-adk 2.8.0(>=3.10) / pygls 2.1.1 / lark 1.3.1 / pydantic 2.13.5 / typer 0.27.2 / jinja2 3.1.6 / syrupy 6.0.0 / pytest-lsp 1.0.1。design フェーズの version-matrix.md の材料とする。",
+      "source": "実行環境実測"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-VER-001",
+      "description": "google-adk はバージョンをピン留めし、生成コードのコンストラクタ引数名をそのバージョンで検証してテンプレートに固定する。CI で生成モジュールの import テストを走らせる。 実測値の一次証拠は delivery/20260904-1445-jin/adk-api-probe.md（親セッション作成・google-adk 2.8.0）であり、実装 Stage 1 の tech-version-check はこれを起点にする。",
+      "source": "§1.1 / §3.2"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-GEN-001",
+      "description": "生成コードは編集しない。生成物は diff できる形にする(Jinja2 + ruff format 後処理、先頭に generated by jin — do not edit)。",
+      "source": "§1.1 / §3.2 / §8"
+    },
+    {
+      "category": "maintainability",
+      "id": "NFR-FAIL-001",
+      "description": "黙って落とさない: ADK に対応物のない Jin 構造はコンパイル時エラーとし、無視や暗黙のフォールバックを行わない。",
+      "source": "§3.3"
+    },
+    {
+      "category": "other",
+      "id": "NFR-DIST-001",
+      "description": "配布方式は uv tool install を社内 git から、Claude Code プラグインは社内 ai-delivery マーケットプレイス経由(git-subdir ソース・stable / beta チャネル)。",
+      "source": "§10 #8"
+    },
+    {
+      "category": "security",
+      "id": "NFR-SEC-001",
+      "description": "本件に認証要件は無い(ログイン・セッション・トークン発行等の要素を含まない)。ローカル開発ツールチェーンであり、認証設計は対象外。ただしユーザー要件として PII フィルタ等の guard コールバック(before_model_callback 等)を .jin から宣言できる必要がある(実装本体は Python 側の参照先に置く)。",
+      "source": "§2.2 例 / 認証境界ガード確認結果"
+    }
+  ],
+  "responsibility_split": [
+    {
+      "item": "jin-core / jin-adk / jin-render / jin-lsp / jin-cli(Python)",
+      "owner": "backend",
+      "owned_by_this_plugin": true
+    },
+    {
+      "item": "apps/editor(React + TypeScript + Vite)",
+      "owner": "client",
+      "surface": "public_ui",
+      "owned_by_this_plugin": true
+    },
+    {
+      "item": "plugins/claude-code/jin(Claude Code プラグイン)",
+      "owner": "shared",
+      "owned_by_this_plugin": true
+    },
+    {
+      "item": "ツール実装本体・guard 実装本体(Python の module:callable 参照先)",
+      "owner": "shared",
+      "owned_by_this_plugin": false,
+      "note": "Jin は参照するだけで実装は利用側 Python パッケージに置く(§0 非目標)"
+    },
+    {
+      "item": "google-adk ランタイム(LlmAgent / Runner / SessionService 等)",
+      "owner": "iaas",
+      "owned_by_this_plugin": false
+    },
+    {
+      "item": "配布基盤(社内 git / ai-delivery マーケットプレイス)",
+      "owner": "iaas",
+      "owned_by_this_plugin": false
+    }
+  ],
+  "domain_tags": [
+    "language-tooling",
+    "compiler",
+    "lsp",
+    "svg-rendering",
+    "visual-editor",
+    "developer-tools",
+    "google-adk",
+    "ai-agent",
+    "python",
+    "react"
+  ],
+  "stakeholders": {
+    "client": "Xtone 社内(要件書 §8: 社内 ai-delivery マーケットプレイス経由で配布)",
+    "pm": "未指定(要件書に記載なし)",
+    "lead": "未指定(要件書に記載なし)",
+    "primary_authors": "Claude Code(LLM)が .jin の主要な書き手。JSON Schema と jin check --json / LSP 診断だけで構文・意味エラーを修正しきることが成功条件",
+    "human_users": "人間は視覚エディタ/デバッグツールで .jin を書く。テキストは人間が読まない前提",
+    "designers": "Phase 5(エディタ編集モード)は Xtone の UI/UX 知見を入れる工程で、要件書はデザイナーの参加を前提としている(DP-JIN-EDITOR-UX-01)",
+    "note": "氏名は要件書に記載がないため捏造せずプレースホルダとした"
+  },
+  "client_approval": {
+    "approved": false,
+    "approved_by": null,
+    "approved_at": null,
+    "note": "要件書は「状態: ドラフト v0.2」。クライアント承認は未取得。warn_and_document により設計フェーズへの移行はブロックしない(T-002)。"
+  },
+  "decision_record": [
+    {
+      "id": "DP-JIN-NAMING-01",
+      "topic": "言語名・拡張子・CLI 名",
+      "chosen": "Jin / .jin(中身は JSON)/ jin",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #1(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "要件書 v0.2 §10 決定事項で確定。Claude Code の LSP ルーティングが拡張子単位のため .json を奪わない"
+      }
+    },
+    {
+      "id": "DP-JIN-TEXTREPR-01",
+      "topic": "テキスト表現",
+      "chosen": "JSON + JSON Schema。人間可読性は要件にしない",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #2(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "LLM が最も安定して書ける。既存 JSON ツールが使える。エディタとの往復が無損失(コメント・整形の保存問題がない)"
+      }
+    },
+    {
+      "id": "DP-JIN-TOOLDEF-01",
+      "topic": "ツール定義",
+      "chosen": "Python 参照(module:callable)のみ。インライン Python は不可",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #3(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "汎用計算は非目標。ツール実装は Python 側に置き Jin からは参照するだけ"
+      }
+    },
+    {
+      "id": "DP-JIN-MODELREF-01",
+      "topic": "Gemini 以外のモデル",
+      "chosen": "core の文字列をそのまま model に渡す。LiteLLM ラッパーは v1.1",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #4(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "v1 のスコープを絞る"
+      }
+    },
+    {
+      "id": "DP-JIN-LOOPEXIT-01",
+      "topic": "loop の終了判定",
+      "chosen": "state の等値比較({ key, equals })のみ。LLM 判定は v2",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #5(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "決定性と静的検証可能性を優先"
+      }
+    },
+    {
+      "id": "DP-JIN-MULTIFILE-01",
+      "topic": "複数ファイル",
+      "chosen": "v1 は単一ファイル。import は v1.1",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #6(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "名前解決とスコープの複雑化を v1 では避ける"
+      }
+    },
+    {
+      "id": "DP-JIN-ADKYAML-01",
+      "topic": "ADK YAML Agent Config",
+      "chosen": "見送り",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #7(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "callback を表現できない"
+      }
+    },
+    {
+      "id": "DP-JIN-DIST-01",
+      "topic": "配布",
+      "chosen": "uv tool install を社内 git から。Claude Code プラグインは ai-delivery 経由",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #8(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "社内配布の既存導線に乗せる"
+      },
+      "note": "実 remote(github.com:rswisteria/jin-lang.git)との整合は DP-JIN-DISTRIBUTION-01 として別途未決"
+    },
+    {
+      "id": "DP-JIN-RENDERER-01",
+      "topic": "レンダラ",
+      "chosen": "Python 1 本。エディタは LSP から SVG を受け取る",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #9 / §0 設計前提(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "描画のズレをゼロにするため"
+      }
+    },
+    {
+      "id": "DP-JIN-EDITORSTATE-01",
+      "topic": "エディタの状態管理",
+      "chosen": "ファイルが唯一の状態。編集は全て jin/applyOps",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #10(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "エディタが独自モデル状態を持たないことで往復無損失を担保する"
+      }
+    },
+    {
+      "id": "DP-JIN-IDENTITY-01",
+      "topic": "要素の識別",
+      "chosen": "名前を ID とし rename は参照追随の意味オペレーション。位置の鍵は JSON Pointer",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §10 #11(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "data-jin 属性・診断・trace pointer の鍵を JSON Pointer に統一する"
+      }
+    },
+    {
+      "id": "DP-JIN-STACK-01",
+      "topic": "技術スタック(§1.1 全 11 領域)",
+      "chosen": "predetermined_stack 参照(Python 3.12+ / uv / Pydantic v2 / Lark / Jinja2 + ruff / 標準ライブラリ SVG / pygls / typer / React+TypeScript+Vite / pytest+syrupy+pytest-lsp+Playwright / google-adk 2.x 系)",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §1.1 技術選定表(人間確定済み)",
+        "decided_at": "2026-09-04",
+        "rationale": "要件書に選定理由が併記されている確定済みの技術スタック指定。design フェーズで比較をやり直さない"
+      },
+      "adr": true,
+      "constraints": [
+        {
+          "text": "google-adk はメジャーバージョンを固定する",
+          "kind": "condition"
+        }
+      ]
+    },
+    {
+      "id": "DP-JIN-DELIVERYMODE-01",
+      "topic": "配信モード",
+      "chosen": "greenfield(新規構築)",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "親エージェント(team-lead)による確定",
+        "decided_at": "2026-09-04",
+        "rationale": "リポジトリには jin-requirements.md 1 ファイルとコミット 1 本しか無く既存コードベースが存在しない"
+      }
+    },
+    {
+      "id": "DP-JIN-ADK-VERSION-01",
+      "topic": "google-adk のバージョン固定",
+      "chosen": "google-adk 2.x 系をメジャー固定でピン（実測最新 2.8.0 / requires_python >=3.10 / ローカル Python 3.13.1 で充足）",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "要件書 §1.1（人間確定）+ 親セッション実測 delivery/20260904-1445-jin/adk-api-probe.md",
+        "decided_at": "2026-09-04",
+        "rationale": "要件書 §1.1 が「google-adk 2.x 系（メジャーを固定）」と人間確定済みで、未確定だったのは 2.x が実在するかの事実確認のみだった。親セッションが uv venv 隔離環境への実インストールと inspect / Pydantic model_fields 走査で 2.8.0 の実在と API 形状を確認したため、人間判断の余地は残らない。要件定義フェーズでの起票候補から decided へ移した。"
+      },
+      "adr": true,
+      "constraints": [
+        {
+          "text": "メジャーバージョンを固定する（2.x 内で運用し 3.x へは自動追随させない）",
+          "kind": "condition"
+        }
+      ]
+    },
+    {
+      "id": "DP-JIN-PHASE-SCOPE-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-04T15:08:58+09:00",
+        "rationale": "依頼者(人間)の逐語発話「jin-requirements.md で定義されているビジュアルプログラミング言語処理系とビジュアルエディターを実装したいです。- 言語仕様 - 実行処理系 - ビジュアルエディタ 上記を実装したいです」を最優先の判断根拠とした。requirements-analyst の recommended は「Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)」だが、これは当該依頼を判断材料に含めずに付けられた推奨であるため、requirements-analyst の recommended より依頼者の明示発話を優先した。jin-requirements.md §11 の Phase 対応では 言語仕様 = Phase 0〜1 / 実行処理系 = Phase 2(+ Phase 3 レンダラ・Phase 4 LSP は §0「レンダラは 1 つだけ(Python)。エディタは LSP から SVG を受け取って表示し、独自に描画しない」により処理系とエディタ双方の前提) / ビジュアルエディタ = Phase 5〜6 であり、人間が名指しした 3 点すべてを満たす選択肢は Phase 0〜6 のみ。Phase 0〜4 では「ビジュアルエディタ」が、Phase 0〜2 では加えて成功条件 2・4 が落ちる。DP タイトル後半の Phase 0 承認ゲート(§11「Phase 0 の仕様書を先に承認してから Phase 1 に入る」)は auto mode に承認者がいないため、skills/common/auto-decision/DOMAIN-SKILL.md「人間レビュー(PR レビューで代替)」節に従い ai_provisional 記録 + PR レビューで代替する(constraints 参照)。本選択肢の cons「要件書自身が各フェーズを独立した spec → plan → 実装のサイクルにすると指定している方針に反する」に対しては、1 ラン内でも Phase 順に進め前 Phase の §11 完了条件充足を後続 Phase の着手条件とすることで正面から応える(constraints 参照)。confidence は medium — 依頼者の明示発話という強い根拠がある一方、もう 1 つの cons「Python 5 パッケージ + React エディタ + Playwright を 1 ランで作ることになり品質担保が困難」は実在するリスクとして残るため high は付けない。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-opus-5",
+        "confidence": "medium",
+        "adr_ref": "docs/adr/ADR-001-DP-JIN-PHASE-SCOPE-01.md",
+        "constraints": [
+          {
+            "text": "Phase 0 の仕様書承認ゲート(jin-requirements.md §11)は auto mode に承認者がいないため、ai_provisional 記録 + PR レビューで代替する(出典: skills/common/auto-decision/DOMAIN-SKILL.md「人間レビュー(PR レビューで代替)」節)。人間確定(decided)としては扱わない",
+            "kind": "condition"
+          },
+          {
+            "text": "1 ラン内でも要件書 §11 の「各フェーズを独立した spec → plan → 実装のサイクルにする」を保つ。Phase 0 から 6 まで順に進め、§11 表の各 Phase 完了条件の充足を後続 Phase の着手条件とする",
+            "kind": "condition"
+          },
+          {
+            "text": "Phase 7(v1.1 候補: ライブ実行 / import / MCP による ops 露出 / VS Code 拡張。要件書 §11 で「任意」)および §0 の非目標(人間可読 DSL / LangChain・LangGraph ターゲット / 汎用計算 / 複数ファイル import / ライブストリーミング表示)は本ランのスコープ外",
+            "kind": "scope"
+          },
+          {
+            "text": "要件書 §9 のテスト要件を uv run pytest(エディタは pnpm test)でネットワーク・API キー不要のまま通すことを各 Phase の完了条件とする。満たせない Phase が出た場合は完了扱いにせず PR レビューに上げる",
+            "kind": "limit"
+          }
+        ]
+      },
+      "chosen": "Phase 0〜6(全フェーズ)",
+      "compared": [
+        "Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)",
+        "Phase 0〜2(+ jin-adk build/run/trace/FakeLlm)",
+        "Phase 0〜4(エディタを除く全 Python パッケージ + Claude Code プラグイン)"
+      ]
+    },
+    {
+      "id": "DP-JIN-EDITOR-UX-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-04T15:08:58+09:00",
+        "rationale": "DP-JIN-PHASE-SCOPE-01 で Phase 5〜6 を本ランに含めたため、recommended の「Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする」は依頼者が名指しした「ビジュアルエディタ」を成果物から落とすことになり採用できない(requirements-analyst の recommended より依頼者の明示発話を優先)。残る 2 案のうち「Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる」は、参照すべきデザインシステムが jin-requirements.md にも本リポジトリにも示されておらず本セッションで存在確認できないため根拠にできない(T-002 具体値の捏造禁止)。よって機能要件に限定した最小 UI を採る。要件書 §7.1 / §7.2 は機能要件のみで見た目の具体指定がなく、§0「エディタは LSP から SVG を受け取って表示し、独自に描画しない」・§10 #9「レンダラは Python 1 本」・§10 #10「エディタの状態管理はファイルが唯一の状態。編集は全て jin/applyOps」・§7.1 のフォームは JSON Schema 由来、という既定により手書きデザインの余地が元々小さいことが本案の成立根拠。完了判定は §9「エディタ: Playwright スモーク(開く → 紋を追加 → 保存 → ファイルが期待の正準形になる)」および成功条件 5(モデル→ファイル→モデルが同一、ファイル→モデル→ファイルがバイト同一)とする。adr は handoff.json では false だったが、それは Phase 5 を除外する前提での値であり、Phase 5 を含める判断に転じたことで本 DP は「エディタの UI を誰が決めるか(AI が仮判断で作り、デザイナー参加後に差し替える)」という責務分界の決定になったため true に変更した。confidence は medium — 推奨を不採用とし残り 2 案の比較で選んだため。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-opus-5",
+        "confidence": "medium",
+        "adr_ref": "docs/adr/ADR-002-DP-JIN-EDITOR-UX-01.md",
+        "constraints": [
+          {
+            "text": "本決定が許すのは要件書 §7.1 / §7.2 の機能要件を満たす最小 UI までであり、装飾・ビジュアルデザイン・ブランド適用・モーション設計は本ランのスコープ外",
+            "kind": "scope"
+          },
+          {
+            "text": "Xtone の既存デザインシステム／UI ガイドラインは本リポジトリから参照できず存在確認もできていないため、それに準拠した旨の記述・実装・コメントを成果物に書かない",
+            "kind": "prohibition"
+          },
+          {
+            "text": "デザイナー参加後の差し替えを前提に、SVG 表示・ヒットテスト・JSON Schema 由来フォーム・jin/applyOps 疎通のロジックを見た目(スタイル)から分離して実装する",
+            "kind": "condition"
+          },
+          {
+            "text": "エディタの UI 設計(プロパティパネルのレイアウト、ドラッグ操作のインタラクション、診断バッジの見せ方、タイムラインスクラバ)は全て AI 仮判断であり人間確定ではない。PR レビューでデザイナーまたは依頼者の確認を受けるまで確定として扱わない",
+            "kind": "condition"
+          }
+        ]
+      },
+      "chosen": "機能要件(§7.1 / §7.2)だけを満たす最小 UI を AI 仮判断で作り、デザインは後で差し替える",
+      "compared": [
+        "Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする",
+        "Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる"
+      ]
+    },
+    {
+      "id": "DP-JIN-DISTRIBUTION-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-04T15:08:58+09:00",
+        "rationale": "recommended をそのまま採用した(依頼者の明示発話は配布導線に言及しておらず、推奨と矛盾しない)。本リポジトリの実 remote は git@github.com:rswisteria/jin-lang.git であり、jin-requirements.md §10 #8「uv tool install を社内 git から」・§8「社内 ai-delivery マーケットプレイスに git-subdir ソースで登録する」が指す社内 git / マーケットプレイスの具体的な移管先は要件書にもリポジトリにも記載がなく、本セッションで確認できない。採用理由の pro「実在する remote を使うので手順が今すぐ検証できる」は実測で裏付けた: gh repo view rswisteria/jin-lang --json visibility,url,isPrivate が visibility=PUBLIC / isPrivate=false を返したため、uv tool install git+https://github.com/rswisteria/jin-lang は認証なしで到達できる(2026-09-04 実測)。対案「README のインストール手順を <社内 git URL> のプレースホルダにして確定を保留する」は §8 の SessionStart フック(jin --version を確認し、無ければインストール手順を出す)が機能しなくなる。対案「社内 git への移管を先に行ってから配布導線を書く」は移管先の情報が無く auto mode では実行できない。影響はドキュメント記載の URL のみで実装本体には及ばない(requirements.json undecided_details の phase_impact)。confidence は medium — 社内移管の有無・時期・移管先が未確認のまま暫定の配布元を選んでいるため。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-opus-5",
+        "confidence": "medium",
+        "constraints": [
+          {
+            "text": "社内 git / 社内 ai-delivery マーケットプレイス(要件書 §10 #8 / §8)への移管先が確定した時点で、README のインストール手順・plugins/claude-code/jin/ の SessionStart 案内文・マーケットプレイス登録先(git-subdir ソース / stable・beta チャネル)の URL を差し替える",
+            "kind": "condition"
+          },
+          {
+            "text": "社内 git ホスティングおよび社内 ai-delivery マーケットプレイスの具体的な URL・組織名・チャネル名は本セッションで確認できていないため、成果物に記載しない",
+            "kind": "prohibition"
+          },
+          {
+            "text": "本決定が及ぶのはドキュメント・プラグイン設定に記載する配布元 URL のみで、jin-core / jin-cli / jin-adk / jin-render / jin-lsp の実装本体には及ばない",
+            "kind": "scope"
+          },
+          {
+            "text": "配布元 URL の到達性は 2026-09-04 時点の実測(gh repo view rswisteria/jin-lang → visibility: PUBLIC)に基づく。リポジトリが非公開化された場合、uv tool install には別途認証手順が必要になる",
+            "kind": "condition"
+          }
+        ]
+      },
+      "chosen": "現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う",
+      "compared": [
+        "README のインストール手順を <社内 git URL> のプレースホルダにして確定を保留する",
+        "社内 git への移管を先に行ってから配布導線を書く"
+      ]
+    }
+  ],
+  "undecided": [],
+  "undecided_details": [
+    {
+      "id": "DP-JIN-PHASE-SCOPE-01",
+      "title": "本ランでどこまで実装するか / Phase 0 承認ゲートを auto mode でどう扱うか",
+      "description": "要件書 §11 は「Phase 0 の仕様書を先に承認してから Phase 1 に入る」、§12 は「まず Phase 0(仕様書と examples)だけを対象に brainstorming する」と、いずれも人間の承認ゲートを前提に書かれている。auto mode には承認する人間がいないため、(a) 本ランで通す Phase 範囲、(b) Phase 0 の承認をどう代替するか、の 2 点が未確定。要件書 §11 の「各フェーズの成果物はそれ単体で動作・テスト可能であること」は満たす前提。",
+      "decide_by_phase": "design",
+      "phase_impact": "設計フェーズの design.yaml のスコープと実装フェーズの implementation-plan.json の Stage 構成が確定しない。広く取ると 1 ラン内で Phase 0〜6 全部(Python 5 パッケージ + React エディタ)を作ることになり検証が薄くなる。狭く取ると Phase 0〜1 で止まり成功条件 1〜6 のうち達成できるのは 3 のみ。",
+      "reversibility": "reversible",
+      "options": [
+        {
+          "label": "Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)",
+          "summary": "要件書 §12 の指示に最も忠実。Phase 0 の仕様書が正典になるのでここを固めてから先へ進む",
+          "recommended": true,
+          "confidence": "high",
+          "pros": [
+            "要件書 §11 の「Phase 1 は jin-core 単体に絞る」指示に一致",
+            "診断コード 12 件の fixture と正準形の冪等性を確実に検証できる",
+            "Phase 0 の仕様書レビューを人間が PR で行える"
+          ],
+          "cons": [
+            "成功条件 1(adk run で動く)・2(SVG)・4(LSP)・5(エディタ往復)・6(トレースリプレイ)は次ラン以降になる"
+          ]
+        },
+        {
+          "label": "Phase 0〜2(+ jin-adk build/run/trace/FakeLlm)",
+          "summary": "成功条件 1 まで到達し、.jin が実際に動くところまで通す",
+          "confidence": "medium",
+          "pros": [
+            "成功条件 1 を満たし価値が目に見える",
+            "実測済み google-adk 2.8.0 API に対する生成モジュールの import テストが同ラン内で通せる"
+          ],
+          "cons": [
+            "google-adk のインストールと import テストが必要で外部依存が増える",
+            "Phase 0 仕様書の承認前に Phase 2 まで進むことになる"
+          ]
+        },
+        {
+          "label": "Phase 0〜4(エディタを除く全 Python パッケージ + Claude Code プラグイン)",
+          "summary": "成功条件 1〜4 を満たし、LLM が .jin を書ける状態まで一気に通す",
+          "confidence": "low",
+          "pros": [
+            "Claude Code から実際に使える状態になる",
+            "エディタ(TypeScript)を切り離せるので言語が Python に一本化される"
+          ],
+          "cons": [
+            "1 ランの実装量が大きく検証が薄くなる",
+            "レイアウト仕様(§2.5)の星形多角形など細部の作り込みが必要"
+          ]
+        },
+        {
+          "label": "Phase 0〜6(全フェーズ)",
+          "summary": "要件書の v1 スコープを 1 ランで通す",
+          "confidence": "low",
+          "pros": [
+            "v1 が完成する"
+          ],
+          "cons": [
+            "Python 5 パッケージ + React エディタ + Playwright を 1 ランで作ることになり品質担保が困難",
+            "要件書自身が「各フェーズを独立した spec → plan → 実装のサイクルにする」と指定している方針に反する"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DP-JIN-EDITOR-UX-01",
+      "title": "Phase 5 エディタの UI/UX をデザイナー不在でどう決めるか",
+      "description": "要件書 §11 は「Phase 5 は Xtone の UI/UX の知見を入れる工程なので brainstorming の段階でデザイナーを巻き込む前提でよい」と明記しているが、auto mode にデザイナーは参加しない。プロパティパネルのレイアウト、ドラッグ操作のインタラクション設計、診断バッジの見せ方、タイムラインスクラバの UI は要件書に具体指定がない(§7.1 / §7.2 は機能要件のみ)。",
+      "decide_by_phase": "design",
+      "phase_impact": "Phase 5 を本ランに含める場合、エディタの UI 設計が AI 仮判断になる。含めない場合は影響なし。",
+      "reversibility": "reversible",
+      "options": [
+        {
+          "label": "Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする",
+          "summary": "要件書の指定に従いデザイナー不在では着手しない。DP-JIN-PHASE-SCOPE-01 で Phase 0〜4 以下を選ぶことと整合する",
+          "recommended": true,
+          "confidence": "high",
+          "pros": [
+            "要件書 §11 の指定を尊重する",
+            "後から UI をやり直すコストを避けられる"
+          ],
+          "cons": [
+            "成功条件 5(エディタ往復無損失)が本ランでは未達成になる"
+          ]
+        },
+        {
+          "label": "機能要件(§7.1 / §7.2)だけを満たす最小 UI を AI 仮判断で作り、デザインは後で差し替える",
+          "summary": "SVG 表示・ヒットテスト・JSON Schema 由来のフォーム・applyOps 疎通のみを実装し、見た目は装飾なしにする",
+          "confidence": "medium",
+          "pros": [
+            "Playwright スモーク(開く→紋を追加→保存→正準形)まで到達できる",
+            "フォームは JSON Schema から生成する指定なので手書きデザインの余地が元々小さい"
+          ],
+          "cons": [
+            "デザイナーが入った時点で作り直しになる可能性がある",
+            "auto mode の AI 判断が UI 全般に及ぶ"
+          ]
+        },
+        {
+          "label": "Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる",
+          "summary": "社内標準に寄せることでデザイナー不在のリスクを下げる",
+          "confidence": "low",
+          "pros": [
+            "社内の見た目に揃う"
+          ],
+          "cons": [
+            "参照すべき具体的なデザインシステムが要件書にもリポジトリにも示されておらず、存在を確認できていない"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "DP-JIN-DISTRIBUTION-01",
+      "title": "「社内 git」からの配布と実 remote(個人 GitHub)の整合をどうするか",
+      "description": "要件書 §10 #8 は「uv tool install を社内 git から。Claude Code プラグインは ai-delivery 経由」、§8 は「社内 ai-delivery マーケットプレイスに git-subdir ソースで登録する(stable / beta のチャネル運用)」と規定している。一方、本リポジトリの実 remote は github.com:rswisteria/jin-lang.git であり、社内 git ホスティングとは異なる。配布導線の実体(どの URL を uv tool install の対象にするか、ai-delivery マーケットプレイスの登録先とチャネル)が未確定。",
+      "decide_by_phase": "implementation",
+      "phase_impact": "Phase 4(Claude Code プラグイン)の README とインストール手順、SessionStart フックの案内文に書く URL が確定しない。実装本体には影響しない(ドキュメント記述のみ)。",
+      "reversibility": "reversible",
+      "options": [
+        {
+          "label": "現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う",
+          "summary": "uv tool install git+https://github.com/rswisteria/jin-lang を手順に書き、社内移管時に URL を差し替える",
+          "recommended": true,
+          "confidence": "medium",
+          "pros": [
+            "実在する remote を使うので手順が今すぐ検証できる",
+            "移管はドキュメントの URL 差し替えで済む"
+          ],
+          "cons": [
+            "要件書が言う「社内 git」とは異なるので移管タスクが残る"
+          ]
+        },
+        {
+          "label": "README のインストール手順を <社内 git URL> のプレースホルダにして確定を保留する",
+          "summary": "実在しない URL を書かず、移管先が決まってから埋める",
+          "confidence": "medium",
+          "pros": [
+            "存在しない URL を捏造しない"
+          ],
+          "cons": [
+            "そのままでは Claude Code プラグインの SessionStart 案内が機能しない"
+          ]
+        },
+        {
+          "label": "社内 git への移管を先に行ってから配布導線を書く",
+          "summary": "移管先リポジトリを確定させてから Phase 4 に入る",
+          "confidence": "low",
+          "pros": [
+            "要件書の指定に完全に一致する"
+          ],
+          "cons": [
+            "移管先の情報が要件書にもリポジトリにも無く、auto mode では確認できない"
+          ]
+        }
+      ]
+    }
+  ]
+}

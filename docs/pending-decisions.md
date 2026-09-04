@@ -1,0 +1,46 @@
+# 未決の判断ポイント（pending-decisions）— jin-lang
+
+warn_and_document（T-002）の出力先。`pending-decisions-generator` が schema から自動生成する（B-42）。
+
+<!-- AUTO-GENERATED START: pending-decisions-generator (B-42) — 直接編集禁止 -->
+<!-- 再生成: python3 xtone-shared-plugin/skills/common/pending-decisions-generator/bin/generate.py --plugin-root <path> -->
+> **走査範囲**（Issue #281 / DP-DELIVERY-TIMESTAMP-01 改定）: 未決（undecided）と AI 仮決定は各 slug の**最新ランのみ**（過去ランの stale な項目を偽 pending・偽レビュー待ちにしない）。決定済み（decision_record）は同一 slug の**全ランを累積表示**（決定履歴を索引から消さない）。正本は `delivery/<run>/` の成果物と `docs/adr/`。
+
+## 未決リスト（schema 駆動・自動生成）
+
+`undecided[]` を集約。手書き編集は不可（編集は schema 側の `undecided[]` を更新し再生成）。
+
+_（schema 側に未決はありません）_
+
+## AI 仮決定（auto mode・レビュー待ち・自動生成）
+
+auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/decide DP-XXX ...` で approved / overridden に確定する。
+
+| 起票元ファイル | DP ID | 選択 | confidence | review_status | 決定日 |
+|---|---|---|---|---|---|
+| 20260904-1445-jin/requirements.json | DP-JIN-DISTRIBUTION-01 | 現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う | medium | pending_human_review | 2026-09-04T15:08:58+09:00 |
+| 20260904-1445-jin/requirements.json | DP-JIN-EDITOR-UX-01 | 機能要件(§7.1 / §7.2)だけを満たす最小 UI を AI 仮判断で作り、デザインは後で差し替える | medium | pending_human_review | 2026-09-04T15:08:58+09:00 |
+| 20260904-1445-jin/requirements.json | DP-JIN-PHASE-SCOPE-01 | Phase 0〜6(全フェーズ) | medium | pending_human_review | 2026-09-04T15:08:58+09:00 |
+
+## 決定済み（schema 駆動・自動生成）
+
+`decision_record[]` を集約（同一 slug の**全ラン累積**・過去ランの決定履歴を含む・Issue #281）。手書き編集は不可（決定追加は `/decide` 経由で schema を更新し再生成）。
+
+| 起票元ファイル | DP ID | 決定者 | 決定日 | rationale | adr_ref |
+|---|---|---|---|---|---|
+| 20260904-1445-jin/requirements.json | DP-JIN-ADK-VERSION-01 | 要件書 §1.1（人間確定）+ 親セッション実測 delivery/20260904-1445-jin/adk-api-probe.md | 2026-09-04 | 要件書 §1.1 が「google-adk 2.x 系（メジャーを固定）」と人間確定済みで、未確定だったのは 2.x が実在するかの事実確認のみだった。親セッションが uv venv 隔離環境への実インストールと inspect / Pydantic model_fields 走査で 2.8.0 の実在と API 形状を確認したため、人間判断の余地は残らない。要件定義フェーズでの起票候補から d… |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-ADKYAML-01 | 要件書 §10 #7(人間確定済み) | 2026-09-04 | callback を表現できない |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-DELIVERYMODE-01 | 親エージェント(team-lead)による確定 | 2026-09-04 | リポジトリには jin-requirements.md 1 ファイルとコミット 1 本しか無く既存コードベースが存在しない |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-DIST-01 | 要件書 §10 #8(人間確定済み) | 2026-09-04 | 社内配布の既存導線に乗せる |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-EDITORSTATE-01 | 要件書 §10 #10(人間確定済み) | 2026-09-04 | エディタが独自モデル状態を持たないことで往復無損失を担保する |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-IDENTITY-01 | 要件書 §10 #11(人間確定済み) | 2026-09-04 | data-jin 属性・診断・trace pointer の鍵を JSON Pointer に統一する |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-LOOPEXIT-01 | 要件書 §10 #5(人間確定済み) | 2026-09-04 | 決定性と静的検証可能性を優先 |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-MODELREF-01 | 要件書 §10 #4(人間確定済み) | 2026-09-04 | v1 のスコープを絞る |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-MULTIFILE-01 | 要件書 §10 #6(人間確定済み) | 2026-09-04 | 名前解決とスコープの複雑化を v1 では避ける |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-NAMING-01 | 要件書 §10 #1(人間確定済み) | 2026-09-04 | 要件書 v0.2 §10 決定事項で確定。Claude Code の LSP ルーティングが拡張子単位のため .json を奪わない |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-RENDERER-01 | 要件書 §10 #9 / §0 設計前提(人間確定済み) | 2026-09-04 | 描画のズレをゼロにするため |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-STACK-01 | 要件書 §1.1 技術選定表(人間確定済み) | 2026-09-04 | 要件書に選定理由が併記されている確定済みの技術スタック指定。design フェーズで比較をやり直さない |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-TEXTREPR-01 | 要件書 §10 #2(人間確定済み) | 2026-09-04 | LLM が最も安定して書ける。既存 JSON ツールが使える。エディタとの往復が無損失(コメント・整形の保存問題がない) |  |
+| 20260904-1445-jin/requirements.json | DP-JIN-TOOLDEF-01 | 要件書 §10 #3(人間確定済み) | 2026-09-04 | 汎用計算は非目標。ツール実装は Python 側に置き Jin からは参照するだけ |  |
+
+<!-- AUTO-GENERATED END: pending-decisions-generator -->
