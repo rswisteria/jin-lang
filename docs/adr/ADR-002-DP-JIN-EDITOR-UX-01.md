@@ -1,8 +1,8 @@
 # ADR-002: Phase 5〜6 エディタはデザイナー不在下で機能要件限定の最小 UI を AI 仮判断で実装し、デザインは後日差し替える
 
-> ⚠️ **AI 仮決定（ai_provisional）** — auto mode の仮判断であり人間確定ではない（DP-AUTOMODE-01）。PR レビュー後、`/decide` で approved / overridden に確定する。
+> ✅ **人間確定済み — 承認（approved）** — 2026-09-04 に toyota が /decide で確定（DP-AUTOMODE-01）。
 
-- **ステータス**: proposed (ai_provisional)
+- **ステータス**: accepted
 - **日付**: 2026-09-04
 - **決定者**: auto-decider
 - **関連判断ポイント**: DP-JIN-EDITOR-UX-01

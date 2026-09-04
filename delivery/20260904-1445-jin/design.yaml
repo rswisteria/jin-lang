@@ -546,7 +546,9 @@ implementation_phases:
         boundary 0.95）と一致する
       - layout.md が記す data-jin-kind の値集合が §2.5 の 9 種（circle / core / rune / tool /
         state / flow-edge / guard / await / delegate）と一致する
-      - adk-mapping.md の Jin キー集合が §2.1 対応表の 12 行と一致する（2026-09-04 親が訂正: 原文は「11 行」だったが要件書 §2.1 の実データ行数は 12、requirements.json の FR-MODEL-002.vocabulary[] も 12 件。上流 2 系統が一致するためそちらを正とした。§9 テストマトリクスの「11 行」は正しいので変更していない）
+      - adk-mapping.md の Jin キー集合が §2.1 対応表の 12 行と一致する（2026-09-04 親が訂正: 原文は「11 行」だったが要件書
+          §2.1 の実データ行数は 12、requirements.json の FR-MODEL-002.vocabulary[] も 12 件。上流
+          2 系統が一致するためそちらを正とした。§9 テストマトリクスの「11 行」は正しいので変更していない）
       - examples 2 本が JSON として parse でき、§2.2 掲載の内容と意味的に一致する（この時点では Pydantic 検証は存在しないため素の
         JSON 比較）
       human_only:
@@ -1741,19 +1743,11 @@ excluded_decision_points:
       可用性 SLA ではないため、DP-COMMON-07 の判断軸に含めた。'
 decision_record:
 - id: DP-COMMON-07
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-07] の推奨案（案 B）をそのまま採用する。architect
-      の根拠は「1000 行の JSON の parse + Pydantic 検証は NFR-PERF-001 の 1 秒に対し十分な余裕があり、キャッシュ層を厚くすると無効化漏れによるステイル表示（NFR-DET-001
-      の決定性への疑い）の方が高くつく」。要件との適合根拠: 案 A は NFR-AVAIL-001（JSON 構文エラー中も直前の正常モデルで hover
-      / renderSvg を提供する）を満たせず要件違反、案 C は本ランで性能上の必要性が実測されておらず早すぎる最適化。案 B は NFR-AVAIL-001
-      をちょうど満たす最小の保持量であり、stdio と ws で同一の保持ロジックを使えるためFR-LSP-002（同一サーバ実装）とも整合する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     constraints:
     - text: last-good モデルの保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込める（design.yaml replaceability）
       kind: scope
@@ -1761,49 +1755,34 @@ decision_record:
       kind: scope
     - text: SVG はキャッシュしない。決定性テスト（NFR-DET-001）がキャッシュヒットを見る偽 green を作らないこと
       kind: scope
+    review_status: approved
   chosen: '案 B: ドキュメント単位で last-good モデル 1 世代のみ保持。SVG はキャッシュしない'
   compared:
   - '案 A: キャッシュを持たず毎回フル再計算し、構文エラー時は診断のみ返す'
   - '案 C: last-good モデルに加え SVG も (uri, focus, trace, upto) をキーにキャッシュする'
 - id: DP-COMMON-09
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-09] の推奨案（案 C）を採用する。要件との適合根拠:
-      要件書 §9 のテストマトリクス 11 行と FR-TEST-001 / NFR-TEST-001（全て uv run pytest、エディタは pnpm
-      test、ネットワーク・API キー不要）を満たしつつ、5 パッケージの垂直分割に沿ってテストを配置することで失敗時の原因箇所が特定しやすくなる。パッケージ横断の契約（依存方向・正準形の往復無損失・pointer→range
-      の一致）はどの単一パッケージにも属さないため tests/contract/ に横断契約テストとして置く。後戻りコストが高い（テスト配置は全 Phase
-      の作業単位を規定する）ため ADR 化する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:08+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     adr_ref: docs/adr/ADR-003-DP-COMMON-09.md
     constraints:
     - text: 横断契約テストの置き場は tests/contract/ とする。パッケージ横断 fixture の共有方法は実装 Stage で決め、根拠を残す
       kind: condition
     - text: テストはネットワークアクセスと API キーを一切必要としない（NFR-TEST-001）
       kind: scope
+    review_status: approved
   chosen: '案 C: パッケージ単位の垂直分割 + tests/contract/ の横断契約テスト'
   compared:
   - '案 A: 単一の tests/ に §9 の 11 対象をフラットに並べる'
   - '案 B: テストピラミッド（unit / integration / e2e）で切る'
 - id: DP-COMMON-11
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-11] の推奨案（案 B）をそのまま採用する。architect
-      の根拠は「import-linter は層の宣言が設定ファイル 1 本で済み、間接依存も追う。TypeScript 側は対象外なのでそこだけ別の仕掛けが要る点を明示的に受け入れる」。要件との適合根拠:
-      FR-ARCH-002 / NFR-DEP-001 が依存の一方向性を要求し、要件書 §1.2 の「jin-core は ADK に依存しない」「apps/editor
-      は LSP にしか依存しない」は本案件の設計思想そのもの。案 A（pyproject.toml の依存宣言のみ）は同一環境にインストールされていれば import
-      が通るため実効性が弱く、案 C（自前 AST 走査）は間接依存の追跡が不完全になりやすい。依存担保の方式は後から変えると全パッケージの CI 構成に波及するため
-      ADR 化する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     adr_ref: docs/adr/ADR-004-DP-COMMON-11.md
     constraints:
     - text: design.yaml architecture.dependency_direction.rules の 8 行を契約の正本とし、検査ツールを差し替えても契約は動かさない
@@ -1812,24 +1791,17 @@ decision_record:
       kind: condition
     - text: apps/editor は Python パッケージを直接 import しない（LSP プロトコルにのみ依存する）
       kind: scope
+    review_status: approved
   chosen: '案 B: import-linter で layered contract を宣言 + apps/editor は pnpm 側で別途静的検査'
   compared:
   - '案 A: uv workspace の依存宣言（pyproject.toml の dependencies）だけで担保する'
   - '案 C: 自前の AST 走査テスト（tests/contract/test_dependencies.py）を書く'
 - id: DP-COMMON-14
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-14] の推奨案（案 B）をそのまま採用する。トレース
-      JSONL（要件書 §3.4 が規定する成果物・--trace 指定時のみ出力）とLSP サーバの診断ログ（stderr 固定）を明示的に 2 系統に分離する。要件との適合根拠:
-      要件書 §6.1 の stdio トランスポートでは stdout を JSON-RPC が占有するため、案 A（pygls / 標準 logging
-      の既定に任せる）は既定ハンドラが stdout に出た時点でプロトコルが壊れ、実害が出てから気づく類の事故になる。案 C（window/logMessage）は起動前・接続断後のログが失われ
-      CI デバッグに使えない。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     constraints:
     - text: stdio モードでは stdout に JSON-RPC 以外のいかなる出力も行わない
       kind: scope
@@ -1837,23 +1809,17 @@ decision_record:
       kind: scope
     - text: ログレベル・フォーマット・ローテーションの方針は本判断では確定しない。実装 Phase 4 で決定し根拠を残す
       kind: condition
+    review_status: approved
   chosen: '案 B: トレース JSONL（成果物・--trace 指定時のみ）と サーバログ（stderr 固定）を明示的に分離する'
   compared:
   - '案 A: pygls / Python 標準 logging の既定に任せる'
   - '案 C: LSP の window/logMessage 通知にログを寄せる'
 - id: DP-COMMON-15
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-15] の推奨案（案 B）をそのまま採用する。要件との適合根拠:
-      FR-ADK-001 が生成物に .env.example を含めることを規定する一方、そのキー名は要件書・requirements.json のどこにも書かれていない。案
-      A（設計フェーズで代表的なキー名を書く）は実測していない値を成果物に固定することになり T-002 違反、案 C（.env.example を生成しない）は
-      FR-ADK-001 に反する要件違反。よって「実装 Stage 1 で google-adk 2.8.0 から実測した値のみを書く」案 B が唯一の適合解である。本判断はキー名そのものを確定するものではない。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:08+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     constraints:
     - text: .env.example のキー名は本判断では確定しない。実装 Stage 1 の tech-version-check で google-adk
         2.8.0 が読む環境変数名を実測し、その実測値のみをテンプレートに固定する
@@ -1865,25 +1831,17 @@ decision_record:
       kind: condition
     - text: テストは .env / API キー / ネットワークを必要としない（NFR-TEST-001）
       kind: scope
+    review_status: approved
   chosen: '案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する'
   compared:
   - '案 A: 設計フェーズで代表的なキー名を書いてしまう'
   - '案 C: .env.example を生成せず README に案内だけ書く'
 - id: DP-COMMON-16
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-16] の推奨案（案 B）をそのまま採用する。保持してよいのは「モデルから導出できない
-      UI 意図」だけと定義し、選択（circle 名 + 要素の種別 + 要素名 の 3 つ組）/ focus（circle 名）/ undo・redo スタック
-      / upto / パネル開閉 に限定する。要件との適合根拠: 要件書 §10 #10 / FR-EDITOR-001 の「ファイルが唯一の状態」「エディタは独自のモデル状態を持たない」に対し、案
-      C（モデルの完全な写しをクライアントに持たせ楽観更新）は真正面から反する要件違反。案 A（生の JSON Pointer で選択を保持）は要件書 §6.3
-      の moveTool で配列が並び替わると選択が別要素を指す。要件書 §10 #11 が名前を ID と定めているため、名前 ID から新モデル上の pointer
-      を引き直す案 B の再解決方式は要件の構造と一致する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     constraints:
     - text: tools[].name / state[].name は circle 内一意であって全体一意ではないため、選択は必ず circle 名で限定した
         3 つ組で保持する
@@ -1894,24 +1852,17 @@ decision_record:
       kind: condition
     - text: 状態管理ライブラリは追加せず React の useReducer / Context の範囲に収める
       kind: scope
+    review_status: approved
   chosen: '案 B: circle 名 + 種別 + 要素名 の 3 つ組で選択を保持し、applyOps 応答のたびに新モデル上の pointer を引き直す'
   compared:
   - '案 A: 選択も含めて生の JSON Pointer で保持する'
   - '案 C: サーバがモデルの完全な写しをクライアントに持たせ、クライアント側で楽観更新する'
 - id: DP-COMMON-17
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-17] の推奨案（案 B）をそのまま採用する。JSON-RPC
-      クライアントを 1 層置き、その上に Jin 固有の 4 リクエストを型付きラッパとして薄く重ねる。要件との適合根拠: FR-EDITOR-004 のとおりエディタの通信相手は
-      jin lsp --ws の WebSocket 1 本のみで、要件書 §6.2 の標準機能はエディタからはほとんど使わず（診断の受信と formatting
-      程度）、主に使うのは §6.3 の独自リクエストであるため、案 C のフル機能 LSP クライアントはテキストバッファ前提の機能が大半不要でADR-002
-      の最小 UI 方針と釣り合わない。案 A（生 WebSocket に手書き）はリクエスト ID 採番・応答対応付け・$/cancelRequest の取りこぼしを招く。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     constraints:
     - text: 具体的なライブラリの選定とバージョンは本判断では確定しない。実装 Stage 1 の tech-version-check で決定し根拠を残す
       kind: condition
@@ -1919,70 +1870,49 @@ decision_record:
       kind: prohibition
     - text: サーバ側 Python の型と二重管理になるため、同期のドリフト検出方法を実装 Phase 5 で決めること
       kind: condition
+    review_status: approved
   chosen: '案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ'
   compared:
   - '案 A: 生の WebSocket に JSON-RPC を手書きする'
   - '案 C: フル機能の LSP クライアント実装（monaco-languageclient 等）を載せる'
 - id: DP-COMMON-18
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-18] の推奨案（案 A）をそのまま採用する。SSR
-      なしの単一ページ SPA とし、編集モード / デバッグモードはルーティングではなく同一ページ内のモード切替にする。要件との適合根拠: 要件書 §1.1
-      が Vite を、FR-EDITOR-004 が「jin editor がビルド済みエディタを配信し、エディタ単体のサーバは持たない」を確定させているため、案
-      C（SSR / SSG）は要件違反。案 B（/edit と /debug のルート分割）はモード間で LSP 接続と選択状態を引き継ぐ機構が別途必要になるが、両モードは同じ
-      SVG・同じ選択状態・同じ LSP 接続を共有するため分割の利得がない。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     constraints:
     - text: エディタ単体のサーバを持たない。ビルド成果物は静的ファイル一式とし jin editor が配信する（FR-EDITOR-004）
       kind: scope
     - text: 開発時は Vite dev server から同一の WebSocket に接続する
       kind: scope
+    review_status: approved
   chosen: '案 A: SSR なし単一ページ SPA。モードはページ内切替'
   compared:
   - '案 B: クライアントルーティングで /edit と /debug を分ける'
   - '案 C: SSR / SSG を入れる'
 - id: DP-COMMON-19
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-19] の推奨案（案 B）をそのまま採用する。未接続
-      / 取得中 / 正常 / ステイル / 表示不能 の 5 状態に明示的に分ける。要件との適合根拠: NFR-AVAIL-001 が「JSON 構文エラー中も直前の正常なモデルで
-      hover / renderSvg を提供する」を要求しており、「エラーだが表示は出せる」という第 4 の状態（ステイル）が実在する。案 A の 3 状態ではこれを表現できず古い
-      SVG を正常表示として見せてしまい、案 C（診断バッジのみ）は LSP 接続断のときバッジが更新されないままユーザが気づけない。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     constraints:
     - text: ステイル状態では「直前の正常モデルを表示している」ことを画面上で明示し、正常表示と混ぜない
       kind: condition
     - text: 正常モデルが 1 度も得られていない状態を「表示不能」として独立させ、接続断と同じ扱いにしない
       kind: condition
+    review_status: approved
   chosen: '案 B: 未接続 / 取得中 / 正常 / ステイル / 表示不能 の 5 状態'
   compared:
   - '案 A: 読込中 / 正常 / エラー の 3 状態'
   - '案 C: 診断バッジだけで伝え、画面全体の状態は持たない'
 - id: DP-COMMON-20
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-COMMON-20] の推奨案（案 B）を採用する。ユニット層（pnpm
-      test / LSP をモックし、選択再解決の関数・表示状態の判別・逆オペレーションのスタック操作を検証）と、スモーク層（Playwright / 実
-      jin lsp --ws プロセスに接続）の 2 層構成にする。要件との適合根拠: 要件書 §9 は「エディタ: Playwright スモーク」1 行しか規定しておらず、その
-      1 本だけでは DP-COMMON-16 の選択再解決や DP-COMMON-19 の 5 状態を検証できない。FR-TEST-001 が「エディタは
-      pnpm test」と規定している以上、pnpm test の中身を定義する必要がある。案 A（Playwright のみ）は分岐を網羅できず、案 C（全て実プロセス結合）は実行時間と切り分けコストが高い。§9
-      に書かれていない層を足す点は要件の上乗せであるため confidence を medium とする。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:08+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     constraints:
     - text: Playwright スモークは要件書 §9 の必須 1 本（開く → 紋を追加 → 保存 → 正準形バイト一致）と Phase 6 のスクラバ
         1 本に限る
@@ -1991,26 +1921,17 @@ decision_record:
       kind: scope
     - text: エディタ側テストもネットワーク・API キーを必要としない（NFR-TEST-001）
       kind: scope
+    review_status: approved
   chosen: '案 B: ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層'
   compared:
   - '案 A: Playwright のみ（§9 の記述どおり 1 本）'
   - '案 C: 全て実 LSP プロセスに繋ぐ結合テストに寄せる'
 - id: DP-JIN-CANONICAL-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-CANONICAL-01] の推奨案（案 C）をそのまま採用する。jin_core.canonical
-      に独自 writer を書き、Pydantic のフィールド定義順を走査して直列化する。要件との適合根拠: 要件書 §2.3 は「キー順はスキーマ定義順」「省略可能なキーは既定値なら出力しない」「非
-      ASCII をエスケープしない」「2 スペースインデント」「末尾改行」の 5 規則を要求するが、json.dumps で直接制御できるのは indent
-      と ensure_ascii の 2 つだけで、案 A / 案 B では規則がPydantic の設定と後処理の 2 箇所に分散し §2.3 との対応が読みにくくなる。正準形は
-      NFR-DET-002（fmt(fmt(x)) == fmt(x) の冪等性・往復無損失）と成功条件 5 の土台であり、エディタ保存と jin fmt
-      がバイト一致することの唯一の担保であるため、実装がライブラリの既定挙動に依存する状態は担保として弱い。後から差し替えると全スナップショットと決定性テストに波及するため
-      ADR 化する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     adr_ref: docs/adr/ADR-005-DP-JIN-CANONICAL-01.md
     constraints:
     - text: §2.3 の 5 規則は canonical writer 1 箇所にのみ実装し、Pydantic 設定と後処理へ分散させない
@@ -2019,27 +1940,17 @@ decision_record:
       kind: condition
     - text: JSON エスケープ処理を自前で書くことによるバグリスクを、非 ASCII・制御文字・サロゲートペアの fixture で必ず検証する
       kind: condition
+    review_status: approved
   chosen: '案 C: jin_core.canonical に独自 writer を書く（Pydantic のフィールド定義順を走査して直列化）'
   compared:
   - '案 A: json.dumps の引数調整のみ（indent=2, ensure_ascii=False, sort_keys=False）'
   - '案 B: Pydantic の model_dump（exclude_defaults / exclude_none）+ json.dumps 後処理'
 - id: DP-JIN-POINTER-RANGE-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-POINTER-RANGE-01] の推奨案（案
-      B + JIN002 検出器の Pydantic 一本化）をそのまま採用する。Lark の木を 1 回走査して JSON Pointer → range
-      の完全な対応表を作り、Pydantic の ValidationError.loc を JSON Pointer 文字列に変換してその表を引く。要件との適合根拠:
-      要件書 §5 の jin dump、§2.5 の data-jin 契約、§6.3 の独自リクエスト jin/model が共通して pointer→range
-      対応表を要求する。案 A は JIN002 に range が付かず §5 の診断 JSON 形式（range 必須）を満たせない要件違反。案 C（Lark
-      の Transformer でモデルへ位置を埋め込む）は NFR-SSOT-001 の「モデル定義が唯一の真実」を濁し、往復無損失テストの等価比較に位置が影響する。検出器を
-      Pydantic に一本化するのは、jsonschema ライブラリを併用すると同じ違反に 2 種類のメッセージ形式が生まれNFR-LLM-001（hint
-      は具体値）が破れるため。位置表現の接続方式は全診断・エディタ・レンダラに波及するため ADR 化する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: high
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:10+09:00'
+    rationale: 'AI 仮判断（confidence: high）を承認。'
     adr_ref: docs/adr/ADR-006-DP-JIN-POINTER-RANGE-01.md
     constraints:
     - text: schemas/jin.schema.json は外部 JSON ツールと LLM 向けの公開契約であり、内部検証には使わない
@@ -2048,27 +1959,17 @@ decision_record:
       kind: scope
     - text: loc → pointer の変換規則を判別共用体（tools[].kind）・Optional・エイリアスについて網羅的にテストする
       kind: condition
+    review_status: approved
   chosen: '案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く'
   compared:
   - '案 A: Lark の木にモデルを重ねず、行・列は構文エラー（JIN001）のみに付ける'
   - '案 C: Lark のカスタム Transformer で Pydantic モデルを直接構築し、位置をモデルに埋め込む'
 - id: DP-JIN-SEMANTIC-GAPS-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-SEMANTIC-GAPS-01] の推奨案（案
-      A）を採用する。循環参照（summon / delegate が A → B → A）と circle の多重親を新しい JIN 診断コード 2 件として追加し、jin-core
-      の意味検査で検出する。要件との適合根拠: (1) 循環参照と多重親は ADK 固有ではなくモデル自身の整合性の問題であり、レンダラも入れ子展開で無限再帰するため、jin-core
-      は ADK に依存しないという制約を保ったまま jin-core で検出するのが層として正しい。(2) 案 B（jin-adk のコード生成時エラーに委ねる）は
-      jin check が通ってしまい、成功条件 3 の「LLM が jin check → 修正のループで直せる」が成立せず、レンダラ経路では検出されず無限再帰する。(3)
-      案 C（JIN011 / JIN031 に寄せる）は「未解決の参照」と「解決できる参照が循環している状態」の意味が違い、要件書 §9 の「対応コードを
-      1 つだけ出す」fixture の意図から外れる。要件書 §2.4 の確定した 12 件の表への追加であり仕様変更の人間承認を要するため confidence
-      は medium とする。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     adr_ref: docs/adr/ADR-007-DP-JIN-SEMANTIC-GAPS-01.md
     constraints:
     - text: 新規 JIN 診断コードの採番値は本判断では確定しない。要件書 §2.4 は JIN001〜JIN070 の 12 件のみを定義しており、空き番号への採番は
@@ -2080,30 +1981,17 @@ decision_record:
       kind: condition
     - text: 追加後は docs/spec/diagnostics.md と schemas/jin.schema.json の整合を取り直すこと
       kind: condition
+    review_status: approved
   chosen: '案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する'
   compared:
   - '案 B: 診断コードを増やさず、jin-adk のコード生成時エラーで落とす（NFR-FAIL-001 に委ねる）'
   - '案 C: 既存コードに寄せる（循環参照を JIN011 未解決参照の一種、多重親を JIN031 の一種として扱う）'
 - id: DP-JIN-CODEGEN-RUNTIME-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-CODEGEN-RUNTIME-01] の推奨（案
-      A を主とし FakeLlm のみ案 B 側に置く併用）を採用する。StateCheckAgent のクラス本体は生成物 agent.py に埋め込み、FakeLlm
-      は jin_adk 側に置く。要件との適合根拠: 要件書 §3.1 が「adk run <out>/<root_name> と adk web <out>
-      でそのまま動くこと」を要求するため、§3.3 の flow.exit に対応する StateCheckAgent は生成された agent 木の構成要素として生成物が自己完結している必要がある（案
-      B は生成プロジェクトの実行に jin のインストールを強い、§3.1 の「そのまま動く」の意味が弱まる）。一方 §3.4 の FakeLlm は jin
-      run --model fake という Jin の CLI が実行時に差し替えるもので生成物の一部ではなく、生成された agent.py に現れる必要がない。本判断により
-      design.yaml architecture.dependency_direction.rules の 8 行目「生成される ADK プロジェクトのjin
-      パッケージへの依存可否は DP-JIN-CODEGEN-RUNTIME-01 で未決」が解消され、「生成物は jin パッケージに依存しない」に確定する。実測
-      API（BaseAgent._run_async_impl を override し EventActions(escalate=True) を返す）は
-      adk-api-probe.md で確定済み。architect が「生成物の自己完結性と DRY のどちらを優先するかは人間に委ねる」としているため
-      confidence は medium。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     adr_ref: docs/adr/ADR-008-DP-JIN-CODEGEN-RUNTIME-01.md
     constraints:
     - text: FakeLlm は生成物に埋め込まず jin_adk 側に置く（生成された agent.py に FakeLlm は現れない）
@@ -2116,27 +2004,17 @@ decision_record:
     - text: StateCheckAgent の実装を変更しても既存の生成物には反映されないため、再生成が必要である旨を生成物のヘッダまたは README
         に明示する
       kind: condition
+    review_status: approved
   chosen: '案 A: StateCheckAgent のクラス本体を agent.py に毎回埋め込む（生成物が自己完結）'
   compared:
   - '案 B: jin_adk.runtime から import させる（生成物は jin に依存）'
   - '案 C: 生成時に別ファイル（_jin_runtime.py）を出力ディレクトリへ一緒に書き出す'
 - id: DP-JIN-TRACE-POINTER-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-TRACE-POINTER-01] の推奨案（案
-      B）をそのまま採用する。jin-adk がコード生成時に「ADK 上の識別子（agent 名 + tool 名 + callback 名）→ JSON
-      Pointer」の対応表を生成物とは別に保持し、実行時に Event.author と tool 名からその表を引いて pointer を埋める。要件との適合根拠:
-      要件書 §3.4 はトレース行に pointer（レンダラの data-jin と同じ鍵）を要求するが、adk-api-probe.md の実測どおり
-      ADK の Event は pointer を持たない（author / content / actions / branch / invocation_id
-      等）。案 A（実行時の逆引き）は tools[].name が circle 内一意であって全体一意ではないため同名 tool を一意に引けない。案 C（生成コードへの埋め込み）は「そのまま動く
-      ADK プロジェクト」の純粋さを落とし、ADK 側にコメントを実行時イベントへ伝える機構がないため結局実行時の対応付けが別に要る。対応付けの責務配置は
-      jin-adk の構造と Phase 6 のトレースリプレイに波及するため ADR 化する。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:09+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     adr_ref: docs/adr/ADR-009-DP-JIN-TRACE-POINTER-01.md
     constraints:
     - text: 対応表を生成物（agent.py）に埋め込まない。生成コードは Jin を知らないままとする
@@ -2145,25 +2023,17 @@ decision_record:
       kind: condition
     - text: 生成物を jin run を経由せず単体で adk run した場合はトレースの pointer が付かない。この制約をドキュメントに明示する
       kind: scope
+    review_status: approved
   chosen: '案 B: コード生成時に ADK 識別子 → JSON Pointer の対応表を作り、実行時に引く'
   compared:
   - '案 A: 実行時に Event の内容から jin-core のモデルを検索して逆引きする'
   - '案 C: 生成コード自体に pointer をコメントや属性として埋め込む'
 - id: DP-JIN-SVG-DETERMINISM-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-SVG-DETERMINISM-01] の推奨案（案
-      B）をそのまま採用する。座標を SVG に書き出す直前に固定桁数へ丸め、その丸めを行う関数 1 本を必ず通す規約にする。要件との適合根拠: NFR-DET-001
-      が「同じ意味モデルからは常にバイト単位で同一の SVG」を要求し、要件書 §9 が「同一入力 2 回で完全一致」をテストするが、§2.5 のレイアウトは半径
-      R=1 の正規化座標での三角関数計算を経て px へ変換するため浮動小数の文字列化がそのままバイト列に現れる。案 A（float をそのまま f-string
-      化）は決定性が「たまたま同じ実装だから」に依存し担保として弱く、案 C（Decimal / 整数座標系）は §2.5 が三角関数の使用を前提にしているため噛み合わず実装が重い。丸め桁数の具体値は要件書に記載がないため本判断では確定しない（T-002）。confidence
-      は medium とする。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     adr_ref: docs/adr/ADR-010-DP-JIN-SVG-DETERMINISM-01.md
     constraints:
     - text: 丸め桁数の具体値は本判断では確定しない。要件書に記載がないため、実装 Phase 3 で決定し根拠を docs/spec/layout.md
@@ -2179,28 +2049,17 @@ decision_record:
       kind: condition
     - text: 座標を SVG へ書き出す経路は必ずこの丸め関数 1 本を通す。素の float 文字列化を混在させない
       kind: scope
+    review_status: approved
   chosen: '案 B: 出力直前に固定桁数へ丸める関数を 1 本通す規約にする（桁数は未決）'
   compared:
   - '案 A: Python の float をそのまま f-string で文字列化する'
   - '案 C: Decimal または整数座標系で計算する'
 - id: DP-JIN-EDITOR-PROTOCOL-01
-  status: ai_provisional
+  status: decided
   decision_record:
-    decided_by: auto-decider
-    decided_at: '2026-09-04T15:44:00+09:00'
-    rationale: 'design.yaml fired_decision_points[DP-JIN-EDITOR-PROTOCOL-01] の推奨案（案
-      C）をそのまま採用する。jin editor が起動する Python プロセス側に ws クライアント向けのファイル I/O 責務を置き、独自リクエスト
-      jin/open と jin/save（仮称）の対でエディタが読み込みと保存を要求する形にする。要件との適合根拠: 要件書 §6.3 の jin/applyOps
-      は「クライアントがファイルを読んでテキストを送り保存も行う」というLSP の前提に立つが、ブラウザのエディタはファイルシステムを持たない。案 A（サーバが暗黙にディスクを読み書き）は
-      stdio モードの未保存バッファを無視して書き換え、モードで挙動を分ければ FR-LSP-002 の「同一サーバ実装」が実質崩れる。また pygls
-      の Workspace の遅延読込に黙って依存することは NFR-FAIL-001「黙って落とさない」と噛み合わない。案 B（didOpen / didSave
-      に寄せる）はエディタがファイルを読めないため didOpen に載せるテキストを取得できず、didSave は保存完了通知であって書き込み依頼ではないためプロトコルの意味を曲げる。案
-      C なら差分がリクエスト 2 本に閉じ、stdio モードは従来どおりで同一サーバ実装を保てる。要件書 §6.3 の独自リクエスト 4 種への追加であり仕様変更の人間承認を要するため
-      confidence は medium とする。'
-    decided_by_kind: ai_agent
-    review_status: pending_human_review
-    model: claude-opus-5
-    confidence: medium
+    decided_by: toyota
+    decided_at: '2026-09-04T21:20:07+09:00'
+    rationale: 'AI 仮判断（confidence: medium）を承認。'
     adr_ref: docs/adr/ADR-011-DP-JIN-EDITOR-PROTOCOL-01.md
     constraints:
     - text: jin/open と jin/save は ws モードのエディタだけが使う。stdio クライアント（Claude Code / VS Code）は使わず、従来どおりクライアントがファイル
@@ -2214,6 +2073,7 @@ decision_record:
     - text: undo/redo の逆オペレーションはサーバが applyOps の応答に含め、クライアントが保持する（要件書 §6.3）。その表現と適用失敗時の扱いは実装
         Phase 4 で確定し根拠を残す
       kind: condition
+    review_status: approved
   chosen: '案 C: 独自リクエスト（jin/open と jin/save 仮称）を 2 本追加し、ws モードのエディタだけが使う'
   compared:
   - '案 A: サーバが暗黙にディスクを読み書きする（open は pygls の遅延読込に任せ、save は applyEdit 適用後に常に書く）'

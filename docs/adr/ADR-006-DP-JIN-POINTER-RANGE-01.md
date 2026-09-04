@@ -1,8 +1,8 @@
 # ADR-006: DP-JIN-POINTER-RANGE-01 案 B: Lark の木を 1 回走査して pointer→range の完全表を作り、Pydantic の loc を pointer に変換して引く
 
-> ⚠️ **AI 仮決定（ai_provisional）** — auto mode の仮判断であり人間確定ではない（DP-AUTOMODE-01）。PR レビュー後、`/decide` で approved / overridden に確定する。
+> ✅ **人間確定済み — 承認（approved）** — 2026-09-04 に toyota が /decide で確定（DP-AUTOMODE-01）。
 
-- **ステータス**: proposed (ai_provisional)
+- **ステータス**: accepted
 - **日付**: 2026-09-04
 - **決定者**: auto-decider
 - **関連判断ポイント**: DP-JIN-POINTER-RANGE-01

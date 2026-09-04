@@ -1,8 +1,8 @@
 # ADR-014: JIN050 の loop 上流規則は「すべての兄弟枝」を維持し、1 周目未定義は静的検査の対象外とする
 
-> ⚠️ **AI 仮決定（ai_provisional）** — auto mode の仮判断であり人間確定ではない（DP-AUTOMODE-01）。PR レビュー後、`/decide` で approved / overridden に確定する。
+> ✅ **人間確定済み — 承認（approved）** — 2026-09-04 に toyota が /decide で確定（DP-AUTOMODE-01）。
 
-- **ステータス**: proposed (ai_provisional)
+- **ステータス**: accepted
 - **日付**: 2026-09-04
 - **決定者**: auto-decider
 - **関連判断ポイント**: DP-JIN-JIN050-LOOP-SCOPE-01（aliases: 現仕様を維持し警告も出さない, 現仕様維持（model.md §5 の loop 行を変更しない））

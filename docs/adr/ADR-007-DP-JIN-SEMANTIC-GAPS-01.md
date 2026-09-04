@@ -1,8 +1,8 @@
 # ADR-007: DP-JIN-SEMANTIC-GAPS-01 案 A: 新しい JIN コードを 2 つ追加し、jin-core の意味検査で検出する
 
-> ⚠️ **AI 仮決定（ai_provisional）** — auto mode の仮判断であり人間確定ではない（DP-AUTOMODE-01）。PR レビュー後、`/decide` で approved / overridden に確定する。
+> ✅ **人間確定済み — 承認（approved）** — 2026-09-04 に toyota が /decide で確定（DP-AUTOMODE-01）。
 
-- **ステータス**: proposed (ai_provisional)
+- **ステータス**: accepted
 - **日付**: 2026-09-04
 - **決定者**: auto-decider
 - **関連判断ポイント**: DP-JIN-SEMANTIC-GAPS-01

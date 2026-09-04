@@ -198,3 +198,5 @@
 | 2026-09-04 20:12 | 親が全ゲートを再実行: **521 passed** / ruff check・format 緑 / lint-imports 3 kept / jin check・fmt --check 緑 / schema ドリフト無し / `UV_LOCKED=1 uv sync` EXIT=0 | 途中で親が `UV_LOCKED` と `--frozen` を併用して N-01 の罠を自ら踏み、正しい形で取り直した |
 | 2026-09-04 20:13 | **親が `verification_status.overall = verified` を再導出**（scope: `backend-unit-verified`）。`skill_plan[stage=review]` を追加し `called=true` を書き戻し（DP-IMPL-STAGE-06-REVIEW-CALLED-01 案 (i)） | schema 検証 OK |
 | 2026-09-04 20:14 | `code-review-report.md` を **`Status: FINAL`（スコープは Phase 0+1 のみ）** に更新 | 全体スコープ Phase 0〜6 のうち 2〜6 は未着手と明記 |
+| 2026-09-04 20:20 | Phase 0+1 をコミット（`38d17ec`・107 files / +19305）。AI 判断台帳の HTML ビューを生成しコミット（`8bda71e`） | `auto-review.html` |
+| 2026-09-04 20:22 | ブランチを push し **draft PR #1 を作成**。PR 本文の先頭に「人間に確認してほしい判断 19 件」と特に見てほしい 5 件を配置（鉄則 5: 結論を最初に） | https://github.com/rswisteria/jin-lang/pull/1 |

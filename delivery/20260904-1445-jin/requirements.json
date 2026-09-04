@@ -1187,15 +1187,11 @@
     },
     {
       "id": "DP-JIN-PHASE-SCOPE-01",
-      "status": "ai_provisional",
+      "status": "decided",
       "decision_record": {
-        "decided_by": "auto-decider",
-        "decided_at": "2026-09-04T15:08:58+09:00",
-        "rationale": "依頼者(人間)の逐語発話「jin-requirements.md で定義されているビジュアルプログラミング言語処理系とビジュアルエディターを実装したいです。- 言語仕様 - 実行処理系 - ビジュアルエディタ 上記を実装したいです」を最優先の判断根拠とした。requirements-analyst の recommended は「Phase 0〜1(仕様書 + jin-core + jin-cli の check/fmt/schema/dump)」だが、これは当該依頼を判断材料に含めずに付けられた推奨であるため、requirements-analyst の recommended より依頼者の明示発話を優先した。jin-requirements.md §11 の Phase 対応では 言語仕様 = Phase 0〜1 / 実行処理系 = Phase 2(+ Phase 3 レンダラ・Phase 4 LSP は §0「レンダラは 1 つだけ(Python)。エディタは LSP から SVG を受け取って表示し、独自に描画しない」により処理系とエディタ双方の前提) / ビジュアルエディタ = Phase 5〜6 であり、人間が名指しした 3 点すべてを満たす選択肢は Phase 0〜6 のみ。Phase 0〜4 では「ビジュアルエディタ」が、Phase 0〜2 では加えて成功条件 2・4 が落ちる。DP タイトル後半の Phase 0 承認ゲート(§11「Phase 0 の仕様書を先に承認してから Phase 1 に入る」)は auto mode に承認者がいないため、skills/common/auto-decision/DOMAIN-SKILL.md「人間レビュー(PR レビューで代替)」節に従い ai_provisional 記録 + PR レビューで代替する(constraints 参照)。本選択肢の cons「要件書自身が各フェーズを独立した spec → plan → 実装のサイクルにすると指定している方針に反する」に対しては、1 ラン内でも Phase 順に進め前 Phase の §11 完了条件充足を後続 Phase の着手条件とすることで正面から応える(constraints 参照)。confidence は medium — 依頼者の明示発話という強い根拠がある一方、もう 1 つの cons「Python 5 パッケージ + React エディタ + Playwright を 1 ランで作ることになり品質担保が困難」は実在するリスクとして残るため high は付けない。",
-        "decided_by_kind": "ai_agent",
-        "review_status": "pending_human_review",
-        "model": "claude-opus-5",
-        "confidence": "medium",
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:12:46+09:00",
+        "rationale": "AI 仮判断（confidence: medium）を承認。",
         "adr_ref": "docs/adr/ADR-001-DP-JIN-PHASE-SCOPE-01.md",
         "constraints": [
           {
@@ -1214,7 +1210,8 @@
             "text": "要件書 §9 のテスト要件を uv run pytest(エディタは pnpm test)でネットワーク・API キー不要のまま通すことを各 Phase の完了条件とする。満たせない Phase が出た場合は完了扱いにせず PR レビューに上げる",
             "kind": "limit"
           }
-        ]
+        ],
+        "review_status": "approved"
       },
       "chosen": "Phase 0〜6(全フェーズ)",
       "compared": [
@@ -1225,15 +1222,11 @@
     },
     {
       "id": "DP-JIN-EDITOR-UX-01",
-      "status": "ai_provisional",
+      "status": "decided",
       "decision_record": {
-        "decided_by": "auto-decider",
-        "decided_at": "2026-09-04T15:08:58+09:00",
-        "rationale": "DP-JIN-PHASE-SCOPE-01 で Phase 5〜6 を本ランに含めたため、recommended の「Phase 5 を本ランのスコープから外し、デザイナー参加後の別ランにする」は依頼者が名指しした「ビジュアルエディタ」を成果物から落とすことになり採用できない(requirements-analyst の recommended より依頼者の明示発話を優先)。残る 2 案のうち「Xtone の既存デザインシステム/UI ガイドラインを参照して AI が準拠させる」は、参照すべきデザインシステムが jin-requirements.md にも本リポジトリにも示されておらず本セッションで存在確認できないため根拠にできない(T-002 具体値の捏造禁止)。よって機能要件に限定した最小 UI を採る。要件書 §7.1 / §7.2 は機能要件のみで見た目の具体指定がなく、§0「エディタは LSP から SVG を受け取って表示し、独自に描画しない」・§10 #9「レンダラは Python 1 本」・§10 #10「エディタの状態管理はファイルが唯一の状態。編集は全て jin/applyOps」・§7.1 のフォームは JSON Schema 由来、という既定により手書きデザインの余地が元々小さいことが本案の成立根拠。完了判定は §9「エディタ: Playwright スモーク(開く → 紋を追加 → 保存 → ファイルが期待の正準形になる)」および成功条件 5(モデル→ファイル→モデルが同一、ファイル→モデル→ファイルがバイト同一)とする。adr は handoff.json では false だったが、それは Phase 5 を除外する前提での値であり、Phase 5 を含める判断に転じたことで本 DP は「エディタの UI を誰が決めるか(AI が仮判断で作り、デザイナー参加後に差し替える)」という責務分界の決定になったため true に変更した。confidence は medium — 推奨を不採用とし残り 2 案の比較で選んだため。",
-        "decided_by_kind": "ai_agent",
-        "review_status": "pending_human_review",
-        "model": "claude-opus-5",
-        "confidence": "medium",
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:12:47+09:00",
+        "rationale": "AI 仮判断（confidence: medium）を承認。",
         "adr_ref": "docs/adr/ADR-002-DP-JIN-EDITOR-UX-01.md",
         "constraints": [
           {
@@ -1252,7 +1245,8 @@
             "text": "エディタの UI 設計(プロパティパネルのレイアウト、ドラッグ操作のインタラクション、診断バッジの見せ方、タイムラインスクラバ)は全て AI 仮判断であり人間確定ではない。PR レビューでデザイナーまたは依頼者の確認を受けるまで確定として扱わない",
             "kind": "condition"
           }
-        ]
+        ],
+        "review_status": "approved"
       },
       "chosen": "機能要件(§7.1 / §7.2)だけを満たす最小 UI を AI 仮判断で作り、デザインは後で差し替える",
       "compared": [
@@ -1262,15 +1256,11 @@
     },
     {
       "id": "DP-JIN-DISTRIBUTION-01",
-      "status": "ai_provisional",
+      "status": "decided",
       "decision_record": {
-        "decided_by": "auto-decider",
-        "decided_at": "2026-09-04T15:08:58+09:00",
-        "rationale": "recommended をそのまま採用した(依頼者の明示発話は配布導線に言及しておらず、推奨と矛盾しない)。本リポジトリの実 remote は git@github.com:rswisteria/jin-lang.git であり、jin-requirements.md §10 #8「uv tool install を社内 git から」・§8「社内 ai-delivery マーケットプレイスに git-subdir ソースで登録する」が指す社内 git / マーケットプレイスの具体的な移管先は要件書にもリポジトリにも記載がなく、本セッションで確認できない。採用理由の pro「実在する remote を使うので手順が今すぐ検証できる」は実測で裏付けた: gh repo view rswisteria/jin-lang --json visibility,url,isPrivate が visibility=PUBLIC / isPrivate=false を返したため、uv tool install git+https://github.com/rswisteria/jin-lang は認証なしで到達できる(2026-09-04 実測)。対案「README のインストール手順を <社内 git URL> のプレースホルダにして確定を保留する」は §8 の SessionStart フック(jin --version を確認し、無ければインストール手順を出す)が機能しなくなる。対案「社内 git への移管を先に行ってから配布導線を書く」は移管先の情報が無く auto mode では実行できない。影響はドキュメント記載の URL のみで実装本体には及ばない(requirements.json undecided_details の phase_impact)。confidence は medium — 社内移管の有無・時期・移管先が未確認のまま暫定の配布元を選んでいるため。",
-        "decided_by_kind": "ai_agent",
-        "review_status": "pending_human_review",
-        "model": "claude-opus-5",
-        "confidence": "medium",
+        "decided_by": "toyota",
+        "decided_at": "2026-09-04T21:20:07+09:00",
+        "rationale": "AI 仮判断（confidence: medium）を承認。",
         "constraints": [
           {
             "text": "社内 git / 社内 ai-delivery マーケットプレイス(要件書 §10 #8 / §8)への移管先が確定した時点で、README のインストール手順・plugins/claude-code/jin/ の SessionStart 案内文・マーケットプレイス登録先(git-subdir ソース / stable・beta チャネル)の URL を差し替える",
@@ -1288,7 +1278,8 @@
             "text": "配布元 URL の到達性は 2026-09-04 時点の実測(gh repo view rswisteria/jin-lang → visibility: PUBLIC)に基づく。リポジトリが非公開化された場合、uv tool install には別途認証手順が必要になる",
             "kind": "condition"
           }
-        ]
+        ],
+        "review_status": "approved"
       },
       "chosen": "現 remote(github.com:rswisteria/jin-lang.git)を配布元とし、社内移管は後日行う",
       "compared": [
