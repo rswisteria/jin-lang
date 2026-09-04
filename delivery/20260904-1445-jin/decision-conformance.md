@@ -84,6 +84,10 @@ flow ブロックに置くと「10 の位 = 関心事」という既存の並び
 これにより design.yaml Phase 0 の machine 条件「§2.4 の 12 件と過不足なく一致」と
 DP-JIN-SEMANTIC-GAPS-01 の「2 件追加採番」を両立させている。
 
+> **その後（2026-09-04・Issue #2）**: `DP-JIN-DIAGCODE-NUMBERING-01` が人間承認され（ADR-012 が accepted）、
+> 2 件は §2 の正典表へ統合された。要件書 §2.4 は 14 行、`diagnostics.md` の表は §2 の 1 つだけ、
+> design.yaml Phase 0 の machine 条件も「14 件」に更新済み。上の記述は統合前の状態の記録である。
+
 ### 2.2 診断の行・列の基点（DP-JIN-POINTER-RANGE-01 / `lsp-api-probe.md` §3 の指摘）
 
 | 項目 | 決めた値 |

@@ -205,6 +205,8 @@ circle は 2 種類。**核あり**(`core` を持つ → `LlmAgent`)と **核な
 | JIN002 | error | スキーマ違反(必須キー欠落・未知キー・型不一致・enum 外) | JSON Pointer と許容値 |
 | JIN010 | error | 名前の重複(circle/tool/state) | |
 | JIN011 | error | 未解決の参照(summon / delegate / steps / await / `{key}`) | 候補名を提示(編集距離) |
+| JIN012 | error | 参照が循環している(`summon` / `delegate` / `flow.steps` の有向グラフに閉路がある) | 閉路を構成する circle 名の並び |
+| JIN013 | error | circle が複数の親を持つ(`flow.steps` / `delegate` からの親子辺の入次数が 2 以上) | 親になっている circle 名の一覧 |
 | JIN020 | error | `tools` または `state` が 12 を超えた | 「サブ陣に抽出」のコードアクション |
 | JIN022 | error | `core` と `flow` の両立、または両方欠落 | |
 | JIN030 | error | `flow.kind = loop` に `max` も `exit` もない | `max: 5` を追加 |

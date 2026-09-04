@@ -137,7 +137,7 @@ def test_requirements_copies_are_identical() -> None:
 # --------------------------------------------------------------------------------------
 def test_diagnostics_canonical_matches_requirements() -> None:
     expected = req_diagnostic_codes()
-    assert len(expected) == 12, f"要件書 §2.4 の行数が 12 でない: {len(expected)}"
+    assert len(expected) == 14, f"要件書 §2.4 の行数が 14 でない: {len(expected)}"
     block = machine_block(SPEC_DIR / "diagnostics.md", "diagnostics-canonical")
     actual = [row[0] for row in table_rows(block)]
     assert actual == expected, (
@@ -154,20 +154,28 @@ def test_diagnostics_canonical_severity_matches_requirements() -> None:
     assert actual == expected
 
 
-def test_diagnostics_proposed_codes_are_exactly_two() -> None:
-    """DP-JIN-SEMANTIC-GAPS-01 が認めた追加は 2 件のみ。3 件目を勝手に採番していないこと。"""
-    block = machine_block(SPEC_DIR / "diagnostics.md", "diagnostics-proposed")
-    actual = [row[0] for row in table_rows(block)]
-    assert actual == ["JIN012", "JIN013"], actual
+def test_implementation_code_table_matches_requirements() -> None:
+    """コード側の正典表が要件書 §2.4 と一致すること（重大度まで）。
+
+    ADR-012 の承認で JIN012 / JIN013 が §2.4 に入り、承認待ちの別表は消えた。
+    仕様側とコード側が同じ表を持つことをここで固定する。3 件目を勝手に採番すれば
+    要件書 §2.4 との差として落ちる（旧 test_diagnostics_proposed_codes_are_exactly_two の役目）。
+    """
+    from jin_core.diagnostics import CANONICAL_CODES
+
+    block = section(read(REQUIREMENTS), "### 2.4 静的意味制約", r"^各コードに fixture")
+    expected = {row[0]: row[1] for row in table_rows(block)}
+    assert dict(CANONICAL_CODES) == expected, (
+        "jin_core.diagnostics.CANONICAL_CODES が要件書 §2.4 と一致しない\n"
+        f"  CANONICAL_CODES: {dict(CANONICAL_CODES)}\n  要件書 §2.4     : {expected}"
+    )
 
 
-def test_proposed_codes_do_not_collide_with_canonical() -> None:
-    canonical = set(req_diagnostic_codes())
-    proposed = {
-        row[0]
-        for row in table_rows(machine_block(SPEC_DIR / "diagnostics.md", "diagnostics-proposed"))
-    }
-    assert canonical.isdisjoint(proposed)
+def test_diagnostics_md_has_no_separate_proposed_table() -> None:
+    """承認済みコードを別表に残さない（表は §2 の 1 つだけ）。"""
+    text = spec_text("diagnostics.md")
+    assert "machine-readable: diagnostics-proposed" not in text
+    assert "人間承認待ち" not in text
 
 
 def test_diagnostic_stage_table_covers_all_codes() -> None:
@@ -176,8 +184,7 @@ def test_diagnostic_stage_table_covers_all_codes() -> None:
     for row in table_rows(block):
         listed |= set(re.findall(r"JIN\d{3}", row[2]))
     canonical = set(req_diagnostic_codes())
-    proposed = {"JIN012", "JIN013"}
-    assert listed == canonical | proposed, listed ^ (canonical | proposed)
+    assert listed == canonical, listed ^ canonical
 
 
 def test_precedence_table_resolves_jin011_overlap() -> None:
@@ -680,9 +687,9 @@ def test_generated_schema_really_lacks_the_conditional_constraints() -> None:
 
 def test_schema_gaps_are_consistent_with_the_diagnostic_tables() -> None:
     """N-3: §3.7 が挙げるコードが、実在する診断コードであること。"""
-    from jin_core.diagnostics import ALL_CODES
+    from jin_core.diagnostics import CANONICAL_CODES
 
     rows = table_rows(machine_block(SPEC_DIR / "model.md", "schema-gaps"))
     for row in rows:
         for code in re.findall(r"JIN\d{3}", row[1]):
-            assert code in ALL_CODES, f"{code} は診断コード表に無い"
+            assert code in CANONICAL_CODES, f"{code} は診断コード表に無い"

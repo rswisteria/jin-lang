@@ -539,8 +539,10 @@ implementation_phases:
     requirement_done_when: 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める
     verification:
       machine:
-      - diagnostics.md が列挙する JIN コード集合が §2.4 の 12 件（JIN001 / JIN002 / JIN010 / JIN011
-        / JIN020 / JIN022 / JIN030 / JIN031 / JIN040 / JIN050 / JIN060 / JIN070）と過不足なく一致する
+      - diagnostics.md が列挙する JIN コード集合が §2.4 の 14 件（JIN001 / JIN002 / JIN010 / JIN011
+        / JIN012 / JIN013 / JIN020 / JIN022 / JIN030 / JIN031 / JIN040 / JIN050 / JIN060 /
+        JIN070）と過不足なく一致する（2026-09-04 ADR-012 の人間承認により JIN012 / JIN013 が §2.4 へ
+        統合され、原文の「12 件」から更新した）
       - ops.md が列挙する意味オペレーション集合が §6.3 の 19 件と過不足なく一致する
       - layout.md が記す環の半径が §2.5 の 4 値（instruction 0.35 / tools 0.55 / state 0.75 /
         boundary 0.95）と一致する

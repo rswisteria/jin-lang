@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from jin_core.check import JinReadError, check_file, check_text, read_source
-from jin_core.diagnostics import CANONICAL_CODES, PROPOSED_CODES
+from jin_core.diagnostics import CANONICAL_CODES
 from jin_core.resolver import check_ref_format
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -59,7 +59,7 @@ def code_of(path: Path) -> str:
 # fixture の網羅と 1 コード性
 # --------------------------------------------------------------------------------------
 def test_every_documented_code_has_a_fixture() -> None:
-    expected = set(CANONICAL_CODES) | set(PROPOSED_CODES)
+    expected = set(CANONICAL_CODES)
     found = {code_of(p) for p in ALL_FIXTURES}
     assert found == expected, f"不足: {expected - found} / 余分: {found - expected}"
 

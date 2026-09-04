@@ -6,13 +6,12 @@
 ## 0. この文書の読み方（機械可読の約束）
 
 `tests/spec/test_spec_consistency.py` が
-§2 の表（正典コード）が要件書 §2.4 の 12 件と**過不足なく一致**すること、
-§3 の表（追加提案コード）が `{JIN012, JIN013}` であることを検証する。
+§2 の表（正典コード）が要件書 §2.4 の 14 件と**過不足なく一致**すること、
+`jin_core.diagnostics.CANONICAL_CODES` がその 14 件と一致することを検証する。
 `<!-- machine-readable: ... -->` マーカー付きブロックの書式を変えない。
 
-**正典コードと追加提案コードを 1 つの表に混ぜてはならない。** design.yaml の Phase 0 machine 条件が
-「§2.4 の 12 件と過不足なく一致」を要求する一方、DP-JIN-SEMANTIC-GAPS-01 が本文書での 2 件追加採番を
-要求しており、両立させるために表を分けている。
+**診断コードの表は §2 の 1 つだけである。** JIN012 / JIN013 は ADR-012（DP-JIN-DIAGCODE-NUMBERING-01）が
+2026-09-04 に人間承認されたことで要件書 §2.4 に入り、承認待ちの別表は §2 へ統合された（採番の根拠は §3）。
 
 ## 1. 診断の実行段階（パイプライン）
 
@@ -32,7 +31,7 @@ JIN002 の検出器は **Pydantic に一本化**する（ADR-006 / DP-JIN-POINTE
 `schemas/jin.schema.json` は外部 JSON ツールと LLM 向けの公開契約であり、内部検証には使わない。
 同じ違反に複数のメッセージ形式を生む検証器を併用しない。
 
-## 2. 正典コード（要件書 §2.4 の 12 件）
+## 2. 正典コード（要件書 §2.4 の 14 件）
 
 <!-- machine-readable: diagnostics-canonical -->
 
@@ -42,6 +41,8 @@ JIN002 の検出器は **Pydantic に一本化**する（ADR-006 / DP-JIN-POINTE
 | JIN002 | error | スキーマ違反（必須キー欠落・未知キー・型不一致・enum 外） | JSON Pointer と許容値 |
 | JIN010 | error | 名前の重複（circle/tool/state） | 重複した名前と、その名前を持つ 2 つ目の要素の pointer |
 | JIN011 | error | 未解決の参照（summon / delegate） | 候補名を提示（編集距離） |
+| JIN012 | error | 参照が循環している（summon / delegate / flow.steps の有向グラフに閉路がある） | 閉路を構成する circle 名の並び |
+| JIN013 | error | circle が複数の親を持つ（`flow.steps` / `delegate` からの親子辺の入次数が 2 以上） | 親になっている circle 名の一覧 |
 | JIN020 | error | `tools` または `state` が 12 を超えた | 「サブ陣に抽出」のコードアクション |
 | JIN022 | error | `core` と `flow` の両立、または両方欠落 | どちらを消す／足すか |
 | JIN030 | error | `flow.kind = loop` に `max` も `exit` もない | `max: 5` を追加 |
@@ -62,20 +63,12 @@ JIN002（スキーマ違反）が段 2 で拾う範囲には、`docs/spec/model.
 **専用のコードが同じ表に存在する**。要件書 §9 の「fixture は対応コードを 1 つだけ出す」を成立させるため、
 §4 の優先順位表で「専用コードが勝つ」と規定した。本表の JIN011 の「内容」列はその結論を反映している。
 
-## 3. 追加提案コード（ADR-007 / DP-JIN-SEMANTIC-GAPS-01・**人間承認待ち**）
+## 3. JIN012 / JIN013 の採番（ADR-007 / ADR-012）
 
-> ⚠️ **これは要件書 §2.4 への追加提案であり、まだ人間が承認していない**（DP-JIN-SEMANTIC-GAPS-01 は
-> `ai_provisional` / `pending_human_review`。同 DP の `constraints[]` に「要件書 §2.4 の診断コード表への追加であり、
-> 仕様変更として人間の承認を要する」と明記されている）。PR レビューで承認されるまで暫定である。
-
-<!-- machine-readable: diagnostics-proposed -->
-
-| コード | 重大度 | 内容 | 修正ヒント |
-|---|---|---|---|
-| JIN012 | error | 参照が循環している（summon / delegate / flow.steps の有向グラフに閉路がある） | 閉路を構成する circle 名の並び |
-| JIN013 | error | circle が複数の親を持つ（`flow.steps` / `delegate` からの親子辺の入次数が 2 以上） | 親になっている circle 名の一覧 |
-
-<!-- /machine-readable -->
+ADR-007（DP-JIN-SEMANTIC-GAPS-01）が 2 件の追加を決め、ADR-012（DP-JIN-DIAGCODE-NUMBERING-01）が
+採番値と要件書 §2.4 への追加を **2026-09-04 に人間承認**した（accepted）。承認に伴い 2 件は §2 の
+正典表へ統合済みである。採番をやり直すと定数・fixture・仕様書・生成済み `.jin` が全て追随するので、
+**根拠を消さずにここへ残す**。
 
 ### 3.1 採番の根拠（DP-JIN-SEMANTIC-GAPS-01 の限定句「空き番号への採番は本文書で決定し根拠を残す」への回答）
 
@@ -194,5 +187,5 @@ Phase 4 で必ず実施すること。`jin_core` 側は一貫してコードポ�
 
 ## 7. 本ラウンドでの実装状況
 
-段 1〜3 の全コード（正典 12 + 追加提案 2）を `jin_core.diagnostics` / `jin_core.semantic` に実装済み。
+段 1〜3 の全コード（正典 14 件）を `jin_core.diagnostics` / `jin_core.semantic` に実装済み。
 `jin check` / `jin check --json` / `jin check --resolve` が動作する。
