@@ -158,7 +158,14 @@ import し、その生成コードが `ref` のモジュールを import する�
   `except BaseException` には `CancelledError` しか届かない）。`asyncio.run` を呼ぶ側（CLI の `run`・同期 `run_model`・
   Phase 4 の pygls）が `except SystemExit` で包んで失敗扱いにする（F-S-P2-102。`sys.exit(0)` を exit 0 にしない）
 - 既定（`--resolve` なし）では import は一切行わない。JIN040 が出ないだけで、他の診断は全部出る
-- `--resolve` の実装は `packages/jin-cli/src/jin_cli/resolver.py` の `ImportResolver` だけにある。
+- `--resolve` の import は **`ref` 1 件ごとに子プロセス**（`python -P -m jin_cli.resolver <ref>`）で行い、
+  **30 秒**でタイムアウトする（ADR-018 / DP-JIN-RESOLVE-ISOLATION-01・値の根拠は `docs/spec/diagnostics.md` §2.1）。
+  同一プロセスで import すると 1 ファイル目の `ref` が `jin_core.semantic.analyze` を差し替えて 2 ファイル目の
+  本物の JIN060 を消せる（実測済み）。CLI は `SubprocessResolver` だけを使い、同一プロセスで import する
+  `ImportResolver` は子の中でだけ動く。タイムアウト・子の異常終了・結果行の欠落はすべて JIN040（fail-closed）。
+  `-P` で cwd を子の `sys.path` に足さない（cwd 解決経路を新設しない）。**子は同じ権限で走るので S1
+  （任意コード実行）は残る**。汚染再現テストは `packages/jin-cli/tests/test_cli.py::test_check_resolve_isolates_files_from_each_other`
+- `--resolve` の実装は `packages/jin-cli/src/jin_cli/resolver.py`（親 `SubprocessResolver` + 子 `ImportResolver`）だけにある。
   `jin_core` には置かない。Phase 4 の `jin-lsp` は `jin_core` / `jin_adk` / `jin_render` に依存できる
   （design.yaml rule 5）ので、ws で公開されるコードパスから `jin_cli.resolver` と `jin_adk.runtime` を
   **import しない**ことを Phase 4 の契約で機械化する（`phase2-handoff.md` §6: forbidden contract の

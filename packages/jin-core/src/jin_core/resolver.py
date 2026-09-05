@@ -2,7 +2,9 @@
 
 **このモジュールは import を一切行わない**。`jin_core` は「参照を解決する能力」を
 プロトコルとして宣言するだけで、実際に `importlib.import_module` を呼ぶ実装は
-`jin_cli.resolver.ImportResolver` にしか置かない（security review S1）。
+`jin_cli.resolver.ImportResolver` にしか置かない（security review S1）。CLI はそれを `ref` 1 件ごとの
+子プロセスの中でだけ動かし（`jin_cli.resolver.SubprocessResolver`・ADR-018）、`RefResolver` プロトコルは
+「解決できたか・理由」しか返さないので、import 先が何を差し替えても親プロセスには及ばない。
 
 理由: `ref` の import は**任意の Python コードをこのプロセスで実行する**。
 `jin_core` は全パッケージが依存する最下層なので、ここに実装を置くと Phase 4 の LSP サーバ

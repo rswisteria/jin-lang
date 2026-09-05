@@ -127,6 +127,12 @@ introspection した結果）。要件書 §3.2 の生成コードはそのま�
 > **2026-09-04 の人間判断**: 未決 9 件は「**期限まで未決のままで良い**」と確定した（toyota）。
 > warn_and_document の方針どおり未決のまま Phase 2 に進む。**Phase 4 着手の直前に、下記 2 件を
 > 改めて人間へ提示すること**（親の責務）。実装者が勝手に決めない。
+>
+> **2026-09-06 の人間判断（Issue #8）**: 下記 2 件を確定した（toyota）。
+> `DP-JIN-RESOLVE-ISOLATION-01` = (a) 別プロセス + タイムアウト 30 秒（ADR-018・`jin_cli.resolver.SubprocessResolver`）/
+> `DP-REVIEW-JIN-008` = 1000 行の実ファイルで `check_text` 9〜12 ms を実測して閉じる（`check-text-benchmark.md`・
+> 敵対的 5.1 秒は残存。Phase 4 の LSP はデバウンス + 古い要求のキャンセルを入れること）。
+> Phase 4 の hover（要件書 §6.2 の docstring）は同一プロセスで import せず子プロセス経路を拡張する。
 
 - **`DP-JIN-RESOLVE-ISOLATION-01`**（未決）: `--resolve` が同一プロセスで import するため、
   **1 ファイル目の `ref` が `jin_core.semantic.analyze` を差し替えると 2 ファイル目の本物の JIN060 が消え、
