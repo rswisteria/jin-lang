@@ -191,7 +191,7 @@ security reviewer も自分の「緑」報告 4 件を再実測し、E-B / E-B2 
 - **Status: FINAL** — 親が全ゲートを再実行して `verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を再導出した。
   **スコープは Phase 2 まで。** Phase 3〜6 は未着手。
 - verification_status.overall: **`verified`**（backend_unit のみ）
-- `pipeline_e2e`: **`not_run`**（本ブランチでの GitHub Actions 実行は PR 作成後に確認する。Phase 0+1 の passed は main 上の記録）
+- `pipeline_e2e`: **`passed`**（2026-09-06 追記: PR #12 で GitHub Actions が実機で成功。pull_request 2 回〔run 33976039588 / 33976135714〕+ マージ後の push/main 1 回〔run 33976275430〕とも conclusion=success。マージ commit `3146d3d`、Issue #3 は自動 close）
 - `human_only`（実 API キーでの `adk run` / `adk web`）: **`not_run`**。実施済みと報告していない。
   `examples/researcher` は `adk run` 単体だと初回ターンで `{findings}` が未設定のため ADK が `KeyError` になる（AI 仮判断 `DP-IMPL-JIN-P2-STATESEED-01`・人間確認待ち）
 - 起動した観点: correctness / conventions / wiring / security（並列度 = 4）。
