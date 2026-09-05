@@ -12,6 +12,7 @@ wiring review W-03 / W-05 と conventions review A-1 / A-2 への回答。
 
 from __future__ import annotations
 
+import ast
 import re
 import tomllib
 from pathlib import Path
@@ -175,17 +176,47 @@ def test_resolver_isolation_contract_covers_every_package_but_the_cli() -> None:
     )
 
 
-def test_the_only_module_importing_importlib_is_the_cli_resolver() -> None:
+#: 動的 import / コード実行の入口。`importlib*` の import に加えて呼び出しも見る（F-W-P2-005:
+#: `__import__('os')` だけを注入すると行頭一致の検査は素通りした）。
+DYNAMIC_IMPORT_CALLS = frozenset({"__import__", "exec", "eval"})
+
+
+def dynamic_import_sites(path: Path) -> list[str]:
+    """`importlib*` の import、`__import__` / `exec` / `eval` の呼び出し、`runpy.*` の参照を集める。"""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.extend(
+                a.name for a in node.names if a.name.split(".")[0] in ("importlib", "runpy")
+            )
+        elif isinstance(node, ast.ImportFrom):
+            if (node.module or "").split(".")[0] in ("importlib", "runpy"):
+                found.append(node.module or "")
+        elif isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in DYNAMIC_IMPORT_CALLS:
+                found.append(f"{func.id}()")
+        elif (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "runpy"
+        ):
+            found.append(f"runpy.{node.attr}")
+    return found
+
+
+def test_dynamic_imports_are_confined_to_the_cli_resolver_and_jin_run() -> None:
     """S1 の生の検査（import-linter を差し替えても残る網）。
 
     このテストが守っているのは「``.jin`` の ``ref`` を解決するために任意モジュールを
     import する実装が ``jin_cli`` の resolver 1 箇所に閉じている」ことであって、
     「importlib を使う場所が 1 箇所しかない」ことではない。
 
-    **Phase 2 で赤くなるのは想定どおり**: 要件書 §3.4 が ``jin run`` を「生成コードを
-    一時ディレクトリに書き出して import」と定めているため、``jin_adk`` は importlib を
-    使う。そのときは ``expected`` に ``packages/jin-adk/src/jin_adk/<module>.py`` を
-    **足して通すのが正しい**。
+    **Phase 2 で足した**: 要件書 §3.4 が ``jin run`` を「生成コードを一時ディレクトリに
+    書き出して import」と定めているため、``jin_adk.runtime`` が importlib を使う。
+    ``expected`` には ``packages/jin-adk/src/jin_adk/runtime.py`` を足した（Phase 2 の
+    追加はこの 1 モジュールだけ。``jin_adk`` の他のモジュールにも広げない）。
 
     やってはいけない修正:
 
@@ -195,18 +226,78 @@ def test_the_only_module_importing_importlib_is_the_cli_resolver() -> None:
 
     ``jin_lsp`` と ``jin_core`` は Phase 4 以降も **足してはならない**。
     ws トランスポートから ``ref`` 解決へ到達させないという S1 の構造的な担保
-    （ADR 参照 / import-linter の「ref の解決実装（任意コード実行）は jin_cli に閉じる」
+    （ADR 参照 / import-linter の「任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる」
     契約）が、この 2 つを追加した時点で崩れる。
     """
     offenders = []
     for package in package_dirs():
         module = module_name(package)
         for path in sorted((package / "src" / module).rglob("*.py")):
-            for line in path.read_text(encoding="utf-8").splitlines():
-                stripped = line.strip()
-                if stripped.startswith(("import importlib", "from importlib")):
-                    offenders.append(str(path.relative_to(REPO_ROOT)))
-    assert offenders == ["packages/jin-cli/src/jin_cli/resolver.py"]
+            if dynamic_import_sites(path):
+                offenders.append(str(path.relative_to(REPO_ROOT)))
+    assert offenders == [
+        "packages/jin-adk/src/jin_adk/runtime.py",
+        "packages/jin-cli/src/jin_cli/resolver.py",
+    ]
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        "import importlib\n",
+        "from importlib import import_module as _im\n",
+        "_m = __import__('os')\n",
+        "exec('1')\n",
+        "import runpy\nrunpy.run_path('x')\n",
+    ],
+)
+def test_dynamic_import_detector_sees_each_form(tmp_path: Path, snippet: str) -> None:
+    """検出器の非空虚性: 行頭一致では見えなかった `__import__` / `exec` / `runpy` も拾う（F-W-P2-005）。"""
+    path = tmp_path / "m.py"
+    path.write_text(snippet, encoding="utf-8")
+    assert dynamic_import_sites(path), snippet
+    path.write_text("import os\nx = os.getcwd()\n", encoding="utf-8")
+    assert dynamic_import_sites(path) == []
+
+
+def _jin_imports(src_root: Path) -> set[str]:
+    found: set[str] = set()
+    for path in sorted(src_root.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            names: list[str] = []
+            if isinstance(node, ast.Import):
+                names = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            for name in names:
+                top = name.split(".", 1)[0]
+                if top.startswith("jin_"):
+                    found.add(top)
+    return found
+
+
+@pytest.mark.parametrize("package", package_dirs(), ids=PACKAGE_IDS)
+def test_every_package_declares_the_jin_packages_it_imports(package: Path) -> None:
+    """wiring review F-W-P2-001: 依存する側の `packages/<p>/pyproject.toml` の欠落を pytest が拾わなかった。
+
+    workspace の推移で手元では動くが、単体インストールでは `ModuleNotFoundError` になる。
+    `uv lock --check` は CI でしか走らない（ローカルの `uv run` は lock を黙って更新する）ので、
+    各パッケージが import する `jin_*` がその `dependencies` と `[tool.uv.sources]` に載っていることをここで固定する。
+    CLAUDE.md のチェックリスト 7 項目目。
+    """
+    module = module_name(package)
+    config = tomllib.loads((package / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = {
+        dep.split("[")[0].split(" ")[0].split(">")[0].split("<")[0].split("=")[0].strip()
+        for dep in config["project"].get("dependencies", [])
+    }
+    sources = set(config.get("tool", {}).get("uv", {}).get("sources", {}))
+    for imported in sorted(_jin_imports(package / "src" / module) - {module}):
+        dist = imported.replace("_", "-")
+        assert dist in declared, (
+            f"{package.name} が {imported} を import しているが dependencies に {dist} が無い"
+        )
+        assert dist in sources, f"{package.name}: [tool.uv.sources] に {dist} が無い"
 
 
 # --------------------------------------------------------------------------------------
@@ -250,7 +341,7 @@ def test_test_fixtures_and_cli_discover_the_same_files(tmp_path: Path) -> None:
 # CONV A-2 / CONV A-3: パッケージ追加時のチェックリストが CLAUDE.md にある
 # --------------------------------------------------------------------------------------
 def test_claude_md_has_the_package_addition_checklist() -> None:
-    """conventions review A-2: パッケージ名が pyproject.toml の 5 箇所にハードコードされている。
+    """conventions review A-2: パッケージ名が pyproject.toml の 5 箇所（+ 依存する側の pyproject・計 7 項目）にハードコードされている。
 
     このテストが見るのは「チェックリストが書いてあるか」だけで、抜けの検出は
     上の各契約テストが行う。A-3（トリップワイヤの docstring）もここを指している。
@@ -264,6 +355,8 @@ def test_claude_md_has_the_package_addition_checklist() -> None:
         "layers",
         "source_modules",
         "__init__.py",
+        "依存する側",
+        "test_every_package_declares_the_jin_packages_it_imports",
     ]:
         assert item in text, f"チェックリストに {item} が無い"
 

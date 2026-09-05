@@ -1,18 +1,53 @@
 """Jin CLI。
 
-**Phase 1 で実装するのは check / fmt / schema / dump の 4 つだけ。**
-要件書 §5 の残り 5 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
+**実装済みは check / fmt / schema / dump（Phase 1）と build / run（Phase 2）の 6 つ。**
+要件書 §5 の残り 3 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
 
 | コマンド | 実装 Phase | 担当パッケージ |
 |---|---|---|
-| `jin build` | Phase 2 | jin-adk |
-| `jin run` | Phase 2 | jin-adk |
 | `jin render` | Phase 3 | jin-render |
 | `jin lsp` | Phase 4 | jin-lsp |
 | `jin editor` | Phase 5 | apps/editor |
 
 空実装のサブコマンドを先に置くと「あるのに動かない」状態になり、`jin --help` が嘘をつく。
 未定義なら typer が "No such command" で落ちるので、未実装であることが利用者に正しく伝わる。
+
+## `jin run` は任意コードを実行する（`--resolve` と同じ危険性）
+
+`jin run` は生成コードを一時ディレクトリに書いて **import する**（要件書 §3.4）。生成コードは
+`.jin` の `ref` が指すモジュールを import するので、`.jin` を書いた相手にこのプロセスの権限で
+任意のコードを実行させることになる。実装は `jin_adk.runtime` にある（`jin_core` には置かない）。
+`jin run` は `research.tools` のような `ref` を**カレントディレクトリ**から解決できるよう、cwd を
+`run_model_async(extra_sys_path=[cwd])` で渡す（console script は cwd を `sys.path` に含めないため）。
+`jin_adk.runtime._sys_path_window` がそれを**生成モジュールの import の間だけ** `sys.path` の末尾に足し、
+import が終わったら（例外時も）必ず取り除く。Runner 実行中は cwd が `sys.path` に無いので、ADK が
+LLM 要求のたびに遅延 import する未インストールの任意依存（`anthropic` など）を cwd から解決する
+経路は無い（DP-IMPL-JIN-P2-SYSPATH-01 の再々判断・F-S-P2-101）。**CLI 自身は `sys.path` を触らない。**
+**残存**: import 窓の間は cwd のモジュール（`ref` 先・builtin の遅延 import 先）がこのプロセスの権限で
+実行される。信頼しないディレクトリを cwd にして `jin run` しない。`ref` 先の関数が実行時に遅延 import
+する名前は cwd から解決できない（PYTHONPATH に委ねる）。
+
+ツール関数の `sys.exit()` は asyncio が `SystemExit` をループの外へ再送出するので、`run` は
+`asyncio.run` を `except SystemExit` で包んで exit 1 にする（トレースバック無し・F-S-P2-102）。
+ツール関数の `asyncio.CancelledError` は runtime が検知して `RunError` にする（F-S-P2-201: LlmAgent root では
+ADK が cancel を握って正常復帰するため「応答の無い function_call」で検知。F-S-P2-202: workflow root では素通り
+してくるので `Task.cancelling()` で区別）。`run` の `except CancelledError` はその保険（1 行・exit 1）。
+`SystemExit` は裸の名前なので `guard:` では主張できない。固定は `test_build_run.py` の
+`test_tool_sys_exit_at_runtime_is_a_failure` と変異 `RUN-swallow-systemexit-at-runtime`（ハーネス）。
+
+`.jin` の**ファイル名**も入力である。改行を含む名前は生成ヘッダを文にし（F-S-P2-001）、
+不正 UTF-8 バイト（surrogateescape）は書き込みを途中で失敗させる（F-S-P2-005）ので、
+`_require_jin_file` が入口で exit 2 にする。
+
+`--trace` は `generate()` が通ってから開き、最初の行を書く直前に切り詰める（`BuildError` /
+`RunError` で既存のトレースを 0 バイトにしない・F-S-P2-006）。ツール引数・state の実値・
+モデル出力を含む成果物なので **0600** にする（新規は mode・既存は `os.fchmod`。F-S-P2-008 / F-C-P2-103・
+`decision-conformance.md` §2.22）。
+
+    guard: _open_trace -> os.O_NOFOLLOW
+    guard: _open_trace -> os.fchmod
+    guard: _truncate -> os.ftruncate
+    guard: _require_jin_file -> _has_unsafe_chars(file.name)
 
 ## `guard:` 記法（security review R-2 の再発防止）
 
@@ -24,13 +59,15 @@
 
     guard: <関数名> -> <その関数に在るべきトークン>
 
-の形で併記する。`test_guard_claims_point_at_real_guards` が全ての `guard:` 行を集め、
-**名指しされた関数の実コード**（docstring とコメントを除いたもの）にそのトークンが
-実在することを検査する。嘘を書くとテストが落ちる。
+の形で併記する。`tests/contract/test_guard_claims.py` が `packages/*/src` の全モジュールから
+`guard:` / `hazard:` 行を集め、**名指しされた関数の実コード**（docstring とコメントを除いたもの）に
+そのトークンが実在することを検査する。嘘を書くとテストが落ちる。`hazard:` は「危険な操作の所在」
+（防御ではない）を同じ規則で固定するための別タグ。
 """
 
 from __future__ import annotations
 
+import asyncio
 import errno
 import json
 import os
@@ -41,16 +78,29 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+
+# `jin_cli.main` は fmt 用に同名の `WriteRefused` を定義しているので、別名で取り込む（同名だと
+# クラス定義が import を上書きし、build の except が効かない）。
+from jin_adk.build import WriteRefused as BuildWriteRefused
+from jin_adk.build import write_project
+from jin_adk.codegen import BuildError, generate
+from jin_adk.fake_llm import FakeLlm
+from jin_adk.runtime import RunError, run_model_async
+from jin_adk.trace import TraceRow
 from jin_core.canonical import dumps
 from jin_core.check import CheckResult, JinReadError, check_file, read_source
 from jin_core.diagnostics import Diagnostic, has_error
+from jin_core.model import JinFile
 from jin_core.schema_export import render as render_schema
 
 from jin_cli.resolver import ImportResolver
 
 app = typer.Typer(
     name="jin",
-    help="Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン（Phase 1: check / fmt / schema / dump）",
+    help=(
+        "Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン"
+        "（check / fmt / schema / dump / build / run）"
+    ),
     no_args_is_help=True,
     add_completion=False,
     # 例外のトレースバックにローカル変数（環境変数・パスなど）を載せない（security review S5）。
@@ -60,12 +110,49 @@ app = typer.Typer(
 #: 端末表示を偽装しうる文字（C0 / DEL / C1）。診断のメッセージ・hint に混ざると、
 #: ANSI エスケープで既存の行を消したり、改行で偽の診断行を差し込んだりできる（S6）。
 #: 段 2 のモデル検証でも弾いているが、表示側でも閉じる（多重防御）。
-_CONTROL_TRANSLATION = {code: f"\\u{code:04x}" for code in [*range(0x20), 0x7F, *range(0x80, 0xA0)]}
+#: `jin_adk.codegen.py_literal` と同じく U+2028 / U+2029（一部の端末が改行として描く・F-S-P2-014）と
+#: 孤立サロゲート（`\\udcXX`。stdout への encode 自体が落ちる・F-S-P2-005）も置き換える。
+_UNSAFE_CODES = [*range(0x20), 0x7F, *range(0x80, 0xA0), 0x2028, 0x2029, *range(0xD800, 0xE000)]
+_CONTROL_TRANSLATION = {code: f"\\u{code:04x}" for code in _UNSAFE_CODES}
 
 
 def _safe(text: str) -> str:
     """人間向け出力に載せる前に制御文字を可視表現へ置き換える。"""
     return text.translate(_CONTROL_TRANSLATION)
+
+
+def _has_unsafe_chars(name: str) -> bool:
+    """ファイル名に制御文字 / U+2028 / U+2029 / 孤立サロゲートが含まれるか（`_CONTROL_TRANSLATION` と同じ集合）。"""
+    return any(ord(ch) in _CONTROL_TRANSLATION for ch in name)
+
+
+def _require_jin_file(file: Path) -> None:
+    """`.jin` 1 本を名指しするコマンド（dump / build / run）共通の入口検査。exit 2。
+
+    ファイル名は `.jin` 本文と違って `jin check` の検査を通らない。改行入りの名前は生成ヘッダの
+    コメントを文にし（F-S-P2-001）、制御文字入りの名前は stderr の診断表示を偽装でき（F-S-P2-016）、
+    不正 UTF-8 バイト（surrogateescape の `\\udcXX`）は書き込みを途中で失敗させる（F-S-P2-005）。
+
+    guard: _require_jin_file -> _has_unsafe_chars(file.name)
+    """
+    if _has_unsafe_chars(file.name):
+        typer.echo(
+            f"ファイル名に制御文字か不正なバイト列が含まれています: {_safe(str(file))}"
+            "（改行・エスケープ・不正 UTF-8 を含む名前は受け付けません）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if not file.exists():
+        typer.echo(f"ファイルがありません: {_safe(str(file))}", err=True)
+        raise typer.Exit(code=2)
+    if file.is_file() and file.suffix != ".jin":
+        # `_collect` と同じ規則（correctness review D-4）。dump / build / run は `_collect` を
+        # 通らないのでここにも置く。片方だけ塞ぐと `jin dump README.md` が残る
+        typer.echo(
+            f"'.jin' ではありません: {_safe(str(file))}（Jin が読むのは拡張子 .jin のファイルだけです）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
 
 def _collect(paths: list[Path]) -> list[Path]:
@@ -483,18 +570,7 @@ def schema() -> None:
 @app.command()
 def dump(file: Annotated[Path, typer.Argument(help="対象の .jin")]) -> None:
     """モデル JSON と pointer→range 対応表を出す。"""
-    if not file.exists():
-        typer.echo(f"ファイルがありません: {file}", err=True)
-        raise typer.Exit(code=2)
-    if file.is_file() and file.suffix != ".jin":
-        # `_collect` と同じ規則（correctness review D-4）。dump は `_collect` を通らないので
-        # ここにも置く。片方だけ塞ぐと `jin dump README.md` が残る。
-        typer.echo(
-            f"'.jin' ではありません: {file}（Jin が読むのは拡張子 .jin のファイルだけです）",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
+    _require_jin_file(file)
     try:
         result = check_file(file)
     except JinReadError as exc:
@@ -516,6 +592,222 @@ def dump(file: Annotated[Path, typer.Argument(help="対象の .jin")]) -> None:
         },
     }
     typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+# ======================================================================================
+# Phase 2: build / run（jin-adk）
+# ======================================================================================
+def _load_model_or_exit(file: Path) -> JinFile:
+    """`.jin` を診断し、error が無ければモデルを返す。error があれば診断を出して exit 1。"""
+    _require_jin_file(file)
+    try:
+        result = check_file(file)
+    except JinReadError as exc:
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=2) from exc
+    for diagnostic in result.diagnostics:
+        typer.echo(_format_human(diagnostic), err=True)
+    if result.model is None or not result.ok:
+        typer.echo(
+            "診断に error があるため続行できません（先に jin check を通してください）", err=True
+        )
+        raise typer.Exit(code=1)
+    return result.model
+
+
+@app.command()
+def build(
+    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    out: Annotated[
+        Path, typer.Option("--out", help="出力先ディレクトリ（<out>/<root_name>/ を作る）")
+    ],
+    force: Annotated[
+        bool, typer.Option("--force", help="既存の生成物（3 ファイル）を上書きする")
+    ] = False,
+) -> None:
+    """ADK プロジェクトを生成する（要件書 §3.1）。既存ファイルは --force なしでは上書きしない。"""
+    model = _load_model_or_exit(file)
+    try:
+        project = generate(model, source_name=file.name)
+    except BuildError as exc:
+        # NFR-FAIL-001: ADK に対応物のない構造。黙って落とさず、何が悪いか + どう直すかを出す。
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    try:
+        written = write_project(project, out, force=force)
+    except BuildWriteRefused as exc:
+        typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    for path in written:
+        typer.echo(f"書き出しました: {path}")
+    raise typer.Exit(code=0)
+
+
+def _format_row(row: TraceRow) -> str:
+    output = row.output if row.output is not None else row.input
+    shown = json.dumps(output, ensure_ascii=False) if not isinstance(output, str) else output
+    if len(shown) > 120:
+        shown = shown[:117] + "..."
+    pointer = row.pointer if row.pointer is not None else "(pointer: null)"
+    return _safe(f"[{row.seq}] {row.agent} {row.kind} {row.name} {pointer} {shown}")
+
+
+def _open_trace(trace: Path) -> int:
+    """`--trace` の出力先を開く。リンクは辿らない。`O_TRUNC` は使わず、**新規でも既存でも 0600** にする。
+
+    `O_CREAT` の mode は新規作成時にしか効かない。前回 0644 で作った既存のトレースを指定し直すと
+    今回のツール引数・state が world-readable のまま書かれるので、開いたあとに `os.fchmod` で
+    所有者のみに絞る（F-C-P2-103。利用者が名指しした先でも中身の性質は同じ・§2.22）。
+
+    guard: _open_trace -> os.O_NOFOLLOW
+    guard: _open_trace -> os.fchmod
+    """
+    fd = os.open(trace, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    os.fchmod(fd, 0o600)
+    return fd
+
+
+class _LazyTruncateSink:
+    """最初の行を書く直前に切り詰める書き込み口（`TraceWriter.sink` に渡す）。
+
+    `O_TRUNC` で開くと `BuildError` / `RunError` で落ちたときに前回のトレースが 0 バイトになる
+    （Phase 1 の V-1 と同型・F-S-P2-006 / F-C-P2-009）。行が 1 つも出ないまま失敗したら既存の内容は
+    そのまま残る。正常終了時は `finish()` が必ず切り詰める（0 行の成功で古い内容を今回のトレースに
+    見せない）。
+    """
+
+    def __init__(self, fd: int) -> None:
+        self._handle = os.fdopen(fd, "w", encoding="utf-8", newline="")
+        self._truncated = False
+
+    def _truncate(self) -> None:
+        """最初の 1 回だけ切り詰める。
+
+        guard: _truncate -> os.ftruncate
+        """
+        if not self._truncated:
+            self._handle.flush()
+            os.ftruncate(self._handle.fileno(), 0)
+            self._handle.seek(0)
+            self._truncated = True
+
+    def write(self, text: str) -> int:
+        self._truncate()
+        return self._handle.write(text)
+
+    def finish(self) -> None:
+        self._truncate()
+
+    def close(self) -> None:
+        self._handle.close()
+
+
+@app.command()
+def run(
+    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    prompt: Annotated[str, typer.Argument(help="最初の利用者メッセージ")],
+    session: Annotated[
+        str,
+        typer.Option(
+            "--session",
+            help="セッション ID（トレース表示のラベル。実行ごとに新しい InMemorySessionService を"
+            "作るので、同じ ID を渡しても前回の state は引き継がれない）",
+        ),
+    ] = "jin",
+    trace: Annotated[
+        Path | None,
+        typer.Option("--trace", help="トレース JSONL の出力先（要件書 §3.4・0600 で作る）"),
+    ] = None,
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model",
+            help="fake を指定すると FakeLlm（固定応答・ネットワーク不要）に差し替える。"
+            "省略時は .jin の core のモデルをそのまま使う（API キーが要る）",
+        ),
+    ] = None,
+) -> None:
+    """生成コードを一時ディレクトリに書き出して import し、Runner で実行する。
+
+    【危険】生成コードは .jin の ref が指すモジュールを import する（= 任意コード実行）。
+    import の間だけ cwd を sys.path の末尾に足すので、その間はどこにも無い名前が cwd の
+    モジュールで解決され実行される。信頼できる .jin と cwd にだけ使うこと。
+    """
+    if model not in (None, "fake"):
+        typer.echo(
+            f"--model に指定できるのは fake だけです（指定値: {_safe(model)}）。"
+            "実モデルは .jin の core で指定します",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    jin_model = _load_model_or_exit(file)
+    llm = FakeLlm() if model == "fake" else None
+    try:
+        # `--trace` を開く前に生成を済ませる（BuildError で既存のトレースに触らない）
+        project = generate(jin_model, source_name=file.name)
+    except BuildError as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    sink: _LazyTruncateSink | None = None
+    if trace is not None:
+        try:
+            sink = _LazyTruncateSink(_open_trace(trace))
+        except OSError as exc:
+            typer.echo(
+                f"{_safe(str(trace))}: トレースを開けません（{exc.strerror}）。"
+                "親ディレクトリがあるか・書き込み権限があるか・シンボリックリンクでないかを確認してください",
+                err=True,
+            )
+            raise typer.Exit(code=1) from exc
+    try:
+        # `research.tools` のような ref を cwd から解決する（console script は cwd を含めない）。
+        # runtime が生成モジュールの import の間だけ末尾に足し、finally で外す
+        # （DP-IMPL-JIN-P2-SYSPATH-01）。CLI 自身は sys.path を触らない
+        result = asyncio.run(
+            run_model_async(
+                jin_model,
+                prompt,
+                project=project,
+                llm=llm,
+                session_id=session,
+                trace_sink=sink,
+                on_row=lambda row: typer.echo(_format_row(row)),
+                extra_sys_path=[os.getcwd()],
+            )
+        )
+        if sink is not None:
+            sink.finish()
+    except RunError as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    except KeyboardInterrupt:
+        raise
+    except asyncio.CancelledError as exc:
+        # 保険（F-S-P2-202）: ツール由来の CancelledError は runtime が RunError にするが、
+        # 区別できず素通りしてきたものもトレースバックにせず 1 行・exit 1 にする
+        typer.echo(
+            f"{_safe(str(file))}: 実行がキャンセルされました"
+            "（ref の関数が asyncio.CancelledError を投げた可能性。--trace で直前のイベントを確認してください）",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+    except SystemExit as exc:
+        # ツール関数の sys.exit() は asyncio がループの外へ再送出する（コルーチン側では捕まらない）。
+        # 成功扱いにしない（F-S-P2-102）。typer.Exit は SystemExit の子ではないので巻き込まない
+        typer.echo(
+            f"{_safe(str(file))}: 実行に失敗しました（SystemExit: {_safe(str(exc.code))}）。"
+            "ref の関数が sys.exit() を呼んでいます。関数側を直してください",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+    finally:
+        if sink is not None:
+            sink.close()
+    for reason in result.unresolved:
+        # ADR-009: 引けなかった pointer は null にして行を残し、理由を stderr に出す（黙らない）。
+        typer.echo(f"pointer を解決できませんでした: {_safe(reason)}", err=True)
+    typer.echo(f"{len(result.rows)} イベント（session: {_safe(session)}）", err=True)
+    raise typer.Exit(code=0)
 
 
 if __name__ == "__main__":  # pragma: no cover

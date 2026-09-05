@@ -1,0 +1,15 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Main",
+  "circles": [
+    {
+      "name": "Main",
+      "core": "gemini-2.5-flash"
+    },
+    {
+      "name": "ｒｏｏｔ＿ａｇｅｎｔ",
+      "core": "gemini-2.5-flash"
+    }
+  ]
+}

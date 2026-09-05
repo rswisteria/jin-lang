@@ -79,7 +79,12 @@ def test_semantics_preserved_for_every_formattable_document(
 
 
 def test_text_roundtrip_is_byte_identical(formattable_paths: list[Path]) -> None:
-    """ファイル → モデル → ファイルがバイト同一（正準形のファイルに限る）。"""
+    """`dumps` の冪等性: `dumps(model)` をもう一度読んで `dumps` してもバイト同一。
+
+    **ディスク上のファイルのバイト列は読まない**（F-W-P2-103）。ファイルが正準形で保存されているかは
+    `tests/contract/test_cli_contract.py::test_fmt_check_on_every_formattable_fixture_exits_zero` が
+    `jin fmt --check` で見る。
+    """
     for path in formattable_paths:
         canonical = dumps(check_file(path).model)
         twice = dumps(check_text(canonical, str(path)).model)

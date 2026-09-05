@@ -1,0 +1,82 @@
+{{ header }}
+{% if has_exit %}
+import json
+from collections.abc import AsyncGenerator
+
+{% endif %}
+from google.adk.agents import {{ agent_classes | join(", ") }}
+{% if has_exit %}
+from google.adk.agents.invocation_context import InvocationContext
+from google.adk.events import Event, EventActions
+{% endif %}
+{% if tool_imports %}
+from google.adk.tools import {{ tool_imports | join(", ") }}
+{% endif %}
+{% if uses_agent_tool %}
+from google.adk.tools.agent_tool import AgentTool
+{% endif %}
+{% if ref_imports %}
+
+{% for line in ref_imports %}
+{{ line }}
+{% endfor %}
+{% endif %}
+{% if has_exit %}
+
+
+def _state_matches(actual: object, expected: bool | int | float | str) -> bool:
+    """flow.exit の等値比較（docs/spec/model.md §3.4 FlowExit）。
+
+    LlmAgent.output_key は LLM の応答テキストを **str** で session.state に入れる
+    （google-adk 2.8.0 実測）。文字列は前後の空白を除いたうえで、
+    - expected が str なら文字列どうしを比較する（expected 側も前後の空白を除く・対称）
+    - それ以外は JSON として読み、同じ JSON 型（bool / number / string）で等しいときだけ一致
+      （"True" / "1" は true に一致しない。"3.0" は 3 に一致する）
+    文字列以外の値（tool が state に入れた bool / number）は型を保ったまま比較する。
+    """
+    value: object = actual
+    if isinstance(actual, str):
+        text = actual.strip()
+        if isinstance(expected, str):
+            return text == expected.strip()
+        try:
+            value = json.loads(text)
+        except ValueError:
+            return False
+    if isinstance(expected, bool):
+        return isinstance(value, bool) and value == expected
+    if isinstance(expected, (int, float)):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and value == expected
+    return isinstance(value, str) and value == expected
+
+
+class StateCheckAgent(BaseAgent):
+    """flow.exit: session.state[key] が equals と一致したら escalate して LoopAgent を抜ける。
+
+    生成時に埋め込まれたコピー（ADR-008）。jin 側の実装を変えてもここには反映されない。
+    jin を更新したら `jin build` で再生成すること。
+    """
+
+    key: str
+    expected: bool | int | float | str
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        actual = ctx.session.state.get(self.key)
+        matched = _state_matches(actual, self.expected)
+        yield Event(
+            author=self.name,
+            actions=EventActions(escalate=matched),
+            custom_metadata={
+                "state_check": {
+                    "key": self.key,
+                    "expected": self.expected,
+                    "actual": actual,
+                    "matched": matched,
+                }
+            },
+        )
+{% endif %}
+{% for block in blocks %}
+
+{{ block }}
+{% endfor %}

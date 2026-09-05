@@ -5,10 +5,12 @@
 `jin_cli.resolver.ImportResolver` にしか置かない（security review S1）。
 
 理由: `ref` の import は**任意の Python コードをこのプロセスで実行する**。
-`jin_core` に実装を置くと、`jin_core` にしか依存しない Phase 4 の LSP サーバ
-（ws で外に出る）から到達可能になり、`.jin` を送りつけるだけで任意コード実行になる。
-到達不能であることは import-linter の forbidden contract
-「resolver の実装は jin_cli に閉じる」で機械的に落とす（pyproject.toml）。
+`jin_core` は全パッケージが依存する最下層なので、ここに実装を置くと Phase 4 の LSP サーバ
+（ws で外に出る。design.yaml rule 5 で `jin_core` / `jin_adk` / `jin_render` に依存する）から
+無条件に到達可能になり、`.jin` を送りつけるだけで任意コード実行になる。
+実装を `jin_cli.resolver`（LSP は `jin_cli` に依存しない）と `jin_adk.runtime`（`jin run`・Phase 4 で
+forbidden contract の `source_modules` に `jin_lsp` を足す）に閉じ、import-linter の forbidden contract
+「任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる」で機械的に落とす（pyproject.toml）。
 """
 
 from __future__ import annotations

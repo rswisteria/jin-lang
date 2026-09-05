@@ -1,0 +1,11 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "LlmAgent",
+  "circles": [
+    {
+      "name": "LlmAgent",
+      "core": "gemini-2.5-flash"
+    }
+  ]
+}

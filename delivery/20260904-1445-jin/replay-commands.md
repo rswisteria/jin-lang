@@ -265,3 +265,96 @@ w/a.jin: 書き込めません（w/a.jin: ディスクの空き容量があり�
 w/a.jin: 原子的でない書き込みの途中で失敗したため、ファイルの内容が失われています。バックアップから復元してください（ディスクの空き容量がありません（No space left on device））
 **書き込みの途中で失敗し、ファイルの内容が失われました。バックアップから復元してください**: 1 件
 ```
+
+---
+
+# replay-commands — 実装ラウンド 2/5（Jin Phase 2・jin-adk）
+
+前提: `UV_LOCKED=1 uv sync`（EXIT 0・75 パッケージ）。`research.*` は `tests/fixtures/stubs` のスタブを `PYTHONPATH` で渡す。
+
+## P2-0. 一括（CI と同じ 8 コマンド）
+
+```bash
+UV_LOCKED=1 uv sync
+uv run lint-imports                      # Analyzed 50 files / 3 kept
+uv run ruff check . && uv run ruff format --check .
+uv run pytest                            # 696 passed
+uv run jin schema | diff -u schemas/jin.schema.json -
+uv run jin check examples
+uv run jin fmt --check examples
+```
+
+## P2-1. Stage 1 pre の再走
+
+```bash
+uv run python -c "import sys; print(sys.version)"                     # 3.14.7
+uv run python -c "import importlib.metadata as m; print(m.version('google-adk'), m.version('jinja2'), m.version('syrupy'))"
+# 期待: 2.8.0 3.1.6 6.0.0
+curl -s https://pypi.org/pypi/google-adk/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])"
+```
+
+## P2-2. Stage 4 verify の再走（machine 条件 8 件）
+
+```bash
+uv run pytest packages/jin-adk/tests/test_codegen.py -k snapshot                    # 1: 2 snapshots passed
+uv run pytest tests/contract/test_cli_contract.py -k hash_seeds                      # 1: 別プロセスでバイト一致
+uv run pytest packages/jin-adk/tests/test_runtime.py -k object_tree                  # 2
+uv run pytest packages/jin-adk/tests/test_build.py -k layout                         # 3
+uv run pytest tests/contract/test_adk_version_contract.py                            # 4
+uv run pytest tests/contract/test_cli_contract.py -k fake_model                      # 5（実バイナリ）
+uv run pytest packages/jin-adk/tests/test_runtime.py -k "every_pointer_resolves"     # 6 / 7
+uv run pytest packages/jin-adk/tests/test_codegen.py packages/jin-cli/tests/test_build_run.py -k "build_error or without_an_adk"  # 8
+uv run jin check tests/fixtures/build-errors                                         # 8: 14 ファイル / error 0 件
+
+# 手で見る
+uv run jin build examples/researcher/researcher.jin --out /tmp/jin-out && cat /tmp/jin-out/Researcher/agent.py
+PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl && cat /tmp/t.jsonl
+```
+
+## P2-3. 非空虚性の実測（ミューテーション 31 件）
+
+```bash
+uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py   # 31/31 mutations caught（2 件は二層防御で「緑が正しい」）
+git status --porcelain                                                     # 残骸が無いこと
+```
+
+## P2-4. human_only（**実施していない**）
+
+```bash
+# API キーとネットワークが要る。NFR-TEST-001 により CI では回さない。
+uv run jin build examples/researcher/researcher.jin --out /tmp/jin-out
+cp /tmp/jin-out/.env.example /tmp/jin-out/.env   # GOOGLE_API_KEY を埋める
+cd /tmp/jin-out && PYTHONPATH=/path/to/real/research adk run Researcher
+# 注意: researcher の {findings} は初回に未設定 → ADK 2.8.0 は KeyError（HANDOFF Q-JIN-P2-01）
+```
+
+## P2-R1. 修正ラウンド 1（Stage 5 の fix-now）の再走
+
+```bash
+# CI 同等 8 コマンド（P2-0 と同じ）
+UV_LOCKED=1 uv sync && uv run ruff check . && uv run ruff format --check . && uv run pytest && uv run lint-imports \
+  && uv run jin check examples && uv run jin fmt --check examples && (uv run jin schema | diff -u schemas/jin.schema.json -)
+# 新しい fixture 6 本が jin check を通り正準形であること
+uv run jin check tests/fixtures/build-errors && uv run jin fmt --check tests/fixtures/build-errors
+# 変異（隔離コピー上・実ツリーは不変。59 件）
+uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py
+# 修正ラウンド 2: 64 件（A / B / C の新規 7 件を含む）→ D 反映後 66 件。TMPDIR はコピー内に向くので /tmp/jin-run-* は残らない
+# 修正ラウンド 3: 70 件（F-S-P2-201 / 202 の 4 件を追加）→ F-S-P2-301 反映後 71 件。MUTATE_ONLY の部分実行は `(subset of M)` 付きで出る・存在しない名前は rc 1
+uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py
+# 新規変異だけを先に見る（カンマ区切り）
+MUTATE_ONLY=RUN-swallow-systemexit-at-runtime,RUN-cwd-stays-after-import uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py
+# fixture もディスク上で正準形（F-W-P2-004 / 103）
+uv run pytest tests/contract/test_cli_contract.py -k formattable_fixture
+# 未決 DP の索引を再生成（DP-REVIEW-JIN-P2-001 / 002 を起票）
+python3 <plugin-root>/skills/common/pending-decisions-generator/bin/generate.py --plugin-root /home/wisteria/jin-lang --check
+```
+
+代表的な再現（レビューの finding をそのまま叩く）:
+
+```bash
+FNAME=$'x\nimport os; os.system("echo PWNED 1>&2")\n#.jin'; cp examples/pipeline/pipeline.jin "$FNAME"
+uv run jin run "$FNAME" go --model fake; echo "exit=$?"      # → exit 2（F-S-P2-001・入口で拒む）
+uv run jin build tests/fixtures/build-errors/circle_name_not_nfkc.jin --out /tmp/o   # → exit 1（F-S-P2-002）
+touch /tmp/regfile; uv run jin build examples/pipeline/pipeline.jin --out /tmp/regfile   # → exit 1・トレースバック無し（F-S-P2-004）
+echo '{"previous": true}' > /tmp/t.jsonl; uv run jin run tests/fixtures/build-errors/two_out_states.jin go --model fake --trace /tmp/t.jsonl; cat /tmp/t.jsonl   # 前回の内容が残る（F-S-P2-006）
+```

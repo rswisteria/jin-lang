@@ -63,11 +63,17 @@ circle は 2 種類ある。**核あり**（`core` を持つ → `LlmAgent`）�
 それ以外の `{` に続く `[A-Za-z_][A-Za-z0-9_]*` が `}` で閉じられていれば state key 参照とみなす。
 したがって `"{a}}"` は「参照 `a` + リテラルの `}`」である。解決できない key は JIN050。
 
-> **未確認**: この `{{` / `}}` エスケープ規則は **Jin 側の規則**である。ADK 2.8.0 の
-> `instruction` が同じエスケープ規則を持つかは `delivery/20260904-1445-jin/adk-api-probe.md` に
-> 実測が無く、**確認できていない**。`rune` を ADK へそのまま渡すため、ADK 側のテンプレート解釈が
-> 異なる場合は `{{` を含む rune の挙動が Jin の読みと食い違いうる。
-> Phase 2（`jin-adk`）で ADK の実測を取り、この段落を実測に置き換えること。
+> **ADK 2.8.0 との食い違い（Phase 2 で実測・`delivery/20260904-1445-jin/adk-api-probe.md` §Phase 2）**:
+> この `{{` / `}}` エスケープ規則は **Jin 側の規則**であり、ADK 側には無い。ADK 2.8.0 の
+> `instruction` は正規表現 `{+[^{}]*}+` にマッチした全体を 1 つの変数として扱う
+> （`google/adk/utils/instructions_utils.py:41`）。実測: `{{lit}}` は変数 `lit` として置換され
+> （未設定なら `KeyError` で実行が落ちる）、`{draft}}` は末尾の `}` まで消費して `D1` になり、
+> `{key?}` は省略可能な変数（未設定なら空文字）、`{artifact.x}` / `{app:key}` は別種の参照になる。
+> `{not a key}` / `{{ }}` のように識別子でないものは素通しになる。
+> `rune` を ADK へそのまま渡す以上、Jin の読み（`{{` はリテラル）と ADK の読みが食い違う rune は
+> **`jin build` / `jin run` がコンパイル時エラーで落とす**（`docs/spec/adk-mapping.md` §3.1・NFR-FAIL-001）。
+> 素の `{key}` だけを許す。したがって上の `"{a}}"` の読み（参照 `a` + リテラル `}`）は
+> Jin の `jin check`（JIN050）の解釈であり、ADK へは渡せない。
 
 ### 3.2 Tool（判別共用体）
 
@@ -127,6 +133,25 @@ FlowExit:
 |---|---|---|---|
 | `key` | 必須 | string | 比較する state key |
 | `equals` | 必須 | boolean \| integer \| number \| string | 等値比較の右辺。v1 は等値比較のみ |
+
+**等値比較の規則**（Phase 2 で実測に基づき決定・根拠は `delivery/20260904-1445-jin/decision-conformance.md` §2.14）:
+ADK 2.8.0 の `LlmAgent.output_key` は LLM の応答テキストを **文字列**で `session.state` に入れる
+（`google/adk/agents/llm_agent.py:1045`・実測 `{'approved': 'true'}`）。`equals: true` を
+`state["approved"] == True` で比べても成立しないので、生成物の `_state_matches` は次のとおり比べる。
+
+<!-- machine-readable: flow-exit-equality -->
+
+| `equals` の型 | state の値が文字列のとき | state の値が文字列でないとき |
+|---|---|---|
+| string | **両辺**の前後の空白を除いて文字列どうしを比較（`"yes"` = `" yes "`、`equals: " yes"` も `"yes"` に一致・対称） | 文字列でなければ不一致 |
+| boolean | 空白を除いて JSON として読み、bool で等しいとき一致（`"true"` = `true`。`"True"` / `"1"` は不一致） | bool どうしで比較 |
+| integer / number | JSON として読み、数値（bool を除く）で等しいとき一致（`"3"` = `"3.0"` = `3`。`"true"` は不一致） | 数値（bool を除く）どうしで比較 |
+
+<!-- /machine-readable -->
+
+JSON として読めない文字列（`"yes"` を `true` と比べるなど）は不一致。実装は生成物内の
+`_state_matches`（`packages/jin-adk/src/jin_adk/templates/agent.py.j2`）1 箇所で、
+`packages/jin-adk/tests/test_runtime.py::test_state_matches_semantics` が一致 / 不一致の両方を固定する。
 
 ### 3.5 Boundary
 

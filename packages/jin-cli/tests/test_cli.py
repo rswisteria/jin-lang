@@ -1,4 +1,4 @@
-"""CLI（Phase 1: check / fmt / schema / dump）のテスト。"""
+"""CLI（Phase 1: check / fmt / schema / dump）のテスト。Phase 2 の build / run は `test_build_run.py`。"""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ import errno
 import importlib
 import json
 import os
-import re
 import stat
 import sys
 from pathlib import Path
@@ -34,17 +33,19 @@ def run(*args: str):
 
 
 # --------------------------------------------------------------------------------------
-# Phase 1 で実装するのは 4 つだけ（build / run / render / lsp / editor は後続 Phase）
+# Phase 1 の 4 つ + Phase 2 の build / run。render / lsp / editor は後続 Phase
 # --------------------------------------------------------------------------------------
-def test_help_lists_only_phase1_commands() -> None:
+def test_help_lists_phase1_commands() -> None:
+    """Phase 1 の 4 つが出ること。Phase 2 の build / run は `test_build_run.py::test_help_lists_phase2_commands`。"""
     result = run("--help")
     assert result.exit_code == 0
     for name in ("check", "fmt", "schema", "dump"):
         assert name in result.output
 
 
-@pytest.mark.parametrize("name", ["build", "run", "render", "lsp", "editor"])
+@pytest.mark.parametrize("name", ["render", "lsp", "editor"])
 def test_later_phase_commands_are_not_defined_yet(name: str) -> None:
+    """build / run は Phase 2 で定義した（`test_build_run.py`）。残り 3 つは未定義のまま。"""
     result = run(name, "x.jin")
     assert result.exit_code != 0
 
@@ -427,10 +428,7 @@ def test_fmt_does_not_follow_symlinks(tmp_path: Path) -> None:
 # ======================================================================================
 # 修正ラウンド 2 の回帰テスト
 # ======================================================================================
-requires_non_root = pytest.mark.skipif(
-    hasattr(os, "geteuid") and os.geteuid() == 0,
-    reason="root はディレクトリのパーミッションを無視するのでこの検査が空虚になる",
-)
+from tests.conftest import requires_non_root
 
 
 # ---- N1: 整形でパーミッションを落とさない -------------------------------------------
@@ -698,111 +696,8 @@ def test_collect_does_not_filter_symlinks(tmp_path: Path) -> None:
     assert _collect([swapped.parent]) == [swapped]
 
 
-# ---- R-2: 安全宣言そのものを機械で固定する -------------------------------------------
-#: `guard: <関数名> -> <トークン>` の記法（`jin_cli/main.py` のモジュール docstring 参照）。
-#: 散文の説明行（`guard: <関数名> -> ...`）は `<` で始まるので、この正規表現に当たらない。
-GUARD_CLAIM = re.compile(r"guard:\s*([A-Za-z_][A-Za-z0-9_]*)\s*->\s*(\S+)")
-
-#: 見つかるべき主張の最小件数。走査が壊れて 0 件になると検査が空虚になる。
-MINIMUM_GUARD_CLAIMS = 4
-
-
-def _function_code_without_docstring(tree: ast.Module, name: str) -> str | None:
-    """関数の**実コード**を返す。docstring とコメントは含めない。
-
-    `ast.unparse` はコメントを落とすので、docstring のノードだけ外せば
-    「主張の文言そのものを見て通ってしまう」ことが無くなる。
-    """
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == name:
-            body = list(node.body)
-            if (
-                body
-                and isinstance(body[0], ast.Expr)
-                and isinstance(body[0].value, ast.Constant)
-                and isinstance(body[0].value.value, str)
-            ):
-                body = body[1:]
-            return "\n".join(ast.unparse(statement) for statement in body)
-    return None
-
-
-class GuardTokenTooLoose(Exception):
-    """`guard:` のトークンが構造を持たず、部分一致でたまたま当たる形（security review U-1 / E-B）。"""
-
-
-def _guard_satisfied(tree: ast.Module, function_name: str, token: str) -> bool:
-    """関数の実コードに `token` が**式として**現れるか（U-1 / E-B）。
-
-    素の部分文字列一致だと `guard: fmt -> os` や `guard: fmt -> path` が素通りする
-    （`os` が `diagnostic` の中の "os" に当たる、など。reviewer が実測）。
-    AST どうしで突き合わせ、さらに 2 つの縛りを入れる:
-
-    1. トークンが裸の名前（`os` / `path`）なら**主張として認めない**。ガードは属性参照か
-       呼び出しであるはず。単なる変数名は「そこに何かがある」以上のことを言っていない
-    2. 一致したノードが外側の属性参照の**土台**（`a.b.c` の `a.b`）である場合は数えない。
-       部分的な名指しで通してしまうため
-    """
-    code = _function_code_without_docstring(tree, function_name)
-    if code is None:
-        return False
-    wanted = ast.parse(token, mode="eval").body
-    if isinstance(wanted, ast.Name):
-        raise GuardTokenTooLoose(
-            f"guard: のトークン {token!r} が裸の名前。属性参照か呼び出しで書くこと"
-        )
-    body = ast.parse(code)
-    bases = {id(node.value) for node in ast.walk(body) if isinstance(node, ast.Attribute)}
-    target = ast.dump(wanted)
-    return any(ast.dump(node) == target and id(node) not in bases for node in ast.walk(body))
-
-
-def test_guard_claims_point_at_real_guards() -> None:
-    """R-2: 「どこで symlink を弾いているか」という主張を docstring に書きっぱなしにしない。
-
-    R-2 の欠陥は「`_collect` が弾いている」という**実装と乖離した安全宣言**だった。
-    docstring を直すだけでは、次に誰かが同じ種類の嘘を書ける。
-    `guard: <関数名> -> <トークン>` の名指し先に、そのトークンが**実コードとして**
-    在ることをここで検査する。名指しが嘘なら（あるいは関数が消えたら）落ちる。
-
-    wiring review W-02 / N-01 と同型の対処（主張の存在ではなく、主張が落ちることを見る）。
-    """
-    from jin_cli import main as main_module
-
-    source = Path(main_module.__file__).read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    claims = GUARD_CLAIM.findall(source)
-    assert len(claims) >= MINIMUM_GUARD_CLAIMS, f"guard: の主張が少なすぎる: {claims}"
-
-    for function_name, token in claims:
-        assert _function_code_without_docstring(tree, function_name) is not None, (
-            f"guard: が存在しない関数 {function_name} を名指ししている"
-            "（関数を消したか改名したなら主張も直すこと）"
-        )
-        assert _guard_satisfied(tree, function_name, token), (
-            f"{function_name} に {token} が無いのに guard: がそこを名指ししている。"
-            "R-2 と同じ「実装と乖離した安全宣言」になっている"
-        )
-
-
-def test_guard_claim_check_looks_at_code_not_at_the_claim_itself() -> None:
-    """R-2: 主張の文言そのものを見て通る検査だと、嘘を 1 件も検出できない。
-
-    `guard: _write_in_place -> os.O_NOFOLLOW` という**文字列は docstring にも在る**ので、
-    関数のソースを丸ごと見ると常に真になる。`_function_code_without_docstring` が
-    docstring を落としていることをここで固定する。
-    """
-    from jin_cli import main as main_module
-
-    tree = ast.parse(Path(main_module.__file__).read_text(encoding="utf-8"))
-    code = _function_code_without_docstring(tree, "_write_in_place")
-    assert code is not None
-    assert "guard:" not in code, "docstring が落ちていない（主張の自己参照で通ってしまう）"
-    assert "os.O_NOFOLLOW" in code, "実コードのほうの O_NOFOLLOW が見えていない"
-
-    # docstring にしかトークンが無い関数は「ガード無し」と判定されること。
-    synthetic = ast.parse('def f():\n    """guard: f -> os.O_NOFOLLOW"""\n    return 1\n')
-    assert "O_NOFOLLOW" not in (_function_code_without_docstring(synthetic, "f") or "")
+# ---- R-2: `guard:` 記法の検査は tests/contract/test_guard_claims.py へ移した（Phase 2 修正ラウンド 1・
+# F-V-P2-004: jin_adk のモジュールも対象になり、パッケージテストの守備範囲を越えたため）。
 
 
 # ======================================================================================
@@ -931,83 +826,6 @@ def test_keyboard_interrupt_still_propagates_from_the_atomic_write(
     with pytest.raises(KeyboardInterrupt):
         main_module._write_atomically(path, "書き換えた\n")
     assert sorted(p.name for p in tmp_path.iterdir()) == ["t1.jin"], "一時ファイルが残った"
-
-
-# ---- U-1 / E-B: 緩いトークンが素通りしないこと -----------------------------------------
-@pytest.fixture(scope="module")
-def main_tree() -> ast.Module:
-    from jin_cli import main as main_module
-
-    return ast.parse(Path(main_module.__file__).read_text(encoding="utf-8"))
-
-
-@pytest.mark.parametrize("token", ["os", "path", "Path", "text"])
-def test_a_bare_name_is_not_accepted_as_a_guard(main_tree: ast.Module, token: str) -> None:
-    """U-1 / E-B: `guard: fmt -> os` のような裸の名前は主張として認めない。
-
-    修正前は `token in code` の**素の部分文字列一致**だったので、`os` が `diagnostic` の
-    中の "os" に当たって素通りしていた（reviewer が実測）。裸の名前は「そこに何かがある」
-    以上のことを言っておらず、ガードの名指しとして意味を成さない。
-    """
-    with pytest.raises(GuardTokenTooLoose):
-        _guard_satisfied(main_tree, "fmt", token)
-
-
-@pytest.mark.parametrize(
-    "token",
-    [
-        "os.path",  # `os.path.islink(...)` の土台。部分的な名指し
-        "shutil.rmtree",  # 実在しない呼び出し
-        "os.O_NOFOLLOW",  # `_write_in_place` には在るが `fmt` には無い
-    ],
-)
-def test_a_token_absent_from_the_function_is_rejected(main_tree: ast.Module, token: str) -> None:
-    """U-1 / E-B: 構造を持っていても、その関数に無いトークンは通さない。
-
-    `os.path` は `os.path.islink(...)` の土台になっているだけで、それ自体はガードではない。
-    外側の属性参照の土台になっているノードは数えない。
-    """
-    assert not _guard_satisfied(main_tree, "fmt", token)
-
-
-@pytest.mark.parametrize(
-    ("function_name", "token"),
-    [
-        ("fmt", "path.is_symlink"),
-        ("_write_in_place", "os.O_NOFOLLOW"),
-        ("_write_atomically", "os.replace"),
-        ("_write_atomically", "Path(path).is_symlink"),
-    ],
-)
-def test_a_real_guard_is_accepted(main_tree: ast.Module, function_name: str, token: str) -> None:
-    """U-1 / E-B: 締めすぎて本物のガードまで落とさないこと（検査が空虚にならない側の確認）。"""
-    assert _guard_satisfied(main_tree, function_name, token)
-
-
-def test_the_substring_shortcut_would_have_let_a_loose_token_through() -> None:
-    """U-1 / E-B: 修正前の照合（素の部分文字列一致）なら通っていたことを示す。
-
-    「直したつもりで実は元から通らなかった」を防ぐため、欠陥の存在自体をここで固定する。
-    """
-    from jin_cli import main as main_module
-
-    tree = ast.parse(Path(main_module.__file__).read_text(encoding="utf-8"))
-    code = _function_code_without_docstring(tree, "fmt")
-    assert code is not None
-    assert "os" in code, "部分文字列一致なら `guard: fmt -> os` が通っていた"
-    assert "path" in code, "部分文字列一致なら `guard: fmt -> path` が通っていた"
-
-
-def test_a_partial_attribute_name_is_not_accepted_as_a_guard() -> None:
-    """U-1 / E-B: `a.b.c` の `a.b` だけを名指しした部分的な主張を通さない。
-
-    現在の `main.py` には入れ子の属性参照（`os.path.islink` のような形）が 1 つも無いので、
-    実コードではこの縛りが一度も発火しない。**発火しない縛りは検証できていないのと同じ**なので、
-    合成入力で直接固定する。
-    """
-    tree = ast.parse("def f():\n    return os.path.islink(p)\n")
-    assert _guard_satisfied(tree, "f", "os.path.islink")
-    assert not _guard_satisfied(tree, "f", "os.path"), "土台だけの名指しが通った"
 
 
 # ======================================================================================

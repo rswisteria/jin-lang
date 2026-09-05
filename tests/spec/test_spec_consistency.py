@@ -420,20 +420,31 @@ def test_duplicate_keys_are_actually_rejected() -> None:
     assert [d.code for d in result.diagnostics] == ["JIN001"]
 
 
-# ---- S-5: ADK 側のエスケープを実測なしに断定しない ----------------------------------------
-def test_rune_escape_claim_is_marked_unverified_without_probe_evidence() -> None:
-    """S-5: `adk-api-probe.md` にエスケープの実測が無い間は「未確認」と明記すること（T-002）。
+# ---- S-5: ADK 側のエスケープを実測なしに断定しない --------------------------------------
+def test_rune_escape_claim_is_backed_by_the_probe() -> None:
+    """S-5: `adk-api-probe.md` の実測が入ったので、model.md §3.1 は「未確認」ではなく実測を書く（T-002）。
 
-    実測が入ったらこのテストが赤くなるので、そのとき §3.1 を実測に置き換える。
+    Phase 0+1 では「実測が無い間は未確認と明記する」テストだった。Phase 2 で probe に
+    `{{lit}}` の実測を追記し、§3.1 を実測（ADK は `{{` をエスケープとして扱わない）へ置き換えた。
     """
-    probe = REPO_ROOT / "delivery" / "20260904-1445-jin" / "adk-api-probe.md"
-    has_evidence = probe.is_file() and re.search(r"\{\{.*\}\}|エスケープ", read(probe)) is not None
+    probe = read(REPO_ROOT / "delivery" / "20260904-1445-jin" / "adk-api-probe.md")
+    assert re.search(r"\{\{lit\}\}", probe), "probe に `{{lit}}` の実測が無い"
     block = section(spec_text("model.md"), "### 3.1 Instruction", r"^### 3\.2")
-    if has_evidence:
-        pytest.fail(
-            "adk-api-probe.md にエスケープの実測が入った。model.md §3.1 を実測へ置き換えること"
-        )
-    assert "未確認" in block, "§3.1 に「未確認」の明記が無い（証拠なく断定しない・T-002）"
+    assert "未確認" not in block, "実測があるのに §3.1 が「未確認」のまま"
+    assert "{+[^{}]*}+" in block, "§3.1 に ADK 側の正規表現（実測）が書かれていない"
+    assert "コンパイル時エラー" in block
+
+
+def test_adk_template_conflict_detector_matches_the_spec_claims() -> None:
+    """§3.1 が「食い違う」と書いた形を、jin_adk の検出器が実際に衝突と判定すること。"""
+    from jin_adk.codegen import adk_template_conflicts
+
+    assert adk_template_conflicts("{{lit}}") == ["{{lit}}"]
+    assert adk_template_conflicts("{draft}}") == ["{draft}}"]
+    assert adk_template_conflicts("{key?}") == ["{key?}"]
+    assert adk_template_conflicts("{artifact.x}") == ["{artifact.x}"]
+    assert adk_template_conflicts("{app:key}") == ["{app:key}"]
+    assert adk_template_conflicts("{not a key} {{ }} {draft}") == []
 
 
 def test_rune_escape_rule_matches_the_implementation() -> None:
@@ -693,3 +704,50 @@ def test_schema_gaps_are_consistent_with_the_diagnostic_tables() -> None:
     for row in rows:
         for code in re.findall(r"JIN\d{3}", row[1]):
             assert code in CANONICAL_CODES, f"{code} は診断コード表に無い"
+
+
+# --------------------------------------------------------------------------------------
+# Phase 2: adk-mapping.md §2.4 / §3.1 と model.md §3.4 の機械可読ブロック ↔ jin_adk の実装
+# --------------------------------------------------------------------------------------
+def test_trace_kinds_table_matches_the_implementation() -> None:
+    """adk-mapping.md §2.4 の kind 表 = 要件書 §3.4 の 5 種 = `jin_adk.trace.KINDS`。"""
+    from jin_adk.trace import KIND_POINTERS, KINDS
+
+    rows = table_rows(machine_block(SPEC_DIR / "adk-mapping.md", "trace-kinds"))
+    kinds = {row[0].strip("`") for row in rows}
+    assert kinds == set(KINDS) == {"model", "tool", "transfer", "escalate", "final"}
+    # pointer 列の形も kind ごとに実装の定数と一致させる（F-C-P2-018 / F-V-P2-009: escalate は 2 行）
+    documented: dict[str, set[str]] = {}
+    for row in rows:
+        kind = row[0].strip("`")
+        pointers = set(re.findall(r"`(/circles/[^`]+)`", row[3]))
+        if not pointers:  # 「`model` と同じ」の形
+            same = re.search(r"`(\w+)` と同じ", row[3])
+            assert same is not None, row
+            pointers = documented[same.group(1)]
+        documented.setdefault(kind, set()).update(pointers)
+    assert documented == {k: set(v) for k, v in KIND_POINTERS.items()}
+    assert sum(1 for row in rows if row[0].strip("`") == "escalate") == 2
+    requirements = section(read(REQUIREMENTS), "### 3.4 実行とトレース", r"^---")
+    assert '"kind": "model|tool|transfer|escalate|final"' in requirements
+
+
+def test_build_error_table_covers_every_fixture() -> None:
+    """adk-mapping.md §3.1 の一覧と `tests/fixtures/build-errors/` が過不足なく対応する。"""
+    rows = table_rows(machine_block(SPEC_DIR / "adk-mapping.md", "build-errors"))
+    documented: set[str] = set()
+    for row in rows:
+        for token in re.findall(r"`([a-z_.]+)`", row[0]):
+            if token.startswith("..."):
+                token = "flow_circle" + token[3:]
+            documented.add(token)
+    fixtures = {p.stem for p in (REPO_ROOT / "tests" / "fixtures" / "build-errors").glob("*.jin")}
+    assert documented == fixtures, documented ^ fixtures
+
+
+def test_flow_exit_equality_table_exists_and_names_the_implementation() -> None:
+    block = machine_block(SPEC_DIR / "model.md", "flow-exit-equality")
+    rows = table_rows(block)
+    assert [row[0] for row in rows] == ["string", "boolean", "integer / number"]
+    text = section(spec_text("model.md"), "### 3.4 Flow", r"^### 3\.5")
+    assert "_state_matches" in text and "test_state_matches_semantics" in text

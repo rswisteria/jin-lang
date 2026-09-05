@@ -2,8 +2,155 @@
   "schema_version": "v1",
   "kind": "auto-decisions-ledger",
   "run_dir": "delivery/20260904-1445-jin",
-  "needs_attention_count": 9,
+  "needs_attention_count": 13,
   "decisions": [
+    {
+      "dp_id": "DP-IMPL-JIN-P2-SYSPATH-01",
+      "chosen": "cwd を生成モジュールの import の間だけ sys.path に足し、import が終わったら必ず外す（jin_adk.runtime.load_generated / run_model_async に extra_sys_path を渡し、_import_agent_module の前に append・finally で取り除く。Runner 実行中は cwd が sys.path に無い）",
+      "rationale": "security レビュー修正ラウンド 1 の F-S-P2-101（delivery/20260904-1445-jin/code-review-raw/security-p2-round1.md・Medium / confidence 95）の実測を根拠に、前回の AI 仮判断「sys.path.append(cwd)」を覆す（overridden 相当・3 回目の判断）。実測内容: append にしても、ADK は LLM リクエストのたびに google/adk/flows/llm_flows/contents.py:58 _id_pairing_model_types で from ...models.anthropic_llm import AnthropicLlm を試み、anthropic_llm.py:39 が未インストールの anthropic を探す。site-packages に無い名前は末尾に足した cwd で解決されるので、ref を 1 つも持たない examples/pipeline/pipeline.jin --model fake でも cwd の anthropic/__init__.py が走る（importer chain: llm_agent.py:576 → base_llm_flow.py → contents.py:58 → anthropic_llm.py:39・RuntimeError 版は exit 1 で ADK の except ImportError を素通り）。同じ経路で openai も試み、builtins.__import__ を差し替えて数えた「CLI 起動後に import に失敗するトップレベル名」は anthropic / openai / a2a / bcrypt / simplejson / chardet / socks。前回 condition に書いた残存「未インストール名は _resolve_builtin が不正な builtin 名を受けたとき（mcp など）」は範囲が狭すぎ、実際は LlmAgent が 1 つでもあれば毎回踏む。契約テスト test_cwd_cannot_shadow_an_installed_package_in_a_real_process はインストール済みの authlib しか置いておらず、この残存を見ていない。案の比較: (1) import 窓の間だけ足す（採用）は、ref のモジュールが生成 agent.py の import 時に読まれて sys.modules に残るため ref の解決は保て、Runner 実行中は cwd が無いので ADK の遅延 import は cwd を見ない。generate() の _resolve_builtin も cwd 追加前に済む。残存は「ref 先モジュールが自分の関数の中で遅延 import する名前」と「生成モジュールの import 中に google.adk.tools.__getattr__ の遅延 import が任意依存を探す窓」だけになり、どちらも .jin 作者と同じ相手が書く（ref / builtin）ので decision-conformance.md §2.19 の元の論法がそこには当てはまる。ref 先の関数が実行時に遅延 import するモジュールは cwd から解決できず PYTHONPATH に委ねる。代償として前回 scope「jin_adk.runtime は sys.path を触らない」を「CLI が要求したときだけ import 窓の間 runtime が一時的に足して必ず戻す」に改める必要があり、hazard: の名指し先も runtime 側へ移る。(2) append のまま残存の記述を広げる（文書のみ）は、README が「ネットワークに出ない」と案内する --model fake の経路で cwd の未インストール名が毎回走る実害を残したままにする。(3) cwd を足さず PYTHONPATH に委ねるのは最も単純だが、jin run examples/... を直接叩けなくなり要件書 §3.1 の adk run 同等の体験を失う。PYTHONPATH に cwd を入れれば結局 Runner 実行中も cwd が sys.path にあり (2) と同じ露出になる。前 2 回の chosen（insert 先頭 / append 末尾）はいずれも Runner 実行中に cwd が sys.path に残る点が共通で、F-S-P2-003 / F-S-P2-101 の実測で退けられた。confidence は medium: 実測根拠は明確で案 1 は残存を「.jin 作者と同じ相手」の範囲に閉じるが、runtime が sys.path を一時的に触る責務変更と、import 窓の残存が実装後の再実測で確認されていないため、セキュリティ性の判断として人間レビューに上げる。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-fable-5-1",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-05T21:25:37+09:00",
+      "constraints": [
+        {
+          "text": "jin run は自分が中身を確認した .jin にだけ使う。人から受け取ったファイル・CI で自動取得したファイル・LLM が生成したファイルには使わない（CLAUDE.md「--resolve と jin run の危険性」の箇条書きに jin run を名指しで明記する）",
+          "kind": "prohibition"
+        },
+        {
+          "text": "信頼しないディレクトリを cwd にして jin run を実行しない。import 窓の間は cwd のモジュール（ref 先・builtin の遅延 import 先）がこのプロセスの権限で実行される",
+          "kind": "prohibition"
+        },
+        {
+          "text": "cwd を sys.path に足すのは生成モジュール（agent.py）の import の間だけ。import が終わったら（例外時も）finally で必ず取り除き、Runner 実行中は cwd が sys.path に無い状態を保つ。runtime が sys.path を触るのは CLI が extra_sys_path で要求したときだけで、jin build / jin check --resolve / jin_core は触らない",
+          "kind": "scope"
+        },
+        {
+          "text": "import 窓の外で sys.path が元に戻っていることをテストで固定する（test_run_adds_cwd_to_sys_path の「実行後も cwd が sys.path にある」assert を「import 中は解決でき、実行後は含まれない」に書き換える。前ラウンドの追従漏れと同型に注意）。契約テスト test_cwd_cannot_shadow_an_installed_package_in_a_real_process に未インストール名（anthropic）版を足し、Runner 実行中に cwd の anthropic が走らないことを実プロセスで固定する",
+          "kind": "condition"
+        },
+        {
+          "text": "hazard: の名指し先を jin_cli/main.py の run から jin_adk/runtime.py（sys.path を足す関数）へ移し、guard: で finally の取り除きを主張する。mutate_p2.py の CLI-no-cwd / CLI-cwd-first の before 文字列を追従させる",
+          "kind": "condition"
+        },
+        {
+          "text": "残存を decision-conformance.md §2.19 / CLAUDE.md / README に明記する: ref 先モジュールが自分の関数の中で実行時に遅延 import する名前は cwd から解決できない（PYTHONPATH に委ねる）。生成モジュールの import 中に google.adk.tools の遅延 import が任意依存（mcp など）を探す窓は残る（builtin を書くのは .jin 作者）。§2.19 の「攻撃面を広げない（同じ相手が ref を書く）」はこの範囲に限って成り立つと書き直す",
+          "kind": "condition"
+        },
+        {
+          "text": "ADK の未インストール任意依存（anthropic / openai / a2a / bcrypt / simplejson / chardet / socks）を Runner 実行中に cwd から解決させる経路を再び作らない（sys.path に cwd を残したまま Runner を走らせない）",
+          "kind": "prohibition"
+        }
+      ],
+      "compared": [
+        "cwd を sys.path の先頭に足す（sys.path.insert(0, cwd)・1 回目の AI 仮判断の chosen・F-S-P2-003 でインストール済み名の差し替えを実測）",
+        "cwd を sys.path の末尾に足す（sys.path.append(cwd)・2 回目の AI 仮判断の chosen・F-S-P2-101 で未インストール名 anthropic の実行を実測）",
+        "append のまま残存の記述を広げる（文書のみ・reviewer 修正案 2）",
+        "cwd を足さず PYTHONPATH に委ねる"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P2-TRACEKIND-01",
+      "chosen": "承認する（final = 実行全体の最後の行が model のときだけその行を付け替える / escalate = StateCheckAgent の判定イベントを一致しなかった回も含む + actions.escalate / partial は行にしない）",
+      "rationale": "HANDOFF Q-JIN-P2-05 の推奨（1 つ目）を採用。根拠: (a) 要件書 §3.4 は kind の 5 種を列挙するだけで判定規則を書いていない。決めた規則は docs/spec/adk-mapping.md §2.4 の machine-readable 表 trace-kinds に明文化され、tests/spec の test_trace_kinds_table_matches_the_implementation が表と実装（jin_adk.trace.classify / TraceWriter の 1 行遅延）の集合一致を固定している（decision-conformance.md §2.21）。(b) 案 2（root agent の is_final_response に限定）は成立しない: ADK の Event.is_final_response（google/adk/events/event.py:288）の docstring 自身が「複数 agent が参加する invocation では参加 agent ごとに True になりうる」と言っており root 限定の根拠にならず、examples/pipeline の root は SequentialAgent で model 行を出さないため final が一度も付かない。(c) 案 3（不一致の判定を別 kind にする）は要件書 §3.4 の enum 追加＝要件書変更であり、人間判断が要る性質なので AI 仮判断では選ばない。escalate 行の output.matched で一致・不一致を区別できるので Phase 6 のリプレイで情報は失われない。(d) partial を行にしないのは確定イベントと二重になるため（adk-mapping.md §2.4）。kind の意味論は Phase 6 のトレースリプレイ表示に波及する責務分界なので ADR 化する。ただし「final が無い実行がある」見え方は人間の期待と違いうるため confidence は medium。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-fable-5-1",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-05T19:56:01+09:00",
+      "adr_ref": "docs/adr/ADR-017-DP-IMPL-JIN-P2-TRACEKIND-01.md",
+      "constraints": [
+        {
+          "text": "ストリーミングの partial イベントは行にしない（確定イベントと二重になる）",
+          "kind": "scope"
+        },
+        {
+          "text": "実行全体の最後が escalate（loop の終了判定）や tool のときは final 行が無い。Phase 6 のリプレイ設計はこの「final 無し」の表示を決めてから実装する",
+          "kind": "condition"
+        },
+        {
+          "text": "要件書 §3.4 の kind enum（5 種）を AI 判断で増やさない",
+          "kind": "prohibition"
+        }
+      ],
+      "compared": [
+        "final を root agent の is_final_response に限定する",
+        "一致しなかった判定は escalate ではなく別扱いにする（enum 追加＝要件書変更）"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P2-ADKDEPRECATION-01",
+      "chosen": "google-adk 2.8.0 固定（TARGET_ADK_VERSION）のまま進め、Workflow への移行は別 Issue で扱う",
+      "rationale": "HANDOFF Q-JIN-P2-03 の推奨（1 つ目）を採用。根拠: (a) ADK 自身の deprecation 文言が「Workflow cannot yet be used as an LlmAgent sub-agent」と言っている（google/adk/agents/loop_agent.py:54 / sequential_agent.py:79・version-matrix.md §8.3 #11）。Jin の delegate（LlmAgent の sub_agents に flow circle を置く）と両立しないため、今 Workflow へ移ると要件書 §2.1 の対応表と summon / delegate の意味論が崩れる。(b) HANDOFF は Sequential / Loop を挙げるが ParallelAgent も同じ理由で deprecated（google/adk/agents/parallel_agent.py:227）であり、Jin の flow.kind 3 種すべてが対象。部分移行は成立しない。(c) docs/spec/adk-mapping.md は人間確定の正典で Sequential / Parallel / LoopAgent を指定しており、正典の改訂（案 2）は要件書 §2.1 の対応表変更を伴う人間判断が要る性質なので AI 仮判断では選ばない。(d) 版は tests/contract/test_adk_version_contract.py が 2.8.0 の厳密一致で固定しており（implementation-notes.md P2-5.1 #4・NFR-VER-001）、将来版で消えても「静かに壊れる」ことはなく契約テストで検出できる。DeprecationWarning は動作に影響しない（uv run pytest 696 passed・warnings のみ）。版固定と移行時期の方針はアーキテクチャに当たるので ADR 化する。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-fable-5-1",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-05T19:56:01+09:00",
+      "adr_ref": "docs/adr/ADR-016-DP-IMPL-JIN-P2-ADKDEPRECATION-01.md",
+      "constraints": [
+        {
+          "text": "Phase 2 では docs/spec/adk-mapping.md の Sequential / Parallel / LoopAgent 対応を Workflow に書き換えない（人間確定の正典。改訂は人間判断）",
+          "kind": "prohibition"
+        },
+        {
+          "text": "TARGET_ADK_VERSION を 2.8.0 から上げる前に、その版で Workflow が LlmAgent の sub-agent として使えるかと Sequential / Parallel / LoopAgent が残っているかを実測し、adk-mapping.md の改訂は別 Issue で行う",
+          "kind": "condition"
+        },
+        {
+          "text": "DeprecationWarning を pytest の filterwarnings で error に昇格させない（2.8.0 固定の間は警告のまま可視化しておく）",
+          "kind": "prohibition"
+        }
+      ],
+      "compared": [
+        "今 Workflow API を実測して adk-mapping.md を改訂する（要件書 §2.1 の対応表も変わる）"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P2-STATESEED-01",
+      "chosen": "現状のまま（jin run だけが宣言済み state を None で seed する。adk run 単体で KeyError になることを README / adk-mapping.md §6 に明記済み）を承認する",
+      "rationale": "HANDOFF Q-JIN-P2-01 の推奨（1 つ目）を採用。根拠: (a) google-adk 2.8.0 は instruction の {key} が session.state に無いと KeyError を投げる（google/adk/utils/instructions_utils.py:174・decision-conformance.md §2.18 の実測）。examples/researcher の {findings} は自分の output_key なので初回ターンでは必ず未設定になり、これは要件書 §2.2 の例そのものが持つ性質である。(b) seed は「jin run の実行時の意味論」（docs/spec/adk-mapping.md §6 手順 5）であり、生成物 agent.py を §3.2 の形のまま保てる。案 2（生成物に before_agent_callback を埋め込む）は生成物の純粋さ（ADR-008 / ADR-009 が守っている「そのまま動く ADK プロジェクト」の趣旨）を崩し、利用者の guards[] と同じコールバック枠に Jin 由来のコードを同居させる。(c) 案 3 は要件書 §2.2 の例と rune 文法の変更（ADK の optional 記法を Jin に取り込む仕様変更）であり、要件書の改訂は人間判断が要る性質なので AI 仮判断では選ばない。(d) machine 条件 5（jin run --model fake が examples 2 本で exit 0）は現状で PASS（implementation-notes.md P2-5.1 #5）。限定: adk run 単体での挙動は human_only（not_run）のまま。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-fable-5-1",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-05T19:56:01+09:00",
+      "constraints": [
+        {
+          "text": "state の seed は jin run にだけ効く。生成物を adk run / adk web で単体実行したときは効かず、未設定 key を参照する rune は KeyError になる（README / docs/spec/adk-mapping.md §6 手順 5 の記載を維持する）",
+          "kind": "scope"
+        },
+        {
+          "text": "human_only の実 adk run レビューで examples/researcher を踏むときは、初回ターンの KeyError が既知の性質であることを前提に評価する（欠陥として扱わない）",
+          "kind": "condition"
+        },
+        {
+          "text": "要件書 §2.2 の例や rune 文法（optional 記法の導入）を AI 判断で変更しない。変更するなら人間が要件書を改訂する",
+          "kind": "prohibition"
+        }
+      ],
+      "compared": [
+        "生成物側に before_agent_callback で宣言済み state を seed するコードを埋め込む（§3.2 の形から離れ、利用者の guards と同居する）",
+        "要件書 §2.2 の例を {findings?} 相当に変える（Jin の rune 文法に ADK の optional 記法を取り込む仕様変更）"
+      ],
+      "phase": "implementation"
+    },
     {
       "dp_id": "DP-COMMON-15",
       "chosen": "案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する",
@@ -328,6 +475,35 @@
         "案 C: Decimal または整数座標系で計算する"
       ],
       "phase": "design"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P2-EXITEQ-01",
+      "chosen": "この規則を承認する（文字列は前後の空白を除き、equals が str なら文字列比較、bool / number なら JSON として読み同じ JSON 型で比較。\"True\" / \"1\" は true に不一致、\"3.0\" = 3）",
+      "rationale": "HANDOFF Q-JIN-P2-02 の推奨（1 つ目）を採用。根拠: (a) 実測で LlmAgent.output_key は LLM の応答テキストを str で session.state に入れる（decision-conformance.md §2.14・google/adk/agents/llm_agent.py の実測 {'approved': 'true'}）ため、equals: true を型を保ったまま比べる手段は「文字列を JSON として読む」しか無い。(b) 規則は docs/spec/model.md §3.4 の machine-readable 表 flow-exit-equality に明文化され、実装は生成物内 _state_matches（packages/jin-adk/src/jin_adk/templates/agent.py.j2）1 箇所、packages/jin-adk/tests/test_runtime.py::test_state_matches_semantics の 16 ケースが一致・不一致の両方を固定している。(c) 案 2（大文字小文字を無視するなど緩める）は「LLM が何を返せば loop が終わるか」を曖昧にし、.jin の equals が持つ型の意味を失わせる。案 3（文字列比較のみ）は equals の bool / number 型（要件書 §2.2 の例 \"equals\": true）を実質 string と同じにし、スキーマの 4 型が意味を失う。(d) 要件書に規定が無い意味論を Phase 2 で新たに定めたものであり、Phase 6 のリプレイや将来の比較演算子拡張に効く責務分界なので ADR 化する。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": false,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-fable-5-1",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-05T19:56:01+09:00",
+      "adr_ref": "docs/adr/ADR-015-DP-IMPL-JIN-P2-EXITEQ-01.md",
+      "constraints": [
+        {
+          "text": "v1 は等値比較のみ（要件書 §2.2「flow.exit は { key, equals } のみ(v1)」）。比較演算子の拡張は本 DP の再決定として扱う",
+          "kind": "limit"
+        },
+        {
+          "text": "規則の実装は生成物内 _state_matches の 1 箇所に閉じ、docs/spec/model.md §3.4 の flow-exit-equality 表と test_state_matches_semantics の集合一致を維持する",
+          "kind": "condition"
+        }
+      ],
+      "compared": [
+        "大文字小文字を無視する（\"True\" = true）など緩める",
+        "文字列比較のみにする（equals: true は \"true\" とだけ一致）"
+      ],
+      "phase": "implementation"
     },
     {
       "dp_id": "DP-COMMON-07",

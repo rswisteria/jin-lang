@@ -1,14 +1,15 @@
 {
-  "$comment": "implementation-plan.schema.json 準拠。実装ラウンド 1/5（Jin Phase 0 + Phase 1）が新規作成した。後続 4 ラウンドはこのファイルを extend すること。skill_plan[] / tasks[] / verification_status.evidence[] の各要素には jin_phase タグ（0..6）を付ける。",
+  "$comment": "implementation-plan.schema.json 準拠。実装ラウンド 1/5（Jin Phase 0 + Phase 1）が新規作成した。後続 4 ラウンドはこのファイルを extend すること。skill_plan[] / tasks[] / verification_status.evidence[] の各要素には jin_phase タグ（0..6）を付ける。 実装ラウンド 2/5（Jin Phase 2・jin-adk）が 2026-09-05 に extend した（impl-p2）。round は現在のラウンドを指す。",
   "round": {
-    "index": 1,
+    "index": 2,
     "of": 5,
     "jin_phases": [
       0,
-      1
+      1,
+      2
     ],
-    "scope": "Phase 0（仕様書 5 本 + examples 2 本 + 突合テスト）と Phase 1（jin-core + jin-cli の check / fmt / schema / dump）。Phase 2 以降は別ラウンドの implementer が担当する。",
-    "implementer": "impl-p01"
+    "scope": "Phase 2（jin-adk: build / run / trace / FakeLlm と jin build / jin run）= Issue #3。ラウンド 1（Phase 0+1・impl-p01）は main にマージ済み。Phase 3 以降は別ラウンド。 【R1】jin_phases は累積表記（[0,1,2]）に戻した（extend 規律・F-V-P2-006）。",
+    "implementer": "impl-p2"
   },
   "modules": [
     {
@@ -229,6 +230,182 @@
         "tests",
         ".github/workflows/ci.yml"
       ]
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "implementation-skill-planner",
+      "stage": "pre",
+      "trigger": "ラウンド 2 の Step 0。Phase 2 の skill_plan を追記",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "本エントリ以下の jin_phase=2 が出力。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "tech-version-check",
+      "stage": "pre",
+      "trigger": "Phase 2 で google-adk / jinja2 / syrupy を新規 install する（B-11）",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "evidence": "delivery/20260904-1445-jin/version-matrix.md#8",
+      "note": "PyPI JSON（2026-09-05T09:55:31Z）と adk-api-probe.md（E1）が一致: 2.8.0 / 3.1.6 / 6.0.0。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "dependency-availability-check",
+      "stage": "pre",
+      "trigger": "宣言した依存が実在し解決できることの確認（B-31）",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "`uv lock` → `UV_LOCKED=1 uv sync` EXIT 0（75 パッケージ）。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "scaffold-bootstrap",
+      "stage": "pre",
+      "trigger": "rails / nextjs / laravel",
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "not_applicable_reason": "ラウンド 1 と同じ（uv ワークスペース・対応 FW なし）。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "reserved-name-check",
+      "stage": "pre",
+      "trigger": "db_schema",
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "not_applicable_reason": "DB なし。生成コードの名前衝突（Python 予約語 / ADK の user / 生成物の予約名）は jin_adk.codegen._check_identifier が NFR-FAIL-001 として落とす。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "tdd-protocol",
+      "stage": "core",
+      "trigger": "tdd_strategy = TDD。core Stage 先頭",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "codegen / fake_llm / trace / build / runtime / CLI の 6 単位すべてで Red（ModuleNotFoundError または実アサーション失敗）を観測してから実装。evidence[] の [jin_phase=2][tdd-red]。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "wiring-check",
+      "stage": "post",
+      "trigger": "pyproject.toml の 5 箇所 + tests/__init__.py + 契約テストの更新（申し送り §2）",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "evidence": "delivery/20260904-1445-jin/implementation-notes.md#P2-4",
+      "note": "lint-imports Analyzed 36 → 50 files / 3 kept。契約テスト 98 passed。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "error-handling-coverage",
+      "stage": "post",
+      "trigger": "Cookie / セッション / CSRF",
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "not_applicable_reason": "HTTP サーフェス無し。エラー処理は exit code（1: 診断 / BuildError / WriteRefused / RunError、2: 使い方）で担保し spec-coverage 側で検証。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "smoke-run",
+      "stage": "verify",
+      "trigger": "サーバ起動 → HTTP 200",
+      "required": false,
+      "called": false,
+      "result": "not_applicable",
+      "not_applicable_reason": "起動するサーバが無い。代替として実バイナリの `jin run --model fake` exit 0（domain_checks）。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "spec-coverage",
+      "stage": "verify",
+      "trigger": "implementation_phases.items[2].verification.machine の 8 条件を 1 件ずつ検証",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "evidence": "delivery/20260904-1445-jin/implementation-notes.md#P2-5",
+      "applies_to": [
+        "implementation_phases.items[2].verification.machine (8 条件)"
+      ],
+      "note": "8/8 PASS。human_only（実 adk run）は not_run。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "decision-conformance-check",
+      "stage": "verify",
+      "trigger": "verify Stage 末尾に必須",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+      "note": "ラウンド 1 の out_of_scope 4 行を 12 constraint 行へ分解し reflected 12 / not_reflected 0 / unknown 0。値を確定した判断は §2.13〜§2.21。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "verification-status-aggregation",
+      "stage": "verify",
+      "trigger": "Stage 4 末尾",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "required_layers=[backend_unit] passed → overall verified（backend_unit のみ。pipeline_e2e not_run / human_only not_run を併記）。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": 2,
+      "skill": "parallel-code-review",
+      "stage": "review",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "実施主体は親（/aid auto-deliver の実行主体）。feature-dev:code-reviewer は Bash を持たず隔離コピーでの変異検証ができないため、同じ規律（confidence 0〜100・全件報告）を課した general-purpose Subagent 4 本（correctness / conventions / wiring / security）で代替。初回 78 finding（C24 / V29 / W9 / S16、High 2）。修正 3 ラウンド + 最終確認ののち同一観点 reviewer による defect-gone 確認を完了（R1: 修正が回帰 1 件 High を持ち込み R2 で解消 / R2: 新規 Medium 1 件を R3 で解消 / R3: 残 Low 1 件を即時修正）。生出力は code-review-raw/*-p2*.md 14 本（初回 4 + round1 4 + round2 4 + round3 2）。集約は code-review-report.md の Phase 2 節。DP-IMPL-STAGE-06-REVIEW-CALLED-01 案 (i) に従い親が called を書き戻した。",
+      "trigger": "Stage 4 verify の後（decision-conformance-check と同じタイミング・Phase 2 でも実施）"
     }
   ],
   "tasks": [
@@ -705,21 +882,157 @@
       ],
       "status": "done",
       "note": "[fix_round=5] 失敗を 3 つに分けた（診断由来 / 書き始める前＝無傷 / 書き始めたあと＝内容喪失）。ContentLostOnWrite を新設し、要約行も別々に。例外の文言からパスを外して二重出力を解消。文言そのものを回帰テストで固定。"
+    },
+    {
+      "id": "T-P2-01",
+      "jin_phase": 2,
+      "title": "packages/jin-adk の骨格と pyproject.toml の 5 箇所の配線・uv lock",
+      "outputs": [
+        "packages/jin-adk/pyproject.toml",
+        "pyproject.toml",
+        "packages/jin-cli/pyproject.toml",
+        "uv.lock",
+        "packages/jin-adk/tests/__init__.py"
+      ],
+      "status": "done",
+      "note": "layers は \"jin_adk\" 単独（\"jin_adk | jin_render\" は import-linter が Missing layer で落ちる・実測）。"
+    },
+    {
+      "id": "T-P2-02",
+      "jin_phase": 2,
+      "title": "jin_adk.codegen（意味モデル → agent.py / __init__.py / .env.example / PointerMap）+ Jinja2 テンプレート",
+      "outputs": [
+        "packages/jin-adk/src/jin_adk/codegen.py",
+        "packages/jin-adk/src/jin_adk/templates/agent.py.j2",
+        "packages/jin-adk/src/jin_adk/templates/__init__.py",
+        "packages/jin-adk/tests/test_codegen.py",
+        "packages/jin-adk/tests/__snapshots__/test_codegen.ambr",
+        "tests/fixtures/build-errors/"
+      ],
+      "status": "done",
+      "note": "NFR-FAIL-001 の 14 fixture。.jin 由来の文字列は py_literal（json.dumps）で必ずリテラル化。"
+    },
+    {
+      "id": "T-P2-03",
+      "jin_phase": 2,
+      "title": "jin_adk.fake_llm / trace / build / runtime",
+      "outputs": [
+        "packages/jin-adk/src/jin_adk/fake_llm.py",
+        "packages/jin-adk/src/jin_adk/trace.py",
+        "packages/jin-adk/src/jin_adk/build.py",
+        "packages/jin-adk/src/jin_adk/runtime.py",
+        "packages/jin-adk/tests/test_fake_llm.py",
+        "packages/jin-adk/tests/test_trace.py",
+        "packages/jin-adk/tests/test_build.py",
+        "packages/jin-adk/tests/test_runtime.py",
+        "tests/fixtures/stubs/research/"
+      ],
+      "status": "done",
+      "note": "ADR-009: 引けない pointer は null で行を残す。ADR-008: FakeLlm は runtime が差し替える。"
+    },
+    {
+      "id": "T-P2-04",
+      "jin_phase": 2,
+      "title": "jin build / jin run（CLI）と契約テストの更新",
+      "outputs": [
+        "packages/jin-cli/src/jin_cli/main.py",
+        "packages/jin-cli/tests/test_build_run.py",
+        "packages/jin-cli/tests/test_cli.py",
+        "tests/contract/test_packaging_contract.py",
+        "tests/contract/test_dependency_direction.py",
+        "tests/contract/test_cli_contract.py",
+        "tests/contract/test_adk_version_contract.py"
+      ],
+      "status": "done",
+      "note": "importlib offender の expected に runtime.py を追加（>= に緩めない）。guard: 検査を jin_adk の 3 モジュールへ拡張。"
+    },
+    {
+      "id": "T-P2-05",
+      "jin_phase": 2,
+      "title": "仕様書・ガイドの更新（実測に置き換え）",
+      "outputs": [
+        "docs/spec/adk-mapping.md",
+        "docs/spec/model.md",
+        "delivery/20260904-1445-jin/adk-api-probe.md",
+        "tests/spec/test_spec_consistency.py",
+        "CLAUDE.md",
+        "README.md"
+      ],
+      "status": "done",
+      "note": "model.md §3.1 の「未確認」を ADK の実測へ置換。§3.4 に flow-exit-equality 表。adk-mapping.md §2.4 trace-kinds / §3.1 build-errors / §6 jin run。"
+    },
+    {
+      "id": "T-P2-06",
+      "jin_phase": 2,
+      "title": "変異検証（31 件）と delivery 成果物の extend",
+      "outputs": [
+        "delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py",
+        "delivery/20260904-1445-jin/phase2-mutations/result.txt",
+        "delivery/20260904-1445-jin/version-matrix.md",
+        "delivery/20260904-1445-jin/decision-conformance.md",
+        "delivery/20260904-1445-jin/implementation-notes.md",
+        "delivery/20260904-1445-jin/replay-commands.md",
+        "delivery/20260904-1445-jin/implementation-plan.json"
+      ],
+      "status": "done",
+      "note": "初回で偽緑 3 件（ヘッダ主張 / O_EXCL 未到達 / 二層防御）を発見して修正。完了前レビュー（advisor）で `--force` の `O_TRUNC` 早期切り詰め（拒否後に 0 バイトが残る・Phase 1 V-1 と同型）を検出して修正し変異を 1 件追加。最終 31/31。"
+    },
+    {
+      "id": "T-P2-R1",
+      "jin_phase": 2,
+      "title": "Phase 2 修正ラウンド 1（Stage 5 の fix-now A-1〜A-10）",
+      "outputs": [
+        "packages/jin-adk/src/jin_adk/{codegen,build,runtime,trace}.py",
+        "packages/jin-adk/src/jin_adk/templates/agent.py.j2",
+        "packages/jin-cli/src/jin_cli/main.py",
+        "tests/contract/test_guard_claims.py",
+        "tests/fixtures/build-errors/{adk_tool_name_duplicate,builtin_name_collision,circle_name_not_nfkc,root_has_parent,flow_circle_with_instruction,flow_circle_with_delegate}.jin",
+        "docs/spec/adk-mapping.md",
+        "docs/spec/model.md",
+        "delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py",
+        "delivery/20260904-1445-jin/implementation-notes.md（P2-R1）"
+      ],
+      "status": "done",
+      "note": "A-3-1（cwd を sys.path のどこに足すか・DP-IMPL-JIN-P2-SYSPATH-01）は auto-decider の再判断待ちで未着手。対応表は implementation-notes.md P2-R1。 【追記】chosen（sys.path.append）到着後に A-3-1 も反映済み（implementation-notes.md P2-R1.7）。"
+    },
+    {
+      "id": "T-P2-R2",
+      "jin_phase": 2,
+      "title": "Phase 2 修正ラウンド 2（再レビューの回帰 A・DP-IMPL-JIN-P2-SYSPATH-01 再々判断 B・残存 C）",
+      "outputs": [
+        "packages/jin-adk/src/jin_adk/{runtime,trace,build,codegen}.py",
+        "packages/jin-cli/src/jin_cli/{main,resolver}.py",
+        "packages/jin-core/src/jin_core/resolver.py",
+        "tests/fixtures/stubs/exits_tool.py",
+        "tests/contract/{test_guard_claims,test_cli_contract,test_canonical_contract,test_packaging_contract}.py",
+        "docs/spec/adk-mapping.md",
+        "delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py",
+        "delivery/20260904-1445-jin/implementation-notes.md（P2-R2）"
+      ],
+      "status": "done",
+      "note": "A: F-S-P2-102（修正ラウンド 1 の回帰・asyncio が SystemExit をループ外へ再送出）を CLI run / 同期 run_model の except SystemExit で塞ぎ、CancelledError は再送出。B: cwd は生成モジュールの import 窓の間だけ（_sys_path_window・extra_sys_path）。anthropic/ 版の別プロセス契約テストと変異 RUN-cwd-stays-after-import で固定。C: tmp + os.replace（F-S-P2-104）/ RESERVED_NAMES に組み込み名（F-S-P2-103）ほか 8 件。784 passed / 変異 64/64。 【D 追記】correctness 再レビュー分 4 件も反映（P2-R2.7）: 787 passed / 変異 66/66。対応表と指示と違う判断 7 件は implementation-notes.md P2-R2。"
     }
   ],
   "milestones": [
     "Phase 0 完了: machine 条件 6/6 PASS（2026-09-04）",
     "Phase 1 完了: machine 条件 9/9 PASS（2026-09-04）",
-    "Phase 2 以降: 別ラウンドの implementer が担当（未着手）"
+    "Phase 2 以降: 別ラウンドの implementer が担当（未着手）",
+    "Phase 2 完了（実装者側）: machine 条件 8/8 PASS・696 passed・変異 31/31（2026-09-05）。Stage 5 レビューは親が実施",
+    "Phase 3 以降: 別ラウンドの implementer が担当（未着手）",
+    "Phase 2 修正ラウンド 1（実装者側）: Stage 5 の fix-now A-1〜A-10 を反映（A-3-1 cwd は auto-decider 待ち）。変異 59 件（2026-09-05）。再レビューは親が実施",
+    "Phase 2 修正ラウンド 2（実装者側）: 回帰 F-S-P2-102 を塞ぎ、DP-IMPL-JIN-P2-SYSPATH-01 の再々判断（import 窓）と残存 C を反映。784 passed・変異 64 件、D 反映後 787 passed・変異 66 件（2026-09-05）。再レビューは親が実施"
   ],
   "dependencies": [
     "pydantic>=2.13,<3（実測 2.13.5）",
     "lark>=1.3,<2（実測 1.3.1）",
     "typer>=0.27,<1（実測 0.27.2）",
     "dev: pytest>=9.1,<10 / ruff>=0.16,<1 / import-linter>=2.14,<3",
-    "build backend: hatchling>=1.32"
+    "build backend: hatchling>=1.32",
+    "google-adk>=2.8,<3（実測 2.8.0・jin_adk.TARGET_ADK_VERSION）",
+    "jinja2>=3.1,<4（実測 3.1.6）",
+    "dev: syrupy>=6.0,<7（実測 6.0.0）"
   ],
-  "test_plan": "ADR-003（DP-COMMON-09 案 C）に従い、パッケージ単位の垂直分割（packages/<pkg>/tests/）+ 横断契約テスト（tests/contract/）+ 要件突合（tests/spec/）。全て `uv run pytest` 1 発で通り、ネットワークと API キーを必要としない（NFR-TEST-001）。合計 225 件。",
+  "test_plan": "ADR-003（DP-COMMON-09 案 C）に従い、パッケージ単位の垂直分割（packages/<pkg>/tests/）+ 横断契約テスト（tests/contract/）+ 要件突合（tests/spec/）。全て `uv run pytest` 1 発で通り、ネットワークと API キーを必要としない（NFR-TEST-001）。合計 225 件。 【ラウンド 2】jin-adk 130 件（codegen 64 / runtime 33 / build 18 / trace 9 / fake_llm 6）+ CLI 29 件 + 契約 3 件 + spec 5 件を追加し合計 696 件。FakeLlm でネットワーク・API キー不要。",
   "decision_record": [
     {
       "id": "DP-IMPL-JIN-DIAGCODE-01",
@@ -973,6 +1286,182 @@
         "warning 級の新診断コードを追加する案: loop の後続兄弟枝の state を参照したときに warning を出す。loop の主要用途で恒常的に鳴り、LLM がバグでないものを直す方向に働く。番号の新規発明も禁止事項",
         "rune に任意キー構文（{key?} 相当）を導入し、厳格版と併用する案: 1 周目未定義を作者が明示できるようになるが、要件書 §2 と model.md §3.1 の rune 抽出規則の変更（言語仕様の拡張）であり、実装ラウンド 1 の範囲を超える"
       ]
+    },
+    {
+      "id": "DP-IMPL-JIN-P2-STATESEED-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-05T19:56:01+09:00",
+        "rationale": "HANDOFF Q-JIN-P2-01 の推奨（1 つ目）を採用。根拠: (a) google-adk 2.8.0 は instruction の {key} が session.state に無いと KeyError を投げる（google/adk/utils/instructions_utils.py:174・decision-conformance.md §2.18 の実測）。examples/researcher の {findings} は自分の output_key なので初回ターンでは必ず未設定になり、これは要件書 §2.2 の例そのものが持つ性質である。(b) seed は「jin run の実行時の意味論」（docs/spec/adk-mapping.md §6 手順 5）であり、生成物 agent.py を §3.2 の形のまま保てる。案 2（生成物に before_agent_callback を埋め込む）は生成物の純粋さ（ADR-008 / ADR-009 が守っている「そのまま動く ADK プロジェクト」の趣旨）を崩し、利用者の guards[] と同じコールバック枠に Jin 由来のコードを同居させる。(c) 案 3 は要件書 §2.2 の例と rune 文法の変更（ADK の optional 記法を Jin に取り込む仕様変更）であり、要件書の改訂は人間判断が要る性質なので AI 仮判断では選ばない。(d) machine 条件 5（jin run --model fake が examples 2 本で exit 0）は現状で PASS（implementation-notes.md P2-5.1 #5）。限定: adk run 単体での挙動は human_only（not_run）のまま。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-fable-5-1",
+        "confidence": "high",
+        "constraints": [
+          {
+            "text": "state の seed は jin run にだけ効く。生成物を adk run / adk web で単体実行したときは効かず、未設定 key を参照する rune は KeyError になる（README / docs/spec/adk-mapping.md §6 手順 5 の記載を維持する）",
+            "kind": "scope"
+          },
+          {
+            "text": "human_only の実 adk run レビューで examples/researcher を踏むときは、初回ターンの KeyError が既知の性質であることを前提に評価する（欠陥として扱わない）",
+            "kind": "condition"
+          },
+          {
+            "text": "要件書 §2.2 の例や rune 文法（optional 記法の導入）を AI 判断で変更しない。変更するなら人間が要件書を改訂する",
+            "kind": "prohibition"
+          }
+        ]
+      },
+      "chosen": "現状のまま（jin run だけが宣言済み state を None で seed する。adk run 単体で KeyError になることを README / adk-mapping.md §6 に明記済み）を承認する",
+      "compared": [
+        "生成物側に before_agent_callback で宣言済み state を seed するコードを埋め込む（§3.2 の形から離れ、利用者の guards と同居する）",
+        "要件書 §2.2 の例を {findings?} 相当に変える（Jin の rune 文法に ADK の optional 記法を取り込む仕様変更）"
+      ]
+    },
+    {
+      "id": "DP-IMPL-JIN-P2-EXITEQ-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-05T19:56:01+09:00",
+        "rationale": "HANDOFF Q-JIN-P2-02 の推奨（1 つ目）を採用。根拠: (a) 実測で LlmAgent.output_key は LLM の応答テキストを str で session.state に入れる（decision-conformance.md §2.14・google/adk/agents/llm_agent.py の実測 {'approved': 'true'}）ため、equals: true を型を保ったまま比べる手段は「文字列を JSON として読む」しか無い。(b) 規則は docs/spec/model.md §3.4 の machine-readable 表 flow-exit-equality に明文化され、実装は生成物内 _state_matches（packages/jin-adk/src/jin_adk/templates/agent.py.j2）1 箇所、packages/jin-adk/tests/test_runtime.py::test_state_matches_semantics の 16 ケースが一致・不一致の両方を固定している。(c) 案 2（大文字小文字を無視するなど緩める）は「LLM が何を返せば loop が終わるか」を曖昧にし、.jin の equals が持つ型の意味を失わせる。案 3（文字列比較のみ）は equals の bool / number 型（要件書 §2.2 の例 \"equals\": true）を実質 string と同じにし、スキーマの 4 型が意味を失う。(d) 要件書に規定が無い意味論を Phase 2 で新たに定めたものであり、Phase 6 のリプレイや将来の比較演算子拡張に効く責務分界なので ADR 化する。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-fable-5-1",
+        "confidence": "high",
+        "adr_ref": "docs/adr/ADR-015-DP-IMPL-JIN-P2-EXITEQ-01.md",
+        "constraints": [
+          {
+            "text": "v1 は等値比較のみ（要件書 §2.2「flow.exit は { key, equals } のみ(v1)」）。比較演算子の拡張は本 DP の再決定として扱う",
+            "kind": "limit"
+          },
+          {
+            "text": "規則の実装は生成物内 _state_matches の 1 箇所に閉じ、docs/spec/model.md §3.4 の flow-exit-equality 表と test_state_matches_semantics の集合一致を維持する",
+            "kind": "condition"
+          }
+        ]
+      },
+      "chosen": "この規則を承認する（文字列は前後の空白を除き、equals が str なら文字列比較、bool / number なら JSON として読み同じ JSON 型で比較。\"True\" / \"1\" は true に不一致、\"3.0\" = 3）",
+      "compared": [
+        "大文字小文字を無視する（\"True\" = true）など緩める",
+        "文字列比較のみにする（equals: true は \"true\" とだけ一致）"
+      ]
+    },
+    {
+      "id": "DP-IMPL-JIN-P2-ADKDEPRECATION-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-05T19:56:01+09:00",
+        "rationale": "HANDOFF Q-JIN-P2-03 の推奨（1 つ目）を採用。根拠: (a) ADK 自身の deprecation 文言が「Workflow cannot yet be used as an LlmAgent sub-agent」と言っている（google/adk/agents/loop_agent.py:54 / sequential_agent.py:79・version-matrix.md §8.3 #11）。Jin の delegate（LlmAgent の sub_agents に flow circle を置く）と両立しないため、今 Workflow へ移ると要件書 §2.1 の対応表と summon / delegate の意味論が崩れる。(b) HANDOFF は Sequential / Loop を挙げるが ParallelAgent も同じ理由で deprecated（google/adk/agents/parallel_agent.py:227）であり、Jin の flow.kind 3 種すべてが対象。部分移行は成立しない。(c) docs/spec/adk-mapping.md は人間確定の正典で Sequential / Parallel / LoopAgent を指定しており、正典の改訂（案 2）は要件書 §2.1 の対応表変更を伴う人間判断が要る性質なので AI 仮判断では選ばない。(d) 版は tests/contract/test_adk_version_contract.py が 2.8.0 の厳密一致で固定しており（implementation-notes.md P2-5.1 #4・NFR-VER-001）、将来版で消えても「静かに壊れる」ことはなく契約テストで検出できる。DeprecationWarning は動作に影響しない（uv run pytest 696 passed・warnings のみ）。版固定と移行時期の方針はアーキテクチャに当たるので ADR 化する。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-fable-5-1",
+        "confidence": "high",
+        "adr_ref": "docs/adr/ADR-016-DP-IMPL-JIN-P2-ADKDEPRECATION-01.md",
+        "constraints": [
+          {
+            "text": "Phase 2 では docs/spec/adk-mapping.md の Sequential / Parallel / LoopAgent 対応を Workflow に書き換えない（人間確定の正典。改訂は人間判断）",
+            "kind": "prohibition"
+          },
+          {
+            "text": "TARGET_ADK_VERSION を 2.8.0 から上げる前に、その版で Workflow が LlmAgent の sub-agent として使えるかと Sequential / Parallel / LoopAgent が残っているかを実測し、adk-mapping.md の改訂は別 Issue で行う",
+            "kind": "condition"
+          },
+          {
+            "text": "DeprecationWarning を pytest の filterwarnings で error に昇格させない（2.8.0 固定の間は警告のまま可視化しておく）",
+            "kind": "prohibition"
+          }
+        ]
+      },
+      "chosen": "google-adk 2.8.0 固定（TARGET_ADK_VERSION）のまま進め、Workflow への移行は別 Issue で扱う",
+      "compared": [
+        "今 Workflow API を実測して adk-mapping.md を改訂する（要件書 §2.1 の対応表も変わる）"
+      ]
+    },
+    {
+      "id": "DP-IMPL-JIN-P2-SYSPATH-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-05T21:25:37+09:00",
+        "rationale": "security レビュー修正ラウンド 1 の F-S-P2-101（delivery/20260904-1445-jin/code-review-raw/security-p2-round1.md・Medium / confidence 95）の実測を根拠に、前回の AI 仮判断「sys.path.append(cwd)」を覆す（overridden 相当・3 回目の判断）。実測内容: append にしても、ADK は LLM リクエストのたびに google/adk/flows/llm_flows/contents.py:58 _id_pairing_model_types で from ...models.anthropic_llm import AnthropicLlm を試み、anthropic_llm.py:39 が未インストールの anthropic を探す。site-packages に無い名前は末尾に足した cwd で解決されるので、ref を 1 つも持たない examples/pipeline/pipeline.jin --model fake でも cwd の anthropic/__init__.py が走る（importer chain: llm_agent.py:576 → base_llm_flow.py → contents.py:58 → anthropic_llm.py:39・RuntimeError 版は exit 1 で ADK の except ImportError を素通り）。同じ経路で openai も試み、builtins.__import__ を差し替えて数えた「CLI 起動後に import に失敗するトップレベル名」は anthropic / openai / a2a / bcrypt / simplejson / chardet / socks。前回 condition に書いた残存「未インストール名は _resolve_builtin が不正な builtin 名を受けたとき（mcp など）」は範囲が狭すぎ、実際は LlmAgent が 1 つでもあれば毎回踏む。契約テスト test_cwd_cannot_shadow_an_installed_package_in_a_real_process はインストール済みの authlib しか置いておらず、この残存を見ていない。案の比較: (1) import 窓の間だけ足す（採用）は、ref のモジュールが生成 agent.py の import 時に読まれて sys.modules に残るため ref の解決は保て、Runner 実行中は cwd が無いので ADK の遅延 import は cwd を見ない。generate() の _resolve_builtin も cwd 追加前に済む。残存は「ref 先モジュールが自分の関数の中で遅延 import する名前」と「生成モジュールの import 中に google.adk.tools.__getattr__ の遅延 import が任意依存を探す窓」だけになり、どちらも .jin 作者と同じ相手が書く（ref / builtin）ので decision-conformance.md §2.19 の元の論法がそこには当てはまる。ref 先の関数が実行時に遅延 import するモジュールは cwd から解決できず PYTHONPATH に委ねる。代償として前回 scope「jin_adk.runtime は sys.path を触らない」を「CLI が要求したときだけ import 窓の間 runtime が一時的に足して必ず戻す」に改める必要があり、hazard: の名指し先も runtime 側へ移る。(2) append のまま残存の記述を広げる（文書のみ）は、README が「ネットワークに出ない」と案内する --model fake の経路で cwd の未インストール名が毎回走る実害を残したままにする。(3) cwd を足さず PYTHONPATH に委ねるのは最も単純だが、jin run examples/... を直接叩けなくなり要件書 §3.1 の adk run 同等の体験を失う。PYTHONPATH に cwd を入れれば結局 Runner 実行中も cwd が sys.path にあり (2) と同じ露出になる。前 2 回の chosen（insert 先頭 / append 末尾）はいずれも Runner 実行中に cwd が sys.path に残る点が共通で、F-S-P2-003 / F-S-P2-101 の実測で退けられた。confidence は medium: 実測根拠は明確で案 1 は残存を「.jin 作者と同じ相手」の範囲に閉じるが、runtime が sys.path を一時的に触る責務変更と、import 窓の残存が実装後の再実測で確認されていないため、セキュリティ性の判断として人間レビューに上げる。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-fable-5-1",
+        "confidence": "medium",
+        "constraints": [
+          {
+            "text": "jin run は自分が中身を確認した .jin にだけ使う。人から受け取ったファイル・CI で自動取得したファイル・LLM が生成したファイルには使わない（CLAUDE.md「--resolve と jin run の危険性」の箇条書きに jin run を名指しで明記する）",
+            "kind": "prohibition"
+          },
+          {
+            "text": "信頼しないディレクトリを cwd にして jin run を実行しない。import 窓の間は cwd のモジュール（ref 先・builtin の遅延 import 先）がこのプロセスの権限で実行される",
+            "kind": "prohibition"
+          },
+          {
+            "text": "cwd を sys.path に足すのは生成モジュール（agent.py）の import の間だけ。import が終わったら（例外時も）finally で必ず取り除き、Runner 実行中は cwd が sys.path に無い状態を保つ。runtime が sys.path を触るのは CLI が extra_sys_path で要求したときだけで、jin build / jin check --resolve / jin_core は触らない",
+            "kind": "scope"
+          },
+          {
+            "text": "import 窓の外で sys.path が元に戻っていることをテストで固定する（test_run_adds_cwd_to_sys_path の「実行後も cwd が sys.path にある」assert を「import 中は解決でき、実行後は含まれない」に書き換える。前ラウンドの追従漏れと同型に注意）。契約テスト test_cwd_cannot_shadow_an_installed_package_in_a_real_process に未インストール名（anthropic）版を足し、Runner 実行中に cwd の anthropic が走らないことを実プロセスで固定する",
+            "kind": "condition"
+          },
+          {
+            "text": "hazard: の名指し先を jin_cli/main.py の run から jin_adk/runtime.py（sys.path を足す関数）へ移し、guard: で finally の取り除きを主張する。mutate_p2.py の CLI-no-cwd / CLI-cwd-first の before 文字列を追従させる",
+            "kind": "condition"
+          },
+          {
+            "text": "残存を decision-conformance.md §2.19 / CLAUDE.md / README に明記する: ref 先モジュールが自分の関数の中で実行時に遅延 import する名前は cwd から解決できない（PYTHONPATH に委ねる）。生成モジュールの import 中に google.adk.tools の遅延 import が任意依存（mcp など）を探す窓は残る（builtin を書くのは .jin 作者）。§2.19 の「攻撃面を広げない（同じ相手が ref を書く）」はこの範囲に限って成り立つと書き直す",
+            "kind": "condition"
+          },
+          {
+            "text": "ADK の未インストール任意依存（anthropic / openai / a2a / bcrypt / simplejson / chardet / socks）を Runner 実行中に cwd から解決させる経路を再び作らない（sys.path に cwd を残したまま Runner を走らせない）",
+            "kind": "prohibition"
+          }
+        ]
+      },
+      "chosen": "cwd を生成モジュールの import の間だけ sys.path に足し、import が終わったら必ず外す（jin_adk.runtime.load_generated / run_model_async に extra_sys_path を渡し、_import_agent_module の前に append・finally で取り除く。Runner 実行中は cwd が sys.path に無い）",
+      "compared": [
+        "cwd を sys.path の先頭に足す（sys.path.insert(0, cwd)・1 回目の AI 仮判断の chosen・F-S-P2-003 でインストール済み名の差し替えを実測）",
+        "cwd を sys.path の末尾に足す（sys.path.append(cwd)・2 回目の AI 仮判断の chosen・F-S-P2-101 で未インストール名 anthropic の実行を実測）",
+        "append のまま残存の記述を広げる（文書のみ・reviewer 修正案 2）",
+        "cwd を足さず PYTHONPATH に委ねる"
+      ]
+    },
+    {
+      "id": "DP-IMPL-JIN-P2-TRACEKIND-01",
+      "status": "ai_provisional",
+      "decision_record": {
+        "decided_by": "auto-decider",
+        "decided_at": "2026-09-05T19:56:01+09:00",
+        "rationale": "HANDOFF Q-JIN-P2-05 の推奨（1 つ目）を採用。根拠: (a) 要件書 §3.4 は kind の 5 種を列挙するだけで判定規則を書いていない。決めた規則は docs/spec/adk-mapping.md §2.4 の machine-readable 表 trace-kinds に明文化され、tests/spec の test_trace_kinds_table_matches_the_implementation が表と実装（jin_adk.trace.classify / TraceWriter の 1 行遅延）の集合一致を固定している（decision-conformance.md §2.21）。(b) 案 2（root agent の is_final_response に限定）は成立しない: ADK の Event.is_final_response（google/adk/events/event.py:288）の docstring 自身が「複数 agent が参加する invocation では参加 agent ごとに True になりうる」と言っており root 限定の根拠にならず、examples/pipeline の root は SequentialAgent で model 行を出さないため final が一度も付かない。(c) 案 3（不一致の判定を別 kind にする）は要件書 §3.4 の enum 追加＝要件書変更であり、人間判断が要る性質なので AI 仮判断では選ばない。escalate 行の output.matched で一致・不一致を区別できるので Phase 6 のリプレイで情報は失われない。(d) partial を行にしないのは確定イベントと二重になるため（adk-mapping.md §2.4）。kind の意味論は Phase 6 のトレースリプレイ表示に波及する責務分界なので ADR 化する。ただし「final が無い実行がある」見え方は人間の期待と違いうるため confidence は medium。",
+        "decided_by_kind": "ai_agent",
+        "review_status": "pending_human_review",
+        "model": "claude-fable-5-1",
+        "confidence": "medium",
+        "adr_ref": "docs/adr/ADR-017-DP-IMPL-JIN-P2-TRACEKIND-01.md",
+        "constraints": [
+          {
+            "text": "ストリーミングの partial イベントは行にしない（確定イベントと二重になる）",
+            "kind": "scope"
+          },
+          {
+            "text": "実行全体の最後が escalate（loop の終了判定）や tool のときは final 行が無い。Phase 6 のリプレイ設計はこの「final 無し」の表示を決めてから実装する",
+            "kind": "condition"
+          },
+          {
+            "text": "要件書 §3.4 の kind enum（5 種）を AI 判断で増やさない",
+            "kind": "prohibition"
+          }
+        ]
+      },
+      "chosen": "承認する（final = 実行全体の最後の行が model のときだけその行を付け替える / escalate = StateCheckAgent の判定イベントを一致しなかった回も含む + actions.escalate / partial は行にしない）",
+      "compared": [
+        "final を root agent の is_final_response に限定する",
+        "一致しなかった判定は escalate ではなく別扱いにする（enum 追加＝要件書変更）"
+      ]
     }
   ],
   "undecided": [
@@ -984,7 +1473,9 @@
     "DP-REVIEW-JIN-005",
     "DP-REVIEW-JIN-006",
     "DP-REVIEW-JIN-007",
-    "DP-REVIEW-JIN-008"
+    "DP-REVIEW-JIN-008",
+    "DP-REVIEW-JIN-P2-001",
+    "DP-REVIEW-JIN-P2-002"
   ],
   "verification_status": {
     "smoke": "not_applicable",
@@ -994,14 +1485,13 @@
       "backend_unit": "passed",
       "container_smoke": "not_applicable",
       "browser_e2e": "not_applicable",
-      "pipeline_e2e": "passed"
+      "pipeline_e2e": "not_run"
     },
     "required_layers": [
       "backend_unit"
     ],
     "scope_labels": [
-      "backend-unit-verified",
-      "pipeline-verified"
+      "backend-unit-verified"
     ],
     "overall": "verified",
     "domain_checks": [
@@ -1075,6 +1565,46 @@
         "result": "not_run",
         "jin_phase": 0,
         "detail": "design.yaml items[0].verification.human_only「仕様全体に自己矛盾がないことの最終判断」は human_only であり実施していない。ADR-001 に従い **PR レビューで人間が判定する**。実施済みと報告してはならない"
+      },
+      {
+        "skill": "uv-run-pytest",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#P2-5",
+        "jin_phase": 2,
+        "detail": "`uv run pytest` → 696 passed, 45 warnings（jin-core 294 / jin-cli 112 / jin-adk 130 / contract 98 / spec 62）"
+      },
+      {
+        "skill": "jin-run-fake-examples",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "tests/contract/test_cli_contract.py::test_run_with_fake_model_exits_zero_in_a_real_process",
+        "jin_phase": 2,
+        "detail": "実バイナリ `jin run --model fake` が examples 2 本で exit 0、トレース全行の pointer が非 null で解決"
+      },
+      {
+        "skill": "spec-coverage",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#P2-5",
+        "jin_phase": 2,
+        "detail": "Phase 2 machine 条件 8/8 PASS"
+      },
+      {
+        "skill": "mutation-p2",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/phase2-mutations/result.txt",
+        "jin_phase": 2,
+        "detail": "31/31 mutations caught"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "jin_phase": 2,
+        "detail": "P2 行 12 件 reflected / not_reflected 0 / unknown 0"
       }
     ],
     "skip_policy": {
@@ -1189,12 +1719,36 @@
       "[jin_phase=0,1][parent-final] 2026-09-04 20:12 親が全ゲートを再実行して再導出: UV_LOCKED=1 uv run pytest → 521 passed / ruff check → All checks passed / ruff format --check → 40 files already formatted / lint-imports → Contracts: 3 kept, 0 broken / jin check examples → error 0 warning 0 EXIT=0 / jin fmt --check examples → EXIT=0 / jin schema diff → ドリフト無し / UV_LOCKED=1 uv sync → EXIT=0",
       "[jin_phase=0,1][parent-final] Stage 5 は 4 観点 86 finding → 修正 5 ラウンド。同一観点 reviewer による defect-gone 確認済み（conventions 5/5 / security 初回14+新規6 / wiring 3/3+6/7 / correctness 20/25+7/7）。変異検証は実装者 88/88 赤（stale .pyc 対策済みハーネス）＋ 親と各 reviewer の独立検証",
       "[jin_phase=0,1][parent-final] pipeline_e2e は not_run（GitHub Actions 未実行）。human_only 条件は not_run で PR レビュー送り。実施済みと報告していない",
-      "[jin_phase=0,1][post-merge] 2026-09-04 PR #1 マージ後に GitHub Actions が実機で成功: pull_request 2 回 + push/main 1 回とも conclusion=success。pipeline_e2e を not_run から passed に更新（親が gh run list で確認）"
+      "[jin_phase=0,1][post-merge] 2026-09-04 PR #1 マージ後に GitHub Actions が実機で成功: pull_request 2 回 + push/main 1 回とも conclusion=success。pipeline_e2e を not_run から passed に更新（親が gh run list で確認）",
+      "[jin_phase=2][tdd-red] tdd-red: jin_adk.codegen — `uv run pytest packages/jin-adk/tests/test_codegen.py` → `E ModuleNotFoundError: No module named 'jin_adk.codegen'`（collection error）",
+      "[jin_phase=2][tdd-green] tdd-green: jin_adk.codegen — 64 passed, 2 snapshots passed",
+      "[jin_phase=2][tdd-red] tdd-red: jin_adk.fake_llm / trace / build / runtime — 各テストファイルが `ModuleNotFoundError: No module named 'jin_adk.fake_llm'` / `'jin_adk.trace'` / `'jin_adk.build'` で collection error",
+      "[jin_phase=2][tdd-green] tdd-green: fake_llm 6 / trace 9 / build 18 / runtime 33 passed",
+      "[jin_phase=2][tdd-red] tdd-red: jin_cli build/run — `packages/jin-cli/tests/test_build_run.py::test_build_refuses_to_overwrite_without_force` が実アサーション失敗（`WriteRefused` の同名クラスが import を上書き）→ 別名 import で green",
+      "[jin_phase=2][tdd-green] tdd-green: jin_cli build/run — 29 passed",
+      "[jin_phase=2][mutation] delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py → 31/31 mutations caught（初回 22/25 → 偽緑 3 件を修正）",
+      "[jin_phase=2][ci-equivalent] UV_LOCKED=1 uv sync EXIT 0 / lint-imports Analyzed 50 files 3 kept / ruff check・format --check OK / pytest 696 passed / schema diff なし / jin check examples 0 error / jin fmt --check examples EXIT 0（2026-09-05T10:30Z）",
+      "[jin_phase=2][human-only] 実 adk run / adk web は not_run（API キー・ネットワークが要る）。researcher は {findings} 未設定で adk run 単体では KeyError になる（実測・HANDOFF Q-JIN-P2-01）",
+      "[jin_phase=2][pipeline] 本ブランチ feat/jin-phase2-adk では GitHub Actions 未実行 → pipeline_e2e not_run（親が PR で回す）",
+      "[jin_phase=2][fix-round-1][tdd-red] F-S-P2-001 / 002 / 004 / 005 / 006 / 007 / 008 / 016、F-C-P2-001〜016 / 019〜021、F-V-P2-010 / 011、F-W-P2-001 / 003 / 004 / 005 / 007 / 008 の再現テストを先に書いて赤を確認（implementation-notes.md P2-R1 の表）",
+      "[jin_phase=2][fix-round-1][mutation] mutate_p2.py を隔離コピー上で変異する形に書き換え（実ツリー不変・returncode==1 かつ failed で判定）。59 変異（result.txt・A-3-1 反映後）",
+      "[jin_phase=2][fix-round-1][spec] docs/spec/adk-mapping.md §2.2 / §2.4（trace-kinds 表の escalate 2 行・pointer 列を KIND_POINTERS と突合）/ §3.1（fixture 6 本追加）/ §6、model.md §3.4（equals 両辺 strip）をコードと同時に更新",
+      "[jin_phase=2][fix-round-1][a-3-1] DP-IMPL-JIN-P2-SYSPATH-01 = sys.path.append を反映。test_cwd_cannot_shadow_an_installed_package（cwd の authlib/ が走らない）と変異 CLI-cwd-first で固定",
+      "[jin_phase=2][fix-round-2][tdd-red] 着手前の実測: 同期 run_model からツール内 sys.exit(0) の SystemExit が素通り + CancelledError → RunError のトレースバック漏れ。修正後 test_tool_sys_exit_at_runtime_is_a_failure / test_system_exit_in_a_tool_at_runtime_is_a_run_error が緑、変異 RUN-swallow-systemexit-at-runtime / RUN-swallow-systemexit-in-run_model / RUN-cancelled-to-runerror が赤",
+      "[jin_phase=2][fix-round-2][syspath] DP-IMPL-JIN-P2-SYSPATH-01（再々判断）= import 窓を反映。_sys_path_window（hazard: sys.path.append / guard: sys.path.remove）。test_run_adds_cwd_to_sys_path（窓の中で解決でき実行後は無い）/ test_extra_sys_path_is_present_only_during_the_import / test_cwd_cannot_supply_an_uninstalled_optional_dependency_during_the_run（anthropic/・別プロセス）。変異 RUN-cwd-stays-after-import で 3 failed（anthropic 版を含む）",
+      "[jin_phase=2][fix-round-2][mutation] mutate_p2.py 64/64 caught（+7 / −2・TMPDIR をコピー内へ・MUTATE_ONLY で部分実行）。実ツリー不変（git status の md5 一致）・/tmp/jin-run-* 残骸 0",
+      "[jin_phase=2][fix-round-2][ci-equivalent] UV_LOCKED=1 uv sync EXIT 0 / ruff check・format --check OK（60 files）/ pytest 784 passed / lint-imports Analyzed 51 files 3 kept / jin check examples 0 error / jin fmt --check examples EXIT 0 / schema diff なし / build-errors 20 ファイル 0 error・fmt --check EXIT 0（2026-09-05T12:53Z）",
+      "[jin_phase=2][fix-round-2][spec] docs/spec/adk-mapping.md §3.1（reserved_name_collision に組み込み名）/ §6 手順 3（import 窓）・手順 8（実行中の SystemExit は asyncio.run の呼び出し側が包む）をコードと同時に更新",
+      "[jin_phase=2][fix-round-2][correctness] D 節: F-C-P2-101（classify の transfer 早期 return を廃止・行順 tool → transfer・test_transfer_keeps_the_sibling_tool_response_rows・変異 TRACE-transfer-drops-siblings）/ F-C-P2-102（test_cancelled_error_propagates_from_run_model_async・変異 RUN-cancelled-to-runerror が 2 failed）/ F-C-P2-103（_open_trace に os.fchmod・test_existing_trace_file_is_made_owner_only・変異 CLI-trace-world-readable / CLI-trace-keep-existing-mode）/ F-C-P2-002 文言。ゲート 787 passed・変異 66/66（2026-09-05 22:08 JST・ハーネスは 22:2x に再実行）",
+      "[jin_phase=2][fix-round-3][security] F-S-P2-201 / 202: ツール由来の asyncio.CancelledError を成功扱いにしない。_run_async が応答の無い function_call（long_running_tool_ids を除く）を集め RunError、run_model_async は Task.cancelling() で shutdown 由来と区別、CLI / 同期 run_model に保険。test_tool_cancelled_error_is_a_run_error_not_a_success[llm/sequence] / test_await_pause_is_not_mistaken_for_a_missing_tool_response / test_tool_cancelled_error_is_a_failure[llm/sequence] / 実プロセス版 test_tool_failures_are_exit_1_without_a_traceback_in_a_real_process。変異 RUN-ignore-unanswered-tool / RUN-await-pause-as-failure / RUN-cancelled-passthrough / CLI-cancelled-traceback が赤",
+      "[jin_phase=2][fix-round-3][small] F-S-P2-203（部分適用の文言・agent.py を最後に差し替え）/ F-S-P2-204 = F-C-P2-201（既存 mode を fchmod で引き継ぐ）/ F-S-P2-205 + F-W-P2-203（MUTATE_ONLY の subset 表示・typo は rc 1）/ F-W-P2-201（anthropic は skipif でなく assert）/ F-W-P2-204（実プロセス版）/ F-W-P2-202 + F-V-P2-205（requires_non_root を tests/conftest.py に集約・pyproject に pythonpath=[\".\"]）/ F-V-P2-203（hint 具体値）/ F-V-P2-204（テスト改名）",
+      "[jin_phase=2][fix-round-3][ci-equivalent] 8 コマンド全緑 / pytest 799 passed / 変異 70/70（隔離コピー・実ツリー不変・/tmp 残骸 0）（2026-09-06 00:29 JST）",
+      "[jin_phase=2][fix-round-3][security] F-S-P2-301: tmp への fchmod 失敗時に close + unlink して WriteRefused（残骸を残さない）。test_fchmod_failure_on_the_temporary_file_leaves_no_leftover / 変異 BUILD-fchmod-leftover。ゲート 800 passed・変異 71/71（2026-09-06 00:41 JST）"
     ],
     "replay_commands_ref": "delivery/20260904-1445-jin/replay-commands.md",
-    "note": "overall は **backend_unit レイヤに限った判定**である（scope_labels 参照）。本案件に HTTP サーバもブラウザも存在しないため container_smoke / browser_e2e は not_applicable。GitHub Actions の実パイプライン通し（pipeline_e2e）は未実行。Phase 0 の human_only 条件は not_run で、PR レビューで人間が判定する。 【修正ラウンド 1】backend_unit は passed（432 件・ミューテーション 38/38 で非空虚性を実測）であり、機械規則だけを当てれば verified になる。しかし fix-round-1-instructions.md §0 が 「同一観点の code-reviewer による再レビューで defect-gone を確認するまでクローズしない」と定めており、親から「overall を自己判断で verified に戻さないこと」と明示指示があるため、**実装者側では verified を主張せず partially_verified に置く**。最終値は再レビュー後に親が再導出する。 【修正ラウンド 2】同じ理由で overall は partially_verified のまま置く。backend_unit は passed（488 件・ミューテーション 64/64 が赤）。",
+    "note": "overall は **backend_unit レイヤに限った判定**である（scope_labels 参照）。本案件に HTTP サーバもブラウザも存在しないため container_smoke / browser_e2e は not_applicable。GitHub Actions の実パイプライン通し（pipeline_e2e）は未実行。Phase 0 の human_only 条件は not_run で、PR レビューで人間が判定する。 【修正ラウンド 1】backend_unit は passed（432 件・ミューテーション 38/38 で非空虚性を実測）であり、機械規則だけを当てれば verified になる。しかし fix-round-1-instructions.md §0 が 「同一観点の code-reviewer による再レビューで defect-gone を確認するまでクローズしない」と定めており、親から「overall を自己判断で verified に戻さないこと」と明示指示があるため、**実装者側では verified を主張せず partially_verified に置く**。最終値は再レビュー後に親が再導出する。 【修正ラウンド 2】同じ理由で overall は partially_verified のまま置く。backend_unit は passed（488 件・ミューテーション 64/64 が赤）。 【ラウンド 2（Phase 2）】backend_unit passed（696 件・変異 31/31）で required_layers を満たすため overall=verified。ただし backend_unit に限った判定で、pipeline_e2e は本ブランチで not_run（ラウンド 1 の passed は main の Phase 0+1 に対するもの）、human_only（実 adk run）も not_run。最終値は親が Stage 5 レビュー後に再導出する。 【Phase 2 修正ラウンド 1】scope_labels は implementation-plan.schema.json の enum（backend-unit-verified / container-smoke-verified / browser-e2e-verified / pipeline-e2e-verified）に限られるため、ラウンド 1 の `pipeline-verified` も ラウンド 2 で足した `tdd-red-evidenced` も enum 外だった。schema 準拠の `backend-unit-verified` だけに戻し、**Phase 0+1 は main で GitHub Actions が success（pipeline_e2e passed・evidence[] の [jin_phase=0,1][post-merge] 行）、Phase 2 は本ブランチで not_run** をここに残す。TDD の Red 証跡は evidence[] の [tdd-red] 行。",
     "evidence_format_note": "implementation-plan.schema.json は evidence[] を文字列配列と定めているため、親の指示にある jin_phase タグは各要素の先頭に [jin_phase=N][kind] の形で埋め込んだ。N は Jin の Phase 番号、'-' は Phase 非依存。後続ラウンドも同じ形式で追記すること。",
-    "review_status_note": "overall=verified は Jin Phase 0+1 のスコープ（backend-unit-verified）に対するもの。本ランの全体スコープは Phase 0〜6（ADR-001）であり Phase 2〜6 は未着手。"
+    "review_status_note": "overall=verified は Jin Phase 0+1 のスコープ（backend-unit-verified）に対するもの。本ランの全体スコープは Phase 0〜6（ADR-001）であり Phase 2〜6 は未着手。 【ラウンド 2（Phase 2）追記】Phase 2 も backend-unit-verified（696 → R1 で再計測）。Phase 3〜6 は未着手。 【Phase 2 修正ラウンド 1】Stage 5 レビュー 78 件のうち fix-now A-1〜A-10 を反映（A-3-1 の cwd は auto-decider の再判断待ち）。再レビューで defect-gone が確認されるまでクローズしない。"
   },
   "coverage_gate": {
     "executed_at_step_0": true,
@@ -1300,6 +1854,69 @@
       "decide_by_phase": "implementation",
       "phase_impact": "`levenshtein` の二次爆発は総予算 `MAX_DISTANCE_COMPUTATIONS = 20000` で消滅し、115KB〜861KB が 8.2〜8.4 秒に平坦化した。ただし最悪 8.4 秒の定数が残る。**Phase 4 の LSP は打鍵ごとに `check_text` を呼ぶ設計**なので、要件書 §6.4「1000 行以下で診断 1 秒以内」を満たすかを Phase 4 で必ず実測し、必要なら候補数上限・名前長上限・インクリメンタル化を入れること。**Phase 4 着手時に必ず参照。**",
       "note": "confidence 80 未満または方針判断を要するため fix-later。Stage 5 の信頼度しきい値運用（DP-IMPL-STAGE-03）に従い DP 仮 ID 付きで起票。"
+    },
+    {
+      "id": "Q-JIN-P2-01",
+      "title": "examples/researcher の {findings} は adk run 単体では初回に KeyError（jin run は state seed で回避）",
+      "raised_by": "impl-p2 (実装ラウンド 2)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "human_only の実 adk run を人間が踏むときに落ちる。生成物側で seed するか、要件書 §2.2 の例を変えるかの判断。",
+      "parent_dp": "DP-JIN-CODEGEN-RUNTIME-01（生成物の自己完結性）",
+      "note": "non-blocking。詳細は implementation-notes.md P2-7。"
+    },
+    {
+      "id": "Q-JIN-P2-02",
+      "title": "flow.exit の等値比較規則（JSON 型で厳密比較）の承認",
+      "raised_by": "impl-p2",
+      "decide_by_phase": "implementation",
+      "phase_impact": "Phase 6 のトレースリプレイと利用者の .jin の書き方に効く。",
+      "parent_dp": "DP-JIN-CODEGEN-RUNTIME-01",
+      "note": "non-blocking。decision-conformance.md §2.14。"
+    },
+    {
+      "id": "Q-JIN-P2-03",
+      "title": "SequentialAgent / LoopAgent の DeprecationWarning（Workflow 移行）への対応時期",
+      "raised_by": "impl-p2",
+      "decide_by_phase": "implementation",
+      "phase_impact": "google-adk の将来版で生成物が動かなくなりうる。adk-mapping.md（人間確定）の改訂が要る。",
+      "parent_dp": "DP-JIN-ADK-VERSION-01",
+      "note": "non-blocking。version-matrix.md §8.3 #11。"
+    },
+    {
+      "id": "Q-JIN-P2-04",
+      "title": "jin run が cwd を sys.path の先頭に足すことの承認",
+      "raised_by": "impl-p2",
+      "decide_by_phase": "implementation",
+      "phase_impact": "ref の解決方法（利用体験）。攻撃面は変わらない。",
+      "parent_dp": "DP-JIN-RESOLVE-ISOLATION-01 の隣接論点（同 DP 自体には触れていない）",
+      "note": "non-blocking。decision-conformance.md §2.19。"
+    },
+    {
+      "id": "Q-JIN-P2-05",
+      "title": "トレース kind の final / escalate の定義の承認",
+      "raised_by": "impl-p2",
+      "decide_by_phase": "implementation",
+      "phase_impact": "Phase 6 のリプレイ表示。",
+      "parent_dp": "DP-JIN-TRACE-POINTER-01",
+      "note": "non-blocking。adk-mapping.md §2.4 trace-kinds 表。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-P2-001",
+      "title": "root circle に親が付く構造（別 circle の flow.steps / delegate / summon に root が現れる）を jin check の診断にするか",
+      "raised_by": "impl-p2 (Phase 2 修正ラウンド 1・correctness review F-C-P2-016)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "現状は jin build / jin run の BuildError（fixture root_has_parent・docs/spec/adk-mapping.md §3.1）で落とす。jin check で診断にするには診断コードの追加 = 要件書 §2.4 の変更が要る（DP-JIN-DIAGCODE-NUMBERING-01 と同じ手続き）。未決のままでも Phase 2 の NFR-FAIL-001 は満たす（黙って落とさない）。Phase 4 の LSP では jin check の診断として出ないため、エディタ上では jin build まで気づけない。",
+      "parent_dp": "DP-JIN-SEMANTIC-GAPS-01 (ADR-007) の constraints (b)「要件書 §2.4 への追加は仕様変更として人間の承認を要する」",
+      "note": "選択肢: (1) BuildError のまま（現状）、(2) JIN014 相当を要件書 §2.4 に追加して jin check で警告/エラー、(3) 既存 JIN013（多重親）の文言を広げて root の入次数 ≥ 1 も対象にする（採番は増えないが意味が変わる）。推奨は (3) の可否を人間が判断。"
+    },
+    {
+      "id": "DP-REVIEW-JIN-P2-002",
+      "title": "ref 先のコードが jin_adk（TraceWriter._emit 等）を差し替えると「0 イベント」exit 0・空トレースになる経路に、正常終了と区別できる印を付けるか",
+      "raised_by": "impl-p2 (Phase 2 修正ラウンド 1・security review F-S-P2-009)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "DP-JIN-RESOLVE-ISOLATION-01（--resolve の同一プロセス import）の同型。同一プロセスで import する以上 ref 先は jin_adk のオブジェクトを書き換えられ、os._exit(0) では load_generated の finally が走らず一時ディレクトリが残る。Phase 3 の trace overlay / Phase 5 のデバッグモードが「空トレース = 何も起きなかった」と描くなら区別する印（先頭の run 開始行、正常終了時だけ確定する末尾行、別プロセス実行など）が要る。判断期限は DP-JIN-RESOLVE-ISOLATION-01 と同じ Phase 4 着手前。",
+      "parent_dp": "DP-JIN-RESOLVE-ISOLATION-01（未決）",
+      "note": "Phase 2 修正ラウンド 1 では実装しない（人間判断待ち・記録のみ）。任意コード実行は ref import の時点で成立済みなので、防げるのは「見た目の正常化」だけ。"
     }
   ]
 }

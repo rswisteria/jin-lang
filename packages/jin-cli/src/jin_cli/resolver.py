@@ -7,10 +7,12 @@ import は**モジュールのトップレベルを実行する**ので、`.jin`
 そのため、この実装は **`jin_cli` にしか置かない**:
 
 - `jin_core` は `RefResolver` プロトコルしか知らない（`jin_core.resolver`）
-- Phase 4 の `jin-lsp` は `jin_core` にしか依存しないので、ws で公開されるコードパスから
-  ここへ到達できない
-- その到達不能性は import-linter の forbidden contract
-  「resolver の実装は jin_cli に閉じる」で機械的に落とす（`pyproject.toml`）
+- Phase 4 の `jin-lsp` は design.yaml rule 5 で `jin_core` / `jin_adk` / `jin_render` に依存できるが
+  **`jin_cli` には依存しない**ので、ws で公開されるコードパスからここ（`jin_cli.resolver`）へは到達できない。
+  `jin_adk.runtime`（`jin run` の import）へは到達できるため、Phase 4 で forbidden contract の
+  `source_modules` に `jin_lsp` を足して機械化する（`phase2-handoff.md` §6）
+- 任意コード実行の実装がこの 2 箇所に閉じていることは import-linter の forbidden contract
+  「任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる」で機械的に落とす（`pyproject.toml`）
 
 CLI から明示的に `--resolve` を渡したときだけ使われる。
 """

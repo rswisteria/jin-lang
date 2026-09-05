@@ -102,3 +102,47 @@ design.yaml `decision_record[].constraints[]` の「実装時に決定し根拠�
 
 `uv sync` の実行結果を `delivery/20260904-1445-jin/implementation-notes.md` §依存解決 に記録した。
 宣言した全依存がロックファイルに解決され、`uv run pytest` が起動することを確認済み。
+
+---
+
+## 8. Phase 2（jin-adk）ラウンドの実測 — 2026-09-05（impl-p2）
+
+Stage 1 `tech-version-check` の Phase 2 分。一次証拠は §0 の E1（`adk-api-probe.md`）と、本ラウンドで
+親が Python 3.14.7 の隔離 venv に google-adk 2.8.0 を実インストールして再実測した結果（`implement-ledger.md` 2026-09-05 行）。
+PyPI JSON API にも本セッションから到達できたので E3 で突き合わせた。
+
+### 8.1 言語ランタイム（本ラウンドの実測）
+
+| 対象 | 実測 | 取得方法 |
+|---|---|---|
+| Python | **3.14.7**（`uv run python -c "import sys; print(sys.version)"`） | `.python-version` = `3.14` を uv が読む |
+| uv | **0.12.10**（`uv --version`）。CI は `setup-uv` で 0.12.9 固定（変更なし） | 本セッション実行 |
+
+### 8.2 Phase 2 で新たに install した依存
+
+| パッケージ | 採用宣言 | PyPI 最新（E3・2026-09-05T09:55:31Z） | uv.lock が解決した版 | requires_python | 出典 |
+|---|---|---|---|---|---|
+| google-adk | `>=2.8,<3`（要件書 §1.1「2.x 系」） | 2.8.0 | **2.8.0** | >=3.10 | https://pypi.org/pypi/google-adk/json + E1 |
+| jinja2 | `>=3.1,<4` | 3.1.6 | **3.1.6** | >=3.7 | https://pypi.org/pypi/jinja2/json + E1 |
+| syrupy（dev） | `>=6.0,<7` | 6.0.0 | **6.0.0** | >=3.10 | https://pypi.org/pypi/syrupy/json + E1 |
+
+E1（2026-09-04）と E3（2026-09-05）の値は一致した。`uv lock` → `UV_LOCKED=1 uv sync` は EXIT 0（75 パッケージ）。
+生成コードのテンプレートが前提にする版は `jin_adk.TARGET_ADK_VERSION = "2.8.0"` に固定し、
+`tests/contract/test_adk_version_contract.py` が「入っている版 == 固定値」を検査する（版を上げるときは probe を取り直す）。
+
+### 8.3 既知の非互換性 / 警戒事項（Phase 2 で実測したもの）
+
+| # | 対象 | 内容 | 出典 | 対処 |
+|---|---|---|---|---|
+| 11 | google-adk 2.8.0 `SequentialAgent` / `LoopAgent` | 構築時に **`DeprecationWarning: ... deprecated in favor of Workflow and will be removed in a future version. Workflow cannot yet be used as an LlmAgent sub-agent`** が出る。動作はする | 実行時警告（`adk-api-probe.md` Phase 2 節） | `docs/spec/adk-mapping.md` は人間確定の正典なので Workflow へ変えない。`implementation-notes.md` Phase 2 節の HANDOFF Q-JIN-P2-03 で人間へ提示 |
+| 12 | google-adk 2.8.0 `instruction` テンプレート | `{{lit}}` をエスケープではなく変数 `lit` として解釈。未設定 key は `KeyError` で実行が落ちる | `google/adk/utils/instructions_utils.py:41,174` | コンパイル時エラー（`adk-mapping.md` §3.1）+ `jin run` の state seed（同 §6） |
+| 13 | google-adk 2.8.0 `google.adk.tools` | `__getattr__` で遅延 import。`MCPToolset` は任意依存 `mcp` が無いと `ModuleNotFoundError` | `google/adk/tools/__init__.py:60-140` | `builtin` の解決は名指しの 1 属性だけ getattr し、ImportError は「使えない名前」として扱う |
+| 14 | import-linter 2.14 の `layers` | 存在しないパッケージを `"jin_adk \| jin_render"` と `\|` 結合で書くと `Missing layer 'jin_render': module jin_render does not exist.` で EXIT 1 | 本セッション実測（`scratchpad/lintprobe`） | Phase 2 は `"jin_adk"` 単独。Phase 3 で `\|` 結合（`pyproject.toml` のコメント） |
+| 15 | click 8.5.0 / typer 0.27.2 の `CliRunner` | ~~`result.output` は stdout のみ~~ → **訂正（修正ラウンド 1・F-V-P2-008 の実測）**: `result.output` は stdout + stderr の**混在**。stdout だけは `result.stdout`、stderr だけは `result.stderr` | conventions reviewer の実測（`"hint:" in result.output` = True / `result.stdout` = False / `result.stderr` = True） | Phase 2 の CLI テストは `result.output` で stdout と stderr の両方の文言を見ている（`hint:` / `--force` / `JIN060` は stderr 由来）。stdout だけを見たいときは `result.stdout` |
+| 16 | `jin_cli.main` の同名クラス | `jin_cli.main` は fmt 用に `WriteRefused` を定義しており、`jin_adk.build.WriteRefused` を同名で import するとクラス定義が import を上書きして `except` が効かない（テストで検出） | 本セッション実測 | `BuildWriteRefused` の別名で import |
+| 17 | ADK のログ | `Runner` 実行中に `Skipping missing token usage metadata for agent R and model fake` などが logging（stderr）へ出る | 実行結果 | DP-COMMON-14 どおりログは stderr、トレースは `--trace` の JSONL。混ざらない |
+
+### 8.4 Phase 2 で値を確定した実装判断
+
+技術選定の DP 起票は無し（要件書 §1.1 / §10 が人間確定済み）。実装判断として決めた値は
+`decision-conformance.md` §2.13〜§2.21 に根拠つきで記録した。

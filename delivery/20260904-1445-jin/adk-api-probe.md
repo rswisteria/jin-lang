@@ -57,3 +57,27 @@ Runner.__init__(self, *, app=None, app_name=None, agent=None, node=None, plugins
   → §3.4 のトレース JSONL（`seq` / `ts` / `agent` / `kind` / `name` / `pointer` / `input` / `output`）は **Jin 側で組み立てる派生スキーマ**であり、ADK Event をそのまま書くのではない。`agent` は `Event.author`、`ts` は `Event.timestamp` から取る。
 - `BaseAgent._run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]` → `StateCheckAgent` はこれを override する。
 - `BaseLlm.generate_content_async(self, llm_request: LlmRequest, stream: bool = False) -> AsyncGenerator[LlmResponse, None]` → `FakeLlm` はこれを override する。`supported_models` も存在。
+
+## Phase 2 実装ラウンドでの追加実測（impl-p2・2026-09-05・google-adk 2.8.0 / Python 3.14.7）
+
+隔離 venv（`scratchpad/adkprobe/v`）と本リポジトリの `.venv`（`uv sync` で 2.8.0 を実インストール）で実行した結果。
+
+| 項目 | 実測結果 | 出典（site-packages 内） |
+|---|---|---|
+| `output_key` に入る型 | LLM の応答テキストを **str** で `state_delta[output_key]` に入れる（`{'approved': 'true'}`）。`output_schema` 無しでは JSON にしない | `google/adk/agents/llm_agent.py:1005-1045` |
+| `instruction` の `{key}` が未設定 | `KeyError: Context variable not found` で **実行が落ちる**（`examples/researcher` の `{findings}` は初回に未設定） | `google/adk/utils/instructions_utils.py:174` |
+| `{key}` の値が `None` | 空文字で描画される | 同 `:161-163` |
+| `instruction` のテンプレート正規表現 | `_TEMPLATE_VAR_PATTERN = r'{+[^{}]*}+'`。`{{lit}}` → 変数 `lit`（**エスケープではない**）、`{draft}}` → `D1`（末尾の `}` も消費）、`{opt?}` → 省略可能（未設定なら空文字）、`{not a key}` / `{{ }}` → 素通し、`{artifact.x}` / `{app:key}` → 別種の参照 | 同 `:41` / `:145-176` / `:238-262` |
+| `LoopAgent` + escalate | サブエージェントが `EventActions(escalate=True)` を返すとその周で止まる。返さなければ `max_iterations` まで回る（`critic=true` で 1 周、`critic=no` で 3 周を実測） | `google/adk/agents/loop_agent.py:116` |
+| `BaseAgent.name` の検証 | `isidentifier()` 必須（`"Re searcher"` / `"1abc"` は拒否、`"日本語"` は通る）。`"user"` は予約 | `google/adk/agents/base_agent.py:648-662` |
+| `FunctionTool.name` | `func.__name__`（lambda は `<lambda>`）。`LongRunningFunctionTool` も同じ。`AgentTool.name` はサブ agent 名。`google_search.name == "google_search"` | 実行結果 |
+| callback にリスト | `before_model_callback=[cb1, cb2]` を受け付ける（型は `Callable | list[Callable] | None`） | `llm_agent.py:76-136` |
+| `LlmAgent.model` の差し替え | 構築後に `agent.model = FakeLlm()` を代入でき、`canonical_model` もそれを返す | 実行結果 |
+| 同名 sub_agents / 二重の親 | 同名は警告のみで通る（Jin は JIN010 で先に落とす）。同じ agent を 2 親に付けると `ValueError`（JIN013 が先に落とす） | 実行結果 |
+| `google.adk.tools` の公開名 | `__all__` の各名を `__getattr__` で遅延 import する。`MCPToolset` は任意依存 `mcp` が無いと `ModuleNotFoundError`。ツールインスタンス: `google_search` / `url_context` / `load_memory` / `load_artifacts` / `preload_memory` / `enterprise_web_search` / `google_maps_grounding` / `get_user_choice` / `request_input`。関数: `exit_loop` / `transfer_to_agent` | `google/adk/tools/__init__.py:60-140` |
+| `Event.timestamp` | float（epoch 秒） | 実行結果 |
+| `SequentialAgent` / `LoopAgent` | **`DeprecationWarning: ... deprecated in favor of Workflow`** が構築時に出る（2.8.0）。動作はする。`Workflow cannot yet be used as an LlmAgent sub-agent` | 実行時警告 |
+| `.env` の読み方 | `adk run` は `<parent>/<agent_name>` から親へ辿って最初の `.env` を読む（`<out>/.env` で効く） | `google/adk/cli/utils/envs.py:53-74` |
+| `.env` のキー（書く側） | `adk create` が書くのは `GOOGLE_GENAI_USE_ENTERPRISE` / `GOOGLE_API_KEY` / `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION` | `google/adk/cli/cli_create.py:127-135` |
+| `.env` のキー（読む側） | `GOOGLE_API_KEY` / `GEMINI_API_KEY`（`google/genai/_api_client.py:136-137`）、`GOOGLE_GENAI_USE_ENTERPRISE`（旧 `GOOGLE_GENAI_USE_VERTEXAI` は deprecated・`google/adk/utils/env_utils.py:63-79`）、`GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`（`google/adk` 内の `environ.get` 多数） | grep 結果 |
+| `Runner.run_async` | `run_async(*, user_id, session_id, invocation_id=None, new_message=None, state_delta=None, run_config=None, yield_user_message=False)`。`InMemorySessionService.create_session(*, app_name, user_id, state=None, session_id=None)` は **async** | `inspect.signature` |
