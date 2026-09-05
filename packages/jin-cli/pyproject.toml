@@ -1,11 +1,12 @@
 [project]
 name = "jin-cli"
 version = "0.1.0"
-description = "Jin の CLI（Phase 1 は check / fmt / schema / dump）"
+description = "Jin の CLI（check / fmt / schema / dump / build / run）"
 requires-python = ">=3.12"
 # 版の根拠: delivery/20260904-1445-jin/version-matrix.md（2026-09-04 実測）
 dependencies = [
   "jin-core",
+  "jin-adk",
   "typer>=0.27,<1",
 ]
 
@@ -14,6 +15,7 @@ jin = "jin_cli.main:app"
 
 [tool.uv.sources]
 jin-core = { workspace = true }
+jin-adk = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.32"]

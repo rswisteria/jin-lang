@@ -13,6 +13,7 @@ DP-COMMON-11 の constraints:
 
 from __future__ import annotations
 
+import ast
 import re
 import shutil
 import subprocess
@@ -87,8 +88,8 @@ def test_import_linter_contracts_are_declared() -> None:
     names = [c["name"] for c in section["contracts"]]
     assert any("一方向" in n for n in names)
     assert any("google-adk" in n for n in names)
-    # security review S1: resolver の実装を jin_cli に閉じる契約（コメントでの約束は不可）。
-    assert any("jin_cli に閉じる" in n for n in names)
+    # security review S1: 任意コード実行の実装（jin_cli.resolver / jin_adk.runtime）を閉じる契約（コメントでの約束は不可）。
+    assert any("jin_cli.resolver" in n and "jin_adk.runtime" in n for n in names)
 
 
 def test_import_linter_passes_on_the_real_tree() -> None:
@@ -100,7 +101,8 @@ def test_import_linter_passes_on_the_real_tree() -> None:
     ("target_file", "injected", "contract_keyword"),
     [
         ("canonical.py", "import google.adk", "google-adk"),
-        ("canonical.py", "from jin_cli.resolver import ImportResolver", "jin_cli に閉じる"),
+        ("canonical.py", "from jin_cli.resolver import ImportResolver", "jin_cli.resolver"),
+        ("canonical.py", "from jin_adk.runtime import run_model", "jin_adk.runtime"),
     ],
 )
 def test_import_linter_actually_bites_on_a_forbidden_import(
@@ -171,25 +173,40 @@ def test_jin_core_source_does_not_mention_adk() -> None:
                 assert "google" not in stripped, f"{path}: {stripped}"
 
 
-def test_jin_core_does_not_import_jin_cli() -> None:
+def test_jin_core_imports_no_other_jin_package() -> None:
+    """design.yaml rule 1「jin-core は他の jin-* に依存しない」の生の網（import-linter を差し替えても残る）。
+
+    wiring review F-W-P2-003: `jin_cli` だけを見ていたので `import jin_adk` を注入しても素通りした。
+    ワイルドカードそのもの（`jin_*` のうち `jin_core` 以外）を見る。
+    """
     for path in sorted(CORE_SRC.rglob("*.py")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if stripped.startswith(("import ", "from ")):
-                assert "jin_cli" not in stripped, f"{path}: {stripped}"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            names: list[str] = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            for name in names:
+                top = name.split(".", 1)[0]
+                assert not (top.startswith("jin_") and top != "jin_core"), f"{path}: {name}"
 
 
-@pytest.mark.parametrize("later_package", ["jin_adk", "jin_render", "jin_lsp"])
+@pytest.mark.parametrize("later_package", ["jin_render", "jin_lsp"])
 def test_later_packages_do_not_exist_yet(later_package: str) -> None:
-    """本ラウンドのスコープは Phase 0 / 1。後続 Phase のパッケージはまだ無い。
+    """Phase 2 までが実装済み。Phase 3 以降のパッケージはまだ無い。
+
+    `jin_adk` は Phase 2（実装ラウンド 2）で追加し、この parametrize から外した。
+    `jin_render` / `jin_lsp` は残す（Phase 3 / 4 で同じ手順を踏む）。
 
     存在するようになったらこのテストが赤くなる。そのとき直すのは**この 1 行ではなく**
-    `CLAUDE.md` の「パッケージを足すときのチェックリスト」の 6 項目である
+    `CLAUDE.md` の「パッケージを足すときのチェックリスト」の 7 項目である
     （conventions review A-3）:
 
     1. `[project].dependencies` / 2. `[tool.uv.sources]` / 3. `root_packages` /
     4. layers 契約（兄弟は `"jin_adk | jin_render"` と `|` 区切り）/
-    5. forbidden 契約の `source_modules` / 6. `packages/<name>/tests/__init__.py`
+    5. forbidden 契約の `source_modules` / 6. `packages/<name>/tests/__init__.py` /
+    7. 依存する側の `packages/<x>/pyproject.toml`（Phase 2 修正ラウンド 1・F-W-P2-001）
 
     6 を落とすと**同名テストファイル 1 個で collection 全体が止まり**、
     「トリップワイヤが赤い」ではなく「テストが 1 件も走らない」状態から始めることになる。

@@ -21,12 +21,20 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-006 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-007 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-008 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-001 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-002 |
 
 ## AI 仮決定（auto mode・レビュー待ち・自動生成）
 
 auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/decide DP-XXX ...` で approved / overridden に確定する。
 
-_（AI 仮決定はありません）_
+| 起票元ファイル | DP ID | 選択 | confidence | review_status | 決定日 |
+|---|---|---|---|---|---|
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-ADKDEPRECATION-01 | google-adk 2.8.0 固定（TARGET_ADK_VERSION）のまま進め、Workflow への移行は別 Issue で扱う | high | pending_human_review | 2026-09-05T19:56:01+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-EXITEQ-01 | この規則を承認する（文字列は前後の空白を除き、equals が str なら文字列比較、bool / number なら JSON として読み同じ JSON… | high | pending_human_review | 2026-09-05T19:56:01+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-STATESEED-01 | 現状のまま（jin run だけが宣言済み state を None で seed する。adk run 単体で KeyError になることを README… | high | pending_human_review | 2026-09-05T19:56:01+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-SYSPATH-01 | cwd を生成モジュールの import の間だけ sys.path に足し、import が終わったら必ず外す（jin_adk.runtime.load_g… | medium | pending_human_review | 2026-09-05T21:25:37+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-TRACEKIND-01 | 承認する（final = 実行全体の最後の行が model のときだけその行を付け替える / escalate = StateCheckAgent の判定イベ… | medium | pending_human_review | 2026-09-05T19:56:01+09:00 |
 
 ## 決定済み（schema 駆動・自動生成）
 

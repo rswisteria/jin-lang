@@ -1,0 +1,28 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Top",
+  "circles": [
+    {
+      "name": "Top",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "A"
+        ]
+      },
+      "boundary": {
+        "guards": [
+          {
+            "on": "before_model",
+            "ref": "pkg.guards:g"
+          }
+        ]
+      }
+    },
+    {
+      "name": "A",
+      "core": "gemini-2.5-flash"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "L",
+  "circles": [
+    {
+      "name": "L",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "A",
+          "L_exit_check"
+        ],
+        "exit": {
+          "key": "k",
+          "equals": true
+        }
+      }
+    },
+    {
+      "name": "A",
+      "core": "gemini-2.5-flash",
+      "state": [
+        {
+          "name": "k",
+          "type": "bool",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "L_exit_check",
+      "core": "gemini-2.5-flash"
+    }
+  ]
+}

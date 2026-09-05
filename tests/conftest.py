@@ -16,11 +16,19 @@ ADR-003（DP-COMMON-09）の constraints「横断契約テストの置き場は 
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+#: 書き込み権限で「消せない / 書けない」状態を作るテストは root では空虚になる（root は権限を無視する）。
+#: `geteuid` の無い OS（Windows）も同じ理由で skip。1 か所に置く（F-W-P2-202 / F-V-P2-205: 2 定義が逆に振る舞っていた）。
+requires_non_root = pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root（または geteuid の無い OS）ではパーミッションによる拒否を再現できない",
+)
 
 #: モデルにならない（= fmt できない）診断コード。docs/spec/diagnostics.md §6。
 UNFORMATTABLE_CODES = frozenset({"JIN001", "JIN002"})
@@ -56,8 +64,20 @@ def error_fixture_paths() -> list[Path]:
 
 
 @pytest.fixture(scope="session")
-def formattable_paths(example_paths: list[Path], error_fixture_paths: list[Path]) -> list[Path]:
-    """examples + モデルになる fixture（= JIN001 / JIN002 以外）。"""
-    return example_paths + [
-        p for p in error_fixture_paths if fixture_code(p) not in UNFORMATTABLE_CODES
-    ]
+def build_error_fixture_paths() -> list[Path]:
+    """`jin check` は通るが `jin build` が落とす構造（Phase 2・全部モデルになる）。"""
+    return sorted((REPO_ROOT / "tests" / "fixtures" / "build-errors").glob("*.jin"))
+
+
+@pytest.fixture(scope="session")
+def formattable_paths(
+    example_paths: list[Path],
+    error_fixture_paths: list[Path],
+    build_error_fixture_paths: list[Path],
+) -> list[Path]:
+    """examples + モデルになる fixture（= JIN001 / JIN002 以外）+ build-errors（wiring review F-W-P2-004）。"""
+    return (
+        example_paths
+        + [p for p in error_fixture_paths if fixture_code(p) not in UNFORMATTABLE_CODES]
+        + build_error_fixture_paths
+    )

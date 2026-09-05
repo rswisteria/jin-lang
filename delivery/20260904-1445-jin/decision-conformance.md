@@ -1,7 +1,12 @@
 # 決定整合性チェック（decision-conformance-check）
 
-実行日時: 2026-09-04T07:25+00:00 / 対象: `delivery/20260904-1445-jin/{requirements.json, design.yaml, implementation-plan.json}`
-実装ラウンド: **1 / 5（Jin Phase 0 + Phase 1）**
+実行日時: 2026-09-04T07:25+00:00（ラウンド 1）/ **2026-09-05T10:30+00:00（ラウンド 2・Phase 2 追記）** / 対象: `delivery/20260904-1445-jin/{requirements.json, design.yaml, implementation-plan.json}`
+実装ラウンド: **1 / 5（Jin Phase 0 + Phase 1）→ 2 / 5（Jin Phase 2・jin-adk）**
+
+> **ラウンド 2（Phase 2）の追記方針**: ラウンド 1 が `out_of_scope` にした行のうち Phase 2 で実装対象になった
+> DP-COMMON-14（トレース行）/ DP-COMMON-15 / DP-JIN-CODEGEN-RUNTIME-01 / DP-JIN-TRACE-POINTER-01 を
+> 同じ表の中で **constraint 1 行ずつ**に分解して reflected / not_reflected へ潰した（行頭に「**P2**」）。
+> ラウンド 1 の判定（`out_of_scope` 4 行）はそのまま残し、その直下に P2 行を並べる（修正ラウンド 1 で復元・F-V-P2-007）。
 
 > **本ラウンドの照合範囲**: `decision_record[]` は requirements.json 3 件 + design.yaml 17 件の計 20 件。
 > このうち Jin Phase 0 / Phase 1 のコードに触れる DP だけを `reflected` / `not_reflected` で判定し、
@@ -29,23 +34,40 @@
 | DP-JIN-SEMANTIC-GAPS-01 | 要件書 §2.4 の診断コード表への追加であり、仕様変更として人間の承認を要する | condition | 構造化 | **reflected（承認は未取得・明示済み）** | `docs/spec/diagnostics.md` §3 が正典表（12 件）と**別の表**として分離され、冒頭に「⚠️ まだ人間が承認していない」と明記。`tests/spec/test_spec_consistency.py::test_diagnostics_proposed_codes_are_exactly_two` が 2 件に固定。承認要求は本ラウンドの確認要求ブロック（`implementation-notes.md` §確認要求）で親へ返した |
 | DP-JIN-SEMANTIC-GAPS-01 | 追加後は `docs/spec/diagnostics.md` と `schemas/jin.schema.json` の整合を取り直すこと | condition | 構造化 | **reflected** | JIN012 / JIN013 は**意味検査の診断**であり JSON Schema の語彙を変えない（スキーマは構造の契約で、参照グラフの性質は表現できない）。したがって `schemas/jin.schema.json` に変更は不要。この判断自体を `docs/spec/diagnostics.md` §1 の「段 3」定義に明記している |
 | DP-COMMON-14 | stdio モードでは stdout に JSON-RPC 以外のいかなる出力も行わない | scope | 構造化 | **out_of_scope** | LSP は Phase 4。本ラウンドに stdio トランスポートは無い |
-| DP-COMMON-14 | トレース JSONL は要件書 §3.4 のスキーマに従う成果物であり、ログとして扱わない | scope | 構造化 | **out_of_scope** | トレースは Phase 2 |
+| DP-COMMON-14 | トレース JSONL は要件書 §3.4 のスキーマに従う成果物であり、ログとして扱わない | scope | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。直下の **P2** 行で潰した） | トレースは Phase 2 |
+| **P2** DP-COMMON-14 | トレース JSONL は要件書 §3.4 のスキーマに従う成果物であり、ログとして扱わない | scope | 構造化 | **reflected** | `packages/jin-adk/src/jin_adk/trace.py:35-38`（`TRACE_FIELDS` / `KINDS` = §3.4）。JSONL は `--trace` 指定時だけ `TraceWriter(sink=...)` が書く（`trace.py:236-262`）。ログ（ADK の logging・pointer 未解決の理由・件数）は `jin_cli/main.py` の `run` が **stderr** へ（`err=True`）。stdout は 1 行 1 イベントの人間向け表示で JSONL とは別物。`tests/spec/test_spec_consistency.py::test_trace_kinds_table_matches_the_implementation` が §3.4 の 5 種と一致することを固定 |
 | DP-COMMON-14 | ログレベル・フォーマット・ローテーションの方針は本判断では確定しない。実装 Phase 4 で決定し根拠を残す | condition | 構造化 | **out_of_scope** | Phase 4 で確定する。本ラウンドでは決めていない（勝手に先取りしていないことが遵守） |
 | DP-COMMON-07 | last-good モデルの保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込める | scope | 構造化 | **reflected（先取りしない形で）** | `jin_core` にキャッシュ層を一切置いていない。`check_text` は毎回フル再計算する純関数（`check.py:164-197` の `check_text`）。保持は Phase 4 の jin-lsp が持つ |
 | DP-COMMON-07 | `jin_core` / `jin_render` はキャッシュの存在を知らない純関数のままとし、内部に状態を持たない | scope | 構造化 | **reflected（修正ラウンド 1 で成立させた）** | 修正ラウンド 1 より前は `resolve=True` のとき `jin_core.semantic._import_ref` が `importlib.import_module` を呼び、`sys.modules` というプロセス全体の可変状態を書き換えていた（同じ入力で 2 回目が別の結果になりうる = 純関数ではない）。security review S14 の指摘どおり、当時の「reflected」は**実態と乖離していた**。現在は import 実装を `jin_cli.resolver.ImportResolver` へ移し、`jin_core` は `RefResolver` プロトコルを受け取るだけになった（`jin_core/resolver.py`）。`jin_core` にモジュールレベルの可変状態は無く、モジュール定数は `parser._PARSER`（Lark の文法オブジェクト・不変）と各種の定数辞書のみ |
 | DP-COMMON-07 | SVG はキャッシュしない | scope | 構造化 | **out_of_scope** | jin-render は Phase 3 |
-| DP-COMMON-15 | `.env.example` のキー名は実装 Stage 1 の実測に委ねる / 推測で書かない / 実測できなければコメントのみ | condition, prohibition | 構造化 | **out_of_scope** | `.env.example` を出すのは `jin build`（Phase 2 / FR-ADK-001）。本ラウンドで `.env.example` は生成していない（実測: `find . -path ./.venv -prune -o -name '.env*' -print` → 0 件）。**キー名を推測で書いていない**という禁止事項は遵守 |
+| DP-COMMON-15 | `.env.example` のキー名は実装 Stage 1 の実測に委ねる / 推測で書かない / 実測できなければコメントのみ | condition, prohibition | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。直下の **P2** 行で潰した） | `.env.example` を出すのは `jin build`（Phase 2 / FR-ADK-001）。本ラウンドで `.env.example` は生成していない（実測: `find . -path ./.venv -prune -o -name '.env*' -print` → 0 件）。**キー名を推測で書いていない**という禁止事項は遵守 |
+| **P2** DP-COMMON-15 | `.env.example` のキー名は本判断では確定しない。実装 Stage 1 で google-adk 2.8.0 が読む環境変数名を実測し、その実測値のみをテンプレートに固定する | condition | 構造化 | **reflected（値を確定・§2.13）** | 実測した 4 キーだけを `packages/jin-adk/src/jin_adk/codegen.py` の `_env_example`（`GOOGLE_GENAI_USE_ENTERPRISE` / `GOOGLE_API_KEY` / `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`）に固定。出典（file:line）を `.env.example` 本文にも書く。`packages/jin-adk/tests/test_codegen.py::test_env_example_lists_only_measured_keys` が集合一致を固定 |
+| **P2** DP-COMMON-15 | 推測・記憶・一般論に基づくキー名を `.env.example` に書かない（T-002） | prohibition | 構造化 | **reflected** | 4 キーはすべて site-packages の grep / 読解に出典がある（§2.13 の表）。`GEMINI_API_KEY`（google-genai が読む）は **書いていない**: `adk create` が書かないキーであり、`GOOGLE_API_KEY` が優先されるため（`_api_client.py:136-140`）。コメントで読み手の出典だけ示した |
+| **P2** DP-COMMON-15 | 実測できなかった場合は `.env.example` をコメントのみで生成し、`docs/pending-decisions.md` に残す | condition | 構造化 | **reflected（該当なし）** | 実測できたので pending 起票は不要。条件分岐は発生していない |
+| **P2** DP-COMMON-15 | テストは `.env` / API キー / ネットワークを必要としない（NFR-TEST-001） | scope | 構造化 | **reflected** | Phase 2 の全テスト（jin-adk 130 件 / CLI 29 件 / 契約 3 件）は `FakeLlm`（`jin_adk/fake_llm.py`）で動き、`.env` を読まない。`test_fake_llm.py::test_fake_llm_never_imports_a_network_client` が HTTP クライアントの import が無いことを固定。実測: `uv run pytest` はネットワーク無しで 695 passed（修正ラウンド 1 後は 770 passed・jin-adk 178 / CLI 42 / 契約 4 + guard 21） |
 | DP-COMMON-16 / 17 / 18 / 19 / 20 | エディタ側の各制約（選択の 3 つ組保持 / JSON-RPC ラッパ / SPA 構成 / 5 状態 / テスト 2 層） | 各種 | 構造化 | **out_of_scope** | `apps/editor` は Phase 5–6 |
-| DP-JIN-CODEGEN-RUNTIME-01 | FakeLlm を生成物に埋め込まない / 生成物は jin を import しない / StateCheckAgent 重複の扱いは Phase 2 で決定 / 再生成が必要な旨を明示 | 各種 | 構造化 | **out_of_scope** | jin-adk は Phase 2 |
-| DP-JIN-TRACE-POINTER-01 | 対応表を生成物に埋め込まない / 引けないイベントは pointer を null にする / 単体 adk run では pointer が付かない旨を明示 | 各種 | 構造化 | **out_of_scope** | Phase 2 |
+| DP-JIN-CODEGEN-RUNTIME-01 | FakeLlm を生成物に埋め込まない / 生成物は jin を import しない / StateCheckAgent 重複の扱いは Phase 2 で決定 / 再生成が必要な旨を明示 | 各種 | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。直下の **P2** 行で潰した） | jin-adk は Phase 2 |
+| **P2** DP-JIN-CODEGEN-RUNTIME-01 | FakeLlm は生成物に埋め込まず jin_adk 側に置く（生成された agent.py に FakeLlm は現れない） | scope | 構造化 | **reflected** | FakeLlm は `packages/jin-adk/src/jin_adk/fake_llm.py` だけ。差し替えは実行時に `jin_adk/runtime.py:134-141` の `swap_models` が agent 木を走査して行う。`test_codegen.py::test_generated_code_does_not_mention_fake_llm` がスナップショット対象 2 本で固定。変異 `RUN-no-agenttool-swap` で赤を実測 |
+| **P2** DP-JIN-CODEGEN-RUNTIME-01 | 生成された agent.py は jin パッケージを一切 import しない | scope | 構造化 | **reflected** | テンプレート `packages/jin-adk/src/jin_adk/templates/agent.py.j2` の import は `google.adk.*` / `json` / `collections.abc` と `.jin` の `ref` だけ。`test_codegen.py::test_generated_code_does_not_import_jin` が AST で固定 |
+| **P2** DP-JIN-CODEGEN-RUNTIME-01 | flow.exit を持つ circle が複数ある場合の StateCheckAgent 重複定義の扱いは Phase 2 で決定し根拠を残す | condition | 構造化 | **reflected（値を確定・§2.20）** | **1 ファイルに 1 クラス定義、loop ごとにインスタンス**（`<circle 名>_exit_check`）。`codegen.py` の `generate` は `has_exit` で定義を 1 回だけ出し、`_emit_checker` が loop ごとに出す。`test_codegen.py::test_state_check_agent_is_embedded_once_and_instantiated_per_loop` が固定。根拠は `docs/spec/adk-mapping.md` §2.3 |
+| **P2** DP-JIN-CODEGEN-RUNTIME-01 | StateCheckAgent の実装変更は既存の生成物に反映されないため、再生成が必要である旨を生成物のヘッダまたは README に明示する | condition | 構造化 | **reflected** | 生成物ヘッダ（`codegen.py` `_header`）の「StateCheckAgent（flow.exit）は生成時に埋め込まれたコピーで … `jin build` で再生成すること（ADR-008）」。`test_codegen.py::test_header_states_regeneration_and_pointer_limits` が文言を固定（変異 `ADR8-header` で赤を実測） |
+| DP-JIN-TRACE-POINTER-01 | 対応表を生成物に埋め込まない / 引けないイベントは pointer を null にする / 単体 adk run では pointer が付かない旨を明示 | 各種 | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。直下の **P2** 行で潰した） | Phase 2 |
+| **P2** DP-JIN-TRACE-POINTER-01 | 対応表を生成物（agent.py）に埋め込まない。生成コードは Jin を知らないままとする | scope | 構造化 | **reflected** | 対応表は `codegen.py` の `PointerMap`（`GeneratedProject.pointers`）として生成物とは別のオブジェクト。実行時は `trace.py` の `RuntimeTable` が引く。`test_codegen.py::test_pointer_map_is_not_embedded_in_the_generated_code`（`/circles/` が agent.py に無い）で固定 |
+| **P2** DP-JIN-TRACE-POINTER-01 | 引けなかったイベントは pointer を null にして黙って落とさず、対応不能であることを明示する（NFR-FAIL-001） | condition | 構造化 | **reflected** | `trace.py:108-143` の各 lookup が None を返しつつ `RuntimeTable.unresolved` に理由を積む。行は落とさない（`classify` は必ず行を返す）。CLI は `jin_cli/main.py` `run` の末尾で理由を stderr に出す。`test_trace.py::test_unknown_author_gets_a_null_pointer_not_a_dropped_row` / `::test_unknown_tool_name_gets_a_null_pointer` / `::test_duplicate_tool_names_inside_one_agent_are_reported_as_unresolvable`。変異 `TRACE-drop-unknown` / `TRACE-dup-first-wins` で赤を実測 |
+| **P2** DP-JIN-TRACE-POINTER-01 | 生成物を jin run を経由せず単体で adk run した場合はトレースの pointer が付かない。この制約をドキュメントに明示する | scope | 構造化 | **reflected** | 生成物ヘッダ（`_header`）/ `docs/spec/adk-mapping.md` §2.4 / `README.md` の 3 箇所。ヘッダは `test_header_states_regeneration_and_pointer_limits` が固定（変異 `ADR9-header` で赤を実測） |
 | DP-JIN-SVG-DETERMINISM-01 | 丸め桁数は Phase 3 で決定し根拠を `docs/spec/layout.md` に残す / 推測値を固定しない / 決定性テストは別プロセス 2 回 / 星形 {n/k} の k を Phase 0 の layout.md で一意に明文化 / 座標は丸め関数 1 本を通す | 各種 | 構造化 | **一部 reflected・残りは out_of_scope** | **Phase 0 の担当分は本ラウンドで実施**: 星形 {n/k} の k の決め方を `docs/spec/layout.md` §2.1 で `k = max{ j : 1 <= j < n/2 かつ gcd(n, j) == 1 }` として一意に明文化した。**丸め桁数は書いていない**（Phase 3 で決める旨を layout.md §4 に明記・推測値を固定しない禁止事項を遵守）。丸め関数と決定性テストは Phase 3 |
 | DP-JIN-EDITOR-PROTOCOL-01 | `jin/open` / `jin/save` は仮称であり Phase 0 の `docs/spec/ops.md` 執筆時に人間承認を得て確定する / ws モードのエディタだけが使う / ファイル I/O 失敗はプロトコルエラー / 逆オペレーションの扱いは Phase 4 | 各種 | 構造化 | **reflected（Phase 0 担当分）** | `docs/spec/ops.md` §5 に「リクエスト名は仮称であり人間承認を要するため §2 の 19 件の表に含めていない」と明記。19 件の表を勝手に 21 件にしていない |
 | DP-JIN-PHASE-SCOPE-01（requirements.json） | 本ランのスコープは Phase 0〜6 | — | 構造化 | **reflected** | 本ラウンドは Phase 0 + 1。Phase 2 以降は後続ラウンドの implementer が担当（親の指示どおり着手していない） |
 | DP-JIN-EDITOR-UX-01 / DP-JIN-DISTRIBUTION-01（requirements.json） | エディタ最小 UI / 配布元 | — | 構造化 | **out_of_scope** | Phase 5 / 配布は本ラウンドの対象外 |
 
-**判定サマリ**: reflected 14 / 部分 reflected 1 / not_reflected 0 / unknown 0 / out_of_scope 13
+**判定サマリ（ラウンド 1）**: reflected 14 / 部分 reflected 1 / not_reflected 0 / unknown 0 / out_of_scope 13
 → **PASS**（`not_reflected` と `unknown` はゼロ。「部分 reflected」1 件は apps/editor 未存在が理由で、
 未対応であることをテストで可視化してある）
+
+**判定サマリ（ラウンド 2・Phase 2 追記分）**: ラウンド 1 の `out_of_scope` 4 行を 12 の constraint 行へ分解し、
+reflected 12（うち値を確定 2）/ not_reflected 0 / unknown 0。残る `out_of_scope` は Phase 3〜6 の行
+（DP-COMMON-11 の apps/editor / DP-COMMON-14 の stdio・ログ方針 / DP-COMMON-07 の SVG / DP-COMMON-16〜20 /
+DP-JIN-SVG-DETERMINISM-01 の Phase 3 分 / DP-JIN-EDITOR-UX-01 / DP-JIN-DISTRIBUTION-01）→ **PASS**
 
 ## 2. 本ラウンドで**値を確定した**実装判断（親からの明示指示）
 
@@ -368,6 +390,170 @@ job env の `UV_LOCKED` が**打ち消されていた**。実測（2026-09-04・
 ことだけで、特定の版番号は固定していない。**版を上げてもテストは緑のまま通る**ので、
 上げるときは上の 2 コマンドの再実測が人間側の責務になる。
 
+### 2.13 `.env.example` のキー名（DP-COMMON-15・ラウンド 2 で値を確定）
+
+| 決めた値 | 出典（google-adk 2.8.0 / google-genai の site-packages・2026-09-05 実測） |
+|---|---|
+| `GOOGLE_GENAI_USE_ENTERPRISE`（`0` / `1`） | 書く側: `google/adk/cli/cli_create.py:127-129`。読む側: `google/adk/utils/env_utils.py:63-79`（`GOOGLE_GENAI_USE_VERTEXAI` は deprecated と警告） |
+| `GOOGLE_API_KEY` | 書く側: `cli_create.py:131`。読む側: `google/genai/_api_client.py:136`（`GEMINI_API_KEY` と両方あれば `GOOGLE_API_KEY` 優先・`:137-140`） |
+| `GOOGLE_CLOUD_PROJECT` | 書く側: `cli_create.py:133`。読む側: `google/adk` 内 `environ.get("GOOGLE_CLOUD_PROJECT")` 9 箇所（grep） |
+| `GOOGLE_CLOUD_LOCATION` | 書く側: `cli_create.py:135`。読む側: 同 8 箇所 |
+
+配置: Gemini API 用の 2 行（`GOOGLE_GENAI_USE_ENTERPRISE=0` / `GOOGLE_API_KEY=`）を有効行、Vertex 用の 3 行をコメント行にした。
+これは `adk create` が「API キーなら `USE_ENTERPRISE=0` + `GOOGLE_API_KEY`、Vertex なら `USE_ENTERPRISE=1` + project + location」と
+書き分ける実装（`cli_create.py:126-135`）をそのまま写したもの。`.env` の読み方（`<out>/<root_name>` から親へ辿る・
+`google/adk/cli/utils/envs.py:53-74`）から、要件書 §3.1 の `<out>/.env.example` の位置で効くことも確認した。
+
+### 2.14 `flow.exit` の等値比較（DP-JIN-CODEGEN-RUNTIME-01 の派生・要件書に規定が無い）
+
+実測: `LlmAgent.output_key` は LLM の応答テキストを **str** で `session.state` に入れる（`llm_agent.py:1005-1045`・
+`{'approved': 'true'}`）。`equals: true` を `state["approved"] == True` で比べても成立しない。
+
+決めた規則（`docs/spec/model.md` §3.4 の `flow-exit-equality` 表 / 実装は生成物内 `_state_matches` の 1 箇所）:
+文字列は前後の空白を除き、`equals` が str なら文字列比較、bool / number なら **JSON として読んで同じ JSON 型で比較**
+（`"true"` = `true`、`"3.0"` = `3`。`"True"` / `"1"` は `true` に一致しない）。JSON として読めない文字列は不一致。
+文字列以外の値（ツールが state に入れた bool / number）は型を保ったまま比較。
+
+根拠: (a) `output_key` に入るのは常に文字列なので「文字列を JSON として読む」しか型を回復する手段が無い、
+(b) `"True"` / `"1"` を true に寄せる緩い規則は「LLM が何を返せば終わるか」を曖昧にし、`.jin` の `equals` の型が意味を失う、
+(c) 厳密に JSON 型で比べれば `equals` の 4 型（bool / int / float / str）それぞれに一致・不一致の例を機械で固定できる
+（`test_runtime.py::test_state_matches_semantics` 16 ケース）。**要件書に規定が無い値**なので人間確認を
+`implementation-notes.md` Phase 2 節の HANDOFF（Q-JIN-P2-02・non-blocking）に載せた。
+
+### 2.15 `research.*` スタブの供給方法（Issue #3 の罠 1）
+
+`examples/researcher/researcher.jin` の `ref`（`research.tools:web_search` など）はリポジトリに実体が無い。
+examples の `ref` は書き換えず、`tests/fixtures/stubs/research/{__init__,tools,guards}.py` を作り、テストが
+`sys.path`（in-process: `monkeypatch.syspath_prepend`）/ `PYTHONPATH`（実バイナリ: `tests/contract/test_cli_contract.py`）で
+供給する。スタブは import されるだけでは何もしない（副作用なし・ネットワークなし）。本物の `jin run` は利用者の
+cwd / `PYTHONPATH` の `research.*` を import する（`docs/spec/adk-mapping.md` §6・README）。
+
+### 2.16 import-linter の `layers`（Issue #3 の罠 5）
+
+`"jin_adk | jin_render"` は import-linter 2.14 で `Missing layer 'jin_render': module jin_render does not exist.` EXIT 1 になる
+（`scratchpad/lintprobe` で実測・`version-matrix.md` §8.3 #14）。Phase 2 は `["jin_cli", "jin_adk", "jin_core"]` と書き、
+Phase 3 で `|` 結合する旨を `pyproject.toml` のコメントに残した。契約テスト
+`test_layers_contract_keeps_sibling_packages_in_one_element` は「片方しか無いペア」を素通しにするので緑（設計どおり）。
+`lint-imports` は `Analyzed 50 files, 139 dependencies` / 3 kept（骨格 `jin_adk/__init__.py` だけの時点で 36 files だったので、Phase 1 末は 35 files。jin_adk の 7 モジュール + 生成テンプレート読込で 14 files 増）。
+
+### 2.17 `jin build` は ruff format を後処理で実行しない（Issue #3 の罠 4）
+
+テンプレートの出力を最初から整形済みの形（4 スペース / 1 引数 1 行 / 複数行 rune は暗黙連結）にし、
+後処理を置かない。理由: (a) ruff を runtime 依存に足すと `jin-adk` を入れる全環境に ruff が要る、
+(b) ruff の implicit-concat 結合で複数行 rune の可読な形が 1 行に畳まれ、diff しやすさ（NFR-GEN-001）が落ちる、
+(c) 生成物の安定性はスナップショット（syrupy）と別プロセス・別 `PYTHONHASHSEED` のバイト一致
+（`tests/contract/test_cli_contract.py::test_build_output_is_byte_identical_across_processes_with_different_hash_seeds`）で
+担保できる。よって `jin-adk` の runtime 依存は `google-adk` / `jinja2` / `jin-core` の 3 つだけ。
+
+### 2.18 `jin run` は宣言済み state を `None` で seed する（実測に基づく）
+
+実測: `instruction` の `{key}` が session.state に無いと ADK 2.8.0 は `KeyError` で実行を落とす
+（`instructions_utils.py:174`）。`examples/researcher` の `{findings}` は自分の `output_key` なので初回は必ず未設定。
+machine 条件 5（`jin run --model fake` が examples 2 本で exit 0）に直撃するので、`jin run` は `.jin` が宣言した
+全 circle の `state[].name` を `None`（ADK は空文字で描画・実測）で seed する（`runtime.py:158-159`）。
+**生成物を `adk run` で単体実行したときには効かない**（human_only の観点として `implementation-notes.md` に明記。
+HANDOFF Q-JIN-P2-01）。
+
+### 2.19 `jin run` は cwd を `sys.path` の末尾に足す（修正ラウンド 1 で先頭 → 末尾へ。DP-IMPL-JIN-P2-SYSPATH-01 → **修正ラウンド 2 で import 窓へ**・下の注記）
+
+console script は cwd を `sys.path` に含めないため、`jin run examples/...` を直接叩くと `research` が見つからない
+（`PYTHONPATH` を渡せば動く）。`adk run` と同じ「カレントディレクトリのモジュールを import できる」体験にするため
+`jin_cli/main.py` の `run` が `sys.path.insert(0, os.getcwd())` する（`guard: run -> sys.path.insert`）。
+`jin run` は元々任意コード実行であり、cwd の追加が攻撃面を広げるわけではない（同じ相手が `ref` を書く）。
+`test_build_run.py::test_run_adds_cwd_to_sys_path` が固定。
+
+> **修正ラウンド 1 の注記（F-S-P2-003）**: 上の「攻撃面を広げるわけではない（同じ相手が `ref` を書く）」は**不正確**だった。
+> `ref` を 1 つも持たない `.jin` でも、ADK が実行中に遅延 import する名前（`authlib` / `requests` …）が cwd にあれば実行される
+> （security reviewer の実測。`pipeline.jin` + cwd の `authlib/__init__.py`）。`.jin` 作者と cwd の支配者は別人でありうる。
+> **撤回**: 「攻撃面を広げるわけではない（同じ相手が `ref` を書く）」は撤回する。
+>
+> **決定（DP-IMPL-JIN-P2-SYSPATH-01・auto-decider の再判断・`implementation-plan.json` の decision_record）**: `sys.path.append(cwd)`
+> （末尾）。site-packages にある名前（`authlib` / `requests` / `google.*` …）は本物が先に解決され、cwd で解決されるのは
+> 「どこにも無い名前」= `research.*` のような `ref` 先だけになる。`jin_cli/main.py` の `run` が行い（`hazard: run -> sys.path.append`）、
+> `run_model` は触らない。
+>
+> **残存（明記）**: ADK が任意依存として遅延 import する**未インストール**の名前（`mcp` など。`_resolve_builtin` が不正な
+> `builtin` 名を受けたとき `__all__` の全名を `getattr` する経路は `generate()` 内 = cwd 追加後に踏む）は、末尾でも cwd から
+> 解決される。したがって「信頼しないディレクトリを cwd にして `jin run` しない」という利用者向けの防御線は末尾にしても必要で、
+> CLAUDE.md / README / adk-mapping.md §6 に残す。
+>
+> 固定: `test_build_run.py::test_run_adds_cwd_to_sys_path`（含まれる・先頭ではない）/ `tests/contract/test_cli_contract.py::test_cwd_cannot_shadow_an_installed_package_in_a_real_process`
+> （cwd の `authlib/__init__.py` が走らない = F-S-P2-003 の再現入力）。変異 `CLI-no-cwd` / `CLI-cwd-first`。
+>
+> **修正ラウンド 2 の注記（F-S-P2-101・DP-IMPL-JIN-P2-SYSPATH-01 の再々判断・2026-09-05）**: `append` でも足りなかった。
+> google-adk 2.8.0 は LLM 要求のたびに**未インストール**の任意依存（`anthropic` / `openai` / `a2a` / `bcrypt` / `simplejson` /
+> `chardet` / `socks`）を遅延 import しようとする（`google/adk/models/contents.py` → `anthropic_llm.py`・`ImportError` は握りつぶす）ので、
+> `ref` を持たない `pipeline.jin` でも cwd の `anthropic/__init__.py` が Runner 実行中に走る（reviewer の実測・末尾でも）。
+> 経緯: `insert(0)`（ラウンド 2）→ `append`（修正ラウンド 1）→ **import 窓**（修正ラウンド 2）。
+>
+> **決定（chosen）**: cwd を**生成モジュール（`agent.py`）の import の間だけ** `sys.path` の末尾に足し、import が終わったら
+> （例外時も）`finally` で必ず取り除く。`jin_adk.runtime.load_generated` / `run_model_async` / `run_model` が `extra_sys_path` を受け、
+> `_sys_path_window` が `_import_agent_module` の前に append・`finally` で remove する（元から `sys.path` にある値は足さないし
+> 取り除かない）。CLI の `run` は `[os.getcwd()]` を渡すだけで `sys.path` を触らない。`jin build` / `jin check --resolve` / `jin_core` も触らない。
+> `hazard: _sys_path_window -> sys.path.append` / `guard: _sys_path_window -> sys.path.remove`（`main.py` の `hazard: run -> sys.path.append` は消えた）。
+>
+> **「攻撃面を広げない（同じ相手が `ref` を書く）」の書き直し**: この主張は **import 窓の中に限って**成り立つ。窓の中で cwd から解決されるのは
+> `ref` 先と、`builtin` を import するときに `google.adk.tools` が遅延 import する未インストール名（`mcp` など）であり、どちらも
+> `.jin` 作者が書く `ref` / `builtin` に由来する。Runner 実行中は cwd が `sys.path` に無いので、`.jin` 作者と無関係に ADK が
+> 遅延 import する名前は cwd から解決されない。
+>
+> **残存（明記）**: (1) import 窓の間は cwd のモジュール（`ref` 先・`builtin` の遅延 import 先）がこのプロセスの権限で実行される。
+> 「信頼しないディレクトリを cwd にして `jin run` しない」「`jin run` は自分が中身を確認した `.jin` にだけ使う」（CLAUDE.md に
+> `jin run` を名指し）は維持。(2) `ref` 先のモジュールが自分の関数の中で**実行時に**遅延 import する名前は cwd から解決できない
+> （`PYTHONPATH` に委ねる。CLAUDE.md / README / adk-mapping.md §6 に明記）。
+>
+> 固定: `test_build_run.py::test_run_adds_cwd_to_sys_path`（**import 中は `research.*` を解決でき、実行後は cwd が `sys.path` に含まれない**。
+> `_import_agent_module` を包んで窓の中の `sys.path` を観測）/ `test_runtime.py::test_extra_sys_path_is_present_only_during_the_import`
+> （`yield` 時点で無い・元からある値は触らない・import 失敗でも外す）/ `tests/contract/test_cli_contract.py::
+> test_cwd_cannot_supply_an_uninstalled_optional_dependency_during_the_run`（**`anthropic/` 版・別プロセス**。`anthropic` が
+> 未インストールであること（skipif）と ADK が実行中に `anthropic` を遅延 import することに依存する = F-W-P2-102 の明記）。
+> 変異 `CLI-no-cwd`（`extra_sys_path=[]`）/ `RUN-cwd-stays-after-import`（`finally` の remove を消す → 3 件赤・`anthropic` 版を含む）/
+> `RUN-cwd-first`（`insert(0)`）。旧 `CLI-cwd-first` は `RUN-cwd-first` に移した。
+> （修正ラウンド 3・F-V-P2-204: `test_run_adds_cwd_to_sys_path` は `test_cwd_is_on_sys_path_only_while_importing_the_generated_module` に改名。上の記述は改名前の名前）`authlib` 版の契約テストは「インストール済み名は
+> 窓の中でも本物が先」の記録として残す（`RUN-cwd-stays-after-import` には反応しない・docstring に明記）。
+
+### 2.20 StateCheckAgent の重複（ADR-008 の condition）
+
+1 ファイルに 1 クラス定義 + loop ごとにインスタンス（§1 の表参照）。毎回展開する案を採らなかった理由: 同名クラスの
+再定義は Python では合法だが、生成物の diff（NFR-GEN-001）で「どの定義が生きているか」が読みにくい。1 定義にしても
+生成物の自己完結性（ADR-008 案 A の趣旨）は変わらない。
+
+### 2.21 トレースの `final` と `escalate` の定義（要件書 §3.4 の enum を埋めた）
+
+要件書は kind の 5 種を列挙するだけで判定規則を書いていない。`docs/spec/adk-mapping.md` §2.4 の `trace-kinds` 表に決めた:
+`final` は実行全体の最後の行が `model` だったときだけその行を付け替える（`TraceWriter` の 1 行遅延）。
+`escalate` は StateCheckAgent の判定イベントを**一致しなかった回も**含む（`output.matched` で区別）。
+ストリーミングの `partial` イベントは行にしない。`tests/spec/...::test_trace_kinds_table_matches_the_implementation` が
+表と実装の集合一致を固定。人間の期待と違いうるので HANDOFF Q-JIN-P2-05 に載せた。
+
+### 2.22 トレース JSONL は 0600 で作る（修正ラウンド 1・F-S-P2-008）
+
+`--trace` の出力にはツール引数・state の実値・モデル出力が入る。DP-COMMON-14 の axis「秘密情報（プロンプト・モデル出力）の扱い」に
+照らし、既定を所有者のみ（`0o600`）にして、緩めるのは利用者の `chmod` に委ねる。`jin build` の生成物（コード・共有前提）が 0644 なのとは
+性質が違う。~~既存ファイルへ書く場合はモードを変えない（`O_CREAT` の mode は新規作成時にだけ効く）。~~
+**修正ラウンド 2（F-C-P2-103）で変更**: 既存ファイルでも `os.fchmod(fd, 0o600)` で所有者のみに絞る。前回 0644 で作った
+（ラウンド 0 の生成物など）トレースを指定し直すと今回のツール引数・state が world-readable のまま書かれ、「0600 で作る」が
+新規作成時にしか成り立たなかった。利用者が名指しした先でも中身の性質は同じなので安全側に倒す（緩めるのは利用者の `chmod`）。
+`guard: _open_trace -> os.fchmod`。
+`test_build_run.py::test_trace_file_is_created_owner_only` / `::test_existing_trace_file_is_made_owner_only` /
+変異 `CLI-trace-world-readable`（`fchmod` の mode を 0644 に → 両テスト赤）/ `CLI-trace-keep-existing-mode`（`fchmod` を消す → 既存版が赤）。
+
+### 2.23 修正ラウンド 1 で決めた挙動（レビュー finding への回答・人間判断は不要と判断した根拠つき）
+
+| 論点 | 決めた挙動 | 根拠 |
+|---|---|---|
+| circle 名の NFKC（F-S-P2-002） | 正規形でない名前は **拒む**（正規化して通さない） | 正規化して通すと `.jin` の名前と ADK の agent 名・生成コードの変数名がずれ、トレースの `agent` と `.jin` が一致しなくなる。拒めば書き手が直すだけ |
+| `ref` の callable 名が builtin 名と同じ（F-C-P2-001） | builtin 名を `taken` に入れて **別名 import**。同じ circle 内なら ADK ツール名の重複として BuildError | 別 circle なら実害が無い（ADK のツール名は agent ごと）。同 circle は `FunctionTool.name == func.__name__` で衝突するので生成しない |
+| ADK ツール名の重複（F-C-P2-002） | circle 内で `kind: tool` → callable 名 / `builtin` → 名 / `summon` → circle 名 を集計し BuildError | ADK 2.8.0 は警告だけで後勝ち（片方が呼べない）。黙って生成しない（NFR-FAIL-001）。実行時の `func.__name__` は別途 `bind_tools` が null にする |
+| root に親（F-C-P2-016） | `generate` の BuildError（参照側 pointer）。`jin check` の診断化は DP-REVIEW-JIN-P2-001 | 診断コードは増やせない（要件書 §2.4 の変更） |
+| transfer の 2 event（F-C-P2-004） | function_call 側は**行にしない**。応答側の `transfer` 行だけ | 呼び出しと応答が同じ意味（転送）で、`tool` 行にすると `.jin` に無いツール名の null pointer になる |
+| `actions.escalate`（F-C-P2-005） | tool 行を残し、その後に `escalate`（name = author / pointer = `/circles/i`）を足す | 1 part = 1 行の原則を保つ。checker 由来（`/circles/i/flow/exit`）とは表で 2 行に分けた |
+| text + function_call（F-C-P2-007） | `model` 行 → `tool` 行の順で両方出す | テキストを捨てない |
+| error event（F-C-P2-021） | `model` 行の `output` を `{"error_code", "error_message"}` にする | 空応答の正常終了に見せない。最後の行なら `final` に付け替わるが output の形で区別できる |
+| `equals` の空白（F-C-P2-008） | 両辺 strip（対称） | DP-IMPL-JIN-P2-EXITEQ-01 の chosen「文字列は前後の空白を除き」の範囲内。表の `"yes"` = `" yes "` を対称に読む |
+| `run_model_async`（F-C-P2-019） | 公開。CLI だけが `asyncio.run` する。同期の `run_model` はループ無しの呼び出し側（テスト）用に残す | Phase 4 の pygls から呼べる形 |
+| ファイル名の入口検査（F-S-P2-001 / 005 / 016） | 制御文字 / U+2028 / U+2029 / 孤立サロゲートを含む名前は exit 2。ヘッダは `py_literal` を通す（二重） | `.jin` 本文と同じ規律（JIN002 が本文に対して行っていること）をファイル名にも適用 |
+
 ## 3. `DP-CONFORMANCE-FAIL` の起票
 
 `not_reflected` / `unknown` は **0 件**のため起票なし。
@@ -375,6 +561,8 @@ job env の `UV_LOCKED` が**打ち消されていた**。実測（2026-09-04・
 `docs/pending-decisions.md` への起票ではなくテストによる可視化（`test_editor_contract_is_not_yet_enforced`）で扱った。
 
 ## 4. Stage 5 security 軸 reviewer への引き渡し
+
+> **修正ラウンド 1**: §4.1 の表は F-S-P2-015 が指摘した「主張と実装の食い違い」（`source_name` / NFKC / cwd / `UnicodeEncodeError` 経路）を直したうえで更新した。`guard:` 記法の検査は `tests/contract/test_guard_claims.py` に移り、`packages/*/src` を走査する（列挙しない）。危険な操作の所在は `hazard:` タグ（F-S-P2-010）。
 
 design.yaml `review_policy.review_axes_note` が挙げる security 3 観点のうち、本ラウンドに存在するのは
 **(3) `--resolve` 指定時の Python 参照 import が任意モジュールを実行しうる点**だけである。
@@ -394,3 +582,30 @@ design.yaml `review_policy.review_axes_note` が挙げる security 3 観点の�
 - 警告文は `README.md`（専用の節）/ `CLAUDE.md`（専用の節）/ CLI ヘルプの 3 箇所に書いた（S19）
 
 (1) `jin run` の一時ディレクトリと (2) LSP の ws bind はいずれも Phase 2 / Phase 4 で、本ラウンドにコードが無い。
+
+### 4.1 ラウンド 2（Phase 2）で新たに存在する観点 (1): `jin run` の経路
+
+security reviewer に見てほしい箇所（すべて `guard:` 記法で主張を固定し、変異ハーネス
+`delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py` で赤を実測済み。修正ラウンド 1 で隔離コピー上の変異に改め、59 件）:
+
+| 論点 | 実装 | 固定するテスト | 変異 |
+|---|---|---|---|
+| 一時ディレクトリのパーミッション | `jin_adk/runtime.py` `load_generated`: `tempfile.mkdtemp`（0700）+ `finally` で `shutil.rmtree` | `test_runtime.py::test_load_generated_cleans_up_its_temporary_directory`（0700 を stat で確認）/ `test_build_run.py::test_run_cleans_up_the_temporary_directory` | `RUN-plain-mkdir` / `RUN-no-cleanup` |
+| `.jin` 由来の文字列が Python 式へ流れない | `jin_adk/codegen.py` `py_literal`（`json.dumps` + U+2028/2029/C1 のエスケープ）を全文字列に適用。識別子は `isidentifier()` + 予約語 + 予約名の検査。`ref` は `check_ref_format` | `test_codegen.py::test_py_literal_roundtrips`（10 種の悪い文字列）/ `::test_jin_strings_cannot_inject_statements`（生成物の AST が import と代入だけ）/ `::test_equals_of_every_json_type_is_rendered_as_a_python_literal` | `ESC-no-escape` / `ESC-repr` / `FAIL-ref-format` |
+| import 中の `SystemExit` を成功扱いにしない（Phase 1 の S2 と同型） | `runtime.py` `_import_agent_module`: `KeyboardInterrupt` 以外の `BaseException` を `RunError` へ | `test_runtime.py::test_system_exit_in_generated_code_import_is_not_swallowed` | `RUN-swallow-systemexit` |
+| **修正ラウンド 3**: ツール由来の `asyncio.CancelledError` も成功扱いにしない（F-S-P2-201 Medium / 202。round 0 から在った穴: root が LlmAgent のとき ADK `_cleanup_root_task` が root の cancel を warning で握って正常復帰し exit 0・「1 イベント」に見える） | `runtime._run_async` が function_call の id と `Event.long_running_tool_ids` を集め、`_unanswered`（応答の無い呼び出しのうち `await` の pause でないもの）があれば `RunError`。Runner から出た `CancelledError` は `asyncio.current_task().cancelling()` が 0 なら `RunError`、1（shutdown / 外からの cancel）なら再送出。CLI `run` / 同期 `run_model` に保険の `except CancelledError` → 1 行・exit 1 | `test_runtime.py::test_tool_cancelled_error_is_a_run_error_not_a_success[llm/sequence]` / `::test_await_pause_is_not_mistaken_for_a_missing_tool_response`（誤検知しない）/ `test_build_run.py::test_tool_cancelled_error_is_a_failure[llm/sequence]` / `::test_await_pause_still_exits_zero` / `::test_cli_turns_a_stray_cancelled_error_into_one_line` / `tests/contract/test_cli_contract.py::test_tool_failures_are_exit_1_without_a_traceback_in_a_real_process[cancel]`（実プロセス） | `RUN-ignore-unanswered-tool` / `RUN-await-pause-as-failure` / `RUN-cancelled-passthrough` / `CLI-cancelled-traceback` |
+| **実行中**（ツール関数の中）の `sys.exit(0)` も成功扱いにしない（**修正ラウンド 1 の回帰 F-S-P2-102**: `asyncio.run` を CLI へ出した結果、asyncio が `SystemExit` をループの外へ再送出し exit 0 になっていた） | `run_model_async` は `SystemExit` を捕まえられない（届くのは `CancelledError`。これを `RunError` にすると shutdown 中の未処理例外としてトレースバックが漏れるので再送出）。`asyncio.run` を呼ぶ側が包む: CLI `run` の `except SystemExit` → `実行に失敗しました（SystemExit: <code>）` / exit 1、同期 `run_model` → `RunError`。`SystemExit` は裸の名前なので `guard:` では主張できず、テストと変異で固定 | `test_build_run.py::test_tool_sys_exit_at_runtime_is_a_failure`（exit 1・stderr に `SystemExit`・Traceback 無し）/ `test_runtime.py::test_system_exit_in_a_tool_at_runtime_is_a_run_error`（`RunError`・一時ディレクトリを残さない・asyncio ロガーに ERROR 無し） | `RUN-swallow-systemexit-at-runtime`（CLI）/ `RUN-swallow-systemexit-in-run_model` / `RUN-cancelled-to-runerror` |
+| `jin build` が既存ファイルを黙って上書きしない / `<out>` の外へ書かない / リンクを辿らない | `jin_adk/build.py`: `dir_fd` 相対の `mkdir` / `open`、`O_CREAT \| O_EXCL`（`--force` は既存を `O_TRUNC` **なし**で開き、3 つとも開けたあとに `os.ftruncate`。open 時に切り詰めると 3 つ目で拒まれたとき前 2 つが 0 バイトで残る・Phase 1 V-1 と同型）、`O_NOFOLLOW`、`root_name` の再検査、拒否時に**今作ったものだけ**片付け（既存は無傷） **→ 修正ラウンド 2（F-S-P2-104）で `ftruncate` をやめた（次の行）** | `test_build.py` 18 件（`root_name` の `../escape` 7 種 / symlink 2 種 / 部分失敗） | `BUILD-*` 8 件（うち 2 件は二層防御の「片方だけ消しても緑」を明示） |
+| **修正ラウンド 2**: `--force` の書き込み失敗（`ftruncate` 後の `os.write` が ENOSPC）で既存 `agent.py` が 0 バイトになる（F-S-P2-104） | `build.py`: `--force` でも既存ファイルを**開かない**。同じディレクトリに `.<name>.jin-tmp` を `O_EXCL \| O_NOFOLLOW` で作って全部書き、3 つとも書けたあとに `os.replace(src_dir_fd=, dst_dir_fd=)` で差し替える（`_move_into_place`）。失敗時は一時ファイルと今作ったものだけ片付ける。既存がリンクなら `lstat` で拒む（`os.replace` はリンク自体を置き換えるので、リンク先は元々守られる）。残骸 `.jin-tmp` があれば拒む。`guard: _move_into_place -> os.replace` / `guard: _open_for_write -> stat.S_ISLNK`（`write_project -> os.ftruncate` は消えた） | `test_build.py::test_force_write_failure_keeps_the_existing_files_intact`（2 回目の `os.write` を ENOSPC・既存 3 ファイルのバイト列不変・残骸なし）/ `::test_force_succeeds_by_replacing_through_a_temporary_file` / `::test_leftover_temporary_file_is_refused_not_overwritten` / `::test_refuses_to_write_through_a_symlinked_file_even_with_force` | `BUILD-replace-early`（ファイルごとに即差し替え）/ `BUILD-truncate-in-place`（旧方式に戻す）/ `BUILD-follow-symlink`（`lstat` 判定を消す） |
+| **修正ラウンド 2**: テンプレートが使う組み込み名（`str` / `isinstance` / `ValueError` / `json` …）を circle 名にすると実行時 `TypeError`（F-S-P2-103） | `codegen.RESERVED_NAMES` に `isinstance` / `str` / `bool` / `int` / `float` / `ValueError` / `object` を追加。列挙の漏れは生成物の AST から機械で検出 | `test_codegen.py::test_reserved_names_cover_every_free_name_the_template_uses`（`_state_matches` / `StateCheckAgent` が外側に解決する名前 ⊆ `RESERVED_NAMES`・非空虚）/ `::test_reserved_generated_name_is_rejected[str/isinstance/ValueError/json]` | `FAIL-skip-validate`（既存） |
+| `--trace` の出力先 | `jin_cli/main.py` `_open_trace`: `O_NOFOLLOW` / **0600** / `O_TRUNC` 無しで開き、`_LazyTruncateSink._truncate` が最初の行の直前に `os.ftruncate`（`generate()` が通ってから開く・`BuildError` / `RunError` で前回のトレースを 0 バイトにしない・F-S-P2-006 / 008） | `test_build_run.py::test_run_does_not_follow_a_symlinked_trace_target` / `::test_failed_run_does_not_empty_an_existing_trace` / `::test_successful_run_replaces_the_previous_trace` / `::test_trace_file_is_created_owner_only` | `CLI-trace-follow-symlink` / `CLI-trace-truncate-on-open` / `CLI-trace-world-readable` |
+| `.jin` の**ファイル名**（`source_name`）が生成コードへ流れる（F-S-P2-001） | `codegen._header` が `py_literal(source_name)` を通す（改行入りの名前がコメントを文にしない）。`_EXTRA_ESCAPES` に孤立サロゲートも加えた（F-S-P2-005） | `test_codegen.py::test_source_name_cannot_inject_statements`（AST body の種類を固定）/ `::test_py_literal_roundtrips`（サロゲート・U+2028） | `ESC-header-raw-source-name` / `ESC-surrogate-passthrough` |
+| ファイル名の入口検査（F-S-P2-001 / 005 / 016） | `jin_cli/main.py` `_require_jin_file`: `_has_unsafe_chars(file.name)`（制御文字 / U+2028 / U+2029 / 孤立サロゲート）なら exit 2。表示は `_safe`（同じ集合を置換） | `test_build_run.py::test_unsafe_file_names_are_rejected_at_the_entry` | `CLI-filename-unchecked` / `CLI-safe-narrow` |
+| 識別子の NFKC（F-S-P2-002） | `codegen._check_identifier` / `build._check_root_name`: `unicodedata.normalize("NFKC", name) != name` を拒む | `test_codegen.py::test_non_nfkc_circle_name_is_rejected` / `::test_generated_assignments_bind_each_name_exactly_once` / `test_build.py::test_root_name_is_validated_again_before_touching_the_filesystem[ｒｏｏｔ＿ａｇｅｎｔ]` | `FAIL-no-nfkc` / `BUILD-root-not-nfkc` |
+| encode を open より前に（F-S-P2-005）/ `WriteRefused` 以外でも片付ける（F-C-P2-020）/ `OSError` を包む（F-S-P2-004）/ `<out>` のリンク（F-S-P2-007） | `build.write_project`: `text.encode("utf-8")` → open → `ftruncate` → `os.write` の順。片付けは `except BaseException`。`_open_out_dir` が `O_NOFOLLOW` と `WriteRefused` | `test_build.py::test_unencodable_content_is_refused_before_any_file_is_touched` / `::test_write_failure_after_open_cleans_up_only_what_it_created` / `::test_out_that_is_a_regular_file_is_refused_without_a_traceback` / `::test_out_itself_is_not_followed_when_it_is_a_symlink` / `::test_over_long_root_name_is_refused_not_a_traceback` | `BUILD-encode-late` / `BUILD-cleanup-only-on-refusal` / `BUILD-oserror-traceback` / `BUILD-follow-out-symlink` |
+| `jin run` が cwd を `sys.path` に足す（§2.19） | `run` の `sys.path.append(cwd)`（末尾・DP-IMPL-JIN-P2-SYSPATH-01。記法は `hazard:`・F-S-P2-010）。未インストールの遅延 import 名は末尾でも cwd から解決される残存あり **→ 修正ラウンド 2 で差し替え（次の行）** | `::test_run_adds_cwd_to_sys_path` / `tests/contract/test_cli_contract.py::test_cwd_cannot_shadow_an_installed_package_in_a_real_process` | `CLI-no-cwd` / `CLI-cwd-first` |
+| **修正ラウンド 2**: cwd は生成モジュールの import の間だけ（§2.19 の再々判断・F-S-P2-101） | `jin_adk/runtime.py` `_sys_path_window`: `extra_sys_path` を import の前に append・`finally` で remove（`hazard: _sys_path_window -> sys.path.append` / `guard: _sys_path_window -> sys.path.remove`）。CLI は `extra_sys_path=[os.getcwd()]` を渡すだけ。Runner 実行中は cwd が無い | `::test_run_adds_cwd_to_sys_path`（import 中は解決でき、実行後は含まれない）/ `test_runtime.py::test_extra_sys_path_is_present_only_during_the_import` / `tests/contract/test_cli_contract.py::test_cwd_cannot_supply_an_uninstalled_optional_dependency_during_the_run`（`anthropic/`・別プロセス） | `CLI-no-cwd` / `RUN-cwd-stays-after-import` / `RUN-cwd-first` |
+| `--model` は `fake` 以外を拒む | `run` 冒頭 | `::test_run_rejects_other_model_values` | `CLI-accept-any-model` |
+
+`importlib` を使う実装は `jin_cli/resolver.py` と `jin_adk/runtime.py` の 2 つだけ
+（`test_the_only_module_importing_importlib_is_the_cli_resolver` が厳密一致）。`jin_core` には無い。

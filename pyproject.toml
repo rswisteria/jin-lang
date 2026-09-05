@@ -5,6 +5,7 @@ description = "Jin(陣) — 魔法陣型エージェント記述言語 / uv work
 requires-python = ">=3.12"
 dependencies = [
   "jin-core",
+  "jin-adk",
   "jin-cli",
 ]
 
@@ -16,6 +17,7 @@ members = ["packages/*"]
 
 [tool.uv.sources]
 jin-core = { workspace = true }
+jin-adk = { workspace = true }
 jin-cli = { workspace = true }
 
 [dependency-groups]
@@ -24,6 +26,8 @@ dev = [
   "pytest>=9.1,<10",
   "ruff>=0.16,<1",
   "import-linter>=2.14,<3",
+  # 生成 agent.py のスナップショット（要件書 §9「コード生成」）。版は version-matrix.md §8（Phase 2）
+  "syrupy>=6.0,<7",
 ]
 
 [tool.pytest.ini_options]
@@ -38,6 +42,10 @@ testpaths = ["tests", "packages"]
 # 2 つできた瞬間に collection 全体が Interrupted になる（conventions review A-1）。
 addopts = "-q --import-mode=importlib"
 consider_namespace_packages = true
+# packages/*/tests からも `tests.conftest`（requires_non_root などの共有マーカー）を import できるよう
+# リポジトリ直下を sys.path に足す。importlib モードは sys.path を触らないので、これが無いと
+# `uv run pytest packages/jin-adk/tests` の単独実行で ModuleNotFoundError になる（修正ラウンド 3・F-W-P2-202）
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
@@ -49,7 +57,7 @@ extend-exclude = ["delivery", "docs", ".venv"]
 [tool.importlinter]
 # ADR-004 (DP-COMMON-11): 依存の一方向性を機械で落とす。
 # 契約の正本は design.yaml architecture.dependency_direction.rules の 8 行。
-root_packages = ["jin_core", "jin_cli"]
+root_packages = ["jin_core", "jin_adk", "jin_cli"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -58,12 +66,18 @@ type = "layers"
 # **兄弟パッケージは 1 要素の中に "|" 区切りで並べる**（wiring review W-05）。
 # 単純なリストに並べると「jin_adk → jin_render は許す / jin_render → jin_adk は禁じる」
 # という**実際の契約より強い順序**を宣言してしまう。
-# Phase 2 以降の最終形（design.yaml architecture.dependency_direction.rules 3〜4）:
+# Phase 3 以降の最終形（design.yaml architecture.dependency_direction.rules 3〜4）:
 #   layers = ["jin_cli", "jin_lsp", "jin_adk | jin_render", "jin_core"]
+# **Phase 2 では `"jin_adk"` を単独で書く。** `"jin_adk | jin_render"` と先に書くと、import-linter 2.14 は
+# `Missing layer 'jin_render': module jin_render does not exist.` で exit 1 になる（2026-09-05 実測・
+# delivery/20260904-1445-jin/implementation-notes.md Phase 2 節）。Phase 3 で jin_render を作るときに
+# この要素を `"jin_adk | jin_render"` へ書き換えること（素朴な直列に並べると
+# tests/contract/test_packaging_contract.py::test_layers_contract_keeps_sibling_packages_in_one_element が落とす）。
 # パッケージを足すときは root_packages とこの行を同時に直すこと
-# （tests/contract/test_packaging_contract.py が網羅を機械で確認する）。
+# （同テストファイルが網羅を機械で確認する）。
 layers = [
   "jin_cli",
+  "jin_adk",
   "jin_core",
 ]
 
@@ -80,7 +94,9 @@ forbidden_modules = ["google"]
 # Phase 4 の jin-lsp は ws で外に出るので、そこから到達できないことを**機械で**落とす。
 # 新しい root package を足したら source_modules にも足すこと
 # （tests/contract/test_packaging_contract.py がそれを強制する）。
-name = "ref の解決実装（任意コード実行）は jin_cli に閉じる"
+name = "任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる"
 type = "forbidden"
-source_modules = ["jin_core"]
-forbidden_modules = ["jin_cli.resolver"]
+source_modules = ["jin_core", "jin_adk"]
+# Phase 2: `jin run` の import 実装 `jin_adk.runtime` も対象（jin_core からは到達させない）。
+# Phase 4 で jin_lsp を作ったら source_modules に足す（ws 公開パスから両方へ到達させない・phase2-handoff.md §6）
+forbidden_modules = ["jin_cli.resolver", "jin_adk.runtime"]

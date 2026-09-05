@@ -7,7 +7,8 @@
 
 - **Status: FINAL** — ただし **Jin Phase 0+1 のスコープに対してのみ**。親が全ゲートを再実行して `verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を再導出した。
 - **本レポートのスコープは Jin Phase 0+1 のみ。** 本ランの全体スコープは Phase 0〜6（ADR-001）であり、
-  Phase 2〜6（jin-adk / jin-render / jin-lsp / apps/editor）は未着手。**Jin 成果物全体は FINAL からは程遠い。**
+  Phase 2〜6（jin-adk / jin-render / jin-lsp / apps/editor）は本節の時点では未着手。**Jin 成果物全体は FINAL からは程遠い。**
+  （2026-09-06 追記: **Phase 2 は本ファイル後半の「Phase 2（jin-adk）」節を参照**。Phase 3〜6 は引き続き未着手）
 - verification_status.overall: **`verified`**（親が再導出。実装者は最後まで `partially_verified` のまま返し、自己判断で戻していない）
 - `pipeline_e2e` は **`passed`**（2026-09-04 の PR #1 マージ時に GitHub Actions が実機で成功。pull_request 2 回 + push/main 1 回とも conclusion=success）。`human_only` 条件は `not_run` のまま PR レビュー送り。**実施済みと報告していない**
 - scope_labels: `backend-unit-verified`
@@ -175,3 +176,128 @@ security reviewer も自分の「緑」報告 4 件を再実測し、E-B / E-B2 
    implementer の説明を受けて正しい方法で再現し、修正も確認した。
 
 いずれも reviewer / implementer からの指摘で判明している。**親の判定も検証の対象にした**ことが機能した。
+
+
+---
+
+# Stage 5 Code Review Report — Phase 2（jin-adk）— 2026-09-05
+
+対象: 実装ラウンド 2（Jin **Phase 2** jin-adk: build / run / trace / FakeLlm ＋ jin-cli の build / run）・Issue #3
+実施主体: 親（`/aid auto-deliver` の実行主体）。正本 `skills/implementation/parallel-code-review/DOMAIN-SKILL.md`
+ブランチ: `feat/jin-phase2-adk`
+
+## Summary（Phase 2）
+
+- **Status: FINAL** — 親が全ゲートを再実行して `verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を再導出した。
+  **スコープは Phase 2 まで。** Phase 3〜6 は未着手。
+- verification_status.overall: **`verified`**（backend_unit のみ）
+- `pipeline_e2e`: **`not_run`**（本ブランチでの GitHub Actions 実行は PR 作成後に確認する。Phase 0+1 の passed は main 上の記録）
+- `human_only`（実 API キーでの `adk run` / `adk web`）: **`not_run`**。実施済みと報告していない。
+  `examples/researcher` は `adk run` 単体だと初回ターンで `{findings}` が未設定のため ADK が `KeyError` になる（AI 仮判断 `DP-IMPL-JIN-P2-STATESEED-01`・人間確認待ち）
+- 起動した観点: correctness / conventions / wiring / security（並列度 = 4）。
+  **reviewer は `feature-dev:code-reviewer` ではなく general-purpose Subagent**（同じ規律: confidence 0〜100・全件報告）。
+  理由: `code-reviewer` は Bash を持たず、申し送り §7 が求める隔離コピーでの変異検証ができない
+- 各観点の findings 件数: **correctness=24 / conventions=29 / wiring=9 / security=16（合計 78 件）**
+- verdict 内訳: fix-now = 61 件（confidence ≥ 90 の全件 ＋ 親が格上げした 80〜89 の 14 件 ＋ 安価な文書修正）/
+  fix-later = 2 件（`DP-REVIEW-JIN-P2-001` / `002`）/ 記録のみ = 15 件
+- 採用しきい値: `confidence_threshold_fix_now = 90`（design.yaml の既定・変更なし）
+- 配置: `after_verify`
+- 関連 DP: DP-IMPL-STAGE-03 / DP-IMPL-VERIFIED-01 / DP-REVIEW-SECURITY-01 / DP-REVIEW-RECALL-01 / DP-REVIEW-FIXLOOP-01 / DP-CONFORMANCE-01
+
+### 前提として押さえるべき事実
+
+**レビュー開始時点でテストは 696 件すべて緑・変異ハーネス 31/31 だった。** その状態で 78 件の finding が出た。
+うち confidence 100 の実測バグが 9 件、変異で「緑のまま」だったテストの穴が 7 件、High（security）が 2 件。
+修正後、テストは **696 → 800 件**、変異は **31 → 71 件**、fixture は 14 → 20 本。
+
+## Findings by Aspect（Phase 2）
+
+生出力: `code-review-raw/{correctness,conventions,wiring,security}-p2.md`（ラウンド 1）、`*-p2-round1.md`（修正ラウンド 1 の再確認）。
+
+### 親が独立に再現して確定した重大 finding（8 件）
+
+| ID | 観点 | 内容 |
+|---|---|---|
+| **F-S-P2-001** | security（High・95） | `.jin` の**ファイル名**に改行を含めると生成ヘッダ `# source:` の 2 行目が文になり、`jin run --model fake` がそれを実行して exit 0。`ref` 用モジュールが不要なので `.jin` 作者の攻撃面を広げていた |
+| **F-S-P2-002** | security（High・92） | 全角 `ｒｏｏｔ＿ａｇｅｎｔ` の circle が NFKC 正規化で `root_agent` を上書きし、`.jin` の `root` と別の circle が exit 0・pointer 付きで走る |
+| **F-S-P2-003** | security（95） | `sys.path.insert(0, cwd)` のため、`ref` を持たない `pipeline.jin` でも cwd の `authlib/` が ADK の遅延 import で実行される。AI 仮判断 `DP-IMPL-JIN-P2-SYSPATH-01` を **auto-decider が再判断して `append` に変更** |
+| **F-C-P2-001 / 002 / 003** | correctness（100） | builtin 名と ref 名 / circle 名の衝突、同一 circle 内の ADK ツール名重複を `jin build` が黙って通す（NFR-FAIL-001 違反）。既存テストは壊れた生成を正として固定していた |
+| **F-C-P2-004** | correctness（100） | `delegate` の transfer が `transfer_to_agent` の function_call を `tool / pointer: null` で記録し、引ける経路で「引けない」と stderr に出す |
+| **F-C-P2-009 = F-S-P2-006** | 両観点（100 / 90） | `--trace` を `generate()` の前に `O_TRUNC` で開くため、BuildError で落ちても既存トレースが 0 バイトになる（Phase 1 の V-1 と同型） |
+
+### 仕様書側の欠陥（Phase 2 の正典 `docs/spec/adk-mapping.md` §2.4 / §3.1、`model.md` §3.4）
+
+- `trace-kinds` 表が ADK の 2 event 構造（transfer = function_call + 応答、escalate = checker と `actions.escalate` の 2 種）を書いておらず、実装はどちらとも一致しない状態だった（F-C-P2-005 / 018、F-V-P2-009）→ 表を分割し、spec テストで pointer 列の形も突合
+- summon（AgentTool）先の内部イベントはトレースに出ない（ADK 2.8.0 の仕様）が仕様に無かった（F-C-P2-006）→ §2.4 / §6 に明記、Phase 3 の trace overlay へ申し送り
+- `flow.exit` の空白の扱いが表と実装で非対称（F-C-P2-008）→ 両辺 strip に統一
+- §3.1 の「各 1 件」に対して fixture が無い構造が 3 つ（F-C-P2-013 / F-V-P2-010）→ fixture 20 本に
+
+### 変異で「緑のまま」だったテストの穴（7 件・correctness M2 / M3 / M21 / M22 / M34 / M47 / M48）
+
+同種 guard 2 件のリスト化 / `bind_tools` の添字対応 / flow circle の instruction・delegate 検査 / `ts` の出所 /
+flow circle の description と delegate 順序。いずれもテスト追加で赤くなることを確認した。
+
+### 修正ラウンド 1 で implementer が指示と違う判断をしたもの（7 件・理由は `implementation-notes.md` P2-R1.2）
+
+`bind_tools` の同名経路は**到達可能**だった（コンパイル時は ref の属性名、実行時は `func.__name__`）/ `await` 枝は `model_validate` 直呼びで到達 /
+`scope_labels` は plan schema の enum 制約で `backend-unit-verified` のみ / `O_NOFOLLOW` の `guard:` は実際に在る `_open_trace` を名指し /
+同期 `run_model` はテスト用に残置 / ref と builtin の同名は BuildError ではなく別名化（同 circle 内は重複検査が拒む）。correctness の再レビューが 7 件すべてを「正しい」と判定した（`bind_tools` 同名経路は `search_again = web_search` の別名束縛で実際に到達する）。
+
+## fix-now 対応
+
+修正は 3（＋最終確認 1 回） ラウンド。**完了確認は同一観点の reviewer による再レビューで行い、実装者の「直しました」は根拠にしていない**（DP-REVIEW-FIXLOOP-01）。
+
+| ラウンド | 対象 | 再レビュー結果 |
+|---|---|---|
+| 1 | fix-now 全件（A-1〜A-10・`phase2-fix-round-1-instructions.md`） | correctness **22/22** / conventions **18/19** / wiring **7/8** / security **11/12** = **58/61 defect-gone**。**修正が持ち込んだ回帰 1 件（High）**: `run_model_async` を CLI の `asyncio.run` に出した結果、ツール実行中の `sys.exit(0)` を asyncio がループ外へ再送出し typer が exit 0 にする（F-S-P2-102・97）。ほか新規 14 件（うち Medium: `append` でも ADK が毎回試みる `anthropic` / `openai` の import で cwd が読まれる F-S-P2-101・95 → `DP-IMPL-JIN-P2-SYSPATH-01` を auto-decider が再々判断し「import 窓の間だけ」へ） |
+| 2 | ラウンド 1 の残存 3 件 ＋ 回帰 1 件 ＋ 新規 14 件（`sys.path` は import 窓化・`--force` は tmp + `os.replace`・既存トレース 0600・transfer と同居する応答行・`CancelledError` 伝播） | correctness **4/4** / conventions **5/5** / wiring **4/4** / security **5/5** = **18/18 defect-gone・回帰 0**。新規 Medium 1 件: ツール関数の `CancelledError` が root=LlmAgent で exit 0（F-S-P2-201・95・round 0 から在った穴が `sys.exit` を塞いで見えた）＋ Low 14 件 |
+| 3 | F-S-P2-201/202（応答の無い function_call の検出・`Task.cancelling()` で shutdown 由来と区別）＋ Low 9 件 | security **5/5** / correctness **1/1** defect-gone。応答無し検出の**誤検知 0 / 見逃し 0**（並列呼び出し / transfer / summon / await pause / id 無し・重複 / ループ内反復）。新規 Low 2 件（F-S-P2-301: tmp の `fchmod` 失敗時の残骸 → 即時修正・テスト + 変異 `BUILD-fchmod-leftover` / F-C-P2-301: 重複 id 時の文言 → 記録のみ） |
+
+### 変異ベースの確認（本レポートの中心的な根拠）
+
+| 対象 | 注入した変異 | 結果 |
+|---|---|---|
+| F-S-P2-001 | `_header` で `py_literal` を通さない / CLI のファイル名検査を外す | `ESC-header-raw-source-name` / `CLI-filename-unchecked` が赤 |
+| F-S-P2-002 | NFKC 検査を外す | `FAIL-no-nfkc` / `BUILD-root-not-nfkc` が赤 |
+| F-S-P2-003 | `append` → `insert(0)` に戻す | `CLI-cwd-first` が赤（別プロセスの契約テストで `authlib/` シャドウを検出） |
+| F-S-P2-005 / 006 | encode を open の後に / `--trace` を open 時に truncate | `BUILD-encode-late` / `CLI-trace-truncate-on-open` が赤 |
+| F-C-P2-001〜003 | builtin 名を `taken` から外す / ADK ツール名の重複検査を外す | `FAIL-builtin-not-taken` / `FAIL-adk-tool-dup` / `FAIL-builtin-circle-collision` が赤 |
+| F-C-P2-004 / 005 / 007 / 021 | `classify` の各分岐を戻す | `TRACE-transfer-call-as-tool` / `TRACE-escalate-swallows-tool` / `TRACE-drop-text-with-call` / `TRACE-error-hidden` が赤 |
+| テストの穴 7 件 | correctness の M2 / M3 / M21 / M22 / M34 / M47 / M48 を再注入 | correctness が再実行し **7 件すべて赤**（M1 / M50 は snapshot を除いた意味論のテストでも赤） |
+| ハーネス全体（隔離コピー） | 59 変異 | **59/59 caught**（親も再実行: R1 59/59 → R2 66/66 → R3 70/70 → 最終 **71/71**・SKIP 0・実ツリー不変・`/tmp` 残骸 0） |
+
+## fix-later / backlog（Phase 2 追加分）
+
+| 仮 DP ID | 内容 | 由来 | 参照すべきフェーズ |
+|---|---|---|---|
+| DP-REVIEW-JIN-P2-001 | root circle に親が付く構造を `jin check` の診断にするか（診断コード追加＝要件書 §2.4 変更。Phase 2 では `jin build` の BuildError で拒む） | F-C-P2-016 | 人間判断 |
+| DP-REVIEW-JIN-P2-002 | `ref` 先から `jin_adk` を差し替えると「0 イベント」exit 0 になる経路。空トレースを「正常」と区別する印 | F-S-P2-009（`DP-JIN-RESOLVE-ISOLATION-01` の同型） | Phase 4 着手前 |
+
+`DP-REVIEW-JIN-002`（ruff の select が既定のまま）は Phase 2 でも未解決（F-V-P2-014）。新規コードの死んだ `noqa` だけ消した。
+
+## human_only（PR レビューへ送るもの・not_run）
+
+- 実 API キーでの `adk run <out>/<root_name>` / `adk web <out>`。NFR-TEST-001 により CI では実行しない。
+  `examples/pipeline` は動く見込み。`examples/researcher` は初回ターンで `{findings}` 未設定の `KeyError` になる（`DP-IMPL-JIN-P2-STATESEED-01`）
+
+## 未解決の観察（記録のみ）
+
+- google-adk 2.8.0 は `SequentialAgent` / `ParallelAgent` / `LoopAgent` に「Workflow へ移行せよ」の DeprecationWarning を出す（`DP-IMPL-JIN-P2-ADKDEPRECATION-01`: 2.8.0 固定・移行は別 Issue）
+- `.env.example` の `GOOGLE_GENAI_USE_ENTERPRISE=0` は値が空でないが `adk create` の写し（F-S-P2-012・受容）
+- `os._exit` / `TraceWriter._emit` 差し替えの残存は Phase 1 と同じ判定（任意コード実行が成立した時点の話）。ただし空トレースの扱いは `DP-REVIEW-JIN-P2-002`
+
+## 最終ゲート（親が実行・2026-09-06）
+
+```
+UV_LOCKED=1 uv sync  → Checked 75 packages in 0.40ms  EXIT=0
+uv run ruff check .  → All checks passed!  EXIT=0
+uv run ruff format --check .  → 61 files already formatted  EXIT=0
+uv run pytest --color=no  → 800 passed, 68 warnings in 25.78s  EXIT=0
+uv run lint-imports  → Contracts: 3 kept, 0 broken.  EXIT=0
+uv run jin check examples  → 2 ファイル / error 0 件 / warning 0 件  EXIT=0
+uv run jin fmt --check examples  →   EXIT=0
+uv run jin check tests/fixtures/build-errors  → 20 ファイル / error 0 件 / warning 0 件  EXIT=0
+uv run jin fmt --check tests/fixtures/build-errors  →   EXIT=0
+uv run jin schema | diff -u schemas/jin.schema.json -  → 差分なし  EXIT=0
+mutate_p2.py（隔離コピー）  → 71/71 mutations caught  EXIT=0  SKIP=0
+```

@@ -135,6 +135,27 @@ introspection した結果）。要件書 §3.2 の生成コードはそのま�
 - **`DP-REVIEW-JIN-008`**（fix-later）: `check_text` が最悪 8.4 秒。**Phase 4 の LSP は打鍵ごとに呼ぶ**ので
   要件書 §6.4「1000 行以下で診断 1 秒以内」を Phase 4 で実測すること。Phase 2 では対象外。
 
+> **Phase 2 修正ラウンド 1 からの申し送り（2026-09-05・impl-p2）**
+>
+> - **Phase 4（`jin-lsp`）で forbidden contract の `source_modules` に `jin_lsp` を足すこと。** 任意コード実行の実装は
+>   `jin_cli.resolver`（`--resolve`）と `jin_adk.runtime`（`jin run`）の 2 つになった。`jin-lsp` は design.yaml rule 5 で
+>   `jin_core` / `jin_adk` / `jin_render` に依存できるため、ws で公開されるコードパスから `jin_adk.runtime` へ到達できる。
+>   契約名は「任意コード実行の実装は `jin_cli.resolver` と `jin_adk.runtime` に閉じる」（`pyproject.toml`）。
+>   `tests/contract/test_packaging_contract.py::test_dynamic_imports_are_confined_to_the_cli_resolver_and_jin_run` の
+>   expected（2 モジュール厳密一致）にも `jin_lsp` を足さない
+> - **Phase 4（pygls）が `run_model_async` を自前のループで回すなら、`SystemExit` を自分で包むこと。** ツール関数の
+>   `sys.exit()` は asyncio が `SystemExit` をタスクの結果にせずループの外へ再送出し、`run_model_async` には
+>   `CancelledError` しか届かない（F-S-P2-102・修正ラウンド 1 の回帰）。CLI の `run` と同期 `run_model` は `asyncio.run` を
+>   `except SystemExit` で包んで失敗扱いにしている。pygls 側で `asyncio.run` 相当を呼ぶ場所にも同じ包みを置く
+> - **`jin run` の cwd は import 窓だけ**（DP-IMPL-JIN-P2-SYSPATH-01 の再々判断・修正ラウンド 2）。LSP から `run_model_async`
+>   を呼ぶなら `extra_sys_path` に何を渡すか（ワークスペースのルートか・渡さないか）は Phase 4 の判断。渡した項目は生成モジュールの
+>   import の間だけ `sys.path` に載り、Runner 実行中は外れている
+> - **Phase 3（trace overlay）: summon（`AgentTool`）先の内部イベントはトレースに現れない**（ADK 2.8.0 の `AgentTool` は
+>   内部 `Runner` で子を回し、外側には `function_response` しか流さない）。overlay で summon 先の陣が常に「未発火」に見える。
+>   「呼ばれた（tool 行）」と「中で何が起きたか（不明）」を描き分けること（`docs/spec/adk-mapping.md` §2.4）
+> - `DP-REVIEW-JIN-P2-001`（root に親が付く構造を `jin check` の診断にするか）/ `DP-REVIEW-JIN-P2-002`（`ref` 先からの
+>   差し替えで空トレース exit 0 になる経路の印）は `implementation-plan.json` の `undecided[]` に起票済み・人間判断待ち
+
 ## 7. 運用（親から reviewer / implementer への指示に含める）
 
 - **reviewer には隔離コピーでの変異検証を明示指示する。** 本ランでは implementer と reviewer が

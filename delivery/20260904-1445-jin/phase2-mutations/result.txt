@@ -1,0 +1,76 @@
+copy: /tmp/jin-mutate-wkp88g8x
+imports from: /tmp/jin-mutate-wkp88g8x/packages/jin-adk/src/jin_adk/__init__.py
+imports from: /tmp/jin-mutate-wkp88g8x/packages/jin-cli/src/jin_cli/__init__.py
+baseline: green (267 passed, 68 warnings in 2.37s)
+ESC-no-escape                    RED (expected)                     15 failed, 2 passed, 77 deselected in 0.30s
+ESC-repr                         RED (expected)                     11 failed, 1 passed, 82 deselected in 0.22s
+ESC-surrogate-passthrough        RED (expected)                     2 failed, 14 passed, 78 deselected in 0.19s
+ESC-header-raw-source-name       RED (expected)                     5 failed, 89 deselected in 0.20s
+FAIL-skip-validate               RED (expected)                     26 failed, 2 passed, 66 deselected in 0.36s
+FAIL-no-keyword-check            RED (expected)                     2 failed, 92 deselected in 0.17s
+FAIL-two-outs                    RED (expected)                     1 failed, 93 deselected in 0.16s
+FAIL-rune-conflict               RED (expected)                     6 failed, 5 passed, 83 deselected in 0.18s
+FAIL-ref-format                  RED (expected)                     2 failed, 92 deselected in 0.16s
+FAIL-no-nfkc                     RED (expected)                     5 failed, 89 deselected in 0.18s
+FAIL-builtin-not-taken           RED (expected)                     1 failed, 93 deselected, 1 warning in 0.54s
+FAIL-builtin-circle-collision    RED (expected)                     2 failed, 1 passed, 91 deselected, 1 warning in 0.55s
+FAIL-adk-tool-dup                RED (expected)                     3 failed, 91 deselected, 1 warning in 0.54s
+FAIL-root-parent                 RED (expected)                     4 failed, 90 deselected in 0.17s
+GEN-guards-first-only            RED (expected)                     1 failed, 51 deselected, 4 warnings in 0.69s
+GEN-delegate-reversed            RED (expected)                     1 failed, 51 deselected, 5 warnings in 0.68s
+ADR8-header                      RED (expected)                     1 failed, 93 deselected in 0.16s
+ADR9-header                      RED (expected)                     1 failed, 93 deselected in 0.16s
+TMPL-equals-not-stripped         RED (expected)                     2 failed, 19 passed, 31 deselected, 25 warnings in 0.80s
+TMPL-bool-as-number              RED (expected)                     2 failed, 19 passed, 31 deselected, 25 warnings in 0.79s
+BUILD-overwrite-file             RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-replace-early              RED (expected)                     1 failed, 29 deselected in 0.15s
+BUILD-fchmod-leftover            RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-truncate-in-place          RED (expected)                     1 failed, 29 deselected in 0.15s
+BUILD-overwrite-dir-only         GREEN (expected: 二層目が守る)           2 passed, 28 deselected in 0.13s
+BUILD-overwrite-both             RED (expected)                     2 failed, 28 deselected in 0.16s
+BUILD-leftover-dir               RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-follow-symlink             RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-no-root-check              RED (expected)                     5 failed, 3 passed, 22 deselected in 0.18s
+BUILD-root-not-nfkc              RED (expected)                     1 failed, 7 passed, 22 deselected in 0.17s
+BUILD-pkg-symlink-upfront-only   GREEN (expected: 二層目が守る)           1 passed, 29 deselected in 0.13s
+BUILD-pkg-symlink-both           RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-encode-late                RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-cleanup-only-on-refusal    RED (expected)                     1 failed, 29 deselected in 0.14s
+BUILD-oserror-traceback          RED (expected)                     1 failed, 29 deselected in 0.15s
+BUILD-follow-out-symlink         RED (expected)                     1 failed, 29 deselected in 0.15s
+BUILD-guard-lie                  RED (expected)                     1 failed, 3 passed, 17 deselected in 0.07s
+RUN-swallow-systemexit           RED (expected)                     1 failed, 51 deselected, 4 warnings in 0.70s
+RUN-swallow-systemexit-in-run_model RED (expected)                     1 failed, 51 deselected, 5 warnings in 0.89s
+RUN-cancelled-to-runerror        RED (expected)                     2 failed, 50 deselected, 7 warnings in 0.86s
+RUN-ignore-unanswered-tool       RED (expected)                     2 failed, 3 passed, 95 deselected, 8 warnings in 0.91s
+RUN-await-pause-as-failure       RED (expected)                     2 failed, 98 deselected, 5 warnings in 0.92s
+RUN-cancelled-passthrough        RED (expected)                     1 failed, 51 deselected, 6 warnings in 1.04s
+RUN-cwd-stays-after-import       RED (expected)                     3 failed, 115 deselected, 7 warnings in 1.92s
+RUN-cwd-first                    RED (expected)                     2 failed, 98 deselected, 7 warnings in 0.87s
+RUN-no-agenttool-swap            RED (expected)                     1 failed, 51 deselected, 4 warnings in 0.69s
+RUN-no-seed                      RED (expected)                     2 failed, 1 passed, 49 deselected, 6 warnings in 1.07s
+RUN-no-cleanup                   RED (expected)                     2 failed, 50 deselected, 8 warnings in 0.84s
+RUN-plain-mkdir                  RED (expected)                     2 failed, 50 deselected, 8 warnings in 0.81s
+RUN-cleanup-silent               RED (expected)                     1 failed, 51 deselected, 6 warnings in 0.72s
+TRACE-drop-unknown               RED (expected)                     1 failed, 15 deselected, 1 warning in 0.45s
+TRACE-dup-first-wins             RED (expected)                     2 failed, 66 deselected, 5 warnings in 0.83s
+TRACE-no-final                   RED (expected)                     2 failed, 66 deselected, 5 warnings in 0.85s
+TRACE-escalate-pointer           RED (expected)                     1 failed, 1 passed, 50 deselected, 7 warnings in 0.85s
+TRACE-transfer-drops-siblings    RED (expected)                     1 failed, 15 deselected, 1 warning in 0.46s
+TRACE-transfer-call-as-tool      RED (expected)                     2 failed, 66 deselected, 5 warnings in 0.86s
+TRACE-drop-text-with-call        RED (expected)                     1 failed, 1 passed, 14 deselected, 1 warning in 0.47s
+TRACE-error-hidden               RED (expected)                     1 failed, 15 deselected, 1 warning in 0.46s
+TRACE-escalate-swallows-tool     RED (expected)                     1 failed, 15 deselected, 1 warning in 0.45s
+TRACE-ts-zero                    RED (expected)                     1 failed, 15 deselected, 1 warning in 0.45s
+TRACE-bind-first-index           RED (expected)                     1 failed, 51 deselected, 5 warnings in 0.83s
+CLI-no-cwd                       RED (expected)                     1 failed, 47 deselected, 2 warnings in 0.74s
+CLI-cancelled-traceback          RED (expected)                     1 failed, 47 deselected, 2 warnings in 0.77s
+RUN-swallow-systemexit-at-runtime RED (expected)                     1 failed, 47 deselected, 3 warnings in 0.82s
+CLI-trace-follow-symlink         RED (expected)                     1 failed, 47 deselected, 6 warnings in 0.82s
+CLI-accept-any-model             RED (expected)                     1 failed, 47 deselected, 6 warnings in 0.82s
+CLI-filename-unchecked           RED (expected)                     3 failed, 45 deselected, 2 warnings in 0.73s
+CLI-safe-narrow                  RED (expected)                     1 failed, 2 passed, 45 deselected, 2 warnings in 0.73s
+CLI-trace-truncate-on-open       RED (expected)                     1 failed, 47 deselected, 2 warnings in 0.70s
+CLI-trace-world-readable         RED (expected)                     2 failed, 46 deselected, 8 warnings in 0.85s
+CLI-trace-keep-existing-mode     RED (expected)                     1 failed, 47 deselected, 6 warnings in 0.82s
+71/71 mutations caught
