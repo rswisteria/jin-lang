@@ -58,6 +58,25 @@ JIN002（スキーマ違反）が段 2 で拾う範囲には、`docs/spec/model.
 （長さ上限・制御文字・孤立サロゲート）と §3.4 の **`max` / `exit` の loop 限定**が含まれる。
 どちらも `schemas/jin.schema.json` には現れない（同 §3.7）。
 
+### 2.1 JIN040 の解決は `ref` ごとの子プロセスで行う（ADR-018）
+
+`--resolve` の import は**同一プロセスでは行わない**。1 ファイル目の `ref` が `jin_core.semantic.analyze` を
+差し替えると 2 ファイル目の本物の JIN060 が消える（DP-JIN-RESOLVE-ISOLATION-01・親が実測）ため、
+`ref` 1 件ごとに子プロセス `python -P -m jin_cli.resolver <module.path:callable>` を起動し、
+親は stdout 最終行の JSON（解決できたか・理由）だけを受け取る。
+
+- **タイムアウトは `ref` 1 件あたり 30 秒**（`jin_cli.resolver.RESOLVE_TIMEOUT_SECONDS`）。要件書に値は無い。
+  根拠: google-adk 程度（1〜2 秒）だけでなく、tensorflow 級の重い依存を持つツールモジュールの cold import
+  （10〜20 秒）を正当に通しつつ、ハングを 30 秒で検出する。CLI オプションでは変えない（要件書 §5 のコマンド表を
+  変えない）
+- タイムアウト・子の異常終了（`os._exit` / シグナル）・結果行の欠落は、いずれも **JIN040**（hint に理由）として
+  報告する。診断ゼロ・exit 0 では終わらない（S2 と同じ fail-closed）
+- `-P` は cwd を子の `sys.path` に足さない。`ref` の供給手段はこれまでどおり `PYTHONPATH`
+- これは**汚染とハングへの対処であって、任意コード実行（S1）は残る**。子は親と同じ権限で走るので、
+  `--resolve` は中身を確認した `.jin` にだけ使う
+- Phase 4 の LSP hover（要件書 §6.2「Python 参照の docstring（`--resolve` 相当）」）も同一プロセスでは import せず、
+  この子プロセス経路を拡張する（`jin_lsp` から `jin_cli.resolver` は import しない）
+
 要件書 §2.4 の JIN011 行は「未解決の参照（summon / delegate / steps / await / `{key}`）」と
 5 種を括弧で列挙しているが、`steps` / `await` / `{key}` にはそれぞれ JIN031 / JIN070 / JIN050 という
 **専用のコードが同じ表に存在する**。要件書 §9 の「fixture は対応コードを 1 つだけ出す」を成立させるため、

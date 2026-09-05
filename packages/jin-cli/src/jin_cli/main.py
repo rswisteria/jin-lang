@@ -93,7 +93,7 @@ from jin_core.diagnostics import Diagnostic, has_error
 from jin_core.model import JinFile
 from jin_core.schema_export import render as render_schema
 
-from jin_cli.resolver import ImportResolver
+from jin_cli.resolver import RESOLVE_TIMEOUT_SECONDS, SubprocessResolver
 
 app = typer.Typer(
     name="jin",
@@ -202,7 +202,9 @@ def _format_human(diagnostic: Diagnostic) -> str:
 def _run_checks(paths: list[Path], resolve: bool) -> list[CheckResult]:
     # `--resolve` を渡したときだけ、実際に import する解決器を注入する。
     # `jin_core` はこの実装を知らない（security review S1 / jin_cli.resolver の docstring）。
-    resolver = ImportResolver() if resolve else None
+    # 同一プロセスで import する `ImportResolver` は使わない: 1 ファイル目の `ref` が 2 ファイル目の
+    # 診断を消せる（ADR-018）。`ref` 1 件ごとに子プロセス + タイムアウトで解決する。
+    resolver = SubprocessResolver() if resolve else None
     out: list[CheckResult] = []
     for path in _collect(paths):
         try:
@@ -429,6 +431,7 @@ def check(
                 "Python 参照を実際に import して JIN040 を検査する。"
                 "【危険】import は対象モジュールのトップレベルを実行する。"
                 "信頼できる .jin にだけ使うこと"
+                f"（参照 1 件ごとに子プロセスで import し {RESOLVE_TIMEOUT_SECONDS:g} 秒でタイムアウト）"
             ),
         ),
     ] = False,

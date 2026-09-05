@@ -9,13 +9,16 @@ import json
 import os
 import stat
 import sys
+import time
 from pathlib import Path
 from typing import Self
 
 import pytest
 from jin_cli import main as main_module
+from jin_cli import resolver as resolver_module
 from jin_cli.main import _format_human, app
-from jin_cli.resolver import ImportResolver
+from jin_cli.resolver import RESOLVE_TIMEOUT_SECONDS, ImportResolver, SubprocessResolver
+from jin_core import semantic
 from jin_core.canonical import dumps
 from jin_core.diagnostics import Diagnostic, Position, Range
 from jin_core.model import JinFile
@@ -229,23 +232,181 @@ def test_import_resolver_does_not_let_system_exit_escape(tmp_path: Path) -> None
     assert "SystemExit" in reason
 
 
-def test_check_resolve_reports_a_diagnostic_when_the_module_exits(tmp_path: Path) -> None:
-    """S2 の実害を CLI 端で固定する。"""
-    _install_module(tmp_path, "jin_fixture_sysexit_cli", "import sys\n\nsys.exit(0)\n")
+def _install_module_for_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, source: str
+) -> None:
+    """子プロセス（ADR-018）に届く形でモジュールを供給する。
+
+    `sys.path` への注入は**このプロセス**にしか効かない。CLI の `--resolve` は `ref` ごとに
+    子プロセスを起動するので、`PYTHONPATH` 環境変数で渡す（子は `-P` で cwd を見ない）。
+    """
+    (tmp_path / f"{name}.py").write_text(source, encoding="utf-8")
+    existing = os.environ.get("PYTHONPATH")
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path) + (os.pathsep + existing if existing else ""))
+
+
+def test_check_resolve_reports_a_diagnostic_when_the_module_exits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S2 の実害を CLI 端で固定する（子プロセス経路でも `SystemExit` の理由が親に届くこと）。"""
+    _install_module_for_child(
+        tmp_path, monkeypatch, "jin_fixture_sysexit_cli", "import sys\n\nsys.exit(0)\n"
+    )
     document = json.loads(json.dumps(MINIMAL))
     document["circles"][0]["tools"] = [
         {"name": "t", "kind": "tool", "ref": "jin_fixture_sysexit_cli:f"}
     ]
     path = tmp_path / "a.jin"
     write_jin(path, document)
-    try:
-        result = run("check", "--resolve", str(path))
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop("jin_fixture_sysexit_cli", None)
+    result = run("check", "--resolve", str(path))
     # JIN040 は warning なので exit は 0 のまま。問題は「診断が 1 件も出ない」ことだった。
     assert "JIN040" in result.output
     assert "SystemExit" in result.output
+
+
+# ---- ADR-018: --resolve はファイル間で汚染しない（子プロセス + タイムアウト） -----------
+HIJACK_SOURCE = """\
+import pathlib
+
+import jin_core.semantic as semantic
+
+# import されたことの証拠（このコードが本当に走ったことを親のテストが確かめる）
+pathlib.Path(__file__).with_name("HIJACKED").write_text("x", encoding="utf-8")
+# 同一プロセスなら、これ以降の全ファイルの意味診断が消える
+semantic.analyze = lambda *args, **kwargs: []
+
+
+def go() -> None:
+    pass
+"""
+
+
+def test_check_resolve_isolates_files_from_each_other(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DP-JIN-RESOLVE-ISOLATION-01 の再現: 1 ファイル目の `ref` が `jin_core.semantic.analyze` を
+    差し替えても、2 ファイル目の本物の JIN060 が消えないこと（Issue #8）。
+
+    同一プロセスで import していた頃は「2 ファイル / error 0 件」exit 0 になっていた。
+    """
+    _install_module_for_child(tmp_path, monkeypatch, "jin_fixture_hijack", HIJACK_SOURCE)
+    first = json.loads(json.dumps(MINIMAL))
+    first["circles"][0]["tools"] = [{"name": "t", "kind": "tool", "ref": "jin_fixture_hijack:go"}]
+    write_jin(tmp_path / "a_first.jin", first)
+    second = json.loads(json.dumps(MINIMAL))
+    second["root"] = "GHOST_NOT_DEFINED"
+    write_jin(tmp_path / "b_second.jin", second)
+    original_analyze = semantic.analyze
+
+    result = run("check", "--resolve", str(tmp_path))
+
+    assert (tmp_path / "HIJACKED").exists(), "汚染モジュールが import されていない（テストが空虚）"
+    assert "JIN040" not in result.output, result.output  # `go` は在るので 1 ファイル目は解決できる
+    assert "JIN060" in result.output, result.output
+    assert result.exit_code == 1
+    assert semantic.analyze is original_analyze, "親プロセスの semantic.analyze が差し替えられた"
+
+
+def test_subprocess_resolver_times_out_a_hanging_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ハングする import はタイムアウトで JIN040 になる（`--resolve` にタイムアウトが無かった）。"""
+    _install_module_for_child(
+        tmp_path, monkeypatch, "jin_fixture_hang", "import time\n\ntime.sleep(60)\n"
+    )
+    started = time.monotonic()
+    reason = SubprocessResolver(timeout=1.0).resolve("jin_fixture_hang:f")
+    assert time.monotonic() - started < 15
+    assert reason is not None
+    assert "タイムアウト" in reason
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("import os\n\nos._exit(0)\n", "結果を返しませんでした"),
+        ("import os\n\nos._exit(3)\n", "異常終了"),
+        ("import sys\n\nsys.stdout = None\n", "異常終了"),
+    ],
+)
+def test_subprocess_resolver_is_fail_closed_when_the_child_does_not_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source: str, expected: str
+) -> None:
+    """子が結果行を書けずに終わっても「解決できた」にしない（S2 と同じ fail-closed）。"""
+    _install_module_for_child(tmp_path, monkeypatch, "jin_fixture_dies", source)
+    reason = SubprocessResolver(timeout=30.0).resolve("jin_fixture_dies:f")
+    assert reason is not None
+    assert expected in reason
+
+
+def test_subprocess_resolver_does_not_import_from_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`-P`: 子プロセス化で cwd 解決の経路を新設しない（F-S-P2-101 と同じ原則）。
+
+    `python -m` は既定で cwd を `sys.path[0]` に足す。`jin` コンソールスクリプトは足さないので、
+    子だけが cwd を見るとこれまで解決できなかった `ref` が解決できるようになってしまう。
+    """
+    (tmp_path / "jin_fixture_cwd_only.py").write_text("def f():\n    pass\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    assert "-P" in resolver_module._child_argv("jin_fixture_cwd_only:f")
+    reason = SubprocessResolver().resolve("jin_fixture_cwd_only:f")
+    assert reason is not None
+    assert "ModuleNotFoundError" in reason
+    # 供給手段はこれまでどおり PYTHONPATH
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    assert SubprocessResolver().resolve("jin_fixture_cwd_only:f") is None
+
+
+def test_subprocess_resolver_ignores_noise_on_stdout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """import 先が stdout に書いても結果行（最終行）を取り違えない。"""
+    _install_module_for_child(
+        tmp_path,
+        monkeypatch,
+        "jin_fixture_noisy",
+        'print("{\\"jin_resolve\\": \\"x\\"}", end="")\nprint("noise")\n\n\ndef f():\n    pass\n',
+    )
+    assert SubprocessResolver().resolve("jin_fixture_noisy:f") is None
+    assert SubprocessResolver().resolve("jin_fixture_noisy:missing") == (
+        "モジュール jin_fixture_noisy に missing がありません"
+    )
+
+
+def test_subprocess_resolver_rejects_a_malformed_ref_without_spawning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _must_not_spawn(ref: str, timeout: float) -> str | None:
+        raise AssertionError(f"形式が不正な ref で子を起動した: {ref!r}")
+
+    monkeypatch.setattr(resolver_module, "_spawn_child", _must_not_spawn)
+    reason = SubprocessResolver().resolve("../evil:f")
+    assert reason == "形式が module.path:callable ではありません"
+
+
+def test_resolve_timeout_is_thirty_seconds_per_ref() -> None:
+    """ADR-018 の値。CLI オプションでは変えない（要件書 §5 のコマンド表を変えない）。"""
+    assert RESOLVE_TIMEOUT_SECONDS == 30.0
+    assert SubprocessResolver().timeout == 30.0
+    assert "--resolve-timeout" not in run("check", "--help").output
+
+
+def test_check_resolve_uses_the_subprocess_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    """配線: CLI の `--resolve` が同一プロセスの `ImportResolver` に戻っていないこと。"""
+    seen: list[str] = []
+
+    class Spy:
+        def resolve(self, ref: str) -> str | None:
+            seen.append(ref)
+            return None
+
+    monkeypatch.setattr(main_module, "SubprocessResolver", Spy)
+    result = run("check", "--resolve", str(FIXTURES / "JIN040_python_ref_not_importable.jin"))
+    assert result.exit_code == 0
+    assert seen == ["jin_no_such_module_for_fixture:web_search"]
+    assert "JIN040" not in result.output
 
 
 def test_import_resolver_reports_a_module_that_raises(tmp_path: Path) -> None:

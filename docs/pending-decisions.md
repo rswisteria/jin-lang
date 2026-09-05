@@ -12,7 +12,6 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 
 | 起票元ファイル | DP ID |
 |---|---|
-| 20260904-1445-jin/implementation-plan.json | DP-JIN-RESOLVE-ISOLATION-01 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-001 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-002 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 |
@@ -20,7 +19,6 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-005 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-006 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-007 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-008 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-001 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-002 |
 
@@ -86,5 +84,7 @@ auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/dec
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-DIAGCODE-NUMBERING-01 | toyota | 2026-09-04T21:12:47+09:00 | AI 仮判断（confidence: medium）を承認。 | docs/adr/ADR-012-DP-JIN-DIAGCODE-NUMBERING-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-JIN050-LOOP-SCOPE-01 | toyota | 2026-09-04T21:20:07+09:00 | AI 仮判断（confidence: medium）を承認。 | docs/adr/ADR-014-DP-JIN-JIN050-LOOP-SCOPE-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-RENAME-SCOPE-01 | toyota | 2026-09-04T21:12:47+09:00 | AI 仮判断（confidence: high）を承認。 | docs/adr/ADR-013-DP-JIN-RENAME-SCOPE-01.md |
+| 20260904-1445-jin/implementation-plan.json | DP-JIN-RESOLVE-ISOLATION-01 | toyota | 2026-09-06T01:20:41+09:00 | Issue #8 の人間判断（2026-09-06 toyota）。決め手は要件書 §6.2 の hover が「Python 参照の docstring（--resolve 相当）」を要求している点で、Phase 4 の長寿命 LSP プロセスは必ず参照解決を行う。(b) は LSP の問題に答えず、(c) は README / CLAUDE.md / --help に既にある警告の再掲で汚染… | docs/adr/ADR-018-DP-JIN-RESOLVE-ISOLATION-01.md |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-008 | toyota | 2026-09-06T01:20:41+09:00 | Issue #8 の人間判断（2026-09-06 toyota）。Issue の指示「まず 1000 行の実ファイルで実測し、満たしていれば『実測して満たした』と記録して閉じてよい（過剰最適化しない）」に従う。実測は delivery/20260904-1445-jin/check-text-benchmark.md（スクリプト: 同 bench/bench_check_text.py・Pyt… |  |
 
 <!-- AUTO-GENERATED END: pending-decisions-generator -->
