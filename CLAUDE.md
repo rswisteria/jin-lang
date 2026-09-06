@@ -21,14 +21,21 @@ Jin(陣) は Google ADK 上の LLM エージェントを魔法陣として記述
 ## パッケージ境界（依存は一方向）
 
 ```
-jin-core  ←  jin-adk / jin-render  ←  jin-lsp / jin-cli
+jin-core  ←  jin-adk | jin-render  ←  jin-lsp  ←  jin-cli
 ```
 
-Phase 2 時点で実在するのは `jin-core` / `jin-adk` / `jin-cli`。`jin-adk` は ADK の語彙
+（`jin-adk` と `jin-render` は**兄弟**であり互いに依存しない。import-linter の layers 契約では
+1 要素に `"jin_adk | jin_render"` と `|` 区切りで書く。別要素に並べると片方向だけを禁じる、
+実際より強い順序を宣言してしまう）
+
+Phase 3 時点で実在するのは `jin-core` / `jin-adk` / `jin-render` / `jin-cli`。`jin-adk` は ADK の語彙
 （LlmAgent / Runner / BaseLlm …）がリポジトリ内で現れてよい唯一のパッケージ。
 
 - `jin-core` は他の `jin-*` に依存しない（最下層）
-- **`jin-core` は `google-adk` に依存しない。** ADK の語彙は `jin-adk` 側にだけ現れる
+- **`jin-core` / `jin-render` は `google-adk` に依存しない。** ADK の語彙は `jin-adk` 側にだけ現れる
+- **`jin-render` は `jin-core` と標準ライブラリだけに依存する。** `jin-adk` は**兄弟**であり
+  import すると layers 契約が BROKEN になる（トレースの型を `jin_adk.trace` から取らない。
+  overlay に要るのは `seq` と `pointer` だけなので `jin_render.overlay` に最小の読み取り型を置く）
 - `apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない
 
 この一方向性は **import-linter** で機械的に落とす（`pyproject.toml` の `[tool.importlinter]`）。
@@ -62,8 +69,11 @@ Phase 2 時点で実在するのは `jin-core` / `jin-adk` / `jin-cli`。`jin-ad
    手元では動いてしまうが、単体インストールで `ModuleNotFoundError` になる
    （`tests/contract/test_packaging_contract.py::test_every_package_declares_the_jin_packages_it_imports`）
 
+8. `tests/contract/test_guard_claims.py` の期待集合 — そのパッケージに `guard:` /
+   `hazard:` を書いたモジュールがあるなら名指しで足す（走査が壊れて対象が消えたときに気づくため）
+
 `testpaths` は `packages` をディレクトリごと指すので追記は要らない。
-1〜7 の抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。
+1〜7 の抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。8 は `tests/contract/test_guard_claims.py::test_the_scan_finds_the_modules_that_carry_claims` が**走査結果のパッケージ名と期待集合の等号**で自己検出する（名指しではない）。
 
 ## 実装の進み具合
 
@@ -72,11 +82,11 @@ Phase 2 時点で実在するのは `jin-core` / `jin-adk` / `jin-cli`。`jin-ad
 | 0 | 仕様書 5 本 + examples 2 本 + 突合テスト | 実装済み |
 | 1 | `jin-core` + `jin-cli`（check / fmt / schema / dump） | 実装済み |
 | 2 | `jin-adk`（build / run / trace / FakeLlm） | 実装済み |
-| 3 | `jin-render`（render / focus / trace overlay） | 未着手 |
+| 3 | `jin-render`（render / focus / trace overlay） | 実装済み |
 | 4 | `jin-lsp`（stdio + ws）+ Claude Code プラグイン | 未着手 |
 | 5–6 | `apps/editor`（編集モード / デバッグモード） | 未着手 |
 
-`jin render` / `jin lsp` / `jin editor` は**まだ定義していない**。
+`jin lsp` / `jin editor` は**まだ定義していない**。
 空実装を先に置くと `jin --help` が嘘をつくので、未実装のものはサブコマンドごと存在させない。
 
 Phase 2 の要点（正典は `docs/spec/adk-mapping.md` §2.3 / §2.4 / §3.1 / §6）:
@@ -92,6 +102,20 @@ Phase 2 の要点（正典は `docs/spec/adk-mapping.md` §2.3 / §2.4 / §3.1 /
 - `examples/researcher` の `ref`（`research.tools` / `research.guards`）はリポジトリに実体が無い。
   テストは `tests/fixtures/stubs/` のスタブを `sys.path` / `PYTHONPATH` に載せる
 
+Phase 3 の要点（正典は `docs/spec/layout.md`）:
+
+- **座標を SVG に書き出す経路は `jin_render.svg.fmt_coord` 1 本だけ**（DP-JIN-SVG-DETERMINISM-01・
+  ADR-010）。丸め桁数は 3 桁固定小数で、根拠は layout.md §4 と `decision-conformance.md` §2 の
+  両方に書いてある。`-0.0` は `0.0` に正規化する。SVG の楕円弧 `A` は使わない（フラグが 1 文字固定で
+  3 桁と両立しない）ので円弧は 3 次ベジェで描く
+- `jin_render.render` が**唯一の入口**。CLI の `jin render` と Phase 4 の `jin/renderSvg` は
+  この関数だけを呼ぶ（要件書 §4 最終項）
+- `jin_render` は**純関数**。ファイルを読まず、モジュールレベルの可変状態を持たない（DP-COMMON-07）。
+  schema を通るモデルなら**意味エラーを含んでいても例外を投げない**（Phase 4 のエラー回復・layout.md §5）
+- `data-jin-kind` は 9 種のみ。10 種目を増やさない。トレースの点は `circle`（layout.md §7.4）
+- SVG スナップショットは `packages/jin-render/tests/__snapshots__/`（syrupy）。
+  レイアウトを直したら `uv run pytest packages/jin-render --snapshot-update` で更新し、差分を読んでからコミット
+
 ## 開発コマンド
 
 ```bash
@@ -105,7 +129,10 @@ uv run jin check examples                 # examples の診断
 uv run jin fmt --check examples           # examples が正準形か
 uv run jin build examples/researcher/researcher.jin --out /tmp/out   # ADK プロジェクト生成
 PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl
+uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg      # 魔法陣 SVG（-o 無しは stdout）
+uv run jin render examples/pipeline/pipeline.jin --trace tests/fixtures/traces/pipeline-fake.jsonl --upto 5   # trace overlay
 uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py   # 防御を壊して赤くなることの実測（隔離コピー上で変異する・実ツリーは書き換えない）
+uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py   # 同上（Phase 3・jin-render）
 ```
 
 テスト配置は ADR-003（パッケージ単位の垂直分割 + 横断契約テスト）:
@@ -116,6 +143,8 @@ uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py   # 防�
 - `tests/fixtures/errors/JINxxx_*.jin` — 各診断コードの fixture（**対応コードをちょうど 1 つだけ出す**）
 - `tests/fixtures/build-errors/*.jin` — `jin check` は通るが `jin build` が落とす構造（NFR-FAIL-001）
 - `tests/fixtures/stubs/` — examples の `ref` が指す `research.*` と、異常系テスト用の `exits_tool`（`sys.exit` を呼ぶツール）のスタブ
+- `tests/fixtures/traces/pipeline-fake.jsonl` — `jin run --model fake` の出力（11 行）。`jin-render` の
+  テストは `jin_adk` を import できないのでこれを読む（実行結果との突合は `tests/contract/test_render_contract.py`）
 
 ## 書くときの約束
 

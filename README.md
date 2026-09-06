@@ -4,7 +4,8 @@
 同じファイルを魔法陣として決定的に描画する。
 
 現在の実装範囲は **Phase 0（仕様書と examples）・Phase 1（`jin-core` + `jin-cli`）・
-Phase 2（`jin-adk`: build / run / trace / FakeLlm）**。全体像と残りの Phase は `jin-requirements.md` と `CLAUDE.md` を参照。
+Phase 2（`jin-adk`: build / run / trace / FakeLlm）・Phase 3（`jin-render`: render / focus / trace overlay）**。
+全体像と残りの Phase は `jin-requirements.md` と `CLAUDE.md` を参照。
 
 ## 使う
 
@@ -17,7 +18,29 @@ uv run jin schema                  # JSON Schema を標準出力へ
 uv run jin dump examples/researcher/researcher.jin   # モデル + pointer→range 対応表
 uv run jin build examples/pipeline/pipeline.jin --out /tmp/out   # ADK プロジェクト（/tmp/out/Pipeline/ + .env.example）
 uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl   # FakeLlm で実行・トレース（0600）
+uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg    # 魔法陣 SVG（-o 無しは標準出力）
 ```
+
+### `jin render` — 魔法陣 SVG
+
+```bash
+uv run jin render <file>                       # 標準出力へ
+uv run jin render <file> -o out.svg            # ファイルへ（既存は --force なしでは上書きしない）
+uv run jin render <file> --focus Summarizer    # 展開する circle を切り替える（既定は root）
+uv run jin render <file> --trace t.jsonl --upto 5   # jin run --trace の出力を重ねる
+```
+
+- **同じ `.jin` からは常にバイト単位で同じ SVG が出る**（NFR-DET-001）。座標は丸め関数 1 本
+  （3 桁固定小数）を通り、装飾は `instruction.rune` の SHA-256 から決まる。乱数・時刻・
+  辞書順序に依存しないので、`PYTHONHASHSEED` を変えても出力は変わらない
+- 描画されたすべての要素が `data-jin`（JSON Pointer）と `data-jin-kind`（9 種）を持つ。
+  エディタはこの属性でヒットテストする（`docs/spec/layout.md` §3）
+- `--trace` は `jin run --trace` が書いた JSONL を読み、`--upto` までに発火した要素を朱色で強調し、
+  境界環の外側にイベント数ぶんの点を並べる。`--upto` を増やすと強調は**増えるだけ**（減らない）
+- 入れ子の展開は**深さ 1 まで**。それ以下と、解決できない参照は点になる（`docs/spec/layout.md` §2 / §5）
+- `-o` の親ディレクトリは**作らない**（無ければ拒む）。`jin build --out` は木を作るが、`jin render -o` は 1 ファイルを書くだけなので、打ち間違えたパスの下にディレクトリを生やさない
+- `jin check` に error があるファイルは描かない（`jin build` / `jin run` と同じ規律）
+- **`jin render` は任意コードを実行しない。** `ref` を import せず、入力は意味モデルとトレース JSONL だけである
 
 生成物と `adk run` の関係:
 
@@ -64,6 +87,7 @@ docs/spec/                モデル / ADK 対応 / レイアウト / 診断 / �
 examples/                 researcher.jin と pipeline.jin（正準形）
 packages/jin-core/        意味モデル・位置付きパーサ・意味検査・診断・正準形・意味オペレーション
 packages/jin-adk/         ADK コード生成（Jinja2）/ 書き出し / 実行 / トレース / FakeLlm
-packages/jin-cli/         CLI（check / fmt / schema / dump / build / run）
+packages/jin-render/      決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay
+packages/jin-cli/         CLI（check / fmt / schema / dump / build / run / render）
 tests/                    spec 突合 / 横断契約 / 診断コードの fixture
 ```

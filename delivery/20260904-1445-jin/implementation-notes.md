@@ -1027,3 +1027,802 @@ human_only（実 `adk run` / `adk web`）は引き続き **`not_run`**。pipelin
 | F-S-P2-301（ラウンド 3 の F-S-P2-204 修正が持ち込んだ） | `_open_for_write`: tmp への `os.fchmod` を `try` に入れ、失敗時は `os.close(fd)` + `os.unlink(tmp, dir_fd=)`（`suppress(OSError)`）してから `WriteRefused("<path> のモード（0600）を一時ファイルへ引き継げません: …。既存のファイルは変わっていません")`。`opened` に積む前の例外なので呼び出し側の片付けが届かなかった | `test_build.py::test_fchmod_failure_on_the_temporary_file_leaves_no_leftover`（`os.fchmod` を EPERM に → 残骸 0・既存 3 ファイル無傷・`monkeypatch.undo()` 後の `--force` が通る）。変異 `BUILD-fchmod-leftover`（片付けを消す）1 failed |
 
 F-C-P2-301（重複 id 時の文言）は親の判断で記録のみ・対応なし。ゲート（2026-09-06 00:41 JST）: 8 コマンド + build-errors 2 件 全緑・**800 passed**・変異 **71/71**（SKIP 0・実ツリー不変・`/tmp` 残骸 0）。
+
+---
+
+# implementation-notes — 実装ラウンド 3/5（Jin Phase 3・jin-render）
+
+実装者: `impl-p3` / 2026-09-06 / 対象 Issue: **#4**
+作業ツリー: `.claude/worktrees/jin-phase3-6`（ブランチ `feat/jin-phase3-render`）。コミットは親が行う。
+申し送りの正本: `delivery/20260904-1445-jin/phase3-handoff.md`（§1〜§12 をすべて満たした）。
+
+## P3-1. 成果物と件数
+
+| 項目 | 値 |
+|---|---|
+| `uv run pytest` | **811 passed → 1005 passed**（+194・0 failed / 0 skipped） |
+| 変異ハーネス | **42/42 caught**（41 RED + 1 EXPECT_GREEN。SKIP 0・実ツリー不変・`/tmp` 残骸 0） |
+| CI と同じ 8 ゲート | 全緑（§P3-5 に実測値） |
+| SVG スナップショット | 4 本（`packages/jin-render/tests/__snapshots__/test_snapshots.ambr`） |
+| HANDOFF | 5 件（すべて non-blocking・推奨案で実装済み。§P3-6） |
+
+新規ファイル:
+
+```
+packages/jin-render/pyproject.toml
+packages/jin-render/src/jin_render/{__init__,geometry,svg,ornament,overlay,layout}.py
+packages/jin-render/tests/{__init__,conftest,test_geometry,test_svg,test_layout,test_overlay,test_determinism,test_snapshots}.py
+packages/jin-render/tests/__snapshots__/test_snapshots.ambr
+packages/jin-cli/tests/test_render.py
+tests/contract/test_render_contract.py
+tests/fixtures/traces/pipeline-fake.jsonl
+delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py
+```
+
+変更ファイル:
+
+```
+pyproject.toml                                   dependencies / uv.sources / root_packages / layers / forbidden 2 本
+uv.lock                                          uv lock（新しい外部依存は無い）
+packages/jin-cli/pyproject.toml                  dependencies / uv.sources に jin-render
+packages/jin-cli/src/jin_cli/main.py             render サブコマンド + _read_trace_rows / _write_svg / _write_atomically(allow_create)
+tests/contract/test_dependency_direction.py      トリップワイヤの parametrize から jin_render を外す
+docs/spec/layout.md                              §3.1 / §5 / §6 / §7 / §8 を追加、§4 に丸め桁数と根拠
+CLAUDE.md                                        Phase 3 = 実装済み / パッケージ境界 / 開発コマンド / Phase 3 の要点
+README.md                                        jin render の使い方・構成
+delivery/20260904-1445-jin/decision-conformance.md   §1 に P3 行 7 件 + §2.24（確定値 7 件）
+delivery/20260904-1445-jin/implementation-plan.json  extend（round.index=3 / skill_plan 2 / tasks 3 / domain_checks 3 / evidence 7 / undecided 5）
+```
+
+## P3-2. 設計（申し送り §2 / §3 の制約をどう満たしたか）
+
+- **依存**: `jin_render` が import するのは `jin_core` と標準ライブラリだけ。`jin_adk` は兄弟なので
+  import しない。したがって**トレースの型を `jin_adk.trace` から取らず**、`jin_render.overlay` に
+  最小の読み取り型（`seq: int` / `pointer: str | None` だけ・他のキーは無視）を置いた。
+  動的 import（`importlib` / `__import__` / `exec` / `eval` / `runpy`）は 0 件で、
+  `test_dynamic_imports_are_confined_to_the_cli_resolver_and_jin_run` の厳密一致（2 モジュール）を変えていない。
+- **公開 API は 1 本**: `jin_render.render(model, *, focus=None, trace=None, upto=None) -> str`。
+  CLI の `jin render` と Phase 4 の `jin/renderSvg` はこれだけを呼ぶ。
+  `tests/contract/test_render_contract.py::test_the_cli_and_the_library_produce_the_same_svg` が
+  CLI（別プロセス）とライブラリの出力のバイト一致を固定する。
+- **純関数**: モジュールレベルの可変状態なし。`<textPath>` の id 連番を持つ `_Builder` は
+  `render` の呼び出しごとに作る局所オブジェクト。ファイルを読まない（`open` / `Path` を import していない）。
+- **CLI の書き込み**: `jin fmt` の `_write_atomically` を再利用した。新規作成（`-o` の対象がまだ無い）を
+  許すため `allow_create: bool = False` を足し、**True のときだけ** `copymode` の代わりに
+  `os.chmod(temporary, 0o644)`（`jin build` の生成物と同じモード）に落とす。既定は従来どおりで、
+  `fmt` の「書き込む直前にファイルが消えました」（ENOENT）経路は残っている。新しい書き込み経路は作っていない。
+- **`--trace` の読み取り**: 1 行 1 JSON オブジェクト。壊れた行は行番号つきで exit 2、JSON オブジェクトで
+  ない行も exit 2、`seq` / `pointer` の型違いも exit 2（`ValueError` を CLI が受ける）。
+  空行だけは読み飛ばす（末尾の余分な改行）。**黙って読み飛ばさない**（NFR-FAIL-001）。
+
+## P3-3. 実装で確定した値（要件書に無いもの）
+
+**全件が `docs/spec/layout.md` §6 と `decision-conformance.md` §2.24 の両方に書いてある**
+（仕様側とコード側は同じ欠陥・片方だけ直さない）。主なもの:
+
+| 値 | 決めたもの | 根拠の要点 |
+|---|---|---|
+| 丸め桁数 | 3 桁固定小数（`format(x, ".3f")`） | (a) 1000 px 角キャンバスで 0.001 px は DPR 4 でも 1 デバイスピクセルの 1/4000、(b) 最大座標 1000 px（キャンバスの縁）の倍精度 1 ULP は約 1.1e-13 px で刻みの 10 桁下。`test_svg.py::test_rounding_step_is_far_above_the_float_noise` が数値で固定 |
+| `-0.0` | `0.0` に正規化 | `cos(90°)` 級の符号は libm で揺れ、`-0.000` と `0.000` がスナップショットをずらす |
+| 楕円弧 `A` | **使わない**（3 次ベジェで描く） | `A` の large-arc / sweep フラグは 1 文字の 0 / 1 でなければならず、3 桁固定と両立しない（`0.000` は文法違反）。同じ理由で `transform` も使わない（書き出し経路が 2 本になる） |
+| キャンバス | 1000 px 角 / 正規化 1.0 = 400 px | 半幅 1.25 正規化単位。境界環 0.95 の外にトレースの点（1.10）を置いても収まる |
+| 強調色 | `#cc0000`（朱） | 白地に 5.9:1 / 黒線に 3.6:1 のコントラスト。**要件値ではない**（HANDOFF） |
+| 入れ子の縮尺 | 0.28（**上限**） | `0.55 + 0.28 * 1.01 + 0.04 = 0.873 < 0.95` で外枠ごと境界環をはみ出さない（R1 の外枠追加と R2 の兄弟間隔で更新。現行の式とflow の節の縮小規則は `docs/spec/layout.md` §6） |
+| `flow.exit` の印 | 中心（半径 0）の菱形 | 星形多角形には「閉じ目の辺」が一意に定まらない。核なし circle は中心が空いている |
+| rune の切り詰め | 43 文字（超えたら 42 文字 + `…`） | 指示環の周長 / 文字の高さ = `2π*0.35/0.05 ≈ 43.98`。**比なので縮尺に依らず同じ位置**で切れる |
+
+**環を発明していない。** 半径 1.0 の「陣の外周」を足す案は採らなかった（layout.md §1 の 4 環を
+崩し、「環を持たない circle は環を描かない」というテストと矛盾する）。`/circles/i` を指す可視要素は
+陣の `<g>` そのもので、子要素は `stroke` を自分で持たず group から継承する。したがって
+`escalate`（`/circles/i`）が来ると陣全体が朱くなる — これはその行の意味そのものである。
+
+## P3-4. TDD の Red 証跡
+
+**Red 1（パッケージ追加のトリップワイヤ）**: `packages/jin-render/` を作った直後（`pyproject.toml` を
+1 行も直す前）に `uv run pytest tests/contract` を回した実測:
+
+```
+FAILED tests/contract/test_dependency_direction.py::test_later_packages_do_not_exist_yet[jin_render]
+FAILED tests/contract/test_packaging_contract.py::test_every_package_is_a_root_package[jin-render]
+FAILED tests/contract/test_packaging_contract.py::test_every_package_appears_in_the_layers_contract[jin-render]
+FAILED tests/contract/test_packaging_contract.py::test_every_package_is_declared_in_the_workspace[jin-render]
+```
+
+チェックリスト 7 点（ルート `pyproject.toml` の 5 箇所 + `packages/jin-cli/pyproject.toml` +
+`packages/jin-render/tests/__init__.py`）と `uv lock` で緑に戻した。`layers` は
+`"jin_adk | jin_render"` と **1 要素**に書いた（別要素に並べると実契約より強い順序になる・W-05）。
+`google-adk` の forbidden 契約は名前を「jin_core / jin_render は google-adk に依存しない」へ改名し、
+`test_import_linter_contracts_are_declared` が見る `"google-adk"` の語を残した。
+
+**Red 2（実装前のテスト）**: `jin_render` の各モジュールを空のまま
+`packages/jin-render/tests/test_*.py` を先に書き、`ImportError` / `AttributeError` で赤いことを
+確かめてから実装を入れた。テストを書いた順は geometry → svg → layout → overlay → determinism →
+snapshots で、各段で「赤 → 実装 → 緑」を回した。
+
+**Red 3（自分のテストの誤り 3 件）**: layout のテストを最初に回したとき 3 件が赤くなり、
+いずれも**テスト側**の誤りだったので実装ではなくテストを直した。記録として残す:
+
+| 赤くなったテスト | 原因 | 直し方 |
+|---|---|---|
+| `test_the_nine_kinds_all_appear_across_the_examples` | examples 2 本のどちらにも `delegate` が無い | 合成モデルを 1 本足して 9 種を網羅（テスト名も `..._are_all_drawn` に変更） |
+| `test_a_circle_without_a_core_draws_no_core_element` | focus=Pipeline の入れ子（Drafter）は核を持つ | 焦点の circle の pointer（`/circles/0/core`）だけを見る形に直した |
+| `test_a_circular_summon_does_not_expand_forever` | 環と `<g>` が同じ pointer を持つので count が 2 になる | `<g>` の個数を数える形に直した（`data-jin` は ID ではなく鍵・layout.md §3.1） |
+
+**Red 4（`guard:` 記法のトークン）**: `tests/contract/test_guard_claims.py` の `CLAIM` 正規表現は
+トークンを `(\S+)` で拾うので、**空白を含むトークンは途中で切れて `SyntaxError`** になる。
+`guard: attr_value -> escape(value, _ATTR_ENTITIES)` が実測で赤くなり、空白を詰めた
+`escape(value,_ATTR_ENTITIES)` に直した（`ast.dump` の比較なので空白の有無は影響しない）。
+`guard: _write_svg -> _write_atomically` も**裸の名前**として `GuardTokenTooLoose` で落ちたので、
+呼び出しの形（`_write_atomically(path,text,allow_create=True)`）に直した。**Phase 4 の実装者向けの罠。**
+
+## P3-5. CI と同じ 8 ゲート（2026-09-06・`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1` で実測）
+
+| # | コマンド | 結果 |
+|---|---|---|
+| 1 | `UV_LOCKED=1 uv sync` | EXIT 0（Resolved 79 packages / Checked 76 packages） |
+| 2 | `uv run ruff check .` | All checks passed! |
+| 3 | `uv run ruff format --check .` | 77 files already formatted |
+| 4 | `uv run pytest` | **1005 passed**（0 failed / 0 skipped。ベースライン 811） |
+| 5 | `uv run lint-imports` | Contracts: **3 kept, 0 broken**（Analyzed 59 files, 174 dependencies・実測） |
+| 6 | `uv run jin schema \| diff -u schemas/jin.schema.json -` | 差分なし（`model.py` を変えていない） |
+| 7 | `uv run jin check examples` | 2 ファイル / error 0 件 / warning 0 件（EXIT 0） |
+| 8 | `uv run jin fmt --check examples` | EXIT 0 |
+
+変異ハーネス: `uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py` → **42/42 caught**
+（EXIT 0・SKIP 0）。内訳は申し送り §10 が名指しした 7 種を含む:
+
+| 申し送りの指示 | 変異名 | 結果 |
+|---|---|---|
+| 丸め関数を素の `str()` に替える | `DET-plain-str` / `DET-repr` / `DET-two-decimals` | RED |
+| `data-jin` を 1 要素だけ落とす | `CONTRACT-core-no-pointer` / `CONTRACT-ring-no-pointer` | RED |
+| 装飾を sha256 でなく固定にする | `ORN-fixed` / `ORN-builtin-hash` | RED |
+| 祖先一致を消す | `OVL-exact-only` / `OVL-no-referent` / `OVL-no-ref-attribute` | RED |
+| XML エスケープを外す | `ESC-attr-passthrough` / `ESC-text-passthrough` / `ESC-quoteattr-style` | RED |
+| `focus` を無視する | `FOCUS-ignored` / `FOCUS-unknown-silent` | RED |
+| k を `n//2` にする | `STAR-n-half` / `STAR-always-one` / `STAR-reversed` | RED |
+
+`CLI-follow-symlink-upfront-only` だけは **GREEN が正しい**（`_write_svg` の事前判定を消しても
+`_write_atomically` の `Path(path).is_symlink()` が拒む二層防御）。両層を消す
+`CLI-follow-symlink-both` で赤くなることを別に実測した（`EXPECT_GREEN` の門を見える形にしてある）。
+
+machine 条件 8 項目（design.yaml `implementation_phases.items[3].verification.machine`）の対応:
+
+| # | machine 条件 | 固定するテスト |
+|---|---|---|
+| 1 | SVG スナップショットが examples 2 本で安定 | `test_snapshots.py`（4 本。**正規化せず素のバイト列**で比較・理由は §P3-7） |
+| 2 | 同一入力 2 回でバイト一致 | `test_determinism.py::test_two_renders_in_one_process_are_byte_identical` |
+| 3 | 全要素が `data-jin` / `data-jin-kind` を持ち、全 pointer がモデルに解決できる | `test_layout.py::test_every_element_carries_both_attributes` / `::test_every_pointer_resolves_in_the_model` / `tests/contract/test_render_contract.py::test_every_rendered_pointer_is_in_the_model_pointer_space` |
+| 4 | `data-jin-kind` が §2.5 の 9 種 | `test_layout.py::test_every_kind_is_one_of_the_nine` +（空虚防止）`::test_the_nine_kinds_are_all_drawn` |
+| 5 | `upto` を増やすと強調が単調増加 | `test_overlay.py::test_highlights_grow_monotonically_with_upto` |
+| 6 | `focus` を切り替えると展開対象が変わる | `test_layout.py::test_focus_changes_the_expanded_circle` / `::test_focus_expands_only_depth_one` |
+| 7 | 異なる `PYTHONHASHSEED` の別プロセス 2 回でバイト一致 | `test_determinism.py::test_two_processes_with_different_hash_seeds_agree`（seed 0 / 4242）+ overlay 版 |
+| 8 | 装飾が rune を変えると変わり、変えなければ変わらない | `test_determinism.py::test_the_ornament_changes_when_the_rune_changes` / `::test_the_ornament_does_not_change_when_the_rune_stays` / `::test_the_ornament_uses_sha256_not_the_builtin_hash` |
+
+human_only（図としての可読性・魔法陣としての見た目の妥当性）は **`not_run`**。実装者は判定しない。
+`pipeline_e2e` も **`not_run`**（implementer は commit / push しないので GitHub Actions は未実行。
+Phase 2 の実機結果は `evidence[]` の `[jin_phase=2][pipeline]` に残してある）。
+
+## P3-6. HANDOFF（human-decision-request・いずれも non-blocking・推奨案で実装済み）
+
+`implementation-plan.json` の `undecided[]` / `undecided_details[]` に登録した 5 件。
+親が auto-decider に回して `ai_provisional` で記録すること。
+
+| DP ID | 論点 | 選択肢 | 推奨 |
+|---|---|---|---|
+| `DP-IMPL-JIN-P3-ROUNDING-01` | SVG 座標の丸め桁数 | (1) 3 桁のまま (2) 別の桁数 | **(1)**。根拠 2 点（px 解像度 / 浮動小数ノイズ）を実測済み。変えるとスナップショット 4 本が全更新なので Phase 4 着手前が安い |
+| `DP-IMPL-JIN-P3-ACCENT-COLOR-01` | 強調 1 色の値 | (1) `#cc0000` (2) 別の色（定数 1 つ + スナップショット 1 本） | **(1)**。要件書に値が無い（T-002）。白地 5.9:1 / 黒線 3.6:1 のコントラストで選んだ |
+| `DP-IMPL-JIN-P3-OVERLAY-REFERENT-01` | trace overlay の強調規則（祖先一致 + referent 規則） | (1) この規則 (2) `data-jin` を参照先にする（hit-test が壊れる） (3) 参照要素を強調しない（root 焦点でトレースがほぼ見えない） | **(1)**。規則は layout.md §7.1・機械固定は `test_render_contract.py::test_every_live_pointer_resolves_at_the_root_focus` |
+| `DP-IMPL-JIN-P3-SVG-ROOT-CONTRACT-01` | `<svg>` と `<defs>` を `data-jin` 契約の対象外にする解釈 | (1) 対象外 (2) `<svg>` に `data-jin=""` を付けて 10 種目の kind を足す | **(1)**。(2) は要件書 §2.5 の 9 種を変えることになる |
+| `DP-IMPL-JIN-P3-RENDER-ON-ERROR-01` | error 診断があるファイルを `jin render` が描くか | (1) 既定で拒む・オプションを足さない (2) `--force` で描けるようにする | **(1)**。ライブラリ側（`jin_render.render`）は意味エラーを含むモデルでも図を出すので、Phase 4/5 の体験には影響しない |
+
+**修正ラウンド 1 で足した 1 件**（`undecided[]` に追加登録した 6 件目）:
+
+| DP ID | 論点 | 選択肢 | 推奨 |
+|---|---|---|---|
+| `DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01` | `loop` の星形多角形で、矢じりの向きを実行順に一致させる方法 | (a) 節 j を角位置 `(j*k) mod n` に置き、辺は `j → (j+1) mod n`（星形と訪問順の両立） (b) 配置と辺は現状のまま矢じりを外す（向きの主張をやめる） (c) 現状のまま（要件書 §2.5 と食い違う） | **(a)**。親判定で (a) を実装済み。`gcd(n,k)=1` なので写像は全単射で、星形の見た目は変わらない。変えたのは「どの節がどの角位置に載るか」だけ |
+
+質問セット（auto-decider へ）:
+
+1. 要件書 §2.5「辺の順を訪問順に一致させる」は、**矢じりの向き**が `flow.steps` の順を指すことを
+   意味するという解釈でよいか（それとも「星形の辺を訪問順で辿れる」だけの意味か）
+2. (a) は `loop` の節の角位置を変えるので、n>=5 の loop を含む `.jin` のスナップショットが動く。
+   examples 2 本に loop は無いので今回の差分は 0 だが、Phase 5 のエディタが位置を覚える設計に
+   するなら、この変更は Phase 4 着手前に確定させたい。その前提でよいか
+3. `n < 5` は k=1 なので配置は配列順のまま（`test_a_small_loop_keeps_the_array_order_placement`）。
+   これで良いか
+
+未決のまま持ち越すもの: `DP-REVIEW-JIN-P2-002`（空トレースの印）。Phase 3 は申し送り §9 の指示どおり
+「空トレース（0 行）は点 0 個・強調なし」で描き、判断を待つ（`test_overlay.py::test_an_empty_trace_draws_no_dot_and_no_highlight` が現在の挙動を固定）。
+
+## P3-7. 判断の記録（指示と違う判断・迷った点）
+
+1. **スナップショットを正規化しない**（design.yaml machine 1 は「（正規化後）」と書いている）。
+   `render` の出力は既にバイト単位で決定的で、machine 2 / 7 を別テストで固定している。正規化を挟むと
+   「正規化で消える差分」（座標の桁揺れ・属性順の入れ替わり・要素順の変化）が検出できなくなる。
+   どれも意味のある回帰なので**素のバイト列**で比較した。
+2. **`<svg>` の背景を塗らない**。塗ると `data-jin` を持たない描画要素（`<rect>`）ができ、
+   契約の例外がもう 1 つ増える。SVG の既定どおり透明にし、埋め込む側の地色を使う。
+3. **深さ 1 の入れ子はその circle を丸ごと同じ規則で描く**（核・環・紋・rune・装飾まで）。
+   そのため `focus=root` でも `/circles/2/core` のような下位の pointer が**完全一致**で解決する。
+   referent 規則が要るのは深さ 2 以降（点になった参照）だけである。両方が必要なことは
+   `test_overlay.py` の 2 本（`..._nearest_ancestor` / `..._under_its_referent`）で別々に固定した。
+4. **祖先一致の非空虚性のために合成トレース行を 1 件置いた**。入れ子を再帰で描くと、コミット済み
+   トレースの 11 行はすべて完全一致か referent で解決してしまい、「祖先一致だけが効く」ケースが無い。
+   `/circles/1/flow/max`（Refine に `max: 3` があるのでモデルには解決するが描画要素は無い）を
+   使って `/circles/1/flow`（弦）に落ちることを固定した。
+5. **loop の辺にも矢じりを付けた**。要件書 §2.5 は `sequence` にだけ「（矢印）」と書いているが、
+   §2.1 が「辺の順は訪問順に一致させる」と要求しており、矢じりが無いと訪問順を目で追えない。
+   `parallel` は仕様どおり弦を描かない。
+6. **`await` が `tools` に無いとき（JIN070）は境界環を切らない**。角度が決まらないので欠けを
+   作れない。12 時位置に破線の刻印を置き、`test_layout.py::test_an_unresolved_await_is_drawn_dashed_at_twelve_o_clock`
+   が「境界環が弧に割れていない」ことまで固定する。
+7. **重複 circle 名（JIN010）は先に宣言されたほうを採る**。`{c.name: i for ...}` の後勝ちにすると
+   「後ろに足した重複が前の参照先を奪う」ことになり、書き手の直感と逆になる。
+8. **`--trace` の空行は読み飛ばす**。末尾の余分な改行は「壊れた行」ではない。それ以外
+   （JSON でない / オブジェクトでない / 型違い）はすべて exit 2 にした。
+9. ~~**`jin render -o` の新規ファイルは `os.chmod(temporary, 0o644)` で作る（umask を無視する）**~~
+   → **修正ラウンド 1 でレビューに覆された**（F-S-P3-004 / F-V-P3-015・親判定）。現在は
+   `_new_file_mode()` が `0o644 & ~umask` を返し、`jin build` の実効モードにそろえてある。
+   当時の根拠 (b)（umask の往復が別スレッドの作るファイルに漏れる）は**撤回する**: `jin render`
+   は CLI の単一スレッドで、この往復の間に他のファイルを作らない。Phase 4 の LSP が
+   `jin_render` を組み込むときも、書き出しを行うのは `jin_cli` の側だけである。
+   根拠 (a)（`mkstemp` の 0600 のままにしない）は残る。(c)（SVG は秘匿対象ではない）は
+   「だから緩めてよい」の理由にはならない — umask は利用者の指定であり、実装が上書きする
+   ものではない。詳細は P3-R1.1 の C-2 行。
+
+## P3-8. Stage 5 レビュー依頼（親が実施）
+
+レビュー対象（4 軸: correctness / conventions / wiring / security）:
+
+- **実装**: `packages/jin-render/src/jin_render/{geometry,svg,ornament,overlay,layout}.py`（計 約 1100 行）、
+  `packages/jin-cli/src/jin_cli/main.py` の `render` / `_read_trace_rows` / `_write_svg` /
+  `_write_atomically`（`allow_create` の追加）
+- **テスト**: `packages/jin-render/tests/`（6 ファイル）、`packages/jin-cli/tests/test_render.py`、
+  `tests/contract/test_render_contract.py`
+- **仕様**: `docs/spec/layout.md`（§3.1 / §4 / §5 / §6 / §7 / §8）
+- **記録**: `decision-conformance.md` §1 の P3 行 7 件 と §2.24、`implementation-plan.json`、
+  `phase3-mutations/mutate_p3.py`
+
+特に見てほしい点:
+
+1. **`jin_render` が本当に純関数か**（モジュールレベルの可変状態・辞書順序依存・`id()` 依存）。
+   `fired_indices` は要素の**添字**で集合を作っており `id()` を使っていないが、走査順に依存が無いかを見てほしい。
+2. **`data-jin` 契約の穴**: `<svg>` / `<defs>` を除外した解釈（HANDOFF）と、追加属性 4 種が
+   Phase 5 のエディタのヒットテストを壊さないか。
+3. **XML エスケープ**: 属性値とテキストノードの両方を通しているか。`href="#jin-rune-N"` の id 生成に
+   利用者入力が混ざっていないか（混ざっていない = 連番）。
+4. **`_write_atomically(allow_create=True)` の追加**が `fmt` の既存経路（ENOENT を WriteRefused にする）を
+   壊していないか。`packages/jin-cli/tests/test_cli.py` は 2026-09-06 の実測で **75 passed**（以前ここに書いていた「42 件」は出所不明の数だった・F-V-P3-023）。
+5. **overlay の強調規則**が「発火していないのに強調される」方向へ広すぎないか（祖先一致は
+   `/circles` まで登るので、理論上は `/circles` を指す要素があれば全体が光る。現状そんな要素は無い）。
+
+`verification_status`: `backend_unit = passed` / `container_smoke = not_applicable` /
+`browser_e2e = not_applicable` / `pipeline_e2e = **not_run**` / `overall = verified`（
+`scope_labels = ["backend-unit-verified"]` の範囲での判定）。human_only は `not_run`。
+
+## P3-R1. 修正ラウンド 1（Phase 3 Stage 5 レビューの 62 件）
+
+指示書: `delivery/20260904-1445-jin/phase3-fix-round-1-instructions.md`。
+生出力: `delivery/20260904-1445-jin/code-review-raw/{correctness,conventions,wiring,security}-p3.md`。
+
+### R1.0 まとめ
+
+| | 前 | 後 |
+|---|---|---|
+| テスト | 1005 passed | **1100 passed** |
+| 変異（`mutate_p3.py`） | 42 本 / 42 caught（うち 1 本は期待 GREEN） | **59 本 / 59 caught**（うち 1 本は期待 GREEN・SKIP 0） |
+| CI 8 ゲート | 全緑 | 全緑（下の R1.4） |
+| スナップショット | 4 本 | 4 本（3 本更新・R1.1 の B-1 行） |
+
+指示書の A（11）・B（9）・C（2）は**全件**対応した。D 節は 28 項目（重複を除いた
+finding ID は 32 件）を列挙しており、そのうち **24 項目を直し、4 項目**（F-C-P3-013 /
+F-V-P3-013 / F-W-P3-010 / F-S-P3-013）は理由を添えて記録のみにした（R1.2 の 7〜9）。
+
+### R1.1 finding → 変更 → 固定するテスト → 変異
+
+| # | finding | 変更 | 固定するテスト | 変異（RED を実測） |
+|---|---|---|---|---|
+| A-1 | F-C-P3-001 / F-S-P3-003 | `_read_trace_rows` を `path.open(newline="\n")` のストリーム読みにし、行末の `\r` を 1 つ落とす。テスト側 7 箇所の `splitlines()` も `split("\n")` に | `test_render.py::test_a_row_containing_a_unicode_line_break_is_read`（U+2028 / U+2029 / U+0085）、`test_crlf_line_endings_are_accepted`、端到端 `test_render_contract.py::test_a_trace_written_by_jin_run_is_readable_by_jin_render` | `TRACE-splitlines` |
+| A-2 | F-S-P3-001 | `except ValueError` / `except RecursionError` → exit 2。`seq` の上限 `2^63-1` | `test_a_huge_integer_seq_exits_two`、`test_a_deeply_nested_json_row_exits_two`、`test_overlay.py::test_a_seq_outside_the_range_is_refused` | `TRACE-no-recursion-guard`、`OVL-no-seq-upper-bound`、`OVL-brief-raw-repr` |
+| A-3 | F-S-P3-002 | `pointer_prefixes` を廃し、`by_pointer` の鍵を走査して最長一致を採る（`is_ancestor_or_same`） | `test_ancestor_matching_is_segment_wise`（7 param）、`test_a_huge_pointer_does_not_blow_up_memory_or_time`（5 万段） | `OVL-exact-only`、`OVL-prefix-not-segment-wise` |
+| A-4 | F-V-P3-001 | `DASH` を `fmt_coord` で組み立てる | `test_all_geometry_numbers_are_written_with_three_decimals[dashed]`、`test_every_numeric_attribute_is_covered_by_at_least_one_model` | `DASH-raw-literal` |
+| A-5 | F-V-P3-002 | 空虚なテストを `test_names_are_not_emitted_into_the_svg` に置き換え、`svg.py` docstring を実物（rune のテキストノードだけ）に合わせた | 同名テスト | `ESC-attr-passthrough`（単体テストが守っていることの再確認） |
+| A-6 | F-V-P3-003 | `test_at_least_one_live_pointer_resolves_for_each_focus` に改名 | 同名テスト | — |
+| A-7 | F-W-P3-001 | google-adk 隔離契約の網羅テスト（契約は `forbidden_modules == ["google"]` で探す） | `test_packaging_contract.py::test_adk_isolation_contract_covers_every_package_but_jin_adk_and_jin_cli` | `pyproject.toml` の google 契約の `source_modules` を `["jin_core"]` に落とすと **1 failed**（`AssertionError: google-adk 隔離契約の source_modules に {'jin_render'} が無い`）。戻して緑・ファイルはバイト一致を確認（2026-09-06 実測） |
+| A-8 | F-W-P3-002 | 注入テストを `(package, target_file, injected, keyword)` に広げ 4 ケース追加 | `test_import_linter_actually_bites_on_a_forbidden_import`（7 param） | テスト自身が変異（違反注入）である |
+| A-9 | F-W-P3-003 / F-S-P3-012 / F-C-P3-006 | `_write_svg` が親ディレクトリの不在を拒む（**作らない**）。README に 1 行 | `test_a_missing_parent_directory_is_refused_without_creating_it` | `CLI-create-parent` |
+| A-10 | F-W-P3-005 | `jin render --help` が exit 0 で返ることを見る | `test_render_is_a_registered_subcommand` | `CLI-render-not-registered` |
+| A-11 | F-W-P3-006 | `_jin_imports` の走査を `packages/<p>/tests/` にも掛ける | `test_package_tests_only_import_the_jin_packages_that_package_depends_on` | `packages/jin-render/tests/test_svg.py` に `import jin_adk` を足すと `[jin-render]` param が **1 failed**（`jin-render/tests が ['jin_adk'] を import している`）。戻して緑・ファイルはバイト一致を確認（2026-09-06 実測） |
+| B-1 | F-C-P3-003 / F-C-P3-005 | `summon` の外枠（参照側 pointer・kind `tool`・`data-jin-ref`）を wrapper 直下に描く。放射線と弦の終端を `_outer_extent` から導く | `test_a_summon_draws_a_visible_outline_that_the_tool_row_highlights`、`test_the_summon_outline_follows_the_inner_circles_actual_reach`（4 param）、`test_the_radial_line_stops_at_the_summon_outline` | `SUMMON-no-outline`、`SUMMON-fixed-extent` |
+| B-2 | F-W-P3-004 | `tests/conftest.py` に `child_env` / `env_with_stubs` を置き、`test_cli_contract._run` と `test_render_contract.live_trace` の両方をそこへ寄せた（`mutate_p3.py` の `_env` は既に前置済み） | 既存の子プロセステスト全部 | — |
+| B-3 | F-V-P3-004 | `TraceRowError` が並びの位置を持ち、CLI が受理行の実ファイル行番号へ写して `path:N:` を出す | `test_a_bad_row_reports_the_real_file_line_number`（空行 3 本入り） | `CLI-row-index-as-line` |
+| B-4 | F-V-P3-008 / F-C-P3-010 | 「1300 px 級 / 2.3e-13」→「最大 1000 px / 約 1.1e-13」を layout.md §4・decision-conformance §2.24.1・notes の 3 箇所で直し、テストの `largest` を `geo.CANVAS_PX` から導く | `test_rounding_step_is_far_above_the_float_noise` | `DET-two-decimals`（既存） |
+| B-5 | F-S-P3-005 | `xml_chars` が XML 1.0 `Char` の外を U+FFFD に落とす。`attr_value` / `text_value` の両方が通る | `test_a_character_outside_xml_char_becomes_the_replacement_character`（7 param）、`test_a_rune_with_a_noncharacter_still_parses_as_xml` | `ESC-xml-chars-passthrough` |
+| B-6 | F-V-P3-005 | `_write_svg` の `guard:` を `_write_atomically(...)` 1 本にし、事前 5 条件を「文言のための早期判定（防御ではない）」と散文で書いた | `test_guard_claims.py` | `CLI-follow-symlink-both`（既存・二層目を消すと赤） |
+| B-7 | F-V-P3-006 | guard 走査の期待集合に `jin-render/src/jin_render/svg.py`。CLAUDE.md のチェックリストに 8 項目目 | `test_the_scan_finds_the_modules_that_carry_claims`、`test_claude_md_has_the_package_addition_checklist` | — |
+| B-8 | F-V-P3-007 | layout.md §7.2 の表を書き写した pointer → kind テスト | `test_a_pointer_lands_on_the_kind_the_table_says`（7 param）、`test_the_flow_exit_mark_lands_on_the_flow_edge_kind`、`test_a_pointer_with_no_element_falls_back_to_its_ancestor` | `CONTRACT-tenth-kind`（既存）ほか |
+| B-9 | F-C-P3-004 / F-S-P3-007 / F-V-P3-019 | `read_trace` が `seq < 1` を拒む（上限と 1 本の条件） | `test_a_seq_outside_the_range_is_refused`、`test_a_seq_below_one_exits_two` | `OVL-accept-seq-zero` |
+| C-1 | F-C-P3-002 | 節 j を角位置 `(j*k) mod n` に置き、辺を `j → (j+1) mod n` に。layout.md §2.1 / §6 とテストを同時に直した。HANDOFF 登録 | `test_loop_nodes_are_placed_so_the_arrows_follow_the_visit_order`（n=3..12）、`test_a_small_loop_keeps_the_array_order_placement`、既存の `test_loop_edges_follow_the_star_polygon` | `STAR-slot-identity`（**実測は R2 で訂正**: 配置を恒等に戻すと辺 j→j+1 が単純多角形になるので `test_loop_edges_follow_the_star_polygon[5-2]` / `[8-3]` が赤・訪問順テストは緑。2 本が独立に効くことは `STAR-pre-fix-visit-order` と `STAR-pre-fix-star-shape-stays` が示す・F-C-P3-104）、`STAR-reversed` |
+| C-2 | F-S-P3-004 / F-V-P3-015 | `_new_file_mode()` = `0o644 & ~umask`。P3-7 項 9 を「レビューで覆された」に書き換え、根拠 (b) を撤回 | `test_the_output_file_is_created_with_the_generated_file_mode`（umask 0o022/0o002/0o077）、`test_the_created_mode_matches_what_jin_build_writes`（`jin build` の実物と突合） | `CLI-ignore-umask`、`CLI-new-file-0600` |
+
+D（低確度）で直したもの:
+
+| finding | 変更 |
+|---|---|
+| F-C-P3-007 | 到達しない `accent_attr="fill"` を外し、理由をコメントに |
+| F-C-P3-008 | テスト docstring の存在しない規則番号を §7.1 の実際の項目名に |
+| F-C-P3-009 / F-V-P3-012 | 「24 バイト目」→「添字 24（= 25 バイト目）」を 3 箇所で統一 |
+| F-C-P3-011 / F-S-P3-009 / F-W-P3-008 / F-V-P3-016 | 成功時の文言も `_safe` を通す（`test_the_success_message_does_not_carry_control_characters`） |
+| F-C-P3-012 | 核なし circle + `state` / `boundary` / `delegate` の描画テストを追加 |
+| F-V-P3-009 | `__import__("xml.etree.ElementTree", …)` を通常 import に |
+| F-V-P3-010 | 「`docs/spec/model.md` §3.3」→「CLAUDE.md / ADR-012」 |
+| F-V-P3-011 | 効かない `# noqa: TRY004` と規則名の言及を外す |
+| F-V-P3-014 | 恒等関数 `radii_or` を消し、`approx in list` を `any(...)` に |
+| F-V-P3-017 | `ARROW_HEAD` を `geometry.py` へ移す（`layout.py` は再輸出）。layout.md §6 に「導出値は layout.py」 |
+| F-V-P3-018 | `__init__.py` に「サブモジュールの `__all__` は契約ではない」を 1 行 |
+| F-V-P3-020 | `_await_angles` / `_flow_extent` / `_flow_slots` の `assert` を引数の型で置き換え |
+| F-V-P3-021 | 楕円弧の検査を `d` 属性だけに絞り、rune に `A tool L 1` を含むモデルでも回す |
+| F-V-P3-022 | `test_determinism.py` の関数内 import を先頭へ |
+| F-V-P3-023 | 「既存 42 件」→ 2026-09-06 実測の **75 passed** |
+| F-V-P3-024 | layout.md 冒頭の Phase 区分を実際の追記範囲に |
+| F-V-P3-025 | `pointers()` の既定値 `""` をやめ `None` を返す。呼ぶ側で `is not None` を先に見る |
+| F-S-P3-006 | `except UnicodeDecodeError` の枝を `test_a_trace_that_is_not_utf8_exits_two` で通す |
+| F-S-P3-008 | `brief()` がメッセージに載せる値を 80 文字で切る（4300 桁超の int は `repr` 自体が落ちるので型名に） |
+| F-S-P3-010 | `sys.stdout.buffer.write(svg.encode("utf-8"))`。R1.2 の 2 行目も参照 |
+| F-S-P3-011 | `--trace` をストリーム読みにした（全読み + `splitlines` の 2 重コピーをやめた） |
+| F-W-P3-007 | `-o` が入力の `.jin` と同じなら `--force` でも拒む |
+| F-W-P3-009 | `MUTATE_ONLY` の綴り検査を baseline の**前**に移した（`MUTATE_ONLY=NOPE` で即 exit 1 を実測） |
+| F-W-P3-011 | `-o` がディレクトリなら専用の文言で拒む |
+
+### R1.2 指示書と違えた判断
+
+1. **C-2 のテスト期待値を `0o666 & ~umask` ではなく `0o644 & ~umask` にした。** 指示書は
+   「`jin build` に合わせる」と「`0o666 & ~umask` を assert する」を並べているが、umask 0o002 では
+   前者が 0o644、後者が 0o664 で食い違う。`jin build` は `os.open(name, O_CREAT | O_EXCL, 0o644)`
+   （`jin_adk/build.py`）なので実効モードは `0o644 & ~umask`。**実物にそろえるほうを採った**。
+   `test_the_created_mode_matches_what_jin_build_writes` が `jin build` の出力と実測で突き合わせる
+   ので、どちらかが動けば落ちる。
+2. **F-S-P3-010 を「1 行 exit 1 に包む」ではなく `sys.stdout.buffer` への UTF-8 書き出しにした。**
+   包むだけだと「rune が日本語の `.jin` は `PYTHONIOENCODING=ascii` では描けない」ままで、
+   `-o` は UTF-8 固定なのに stdout はロケール依存という非対称も残る。バイト列で書けば
+   `test_stdout_and_the_output_file_are_byte_identical` の主張がロケールに依らず成立する。
+   この差は CliRunner の中では測れない（stdout が常に UTF-8）ので、別プロセスで
+   `PYTHONIOENCODING=ascii` を渡す `test_render_contract.py::test_stdout_is_utf8_even_when_the_locale_cannot_encode_the_rune` を置いた。
+3. ~~**A-1 の端到端テストは `.jin` の `core` ではなくモデル出力に U+2028 を置いた**~~
+   → **修正ラウンド 2 で訂正**（F-V-P3-103 / F-W-P3-105）。ここに書いた理由
+   「`core` に U+2028 を入れても `name` に載る経路が無い」は**誤り**だった。`Ident` の検証は
+   C0 / C1 / DEL / 孤立サロゲートしか拒まないので U+2028 は通り、`model` 行の `name` は
+   `.jin` の `core` そのものなので、**普通の `jin run --model fake --trace` で生の U+2028 が
+   JSONL に載る**（2026-09-06 実測: `jin check` exit 0・11 行が `splitlines()` では 19 行）。
+   同じ段落で「`name` は `.jin` の `core` そのもの」と書いておきながら逆の結論を出していた。
+   R1 で `output` 経路を選んだのは「`FakeLlm` の台本で 3 種の区切り文字を 1 度に混ぜられる」
+   ためであって、`core` 経路が無かったからではない。R2 で端到端テストを
+   **`core` / `output` の 2 param** にした。
+4. **A-1 の対象から U+000B / U+000C を外した。** `splitlines()` はこの 2 つでも割るが、
+   `json.dumps` は 0x20 未満を必ず `` 形式へ逃がすので JSONL に生では現れない。
+   生で置くと JSON 自身が不正になる（実測: `Invalid control character at`）。理由をテストの
+   docstring に残した。
+5. **B-5 の実効範囲は U+FFFE / U+FFFF だけである。** C0 / C1 / DEL / 孤立サロゲートは
+   `jin_core.model._reject_bad_chars` が既に拒むので、`.jin` からは届かない。`xml_chars` は
+   それらに対しては多層防御であり、**新しく閉じた穴は非文字 2 つ**。テストは単体（7 param）で
+   全クラスを見つつ、端到端では U+FFFE / U+FFFF だけを回す。指示どおり `jin_core` の検証は
+   変えていない（診断コードを増やさない）。
+6. **F-S-P3-011 に上限は付けなかった。** ストリーム読みにしたことで常駐は「行 1 本 + 受理した
+   dict」になり、全読み + `splitlines` の 2 重コピーは消えた。バイト数の上限は「正当な長い
+   トレースを拒む」側の誤りを作るので、閾値の根拠が無いまま置かない（CLAUDE.md「具体値を
+   推測で置かない」）。
+7. **F-C-P3-013（`pointer_prefixes("/")`）は A-3 で関数ごと消えた**ので、記録のみ。
+8. **F-V-P3-013（`implementation-plan.json` の `$comment` に Phase 3 の追記）は行わなかった。**
+   指示書 E は同ファイルについて「`undecided[]` への登録以外は触らない」と書いており、
+   他エージェントが `decision_record` を書き込み中である。衝突を避けて見送った。
+9. **F-W-P3-010 / F-S-P3-013 は記録のみ**（指示どおり）。ただし当時の文言
+   「負けても起きるのは『`--force` 無しで上書き』ではない」は**不正確**だった
+   （修正ラウンド 2 で訂正・security 再レビューの不一致 3）。`exists()` の判定と
+   `os.replace` の間に別プロセスが通常ファイルを作れば、`--force` 無しでもそれを
+   置き換える。同一ユーザーのローカル競合であり権限境界は越えないが、
+   「上書きそのものが起きない」わけではない。記録のみとする判断は変えない。
+
+### R1.3 Red の実測（バッチごと）
+
+| バッチ | 先に足したテストの failed |
+|---|---|
+| 2（トレース読み取り: A-1 / A-2 / B-3 / B-9） | `test_a_row_containing_a_unicode_line_break_is_read` が U+2028 / U+2029 / U+0085 の 3 param で `exit 2`。修正後に緑（VT / FF の 2 param は JSON 自身が不正だったので param から外した） |
+| 3（描画: B-1 / C-1） | `test_parallel_draws_no_chord` が `assert 2 == 1`（外枠が増えた）。スナップショット 3 本 failed。差分を読んでから `--snapshot-update` |
+| 5（契約: A-7 / A-8 / A-11 / B-5 / B-7 / A-10） | `test_guard_claims_point_at_real_guards[jin-render/.../svg.py]`（claim の綴りが実装とずれた）と `test_render_is_a_registered_subcommand`（help の折り返し）の 2 件 failed → どちらもテスト側の書き方を直した |
+| 変異 | 修正前の実装に対して 59 本中 58 本が RED。残る `CLI-stdout-locale` は CliRunner の stdout が常に UTF-8 で緑だったため、別プロセスの `PYTHONIOENCODING=ascii` テストを足して RED を実測 |
+
+スナップショット差分（3 本更新）の内訳: `<circle data-jin=".../tools/2" data-jin-ref>` と
+`<circle data-jin=".../flow/steps/{0,1,2}">` の**外枠 4 本の追加**、および flow の弦 2 本と
+放射線 1 本の**終端座標の変化**（`RING_BOUNDARY` 固定から実寸へ）。`data-jin-kind` の値・
+要素の種類・描画順はどれも変わっていない（9 種のまま）。
+
+### R1.4 CI 8 ゲートの再実測（2026-09-06）
+
+| ゲート | 結果 |
+|---|---|
+| `UV_LOCKED=1 uv sync` | Resolved 79 / Checked 76（lock 更新なし） |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 77 files already formatted |
+| `uv run pytest` | **1100 passed**, 68 warnings, 6 snapshots passed（「1 warning」と書いていたのは `-W ignore::DeprecationWarning` を付けた実行の値だった・F-W-P3-106。素の `uv run pytest` は 68） |
+| `uv run lint-imports` | Contracts: 3 kept, 0 broken |
+| `uv run jin schema \| diff - schemas/jin.schema.json` | 差分なし |
+| `uv run jin check examples` | 2 ファイル / error 0 / warning 0 |
+| `uv run jin fmt --check examples` | exit 0 |
+
+変異: `uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py` →
+baseline green（296 passed）・**59/59 caught**・SKIP 0・`/tmp` 残骸 0。
+`CLI-follow-symlink-upfront-only` だけが期待どおり GREEN（二層防御の片方を消しただけ）。
+
+### R1.5 verification_status
+
+`backend_unit = passed` / `container_smoke = not_applicable` / `browser_e2e = not_applicable` /
+`pipeline_e2e = not_run` / `overall = verified`（`scope_labels = ["backend-unit-verified"]` の
+範囲での判定）。human_only は `not_run` のまま。
+
+### R1.6 再レビュー依頼（親が実施）
+
+重点的に見てほしいもの:
+
+1. **C-1 の意味**。「星形の見た目は変えずに矢じりだけ実行順にする」が要件書 §2.5 の読みとして
+   正しいか（HANDOFF `DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01` の質問 1）。examples に loop が無いので
+   スナップショットには 1 px も出ていない = **今回の変更を目で確かめる材料が無い**
+2. **B-1 の外枠**が新しい `data-jin-kind` を作っていないこと（`tool` / `flow-edge` の使い回し）。
+   1 つの pointer に 2 要素（wrapper `<g>` と外枠 `<circle>`）が付くので、Phase 5 の hit-test が
+   「どちらを掴むか」を決める必要がある
+3. **C-2 の umask**。`0o644 & ~umask` が `jin build` と同じで正しいか。`os.umask` の往復を
+   `jin render -o` の中で 1 回行うことの是非
+4. R1.2 の 9 件（指示と違えた判断）が妥当か
+5. `_outer_extent` の到達半径の列挙（`layout.py`）が `_rings` / `_tools` / `_guards` などの
+   実際の描画と食い違っていないか。食い違うと外枠だけが中身と合わなくなる
+
+## P3-R2. 修正ラウンド 2（Phase 3 再レビューの新規 30 件 + 部分残存 8 件）
+
+指示書: `delivery/20260904-1445-jin/phase3-fix-round-2-instructions.md`。
+生出力: `delivery/20260904-1445-jin/code-review-raw/{correctness,conventions,wiring,security}-p3-round1.md`。
+
+### R2.0 まとめ
+
+| | 前（R1 後） | 後 |
+|---|---|---|
+| テスト | 1100 passed | **1190 passed** |
+| 変異（`mutate_p3.py`） | 59 本 / 59 caught | **70 本 / 70 caught**（SKIP 0・うち 2 本は期待 GREEN） |
+| CI 8 ゲート | 全緑 | 全緑（R2.3） |
+| スナップショット | 4 本 | 4 本（**差分 0**・B-1 の理由は下記） |
+
+指示書の A（4）・B（5）は**全件**。C 節は 20 項目（finding ID にすると 20 件）を列挙しており、**15 項目を直し、5 項目**（F-C-P3-103 / F-S-P3-102 / F-S-P3-104 / F-W-P3-103、および「道具環の紋の重なり」）を理由付きで記録のみにした（R2.2）。
+
+### R2.1 対応表
+
+| # | finding | 変更 | 固定するテスト | 変異 |
+|---|---|---|---|---|
+| A-1 | F-V-P3-101（= 010 の残存） | `docs/spec/layout.md` §5 と `layout.py` の `RenderError` docstring の `model.md §3.3` を「CLAUDE.md / ADR-012」に。`model.md` §3.3 は State の定義であって採番の規律ではない | — | — |
+| A-2 | F-V-P3-103 / F-W-P3-105 | 端到端テストを **`core` / `output` の 2 param** に。R1.2 項 3 の誤った理由を訂正 | `test_render_contract.py::test_a_trace_written_by_jin_run_is_readable_by_jin_render[core/output]`（`jin check` が通ることと U+2028 が生で載ることを先に assert） | `TRACE-splitlines`（対象を `test_render_contract.py` まで広げて再実測: **5 failed** = U+2028/2029/0085 の 3 param + 端到端 `core` / `output` の 2 param） |
+| A-3 | F-W-P3-102（= 006 の部分残存） | `packages/jin-render/tests/conftest.py` の docstring が実物の網（`test_package_tests_only_import_the_jin_packages_that_package_depends_on`）を名指しするよう修正 | — | — |
+| A-4 | F-C-P3-104 | 変異 `STAR-slot-identity` の効き方を実測どおりに 3 箇所（notes R1.1 C-1 行 / `mutate_p3.py` のコメント / `undecided_details` の note）で訂正。**ADR-022（起票時は ADR-021）と `decision_record` は触っていない**（親が置換記録） | — | 新規 2 本（下記） |
+| B-1 | F-C-P3-101 | flow の節の外枠を兄弟間隔から決める。半径を返す関数を `_reference_size` 1 本にし、`_flow_nodes`（紋）と `_flow_extent`（弦の隙間）の両方がそこから採る。超過分は**外枠・中身・隙間を同じ係数で**縮める | `test_every_flow_chord_is_drawn_whatever_the_node_count`（n=3..12 × 中身 3 種 × sequence/loop = 60 param）、`test_a_shrunk_flow_node_shrinks_its_contents_too`、`test_the_chord_gap_matches_the_drawn_node`、`test_a_small_flow_keeps_the_full_nested_scale`、`test_a_crowded_flow_falls_back_to_points` | `FLOW-node-scale-fixed`、`FLOW-no-node-limit`、`FLOW-extent-no-limit` |
+| B-2 | F-V-P3-102 | `test_the_scan_finds_the_modules_that_carry_claims` に「走査結果の**パッケージ名集合** == 期待集合」を追加。CLAUDE.md の文を「1〜7 は名指し / 8 は自己検出」に分割 | 同テスト + `test_claude_md_has_the_package_addition_checklist` | CLAUDE.md の 8 項目目を消して実測。**期待語を `test_guard_claims.py` にした最初の版は緑のまま**だった（直後の解説文にも同じ語があるため）ので、8 項目目にしか無い語に替えて **1 failed** を実測 |
+| B-3 | F-V-P3-105（= 007 の部分残存） | layout.md §7.2 に弦と節の 2 行、§3 の `flow-edge` 行の対象列に「節」（`machine-readable` の第 1 セルは不変）。指示は「`POINTER_KINDS` に同じ 2 行」だったが `FLOW_POINTER_KINDS` を別に立てた（理由は R2.2 項 13・F-V-P3-210） | `test_a_flow_pointer_lands_on_the_kind_the_table_says`（2 param） | `KIND-chord-as-circle`、`KIND-flow-node-as-tool` |
+| B-4 | F-V-P3-106 | `undecided_details[DP-IMPL-JIN-P3-ROUNDING-01].phase_impact` を「最大座標 1000 px / 約 1.1e-13 px」に | — | — |
+| B-5 | F-W-P3-104（= 008 の半分） | `jin build` の成功文言も `_safe` を通す | `test_build_run.py::test_the_build_success_message_does_not_carry_control_characters` | `CLI-build-success-unsafe` |
+
+**B-1 のスナップショット差分は 0。** examples の flow は pipeline の n=3 だけで、上限は
+`0.55 * sin(60°) − 0.06 ≈ 0.416`、節の natural は 0.264 なので制限に掛からない。
+`--snapshot-update` を使わずに 4 本（+ trace overlay 2 本）が通ることを確認した。
+縮み始める n は実測で core のみ 13 / examples 同型 5 / 最大 5（layout.md §6 の表）。
+
+**A-4 の新しい変異 2 本**（`STAR-pre-fix-visit-order` / `STAR-pre-fix-star-shape-stays`）は
+同じ「修正前挙動」（配置は恒等 + 辺 `j → (j+k) mod n`）を当て、前者は
+`test_loop_nodes_are_placed_so_the_arrows_follow_the_visit_order` だけを見て **7 param 赤**、
+後者は `test_loop_edges_follow_the_star_polygon` だけを見て **3 param 緑**（`EXPECT_GREEN`）。
+これで「星形のテストと訪問順のテストが独立に効く」が機械の実測になった。
+`_flow_slots` と `_flow_edges` の 2 箇所を同時に変えるので `main()` で特例扱いしている
+（`CLI-follow-symlink-both` と同じ手）。
+
+C（低）で直したもの:
+
+| finding | 変更 |
+|---|---|
+| F-S-P3-101 | `_write_svg` の docstring を「文言のための 4 条件」と「実効防御 1 条件（入力 `.jin` の上書き拒否）」に分け、後者に `guard: _write_svg -> path.resolve()==source.resolve()` を追加 |
+| F-V-P3-113 | `_new_file_mode` に `guard: _new_file_mode -> os.umask(mask)`（復元の主張） |
+| F-W-P3-101 | `child_env` / `env_with_stubs` の前置を固定する 2 テスト（既存 `PYTHONPATH` が残ること） |
+| F-C-P3-102 | `_outer_extent` の docstring と layout.md §6 を「**主要素の外接半径**（四角の角 0.0029 / 0.0016 は隙間 0.04 に吸収）」に |
+| F-V-P3-104 | 二層目（`SymlinkWriteRefused`）だけ `render` 側で前置しない。競合時にパスが 2 回出るのをやめた |
+| F-V-P3-107 | `enumerate` + `_ = position` の残り 1 箇所 |
+| F-V-P3-108 | `test_a_rune_with_a_noncharacter_still_parses_as_xml`（`render` を通す統合テスト）を `test_svg.py` から `test_layout.py` へ移動 |
+| F-V-P3-109 | トリップワイヤ docstring の「7 項目」に 8 項目目を追記 |
+| F-V-P3-110 | `test_a_huge_pointer_is_matched_in_linear_time` に改名（memory を測っていないので名前から外した） |
+| F-V-P3-111 | `POINTER_KINDS` のコメントを「§7.2 と §3 から人が起こした対応」に |
+| F-V-P3-112 | notes P3-3 の「0.55 + 0.28 * 0.95 = 0.816」を現行の式に（§6 参照） |
+| F-C-P3-105 | `test_determinism.py` のサブプロセス script に残っていた `splitlines()` を `split("\n")` に |
+| F-S-P3-103 | `_write_stdout_bytes` の `sys.stdout is None` と `OSError`（`> /dev/full` など）を 1 行 + exit 1 に。stderr 側の EPIPE は握り潰す。**インタプリタ終了時の flush も同じ OSError で落ちて exit 1 が 120 に化ける**（実測）ので、書けない stdout を `os.devnull` に差し替えてから抜ける。テスト `test_a_full_stdout_is_one_line_not_a_traceback`（`/dev/full` へ実書き込み）・変異 `CLI-stdout-oserror-traceback` で赤 |
+| F-S-P3-105 | `_new_file_mode` が umask を復元することを固定するテスト（`guard:` 主張に歯を付ける）。変異 `CLI-umask-not-restored` で赤 |
+| F-S-P3-106 | `--upto` の負数を `brief()` に通す（80 文字で切る）。変異 `CLI-upto-raw-value` で赤 |
+| F-W-P3-106 | R1.4 の「1 warning」を素の `uv run pytest` の実測値 **68 warnings** に |
+| F-V-P3-018 との整合 | `jin_cli` が `jin_render.overlay.brief` をサブモジュールから取っていたので `jin_render.__all__` に足し、`from jin_render import brief` に統一（「契約は `__init__.__all__` の名前だけ」と自分で書いた規律に合わせる） |
+
+### R2.2 指示と違えた判断 / 直さなかったもの
+
+1. ~~**A-1 の `model.md §3.3` は Phase 3 の 2 箇所だけ直した。**~~ 残りは 3 箇所ではなく
+   **4 箇所**だった（`docs/spec/adk-mapping.md:168` が抜けていた・F-C-P3-204 / F-V-P3-202）。
+   **修正ラウンド 3 で親判定により全部直した**（R3.1 の A-3 行。引用先だけの変更で
+   `machine-readable` ブロック外・`tests/spec` の対象外）。grep で残り 0 を確認済み。
+2. **`FLOW-no-node-limit` が最初 GREEN だった**（節の紋だけ制限を外しても弦の本数は
+   変わらない）。これは「半径を決める場所が 2 つある」ことを検出するテストが無い、
+   という別の穴だったので、`test_the_chord_gap_matches_the_drawn_node`（弦の隙間と
+   描かれた外枠が同じ半径であること）を足し、`FLOW-extent-no-limit` も追加した。
+   変異が緑だったことを「変異が悪い」で片付けず、テストを足す側に倒した。
+3. **B-1 は道具環の紋（`summon`）には適用しない。** 紋は放射線で結ばれるだけで弦を
+   持たないので、消える弦が無い。ただし `tools` 12 個（JIN020 の上限）では隣接距離
+   0.285 に対し最大の紋 0.32 が重なりうる。**これは今回の finding に無い別件**なので
+   直していない（記録のみ）。
+4. **境界は 2 つある**（修正ラウンド 3 で実測に訂正・F-C-P3-205）。n >= 20 で節を点
+   （半径 0.03）に落としたあと、
+   (a) **n >= 32** で弦の本体が矢じり（0.05）より短くなる（`2*0.55*sin(pi/n) - 0.06 < 0.05`）。
+   矢じりが本体からはみ出すが**弦は描かれる**。
+   (b) **n >= 58** で弦そのものが消える（`2*0.55*sin(pi/n) <= 0.06` で `_arrow_d` が `None`）。
+   R2 に「n >= 32 で弦がまた消える」と書いたのは (a) と (b) を混同したもので、
+   消えるのは 58 からである。`flow.steps` にモデル側の個数上限は無いので、どちらも
+   環半径を変えない限り解けない幾何の限界である。layout.md §6 に両方書いた。
+   **診断コードは増やさない**（CLAUDE.md）。
+5. **F-C-P3-103（Unicode 空白だけの行を空行扱い）は記録のみ。** ただし当時書いた理由
+   「ASCII に狭めると BOM 付き空行が壊れた行になる」は**誤り**だった（修正ラウンド 3 で
+   訂正・F-C-P3-203）。`str.strip()` は U+FEFF を落とさないので、**BOM だけの行は現状で
+   既に exit 2** である（実測: `bom.jsonl:2: JSON として読めません（Unexpected UTF-8 BOM）`）。
+   落ちるのは U+3000 / U+00A0 など `str.isspace()` が真になる空白だけである。
+   判断〔記録のみ〕は変えない。理由を書き直す: (a) `jin_adk.trace` は空白だけの行を
+   書かないので実害が無い、(b) 「空行」の定義を狭めると**今受理しているファイルが
+   exit 2 になる**方向で、手で書いたのではないファイルに対しては拒否側の誤りのほうが
+   costly、(c) どちらが正しいかを決める記述が要件書にも仕様にも無い（CLAUDE.md
+   「具体値を推測で置かない」）。現状の挙動は下のテストで固定した。
+6. **F-S-P3-102（1 行長の上限）は記録のみ。** R1.2 項 6 と同じ理由。ストリーム読みで
+   常駐は 1 行ぶんになったが、1 行そのものの上限は閾値の根拠が無いまま置かない。
+7. **F-S-P3-104（FIFO + `--force`）は記録のみ。** `-o` に名前付きパイプを渡すと
+   `mkstemp` + `os.replace` は FIFO を通常ファイルで置き換える（読み手がいれば
+   ブロックはしない）。シンボリックリンクと違い境界を越えず、`--force` を明示した
+   利用者の指定どおりの動作である。
+8. **F-W-P3-103（tests の動的 import は網を素通り）は記録のみ。** `test_packaging_contract.py`
+   の動的 import 検査は `src/` だけを見る。テスト側の `__import__` は F-V-P3-009 / 108 で
+   実際に消したが、機械化はしていない。テストコードは配布物ではなく、
+   「任意コード実行の実装は 2 モジュールに閉じる」契約の対象外である。
+9. **`F-V-P3-104`（二層目でパスが 2 回出る）にテストを足していない。** 二層目
+   （`_write_atomically` の `os.replace` 直前の `is_symlink`）が発火するのは、事前判定を
+   通過したあとに別プロセスがリンクを作った競合時だけである。この窓を安定に再現する
+   テストは書けないので、変更（`render` 側で `SymlinkWriteRefused` だけ前置しない）は
+   読解で確認した。既存の `test_a_symlinked_output_is_refused` は事前判定側を通る。
+10. **`--upto` に届く桁数は 4300 未満である。** Python の `int()` が 4300 桁で
+   `ValueError` を投げ、typer が先に「Invalid value」で exit 2 にする。`brief()` の
+   効果を見るテストは 1000 桁で書いた（5000 桁では `brief` まで到達しない）。
+11. **「道具環の紋の重なり」は C の記録のみ 5 件に数えている**（上の 3 と同じもの）。
+12. **`STAR-pre-fix-star-shape-stays` を `EXPECT_GREEN` に入れた。** 変異ハーネスの
+   「GREEN は原則として捕まえ損ね」という規律の例外を 2 本目として作ることになるが、
+   ここでの GREEN は**主張そのもの**（星形テストは配置の恒等化では落ちない）なので、
+   `CLI-follow-symlink-upfront-only` と同じ扱いにした。理由をエントリのコメントに書いてある。
+13. **B-3 の「`POINTER_KINDS` に同じ 2 行」を別リスト `FLOW_POINTER_KINDS` にした**
+   （Phase 3 修正ラウンド 4 で追記・F-V-P3-210）。`flow` の節を持つのは**核なし** circle で、
+   既存の `POINTER_KINDS` は核ありのモデルで確かめている。同じ parametrize に混ぜると
+   期待値の隣にモデルの分岐が要り、表と実装の対応が読めなくなる。リストとテストを
+   分けて、どちらも `layout.md` §7.2 の 1 行ずつに対応させた。
+
+### R2.3 CI 8 ゲートの再実測（2026-09-06）
+
+| ゲート | 結果 |
+|---|---|
+| `UV_LOCKED=1 uv sync` | Checked 76 packages（lock 更新なし） |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 77 files already formatted |
+| `uv run pytest` | **1190 passed**, 68 warnings, 6 snapshots passed |
+| `uv run lint-imports` | Contracts: 3 kept, 0 broken |
+| `uv run jin schema \| diff - schemas/jin.schema.json` | 差分なし |
+| `uv run jin check examples` | 2 ファイル / error 0 / warning 0 |
+| `uv run jin fmt --check examples` | exit 0 |
+
+変異: baseline green（383 passed）・**70/70 caught**・SKIP 0・`/tmp` 残骸 0。
+期待 GREEN は 2 本（`CLI-follow-symlink-upfront-only` / `STAR-pre-fix-star-shape-stays`）。
+
+`implementation-plan.json` は `undecided_details` の 2 件（`DP-IMPL-JIN-P3-ROUNDING-01` の
+`phase_impact` と `DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01` の `note`）だけを変更した。
+**私はこのラウンドで `decision_record` を触っていない**（差分検査で確認）。
+件数を「22 件」と書いていたが実物は **23 件**である（Phase 3 修正ラウンド 4 で訂正・F-C-P3-302）。数は親の `record.py` が増やすものなので、ここでは「触っていない」だけを主張する。
+
+### R2.4 verification_status
+
+`backend_unit = passed` / `container_smoke = not_applicable` / `browser_e2e = not_applicable` /
+`pipeline_e2e = not_run` / `overall = verified`（`scope_labels = ["backend-unit-verified"]` の
+範囲での判定）。human_only は `not_run` のまま。
+
+### R2.5 再レビュー依頼（範囲限定）
+
+R2 で触った範囲だけ見ていただきたい:
+
+1. **B-1 の縮小規則**（`_reference_size` / `_flow_node_limit`）。式が layout.md §6 と一致するか。
+   「外枠・中身・隙間を同じ係数で縮める」が本当に中身をはみ出させないか（n=3/6/7/12 で
+   `test_a_shrunk_flow_node_shrinks_its_contents_too` が見ているが、境界環以外の要素は見ていない）
+2. **R2.2 の 4（n >= 32 で弦が消える）を仕様として許容してよいか。** 許容しないなら
+   環半径か `flow.steps` の個数上限の話になり、要件書に戻る
+3. **R2.2 の 3（道具環の紋の重なり）** を別 finding として起票すべきか
+4. A-4 の 2 本の変異が「独立性の証拠」として十分か（`EXPECT_GREEN` を 1 本増やしたこと含む）
+5. R2.2 の 1（Phase 2 に残る `model.md §3.3` の誤引用 3 箇所）を今のうちに直すか
+
+## P3-R3. 修正ラウンド 3（Phase 3 再々レビューの新規 26 件・最終）
+
+指示書: `delivery/20260904-1445-jin/phase3-fix-round-3-instructions.md`。
+生出力: `delivery/20260904-1445-jin/code-review-raw/*-p3-round2.md`。
+
+### R3.0 まとめ
+
+| | 前（R2 後） | 後 |
+|---|---|---|
+| テスト | 1190 passed | **1201 passed** |
+| 変異（`mutate_p3.py`） | 70 本 / 70 caught | **75 本 / 75 caught**（SKIP 0・うち 2 本は期待 GREEN） |
+| CI 8 ゲート | 全緑 | 全緑（R3.3） |
+| スナップショット | 4 本 | 4 本（差分 0・描画の変更なし） |
+
+指示書の A（3）・B（4）は**全件**。C 節が名指しする finding は 10 件で、**8 件を直し**
+（F-C-P3-102 / F-V-P3-108 / 109 / 203 / 204 / 207 / F-W-P3-204 / 205）、**2 件は記録のみ**
+（F-S-P3-203 / F-W-P3-203。指示が「記録のみで可」としたもの）。F-V-P3-111 は R2 で対応済み。
+**指示に無い変更は増やしていない**（付随の 2 件は R3.2 の 1 に理由を書いた）。
+
+### R3.1 対応表
+
+| # | finding | 変更 | 固定するテスト | 変異 |
+|---|---|---|---|---|
+| A-1 | F-C-P3-202 / F-V-P3-201 / F-S-P3-201 | 一層目の `SymlinkWriteRefused` の文言に**パスを戻す**（二層目と同じ `path: 理由` の形）。`render` 側の「前置しない」はそのままなので、どちらの層でもパスは 1 回だけ出る | `test_a_symlinked_output_is_refused` に `str(link) in result.output` と `count(...) == 1` を追加 | `CLI-symlink-message-without-path` |
+| A-2 | F-C-P3-203 | R2.2 項 5 の理由を事実に書き直した（**BOM だけの行は現状で既に exit 2**。`str.strip()` は U+FEFF を落とさない）。判断〔記録のみ〕は変えない | `test_a_bom_only_line_is_refused`、`test_a_unicode_whitespace_only_line_is_skipped`（U+3000 / U+00A0） | — |
+| A-3 | F-C-P3-204 / F-V-P3-202 | `model.md §3.3` の誤引用を Phase 2 側の **4 箇所**（`jin_adk/codegen.py` の 2 行、`adk-mapping.md:124` と `:168`）で「CLAUDE.md / ADR-012」に。R2.2 項 1 の「3 箇所」も 4 に訂正 | 既存の `tests/spec`（`machine-readable` 外なので影響なし） | — |
+| B-1 | F-C-P3-201 | **fix-later**。`DP-REVIEW-JIN-P3-001` を `undecided[]` / `undecided_details[]` に起票。`layout.md` §6 に「道具環の紋は縮尺を詰めない（既知の重なり）」と、表の「12 個並べても重ならない」が `tool` / `builtin` 限定であることを明記。**コードは変えていない** | — | — |
+| B-2 | F-C-P3-205 | `layout.md` §6 の「n >= 32 で弦が消える」を実測の 2 境界に分けた（**32 <= n <= 57 は描かれるが本体 < 矢じり / n >= 58 で消える**）。R2.2 項 4 も訂正 | `test_the_two_crowding_boundaries`（n=31/32/57/58）、`test_a_crowded_flow_falls_back_to_points` を n=19/20/40 の 3 param に（点へ落ちる境界は **n=20**） | `FLOW-point-fallback-off` |
+| B-3 | F-W-P3-201 | 成功文言の出力を `_echo_or_exit` に通し、書けなければ 1 行 stderr + exit 1。`-o` 無し経路の後始末も `_fail_on_stdout` に共通化（`build` の成功文言も同じヘルパ） | `test_a_full_stdout_on_the_success_message_is_one_line_not_a_traceback`（`/dev/full`。SVG 自体は書けていることも見る） | `CLI-success-message-raw-echo` |
+| B-4 | F-W-P3-202 / F-S-P3-202 | `sys.stdout is None` 分岐にテストを追加（`preexec_fn` で fd 1 を閉じる） | `test_a_closed_stdout_is_one_line_not_a_traceback` | `CLI-no-closed-stdout-branch` |
+
+C（低）で直したもの:
+
+| finding | 変更 |
+|---|---|
+| F-C-P3-102 の残り | `layout.py` の `_reference` 内コメント 1 行を「主要素の外接半径 + 隙間」に |
+| F-V-P3-108 の残り | 関数内 import 2 箇所（`test_overlay.py` の `time` / `test_determinism.py` の `hashlib`）を先頭へ |
+| F-V-P3-109 の残り | `test_packaging_contract.py:305` の「チェックリスト 7 項目目」に「（全 8 項目）」 |
+| F-W-P3-204 | `mutate_p3.py` の期待 GREEN の印字理由を `EXPECT_GREEN_REASON` で 2 種類に分けた（`two-layer` と「主張そのもの」）。名前の集合は `EXPECT_GREEN = set(EXPECT_GREEN_REASON)` に畳み、**片方にだけ足す事故**を作らない |
+| F-W-P3-205 | notes R2.1 の `ADR-021` を「ADR-022（起票時は ADR-021）」に |
+| F-V-P3-203 | トリップワイヤ docstring の「7 項目である」を 8 に。列挙の順序（6 / 8 / 7）も 1〜8 に並べ替え |
+| F-V-P3-204 | `test_render.py` の関数内 `import subprocess` / `import sys`（3 関数 × 2）を先頭へ |
+| F-V-P3-207 | 弦の本体長の下限を `2 * (ARROW_HEAD + ε)` に（layout.md §6 の文言どおり）。矢じりだけを下限にしていたので **ε を消す変異が緑のままだった**（レビューの M-B1b）。変異 `FLOW-limit-drops-epsilon` で **18 failed** を実測 |
+| F-S-P3-101 の残り | `main.py` のモジュール docstring が「5 条件すべてが防御ではない」のままだったので、R2 の関数 docstring と同じ 4 + 1 の形に（R3.2 の 1） |
+
+### R3.2 指示と違えた判断 / 記録のみ
+
+1. **指示に無い変更は 2 つ**。どちらも指示された修正に付随して見つかったもので、
+   独立に持ち込んだ変更は無い。
+   - `main.py` のモジュール docstring。R2 の F-S-P3-101 で関数 docstring を
+     「文言のための 4 条件 + 実効防御 1 条件」に分けたが、モジュール docstring は
+     「5 条件は防御ではない」のまま残っていた。A-1 で同じ段落を触るので同時に直した。
+     **安全主張が実装と食い違ったまま残る**のはこのラウンドで潰している defect と
+     同じ型であり、放置する理由が無い。
+   - `test_a_crowded_flow_falls_back_to_points` の n=19/20 化と
+     `FLOW-point-fallback-off`。B-2 で §6 の閾値を実測に直したとき、点へ落ちる境界
+     （n=20）を通るテストが 1 本も無いことに気づいた（詳細は項 3）。B-2 が指示した
+     のは n=31/32/57/58 の側だけなので、この 2 本は指示の範囲外である。
+2. **`CLI-symlink-message-without-path` は最初 GREEN だった。** `before` の文字列が
+   一層目と二層目のどちらにも一致し、`replace(..., 1)` が**二層目**を書き換えていた
+   （ruff が一層目の raise を 1 行に畳んだ結果、両者の形が同じになった）。直前の
+   コメント行まで含めて一意にし、RED を実測した。変異の的が外れていたのであって
+   テストが弱かったのではない。
+3. **`FLOW-point-fallback-off` も最初 GREEN だった。** 点へ落ちる境界（n=20）を通る
+   テストが無く、`test_a_crowded_flow_falls_back_to_points` は n=40（どちらの実装でも
+   点）だけを見ていた。n=19/20 を足して RED を実測した。R2 の `FLOW-no-node-limit` と
+   同じで、**変異が緑だったらテストを足す側に倒す**。
+4. **B-3 の共通化で 4 本の変異が SKIP になった**（`CLI-follow-symlink-*` 2 本 /
+   `CLI-stdout-oserror-traceback` / `CLI-build-success-unsafe`）。すべて `before` を
+   現行コードに合わせ直し、SKIP 0 に戻してから caught 数を数えた。
+5. **F-S-P3-203〜205 / F-W-P3-203 は記録のみ**（指示どおり）。
+6. **`DP-REVIEW-JIN-P3-001` はコードを変えていない。** 紋の重なりを直す (a)(b) は
+   どちらも図の見た目を変え、examples のスナップショットは動かないが Phase 5 の
+   hit-test の設計に影響する。rune 帯との交差は環半径の話で要件書 §2.5 に戻るため、
+   実装者の判断で選べない。判断期限は Phase 5 のエディタ着手前。
+
+### R3.3 CI 8 ゲートの再実測（2026-09-06）
+
+| ゲート | 結果 |
+|---|---|
+| `UV_LOCKED=1 uv sync` | Checked 76 packages（lock 更新なし） |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 77 files already formatted |
+| `uv run pytest` | **1201 passed**, 68 warnings, 6 snapshots passed |
+| `uv run lint-imports` | Contracts: 3 kept, 0 broken |
+| `uv run jin schema \| diff - schemas/jin.schema.json` | 差分なし |
+| `uv run jin check examples` | 2 ファイル / error 0 / warning 0 |
+| `uv run jin fmt --check examples` | exit 0 |
+
+変異: baseline green（394 passed）・**75/75 caught**・SKIP 0・`/tmp` 残骸 0。
+
+`implementation-plan.json` の変更は `undecided[]` と `undecided_details[]` への
+`DP-REVIEW-JIN-P3-001` の追加**だけ**（既存の `undecided_details` も含めて他は不変）。
+`decision_record`（**23 件**。「22 件」は誤り・F-C-P3-302）は**私が触っていない**という主張であって、
+件数が動かないという主張ではない。増減させるのは親の `record.py` である。ADR ファイルは触っていない。
+
+### R3.4 verification_status
+
+`backend_unit = passed` / `container_smoke = not_applicable` / `browser_e2e = not_applicable` /
+`pipeline_e2e = not_run` / `overall = verified`（`scope_labels = ["backend-unit-verified"]` の
+範囲での判定）。human_only は `not_run` のまま。
+
+## P3-R4. 修正ラウンド 4（最終確認レビューの新規 3 件 + 部分残存・**文言とテスト 1 本**）
+
+指示書: `delivery/20260904-1445-jin/phase3-fix-round-4-instructions.md`。
+生出力: `delivery/20260904-1445-jin/code-review-raw/*-p3-round3.md`。
+
+**コードの挙動は変えていない。** 変えたのは (1) `build` 側に無かったテストと変異、
+(2) symlink 拒否文言の**語順**、(3) 仕様書・記録の文言と数字である。
+
+### R4.0 まとめ
+
+| | 前（R3 後） | 後 |
+|---|---|---|
+| テスト | 1201 passed | **1202 passed** |
+| 変異（`mutate_p3.py`） | 75 本 / 75 caught | **77 本 / 77 caught**（SKIP 0・うち 2 本は期待 GREEN） |
+| CI 8 ゲート | 全緑 | 全緑（R4.3） |
+| スナップショット | 4 本 | 4 本（差分 0） |
+
+### R4.1 対応表（指示書の 6 行）
+
+| # | finding | 変更 | 固定するテスト | 変異 |
+|---|---|---|---|---|
+| 1 | F-C-P3-303 / F-W-P3-301 | なし（`build` は R3 で既に `_echo_or_exit` を通っていた）。**テストと変異が無かった**だけ | `test_build_run.py::test_a_full_stdout_on_the_build_success_message_is_one_line_not_a_traceback`（`/dev/full`。exit 1・**stderr がちょうど 1 行**・生成物は出来ている） | `CLI-build-success-raw-echo` |
+| 2 | F-C-P3-301 / F-V-P3-302 | `layout.md` §6 の相互参照 2 箇所の向きを入れ替えた（表セル「上記」→「下記」、段落「下の表」→「上の表」） | — （`tests/spec` は `machine-readable` しか読まない） | — |
+| 3 | F-C-P3-302 / F-W-P3-302 | notes R2.3 / R3.3 の「`decision_record` 22 件」を実数 **23 件** に訂正し、主張を「**私は触っていない**」に書き直した（件数を動かすのは親の `record.py`） | — | — |
+| 4 | F-V-P3-301 | symlink 拒否文言を **`path: 理由`** にそろえた。**3 箇所**（`_write_svg` の一層目 / `_write_atomically` の二層目 / `_write_in_place` の ELOOP 退避路）。他の `WriteRefused` 4 条件・`fmt` の表示と同じ形 | `test_a_symlinked_output_is_refused` に `result.output.startswith(f"{link}: シンボリックリンク")` を追加（**並び**を見る。R3 は有無と回数しか見ていなかった） | `CLI-symlink-message-order` |
+| 5 | F-V-P3-303 | 未対応と指摘された 4 件のうち **3 件を修正・1 件は記録のみ**（下表）。R3.0 の数え（「C は 8 項目」）は 205 / 208 / 209 / 210 を数に入れていなかった | 下表 | — |
+| 6 | F-V-P3-203 / 204 の残り | `test_packaging_contract.py` の「計 7 項目」→「計 8 項目」。関数内 import 2 箇所（`test_render.py` の `_new_file_mode` / `test_render_contract.py` の `ElementTree`）を先頭へ | 既存 | — |
+
+項 5 の内訳:
+
+| finding | 対応 |
+|---|---|
+| F-V-P3-205 | `test_overlay.py` の節見出しコメント「§7.2 の表を**書き写す**」→「§7.2 と §3 から起こした対応」（3 行下の説明と食い違っていた） |
+| F-V-P3-208 | `decision-conformance.md` §2.24.3 を「入れ子の縮尺 **上限** 0.28（flow の節は §2.24.1c で兄弟間隔まで縮む・n >= 20 なら点）」に。`layout.md` §7.2 の `/circles/i/flow/steps/j` 行に「節が多い（n >= 20）ときは解決しても点」を追加 |
+| F-V-P3-209 | **記録のみ。** `implementation-plan.json` の `evidence[]` は親の台帳である（R2 / R3 の指示は「`undecided` 以外を触らない」）。finding 本文も「所管は親」と書いている。**私が足すと、実装者が親の台帳に書く前例になる**ので足さない。親が最終ラウンド後に `[jin_phase=3][fix-round-4][mutation] 77/77` と `[gates] 1202 passed` を足す想定 |
+| F-V-P3-210 | notes R2.1 B-3 行に理由を書き足し、R2.2 に項 13 として「同じリストに入れると核あり / 核なしでモデルを分岐させる必要があるため別リストにした」を追記 |
+
+### R4.2 指示と違えた判断 / 記録のみ
+
+1. **項 4 は 3 箇所を直した**（指示は箇所数を書いていない）。一層目だけを直すと
+   二層目・退避路の文言と並びが割れ、`fmt` にも `理由: path` が残る。
+   レビューの提案 (a)「一層目・二層目・`fmt` を `path: 理由` に」に合わせた。
+2. **`fmt` は同じ文言を `{path}: 書き込めません（… {exc}）` で包むので、パスが 2 回出る。**
+   これは並びの変更で生じたものではなく **R3 以前から**そうである（`fmt` は
+   `SymlinkWriteRefused` を基底の `WriteRefused` として扱うため）。`render` 側の
+   F-V-P3-104 と同型だが、`fmt` の表示を変えるのは項 4 の範囲外なので**直していない**。
+   次のラウンドがあるなら `fmt` の `unwritable` 分岐で `SymlinkWriteRefused` を
+   別に捕まえるのが筋である。
+3. **項 1 でコードは変えていない。** `build` の `_echo_or_exit` は R3 の B-3 で入っており、
+   欠けていたのはテストと変異だけだった。`CLI-build-success-raw-echo` を足して
+   **1 failed** を実測した（`-k` が新しい 1 本だけを選ぶため）。
+4. **F-V-P3-209 は記録のみ**（上表の理由）。
+
+### R4.3 CI 8 ゲートの再実測（2026-09-06）
+
+| ゲート | 結果 |
+|---|---|
+| `UV_LOCKED=1 uv sync` | Checked 76 packages（lock 更新なし） |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 77 files already formatted |
+| `uv run pytest` | **1202 passed**, 68 warnings, 6 snapshots passed |
+| `uv run lint-imports` | Contracts: 3 kept, 0 broken |
+| `uv run jin schema \| diff - schemas/jin.schema.json` | 差分なし |
+| `uv run jin check examples` | 2 ファイル / error 0 / warning 0 |
+| `uv run jin fmt --check examples` | exit 0 |
+
+変異: baseline green・**77/77 caught**・SKIP 0・`/tmp` 残骸 0。
+新規 2 本はどちらも **1 failed** を実測（`CLI-symlink-message-order` /
+`CLI-build-success-raw-echo`）。期待 GREEN は R3 と同じ 2 本のまま。
+
+`implementation-plan.json` は**このラウンドでは 1 バイトも触っていない**（項 5 の
+F-V-P3-209 を含む）。ADR ファイルも触っていない。R3 開始時に取った控えと突き合わせると
+`decision_record`（23 件）は同一で、差があるのは `skill_plan` の 1 要素追加
+（`parallel-code-review` の実施記録）である。**これは親の書き戻し**であり、
+R3.3 の「plan の変更は `DP-REVIEW-JIN-P3-001` の追加だけ」は**私の編集について**の主張である。
+
+### R4.4 verification_status
+
+`backend_unit = passed` / `container_smoke = not_applicable` / `browser_e2e = not_applicable` /
+`pipeline_e2e = not_run` / `overall = verified`（`scope_labels = ["backend-unit-verified"]` の
+範囲での判定）。human_only は `not_run` のまま。

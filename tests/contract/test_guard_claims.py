@@ -94,14 +94,29 @@ def _guard_satisfied(tree: ast.Module, function_name: str, token: str) -> bool:
 
 
 def test_the_scan_finds_the_modules_that_carry_claims() -> None:
-    """走査が壊れて対象が消えたら気づく（列挙をやめた代わりの網）。"""
+    """走査が壊れて対象が消えたら気づく（列挙をやめた代わりの網）。
+
+    ファイルは**部分集合**で見る（新しく `guard:` を書いたモジュールが増えるのは正常）。
+    一方**パッケージ名の集合は等号**で見る: 新しいパッケージが `guard:` を持つように
+    なったのに期待集合へ足し忘れる、を検出する（CLAUDE.md のチェックリスト 8 項目目・
+    F-V-P3-102。等号にする前は 8 項目目を消してもどのテストも落ちなかった）。
+    """
     found = {p.relative_to(PACKAGES).as_posix() for p in modules_with_claims()}
     assert {
         "jin-cli/src/jin_cli/main.py",
         "jin-adk/src/jin_adk/build.py",
         "jin-adk/src/jin_adk/runtime.py",
         "jin-adk/src/jin_adk/codegen.py",
+        "jin-render/src/jin_render/svg.py",
     } <= found, found
+
+    expected_packages = {
+        "jin-cli",
+        "jin-adk",
+        "jin-render",
+    }
+    assert {name.split("/", 1)[0] for name in found} == expected_packages, sorted(found)
+
     total = sum(len(CLAIM.findall(p.read_text(encoding="utf-8"))) for p in modules_with_claims())
     assert total >= MINIMUM_TOTAL_CLAIMS, total
 

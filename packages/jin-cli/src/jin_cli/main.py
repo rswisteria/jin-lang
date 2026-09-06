@@ -1,11 +1,10 @@
 """Jin CLI。
 
-**実装済みは check / fmt / schema / dump（Phase 1）と build / run（Phase 2）の 6 つ。**
-要件書 §5 の残り 3 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
+**実装済みは check / fmt / schema / dump（Phase 1）・build / run（Phase 2）・render（Phase 3）の 7 つ。**
+要件書 §5 の残り 2 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
 
 | コマンド | 実装 Phase | 担当パッケージ |
 |---|---|---|
-| `jin render` | Phase 3 | jin-render |
 | `jin lsp` | Phase 4 | jin-lsp |
 | `jin editor` | Phase 5 | apps/editor |
 
@@ -48,6 +47,19 @@ ADK が cancel を握って正常復帰するため「応答の無い function_c
     guard: _open_trace -> os.fchmod
     guard: _truncate -> os.ftruncate
     guard: _require_jin_file -> _has_unsafe_chars(file.name)
+
+## `jin render`（Phase 3）は任意コードを実行しない
+
+`jin render` は `jin_render.render`（`jin_core` と標準ライブラリだけに依存する純関数）を呼ぶだけで、
+`ref` を import しない。`--trace` の JSONL も `json.loads` で読むだけである。
+`-o` の書き出しは `jin fmt` と同じヘルパ（`_write_atomically`）を通す。**新しい書き込み経路を作らない。**
+`_write_svg` が先に見る 5 条件のうち 4 つ（シンボリックリンク / ディレクトリ / 親の有無 /
+既存）は**文言のための早期判定であって防御ではない**（F-V-P3-005）。効いているのは
+`_write_atomically`（`mkstemp` の `O_CREAT | O_EXCL` と、リンクの実体だけを置き換える `os.replace`）。
+残る 1 つ「`-o` が入力の `.jin` と同じ」だけは**二層目が無い実効防御**である（F-S-P3-101）。
+どの条件も文言にパスを含める（`path: 理由`。R2 で一層目から落として退行させた・F-C-P3-202）。
+
+    guard: _write_svg -> _write_atomically(path,text,allow_create=True)
 
 ## `guard:` 記法（security review R-2 の再発防止）
 
@@ -92,6 +104,8 @@ from jin_core.check import CheckResult, JinReadError, check_file, read_source
 from jin_core.diagnostics import Diagnostic, has_error
 from jin_core.model import JinFile
 from jin_core.schema_export import render as render_schema
+from jin_render import RenderError, TraceRowError, brief
+from jin_render import render as render_svg
 
 from jin_cli.resolver import RESOLVE_TIMEOUT_SECONDS, SubprocessResolver
 
@@ -99,7 +113,7 @@ app = typer.Typer(
     name="jin",
     help=(
         "Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン"
-        "（check / fmt / schema / dump / build / run）"
+        "（check / fmt / schema / dump / build / run / render）"
     ),
     no_args_is_help=True,
     add_completion=False,
@@ -301,7 +315,7 @@ def _write_in_place(path: Path, text: str) -> None:
     except OSError as exc:
         if exc.errno == errno.ELOOP:
             raise SymlinkWriteRefused(
-                f"シンボリックリンクなので書き込みを拒みました: {path}"
+                f"{path}: シンボリックリンクなので書き込みを拒みました"
             ) from exc
         # ELOOP 以外（ENOENT: 競合で消えた / EACCES など）はリンクの話ではないので基底で投げる。
         raise WriteRefused(f"書き込みを開けません: {exc.strerror}") from exc
@@ -317,13 +331,38 @@ def _write_in_place(path: Path, text: str) -> None:
         ) from exc
 
 
-def _write_atomically(path: Path, text: str) -> None:
+def _new_file_mode() -> int:
+    """新規作成するファイルのモード。**umask を尊重する**（F-S-P3-004 / F-V-P3-015）。
+
+    `jin build` は `os.open(name, O_CREAT | O_EXCL, 0o644)`（`jin_adk/build.py`）で作る。
+    `os.open` の mode は**カーネルが umask を引いてから**適用するので、実効モードは
+    `0o644 & ~umask` である。`mkstemp` + `os.chmod` はこの経路を通らないため、
+    umask 0o077 の利用者が `jin render -o` で作った SVG だけが group / other に
+    読めてしまっていた。同じ実効モードを自分で計算してそろえる。
+
+    `os.umask` は「読むだけ」の API が無いので 0 を設定して元に戻す往復で読む。
+    CLI は単一スレッドで、この往復の間に他のファイルを作らない。**必ず元に戻す**
+    （戻し忘れると以降このプロセスが作る全ファイルが 0666 になる・F-V-P3-113）。
+
+    guard: _new_file_mode -> os.umask(mask)
+    """
+    mask = os.umask(0)
+    os.umask(mask)
+    return 0o644 & ~mask
+
+
+def _write_atomically(path: Path, text: str, *, allow_create: bool = False) -> None:
     """同じディレクトリに一時ファイルを作ってから `os.replace` で差し替える。
+
+    `allow_create=True`（`jin render -o` の新規作成）のときだけ、対象がまだ無くても
+    書ける。既定（`fmt`）は従来どおり「対象が在ること」を前提にする。
 
     直接 `write_text` すると、書き込み中に落ちたときに**内容が切り詰められたファイル**が
     残る（security review S11）。`os.replace` は同一ファイルシステム内で原子的。
     改行は変換しない（`newline=""`）。正準形は LF 固定であり、実行環境によって
     CRLF に変換されると正準形とバイト一致しなくなる（correctness review D-2）。
+
+    新規作成（`allow_create=True` かつ対象が無い）のモードは `_new_file_mode()`。
 
     **元ファイルのパーミッションを引き継ぐ**。`mkstemp` は 0600 で作り `os.replace` は
     置き換える**側**のモードを持ち込むので、コピーしないと group / other の読み取りビットが
@@ -368,10 +407,17 @@ def _write_atomically(path: Path, text: str) -> None:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
-        shutil.copymode(path, temporary)
+        if allow_create and not path.exists():
+            # `jin render -o` の新規作成。`mkstemp` は 0600 で作るので、生成物としての既定
+            # （`jin build` が書く 0644）にそろえる。**`fmt` はこの枝を通らない**:
+            # `allow_create=False` なら `copymode` が ENOENT を投げ、「書き込む直前に
+            # ファイルが消えました」（_WRITE_ERRNO_HINTS）として拒む従来の挙動が残る。
+            os.chmod(temporary, _new_file_mode())
+        else:
+            shutil.copymode(path, temporary)
         # `Path(...).is_symlink` であること自体が意味を持つ（下の docstring 参照）。
         if Path(path).is_symlink():
-            raise SymlinkWriteRefused(f"シンボリックリンクなので書き込みを拒みました: {path}")
+            raise SymlinkWriteRefused(f"{path}: シンボリックリンクなので書き込みを拒みました")
         os.replace(temporary, path)
     except OSError as exc:
         Path(temporary).unlink(missing_ok=True)
@@ -642,7 +688,7 @@ def build(
         typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
     for path in written:
-        typer.echo(f"書き出しました: {path}")
+        _echo_or_exit(f"書き出しました: {_safe(str(path))}")
     raise typer.Exit(code=0)
 
 
@@ -810,6 +856,250 @@ def run(
         # ADR-009: 引けなかった pointer は null にして行を残し、理由を stderr に出す（黙らない）。
         typer.echo(f"pointer を解決できませんでした: {_safe(reason)}", err=True)
     typer.echo(f"{len(result.rows)} イベント（session: {_safe(session)}）", err=True)
+    raise typer.Exit(code=0)
+
+
+# ======================================================================================
+# Phase 3: render（jin-render）
+# ======================================================================================
+def _read_trace_rows(path: Path) -> tuple[list[dict], list[int]]:
+    """`--trace` の JSONL を 1 行 1 JSON オブジェクトとして読む。
+
+    行の区切りは **`\n` だけ**である（`jin_adk.trace` の writer が書くのがそれだけ）。
+    `str.splitlines()` は U+2028 / U+2029 / U+0085 / U+000B / U+000C でも割るので、
+    `core` などに行区切り文字を含む正当な `.jin` から作ったトレースを
+    「JSON として読めません」で拒んでいた（F-C-P3-001 / F-S-P3-003）。
+    Windows で書かれた `\r\n` を通すため、行末の `\r` は 1 つだけ落とす。
+
+    壊れた行は**黙って読み飛ばさない**（NFR-FAIL-001）。行番号を添えて exit 2 にする。
+    空行（末尾の余分な改行など）だけは読み飛ばすので、受理した行の**実ファイル行番号**を
+    別に持って返す（`enumerate` の位置とはずれる・F-V-P3-004）。
+
+    ファイル全体を文字列にせず 1 行ずつ読む。巨大な `--trace` でも常駐するのは
+    「行 1 本 + 受理した dict」だけになる（F-S-P3-011）。
+    """
+    rows: list[dict] = []
+    numbers: list[int] = []
+    try:
+        with path.open(encoding="utf-8", newline="\n") as handle:
+            for number, raw in enumerate(handle, start=1):
+                line = raw.removesuffix("\n").removesuffix("\r")
+                if not line.strip():
+                    continue
+                try:
+                    value = json.loads(line)
+                except RecursionError as exc:
+                    # 十万段の入れ子は `json` の再帰で落ちる。潰れずに入力エラーとして出す。
+                    typer.echo(f"{_safe(str(path))}:{number}: JSON の入れ子が深すぎます", err=True)
+                    raise typer.Exit(code=2) from exc
+                except ValueError as exc:
+                    # `json.JSONDecodeError` は `ValueError` の子。将来 `json` が別の
+                    # `ValueError` を投げても「Traceback を見せる」側へ落とさない。
+                    detail = _safe(getattr(exc, "msg", str(exc)))
+                    typer.echo(
+                        f"{_safe(str(path))}:{number}: JSON として読めません（{detail}）。"
+                        "--trace は 1 行 1 JSON オブジェクトの JSONL です",
+                        err=True,
+                    )
+                    raise typer.Exit(code=2) from exc
+                if not isinstance(value, dict):
+                    typer.echo(
+                        f"{_safe(str(path))}:{number}: JSON オブジェクトではありません"
+                        f"（{type(value).__name__}）。1 行 1 イベントで書いてください",
+                        err=True,
+                    )
+                    raise typer.Exit(code=2)
+                rows.append(value)
+                numbers.append(number)
+    except UnicodeDecodeError as exc:
+        # 読み込みは遅延なので、open ではなく**反復中**に出る。
+        typer.echo(f"{_safe(str(path))}: トレースが UTF-8 ではありません", err=True)
+        raise typer.Exit(code=2) from exc
+    except OSError as exc:
+        typer.echo(f"{_safe(str(path))}: トレースを読めません（{exc.strerror}）", err=True)
+        raise typer.Exit(code=2) from exc
+    return rows, numbers
+
+
+def _echo_or_exit(message: str) -> None:
+    """標準出力へ 1 行出す。書けなければ 1 行 stderr + exit 1（トレースバックにしない）。
+
+    `jin render ... -o out.svg > /dev/full` のように**標準出力が書けない**とき、
+    成功文言の `typer.echo` が rich のトレースバック + exit 120 になっていた
+    （F-W-P3-201）。`-o` 無しの経路（`_write_stdout_bytes`）は既に 1 行 + exit 1 なので、
+    成功文言もそこへそろえる。`build` の成功文言も同じヘルパを通す。
+    """
+    try:
+        typer.echo(message)
+    except OSError as exc:
+        _fail_on_stdout(exc)
+
+
+def _fail_on_stdout(exc: OSError) -> None:
+    """標準出力に書けなかったときの共通の終わり方（1 行 stderr・exit 1）。
+
+    stderr への書き込み自体も EPIPE になりうるので握り潰す。インタプリタ終了時にも
+    `sys.stdout` が flush され、同じ `OSError` で **exit 1 が 120 に化ける**（実測）ので、
+    書けない stdout を `os.devnull` に差し替えてから抜ける。
+    """
+    try:
+        typer.echo(f"標準出力に書けません（{exc.strerror or exc}）", err=True)
+    except OSError:
+        pass
+    try:
+        sys.stdout = open(os.devnull, "w")  # noqa: SIM115
+    except OSError:
+        pass
+    raise typer.Exit(code=1) from exc
+
+
+def _write_stdout_bytes(text: str) -> None:
+    """標準出力へ UTF-8 のバイト列として書く。
+
+    `sys.stdout` がバイト層を持たない差し替え（一部のテストランナー）でも動くよう、
+    無ければテキストとして書く。`-o` の出力とバイト同一であることを守るのが目的。
+    """
+    if sys.stdout is None:
+        # `jin render ... >&-`（fd 1 が閉じている）。Python は sys.stdout を None にする。
+        typer.echo("標準出力が閉じています", err=True)
+        raise typer.Exit(code=1)
+    buffer = getattr(sys.stdout, "buffer", None)
+    try:
+        if buffer is None:
+            sys.stdout.write(text)
+            return
+        sys.stdout.flush()
+        buffer.write(text.encode("utf-8"))
+        buffer.flush()
+    except OSError as exc:
+        # `> /dev/full`（ENOSPC）など（F-S-P3-103）。
+        _fail_on_stdout(exc)
+
+
+def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
+    """`-o` の書き出し。`jin fmt` / `jin build` と同じ規約。
+
+    先に見る条件は 2 種類ある（F-S-P3-101 で分けた）。
+
+    **文言のための早期判定（4 条件・防御ではない）**: シンボリックリンク / ディレクトリ /
+    親が無い / 既存。実際に効いているのは `_write_atomically` のほうで、リンクについては
+    `os.replace` がリンクの実体（名前）を置き換えるだけであること、`mkstemp` が
+    `O_CREAT | O_EXCL` で作ることが境界越えを防いでいる。この 4 つを消しても安全性は
+    変わらず、変わるのはメッセージだけである（F-V-P3-005）。
+
+    **実効防御（1 条件）**: `-o` が入力の `.jin` と同じファイルなら拒む。ここだけは
+    二層目が無い。`_write_atomically` は存在するファイルを `copymode` → `os.replace` で
+    置き換えるので、この判定を消すと `-o <入力.jin> --force` が入力そのものを SVG で
+    上書きしてデータを失う（変異 `CLI-overwrite-the-input` が RED になるのがその証拠）。
+
+    親ディレクトリは**作らない**（F-W-P3-003 / F-S-P3-012 / F-C-P3-006）。`jin build --out`
+    は木を作るコマンドなので作るが、`jin render -o` は 1 ファイルを書くだけであり、
+    打ち間違えたパスの下に勝手にディレクトリを生やすほうが害が大きい。
+
+    guard: _write_svg -> path.resolve()==source.resolve()
+    guard: _write_svg -> _write_atomically(path,text,allow_create=True)
+    """
+    if path.is_symlink():
+        # 文言にパスを入れ、並びも他の 3 条件と同じ `path: 理由` にそろえる
+        # （二層目・退避路・`fmt` も同じ形・F-V-P3-301）。R2 で
+        # `render` 側の前置をやめたときに、ここからパスが消える退行を作った
+        # （F-C-P3-202 / F-V-P3-201 / F-S-P3-201）。前置しない側に合わせる。
+        raise SymlinkWriteRefused(f"{path}: シンボリックリンクなので書き込みを拒みました")
+    if path.is_dir():
+        raise WriteRefused("ディレクトリです。ファイル名まで指定してください")
+    parent = path.parent
+    if not parent.is_dir():
+        raise WriteRefused(f"出力先のディレクトリがありません: {parent}")
+    if path.exists() and path.resolve() == source.resolve():
+        # `.jin` を SVG で上書きすると入力そのものが消える（`--force` でも通さない）。
+        raise WriteRefused("入力の .jin と同じファイルには書けません")
+    if path.exists() and not force:
+        raise WriteRefused("既にあります。上書きするなら --force を付けてください")
+    _write_atomically(path, text, allow_create=True)
+
+
+@app.command()
+def render(
+    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    out: Annotated[
+        Path | None,
+        typer.Option("-o", "--out", help="SVG の出力先（省略時は標準出力）"),
+    ] = None,
+    trace: Annotated[
+        Path | None,
+        typer.Option("--trace", help="jin run --trace が書いた JSONL。発火した要素を強調する"),
+    ] = None,
+    upto: Annotated[
+        int | None,
+        typer.Option(
+            "--upto", help="seq がこの値以下のイベントまで発火済みとみなす（--trace が必要）"
+        ),
+    ] = None,
+    focus: Annotated[
+        str | None,
+        typer.Option("--focus", help="展開する circle 名（省略時は root の circle）"),
+    ] = None,
+    force: Annotated[bool, typer.Option("--force", help="-o の既存ファイルを上書きする")] = False,
+) -> None:
+    """魔法陣 SVG を出す（要件書 §4 / §5）。同じ入力なら常にバイト単位で同じ出力になる。
+
+    `jin check` に error があるファイルは描かない（`jin build` / `jin run` と同じ規律・
+    HANDOFF DP-IMPL-JIN-P3-RENDER-ON-ERROR-01）。
+    """
+    if upto is not None and trace is None:
+        typer.echo(
+            "--upto は --trace と一緒に指定してください（トレースが無いと seq を数えられません）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if upto is not None and upto < 0:
+        typer.echo(f"--upto は 0 以上の整数です（指定値: {brief(upto)}）", err=True)
+        raise typer.Exit(code=2)
+    model = _load_model_or_exit(file)
+    rows: list[dict] | None = None
+    numbers: list[int] = []
+    if trace is not None:
+        rows, numbers = _read_trace_rows(trace)
+    try:
+        svg = render_svg(model, focus=focus, trace=rows, upto=upto)
+    except RenderError as exc:
+        # 未定義の focus。診断コード（JINxxx）は増やさない（CLAUDE.md / ADR-012）。
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=2) from exc
+    except TraceRowError as exc:
+        # トレース行の契約違反。並びの位置を**実ファイルの行番号**へ写す（F-V-P3-004）。
+        where = (
+            f"{_safe(str(trace))}:{numbers[exc.index]}"
+            if exc.index < len(numbers)
+            else _safe(str(trace))
+        )
+        typer.echo(f"{where}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=2) from exc
+    except ValueError as exc:
+        # `upto` の範囲違反など、行に紐づかない入力エラー。
+        source = trace if trace is not None else file
+        typer.echo(f"{_safe(str(source))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if out is None:
+        # **UTF-8 のバイト列として**書く（F-S-P3-010）。`sys.stdout.write` はロケール
+        # （`PYTHONIOENCODING=ascii` / Windows の cp932）で符号化するので、rune に
+        # その符号化に無い文字が 1 つあるだけで `UnicodeEncodeError` のトレースバックに
+        # なっていた。`-o` は UTF-8 固定なので、そちらとバイト同一である主張も
+        # ロケールに依らず成立する。
+        _write_stdout_bytes(svg)
+        raise typer.Exit(code=0)
+    try:
+        _write_svg(file, out, svg, force=force)
+    except SymlinkWriteRefused as exc:
+        # 一層目・二層目とも文言にパスが入っているので、ここで前置しない
+        # （前置すると競合時にパスが 2 回出る・F-V-P3-104）。
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=1) from exc
+    except WriteRefused as exc:
+        typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_or_exit(f"書き出しました: {_safe(str(out))}")
     raise typer.Exit(code=0)
 
 

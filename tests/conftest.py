@@ -33,6 +33,29 @@ requires_non_root = pytest.mark.skipif(
 #: モデルにならない（= fmt できない）診断コード。docs/spec/diagnostics.md §6。
 UNFORMATTABLE_CODES = frozenset({"JIN001", "JIN002"})
 
+#: examples の `ref`（`research.*`）と異常系ツールのスタブ置き場。
+STUBS = REPO_ROOT / "tests" / "fixtures" / "stubs"
+
+
+def child_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """子プロセス用の環境。`extra["PYTHONPATH"]` は既存の値を**捨てずに前置**する。
+
+    開発者の `PYTHONPATH` を上書きしないための唯一の実装（F-W-P2-007 / F-W-P3-004）。
+    前置の有無が `test_cli_contract` / `test_render_contract` / `mutate_p3.py` の
+    3 箇所で食い違っていたので 1 箇所に寄せた。
+    """
+    extra = extra or {}
+    env = {**os.environ, **extra}
+    inherited = os.environ.get("PYTHONPATH")
+    if extra.get("PYTHONPATH") and inherited:
+        env["PYTHONPATH"] = os.pathsep.join([extra["PYTHONPATH"], inherited])
+    return env
+
+
+def env_with_stubs(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """`tests/fixtures/stubs` を `PYTHONPATH` の先頭に置いた子プロセス環境。"""
+    return child_env({**(extra or {}), "PYTHONPATH": str(STUBS)})
+
 
 def fixture_code(path: Path) -> str:
     return path.name.split("_", 1)[0]

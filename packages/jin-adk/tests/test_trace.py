@@ -344,7 +344,7 @@ def test_writer_relabels_the_last_model_row_as_final_and_writes_jsonl(tmp_path: 
         writer.push(text_event("Researcher", "first"))
         writer.push(text_event("Researcher", "second"))
         writer.close()
-    lines = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+    lines = [json.loads(line) for line in out.read_text(encoding="utf-8").split("\n") if line]
     assert [line["kind"] for line in lines] == ["model", "final"]
     assert [line["seq"] for line in lines] == [1, 2]
     assert all(list(line) == list(TRACE_FIELDS) for line in lines)

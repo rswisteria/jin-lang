@@ -21,6 +21,7 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-007 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-001 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-002 |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P3-001 |
 
 ## AI 仮決定（auto mode・レビュー待ち・自動生成）
 
@@ -33,6 +34,12 @@ auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/dec
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-STATESEED-01 | 現状のまま（jin run だけが宣言済み state を None で seed する。adk run 単体で KeyError になることを README… | high | pending_human_review | 2026-09-05T19:56:01+09:00 |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-SYSPATH-01 | cwd を生成モジュールの import の間だけ sys.path に足し、import が終わったら必ず外す（jin_adk.runtime.load_g… | medium | pending_human_review | 2026-09-05T21:25:37+09:00 |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P2-TRACEKIND-01 | 承認する（final = 実行全体の最後の行が model のときだけその行を付け替える / escalate = StateCheckAgent の判定イベ… | medium | pending_human_review | 2026-09-05T19:56:01+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P3-ACCENT-COLOR-01 | 選択肢 1: trace overlay の強調 1 色を #cc0000（朱）のまま承認する | medium | pending_human_review | 2026-09-06T10:37:47+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01 | 選択肢 (a): loop の節 flow.steps[j] を角位置 (j*k) mod n に置き、辺は j → (j+1) mod n（訪問順の隣）を矢… | high | pending_human_review | 2026-09-06T13:05:05+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P3-OVERLAY-REFERENT-01 | 選択肢 1: trace overlay の強調規則として「pointer を末尾から 1 セグメントずつ削る祖先一致」+「参照要素の data-jin-re… | high | pending_human_review | 2026-09-06T10:37:47+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P3-RENDER-ON-ERROR-01 | 選択肢 1: error 診断があるファイルは jin render も既定で拒む（exit 1）。図を出すためのオプションは Phase 3 では足さない | high | pending_human_review | 2026-09-06T10:37:47+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P3-ROUNDING-01 | 選択肢 1: SVG 座標の丸めを 3 桁固定小数（format(x, ".3f")）のまま承認する | high | pending_human_review | 2026-09-06T12:04:02+09:00 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P3-SVG-ROOT-CONTRACT-01 | 選択肢 1: svg 要素自身と defs 配下を data-jin 契約の対象外とする解釈を承認する | high | pending_human_review | 2026-09-06T10:37:47+09:00 |
 
 ## 決定済み（schema 駆動・自動生成）
 

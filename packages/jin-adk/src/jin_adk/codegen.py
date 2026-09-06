@@ -24,7 +24,7 @@
 ## NFR-FAIL-001
 
 ADK に対応物のない Jin 構造は `BuildError` で落とす。黙って捨てない。
-一覧は `docs/spec/adk-mapping.md` §3.1。診断コードは増やさない（`docs/spec/model.md` §3.3）。
+一覧は `docs/spec/adk-mapping.md` §3.1。診断コードは増やさない（`CLAUDE.md` / ADR-012）。
 
 ## ADR-008 / ADR-009
 
@@ -70,7 +70,7 @@ class BuildError(Exception):
 
     `jin check` を通ったモデルに対して `jin build` / `jin run` が出す唯一のエラー種。
     メッセージは「何が悪いか」、`hint` は「どう直すか」、`pointer` は場所。
-    診断コード（JINxxx）は持たない（`docs/spec/model.md` §3.3・勝手に採番しない）。
+    診断コード（JINxxx）は持たない（`CLAUDE.md` / ADR-012・勝手に採番しない）。
     """
 
     def __init__(self, message: str, *, pointer: str, hint: str) -> None:

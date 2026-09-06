@@ -98,15 +98,33 @@ def test_import_linter_passes_on_the_real_tree() -> None:
 
 
 @pytest.mark.parametrize(
-    ("target_file", "injected", "contract_keyword"),
+    ("package", "target_file", "injected", "contract_keyword"),
     [
-        ("canonical.py", "import google.adk", "google-adk"),
-        ("canonical.py", "from jin_cli.resolver import ImportResolver", "jin_cli.resolver"),
-        ("canonical.py", "from jin_adk.runtime import run_model", "jin_adk.runtime"),
+        ("jin_core", "canonical.py", "import google.adk", "google-adk"),
+        (
+            "jin_core",
+            "canonical.py",
+            "from jin_cli.resolver import ImportResolver",
+            "jin_cli.resolver",
+        ),
+        ("jin_core", "canonical.py", "from jin_adk.runtime import run_model", "jin_adk.runtime"),
+        # F-W-P3-002: Phase 3 で足した `jin_render` からの経路も実測する。
+        # `jin_core` だけを注入点にしていると、契約の `source_modules` から
+        # `jin_render` が抜けても全部緑のままになる
+        ("jin_render", "svg.py", "import google.adk", "google-adk"),
+        ("jin_render", "svg.py", "import jin_adk", "一方向"),
+        (
+            "jin_render",
+            "svg.py",
+            "from jin_cli.resolver import ImportResolver",
+            "jin_cli.resolver",
+        ),
+        # 兄弟の逆向き（`jin_adk` → `jin_render`）も layers 契約が落とす
+        ("jin_adk", "trace.py", "import jin_render", "一方向"),
     ],
 )
 def test_import_linter_actually_bites_on_a_forbidden_import(
-    tmp_path: Path, target_file: str, injected: str, contract_keyword: str
+    tmp_path: Path, package: str, target_file: str, injected: str, contract_keyword: str
 ) -> None:
     """契約が「宣言してあるだけ」でないことを、違反を注入して確認する。
 
@@ -120,7 +138,7 @@ def test_import_linter_actually_bites_on_a_forbidden_import(
     )
 
     copy_sources(tmp_path)
-    target = tmp_path / "jin_core" / target_file
+    target = tmp_path / package / target_file
     target.write_text(
         f"{injected}  # 契約違反の注入\n" + target.read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -192,25 +210,27 @@ def test_jin_core_imports_no_other_jin_package() -> None:
                 assert not (top.startswith("jin_") and top != "jin_core"), f"{path}: {name}"
 
 
-@pytest.mark.parametrize("later_package", ["jin_render", "jin_lsp"])
+@pytest.mark.parametrize("later_package", ["jin_lsp"])
 def test_later_packages_do_not_exist_yet(later_package: str) -> None:
-    """Phase 2 までが実装済み。Phase 3 以降のパッケージはまだ無い。
+    """Phase 3 までが実装済み。Phase 4 以降のパッケージはまだ無い。
 
-    `jin_adk` は Phase 2（実装ラウンド 2）で追加し、この parametrize から外した。
-    `jin_render` / `jin_lsp` は残す（Phase 3 / 4 で同じ手順を踏む）。
+    `jin_adk` は Phase 2（実装ラウンド 2）で、`jin_render` は Phase 3（実装ラウンド 3）で
+    追加し、この parametrize から外した。`jin_lsp` は残す（Phase 4 で同じ手順を踏む）。
 
     存在するようになったらこのテストが赤くなる。そのとき直すのは**この 1 行ではなく**
-    `CLAUDE.md` の「パッケージを足すときのチェックリスト」の 7 項目である
-    （conventions review A-3）:
+    `CLAUDE.md` の「パッケージを足すときのチェックリスト」の 8 項目である
+    （conventions review A-3・Phase 3 修正ラウンド 3 で 8 項目に）:
 
     1. `[project].dependencies` / 2. `[tool.uv.sources]` / 3. `root_packages` /
     4. layers 契約（兄弟は `"jin_adk | jin_render"` と `|` 区切り）/
     5. forbidden 契約の `source_modules` / 6. `packages/<name>/tests/__init__.py` /
-    7. 依存する側の `packages/<x>/pyproject.toml`（Phase 2 修正ラウンド 1・F-W-P2-001）
+    7. 依存する側の `packages/<x>/pyproject.toml`（Phase 2 修正ラウンド 1・F-W-P2-001）/
+    8. `test_guard_claims.py` の期待集合（Phase 3 修正ラウンド 1・F-V-P3-006）
 
     6 を落とすと**同名テストファイル 1 個で collection 全体が止まり**、
     「トリップワイヤが赤い」ではなく「テストが 1 件も走らない」状態から始めることになる。
-    抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。
+    1〜7 の抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。
+    8 は `test_guard_claims.py` がパッケージ名の等号で自己検出する。
     """
     assert not (REPO_ROOT / "packages" / later_package.replace("_", "-")).exists()
 

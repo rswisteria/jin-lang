@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import UNFORMATTABLE_CODES, fixture_code
+from tests.conftest import STUBS, UNFORMATTABLE_CODES, child_env, env_with_stubs, fixture_code
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 JIN = Path(sys.executable).parent / "jin"
@@ -26,10 +26,7 @@ def _run(
     *args: str, env_extra: dict[str, str] | None = None, cwd: Path = REPO_ROOT
 ) -> subprocess.CompletedProcess[str]:
     assert JIN.exists(), f"jin コマンドが見つからない: {JIN}"
-    env = {**os.environ, **(env_extra or {})}
-    if env_extra and "PYTHONPATH" in env_extra and os.environ.get("PYTHONPATH"):
-        # 開発者の既存 PYTHONPATH を捨てない（F-W-P2-007）。スタブは前置する
-        env["PYTHONPATH"] = os.pathsep.join([env_extra["PYTHONPATH"], os.environ["PYTHONPATH"]])
+    env = child_env(env_extra)
     return subprocess.run(
         [str(JIN), *args], cwd=cwd, capture_output=True, text=True, env=env, check=False
     )
@@ -181,10 +178,10 @@ def test_run_with_fake_model_exits_zero_in_a_real_process(tmp_path: Path, name: 
         "fake",
         "--trace",
         str(trace),
-        env_extra={"PYTHONPATH": str(REPO_ROOT / "tests" / "fixtures" / "stubs")},
+        env_extra={"PYTHONPATH": str(STUBS)},
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    lines = trace.read_text(encoding="utf-8").splitlines()
+    lines = [line for line in trace.read_text(encoding="utf-8").split("\n") if line]
     assert lines and all(json.loads(line)["pointer"] is not None for line in lines)
     assert "Traceback" not in result.stderr
 
@@ -201,7 +198,7 @@ jin_cli.main.app(["run", sys.argv[1], "go", "--model", "fake"])
 def _scripted_run(jin: Path, tool: str) -> subprocess.CompletedProcess[str]:
     """`jin run --model fake` にはツールを呼ばせる台本を渡す手段が無いので、`jin_cli.main.FakeLlm` を
     差し替えて `app()` を呼ぶ小スクリプトを**別プロセス**で実行する（CliRunner 在中ではない）。"""
-    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "tests" / "fixtures" / "stubs")}
+    env = env_with_stubs()
     return subprocess.run(
         [sys.executable, "-P", "-c", _SCRIPTED_RUN, str(jin), tool],
         cwd=REPO_ROOT,
@@ -312,3 +309,33 @@ def test_cwd_cannot_supply_an_uninstalled_optional_dependency_during_the_run(
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "SHADOW" not in result.stdout + result.stderr
+
+
+# --------------------------------------------------------------------------------------
+# 子プロセス環境のヘルパ（F-W-P2-007 / F-W-P3-004 / F-W-P3-101）
+# --------------------------------------------------------------------------------------
+def test_child_env_keeps_the_developers_pythonpath(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`PYTHONPATH` を**前置**する（開発者の既存の値を捨てない）。
+
+    3 箇所で前置の有無が食い違っていたので `tests/conftest.py` に寄せた（F-W-P3-004）。
+    寄せただけでは前置そのものは固定されないので、ここで見る（F-W-P3-101）。
+    """
+    monkeypatch.setenv("PYTHONPATH", "/existing/one")
+    env = child_env({"PYTHONPATH": "/added"})
+    assert env["PYTHONPATH"] == os.pathsep.join(["/added", "/existing/one"])
+
+    # 既存が無ければ足したものだけ
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    assert child_env({"PYTHONPATH": "/added"})["PYTHONPATH"] == "/added"
+
+    # `PYTHONPATH` 以外の値は素通し、既存の `PYTHONPATH` はそのまま残る
+    monkeypatch.setenv("PYTHONPATH", "/existing/one")
+    other = child_env({"PYTHONHASHSEED": "0"})
+    assert other["PYTHONHASHSEED"] == "0"
+    assert other["PYTHONPATH"] == "/existing/one"
+
+
+def test_env_with_stubs_puts_the_stubs_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYTHONPATH", "/existing/one")
+    env = env_with_stubs()
+    assert env["PYTHONPATH"] == os.pathsep.join([str(STUBS), "/existing/one"])

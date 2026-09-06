@@ -40,7 +40,8 @@ confidence の基準: 100 = 実測で直接確認、75 = 実際に踏むと確�
 - 何が起きるか: `builtin: google_search` と `ref: mytools:google_search` を同じファイルに書くと
   ```python
   from google.adk.tools import FunctionTool, google_search
-  from mytools import google_search          # ← builtin を上書き
+  from mytools import google_search  # ← builtin を上書き
+
   root_agent = LlmAgent(..., tools=[google_search, FunctionTool(google_search)])
   ```
   が生成され、`tools[0]` は `GoogleSearchTool` ではなく利用者の `function` になる。`BuildError` も警告も出ない

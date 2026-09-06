@@ -8,7 +8,7 @@
 - **Status: FINAL** — ただし **Jin Phase 0+1 のスコープに対してのみ**。親が全ゲートを再実行して `verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を再導出した。
 - **本レポートのスコープは Jin Phase 0+1 のみ。** 本ランの全体スコープは Phase 0〜6（ADR-001）であり、
   Phase 2〜6（jin-adk / jin-render / jin-lsp / apps/editor）は本節の時点では未着手。**Jin 成果物全体は FINAL からは程遠い。**
-  （2026-09-06 追記: **Phase 2 は本ファイル後半の「Phase 2（jin-adk）」節を参照**。Phase 3〜6 は引き続き未着手）
+  （2026-09-06 追記: **Phase 2 は本ファイル後半の「Phase 2（jin-adk）」節を参照**。Phase 3〜6 は引き続き未着手。**2026-09-06 追記: Phase 3 は本ファイル末尾の「Phase 3（jin-render）」節を参照**。Phase 4〜6 は後続の stacked PR）
 - verification_status.overall: **`verified`**（親が再導出。実装者は最後まで `partially_verified` のまま返し、自己判断で戻していない）
 - `pipeline_e2e` は **`passed`**（2026-09-04 の PR #1 マージ時に GitHub Actions が実機で成功。pull_request 2 回 + push/main 1 回とも conclusion=success）。`human_only` 条件は `not_run` のまま PR レビュー送り。**実施済みと報告していない**
 - scope_labels: `backend-unit-verified`
@@ -301,3 +301,152 @@ uv run jin fmt --check tests/fixtures/build-errors  →   EXIT=0
 uv run jin schema | diff -u schemas/jin.schema.json -  → 差分なし  EXIT=0
 mutate_p2.py（隔離コピー）  → 71/71 mutations caught  EXIT=0  SKIP=0
 ```
+
+
+---
+
+# Stage 5 Code Review Report — Phase 3（jin-render）— 2026-09-06
+
+対象: 実装ラウンド 3（Jin **Phase 3** jin-render: 決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay / focus ＋ jin-cli の `render`）・Issue #4
+実施主体: 親（`/aid auto-deliver` の実行主体）。正本 `skills/implementation/parallel-code-review/DOMAIN-SKILL.md`
+ブランチ: `feat/jin-phase3-render`（origin/main `32c215e` = PR #15 マージ後から。Phase 4〜6 はこのブランチの上に積む stacked PR）
+
+## Summary（Phase 3）
+
+- **Status: FINAL** — 親が全ゲートを再実行して `verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を再導出した。
+  **スコープは Phase 3 まで。** Phase 4〜6 は後続の stacked PR。
+- verification_status.overall: **`verified`**（backend_unit のみ）
+- `pipeline_e2e`: **`not_run`**（本 PR の GitHub Actions の結果で確認し、マージ前に追記する）
+- `human_only`（図としての可読性・魔法陣としての見た目の妥当性）: **`not_run`**。PR レビューへ送る。実施済みと報告していない。
+  **examples 2 本に loop が無い**ので、ラウンド 1 で確定した星形 {n/k} の節配置（ADR-022）はスナップショットに 1 px も現れない。
+  見た目の確認は `tests/fixtures/` ではなく `jin render` を n=5 の loop を持つ `.jin` に当てて目で見る必要がある
+- 起動した観点: correctness / conventions / wiring / security（並列度 = 4）。
+  **reviewer は `feature-dev:code-reviewer` ではなく general-purpose Subagent**（同じ規律: confidence 0〜100・全件報告・隔離コピーでの変異検証）。
+  理由は Phase 2 と同じ（`code-reviewer` は Bash を持たず、申し送り §7 の変異検証ができない）
+- 各観点の findings 件数（ラウンド 0）: **correctness=13 / conventions=25 / wiring=11 / security=13（合計 62 件）**。
+  修正が持ち込んだ新規: ラウンド 1 で 30 件 / ラウンド 2 で 26 件 / ラウンド 3 で下記
+- verdict 内訳（ラウンド 0 の 62 件）: fix-now = 20 件（confidence ≥ 90 の 11 件 ＋ 親が格上げした 80〜89 の 9 件）/
+  HANDOFF = 1 件（`DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01`）/ 親判定 1 件（umask）/ 低 30 件のうち 24 件を修正・残りは記録のみ
+- fix-later = 1 件（`DP-REVIEW-JIN-P3-001`・道具環の summon 紋が n ≥ 6 / 7 で重なる。判断期限は Phase 5 のエディタ着手前）
+- 採用しきい値: `confidence_threshold_fix_now = 90`（design.yaml の既定・変更なし）
+- 配置: `after_verify`
+- 関連 DP: DP-IMPL-STAGE-03 / DP-IMPL-VERIFIED-01 / DP-REVIEW-SECURITY-01 / DP-REVIEW-RECALL-01 / DP-REVIEW-FIXLOOP-01 / DP-CONFORMANCE-01 /
+  DP-JIN-SVG-DETERMINISM-01（ADR-010）/ DP-COMMON-07
+
+### 前提として押さえるべき事実
+
+**レビュー開始時点でテストは 1005 件すべて緑・変異ハーネス 42/42 だった。** その状態で 62 件の finding が出た。
+うち **`jin run --trace` が書いた JSONL を `jin render --trace` が読めない**（U+2028 で `splitlines()` が行を割る・端到端で実測・confidence 95）、
+**100 KB の pointer 1 行で 2.4 GB**（`pointer_prefixes` の二次メモリ）、**google-adk 禁止契約から `jin_render` を外しても 1005 件緑**（網が無い）、
+そして **loop の矢印が訪問順と逆**（要件書 §2.5 の読み・人間判断相当 → AI 仮判断 ADR-022）が含まれる。
+修正後、テストは **1005 → 1201 件**、変異は **42 → 75 件**。3 ラウンドの修正で新規に持ち込まれた欠陥は 30 → 26 → （最終確認で下記）と収束した。
+
+## Findings by Aspect（Phase 3）
+
+生出力: `code-review-raw/{correctness,conventions,wiring,security}-p3.md`（ラウンド 0）、`*-p3-round1.md`（修正ラウンド 1 の再確認）、
+`*-p3-round2.md`（修正ラウンド 2 の再確認）、`*-p3-round3.md`（最終確認）。
+
+### 親が独立に再現して確定した重大 finding（7 件）
+
+実装者の報告を根拠にせず、親がコマンドを実行して再現を確認したもの（`implement-ledger.md` 2026-09-06 の「親が独立に再現」行）。
+
+| ID | 観点 | 内容 |
+|---|---|---|
+| **F-S-P3-003 / F-C-P3-001** | security / correctness | `core` に U+2028 を含む `.jin` は `jin check` を通り `jin run --trace` が raw U+2028 入りの 11 行を書くが、`jin render --trace` の `splitlines()` がそれを 2 行に割って **exit 2**。自分の出力を自分で読めない。修正後 exit 0 |
+| **F-S-P3-002** | security | 50 000 セグメントの pointer 1 行で `render` が 6.25 秒・2.4 GB。修正後 0.00 秒・37 MB（鍵側走査の最長一致） |
+| **F-S-P3-001 / F-C-P3-004** | security / correctness | 5000 桁の `seq`・10 万段の入れ子で未捕捉トレースバック exit 1。`seq: 0` を受理し `--upto 0` で発火。修正後いずれも 1 行 exit 2 |
+| **F-W-P3-001** | wiring | 「jin_core / jin_render は google-adk に依存しない」契約の `source_modules` から `jin_render` を外しても全 1005 件緑。resolver 契約側には同型の網があったが google-adk 側に無かった |
+| **F-C-P3-002** | correctness | loop の矢印が j → j+k を指し、要件書 §2.5「辺の順を訪問順に一致させる」と逆。旧配置では矢じりを外しても辺列自体が S0→S2→S4→S1→S3。AI 仮判断（ADR-022）で節を角位置 (j·k) mod n に置き辺を j → j+1 に |
+| **F-S-P3-004** | security | `jin render -o` の新規ファイルが umask を無視して 0644（`jin build` は umask が効く）。実装者の論拠 (b)「umask の往復はマルチスレッドの LSP で危険」は不成立（LSP は `jin_render.render` しか呼ばない）。親判定で build に合わせ、`umask 077` で両方 0600 |
+| **F-C-P3-202 / F-V-P3-201 / F-S-P3-201** | 3 観点 | ラウンド 2 の文言修正が `-o <symlink>` の拒否文言からパスを消した**退行**。既存テストは部分一致で緑のまま。3 観点が独立に指摘。ラウンド 3 でパス復帰 |
+
+### 仕様書側の欠陥（Phase 3 の正典 `docs/spec/layout.md`）
+
+- §2.1 が「辺の順は訪問順に一致させる」と書きながら直後に j → j+k を定義しており文書内で食い違っていた（F-C-P3-002）。ADR-022 の判断で節の置き方と辺の定義を書き換えた
+- §4 の丸め根拠「最大座標 1300 px 級」が 1000 px 角キャンバスと矛盾（F-V-P3-008）。実測 1000 px・1 ULP 約 1.1e-13 px に直し、`DP-IMPL-JIN-P3-ROUNDING-01` の constraint も置換記録
+- §7.2「summon なら入れ子の小陣の外枠が強調」に対応する要素が描画に無かった（F-C-P3-003）。外枠を描く側で解消
+- §7.2 の pointer → kind 表に弦と節の行が無く、kind を入れ替えても緑（F-V-P3-105）。表とテストに 2 行追加
+- §6「n ≥ 32 で弦がまた消える」は実測 n ≥ 58（32〜57 は矢じりが本体より長い別条件・F-C-P3-205）。両境界をテストで固定
+- Phase 2 側の正典 `adk-mapping.md` と `codegen.py` に `model.md §3.3` の誤引用が 4 箇所残っていた（F-C-P3-204）。本ブランチで直した
+
+### 変異で「緑のまま」だったテストの穴（ラウンド 0・8 件）
+
+`DASH` 定数が丸め関数を通らない第 2 経路（examples に破線が出ないので正規表現検査が空振り）/ hostile circle 名の属性テストは空虚（名前は SVG に出ない）/
+`for_each_focus` テストの名前と実効検査の不一致 / `--help` テストは `render` が消えても緑 / jin-render の tests が `jin_adk` を import しても落ちない /
+`guard:` 網羅テストは部分集合比較で `svg.py` の主張を全削除しても緑 / `data-jin-kind` の個別値が未固定 / `seq <= 0` を拒む変異でも 126 件緑。
+いずれも修正ラウンド 1 でテスト側を直し、`mutate_p3.py` に変異を足して赤を実測した。
+
+### 実装者が指示と違う判断をしたもの（理由は `implementation-notes.md` P3-R1.2 / R2.2 / R3.2）
+
+R1.2 の 9 件は再レビューで 8 件妥当・1 件（項 3「`core` の U+2028 は `name` に載る経路が無い」）は**理由が偽**で結論のみ妥当 → ラウンド 2 で事実に書き直し、端到端テストを `core` / `output` の 2 param に。
+R2.2 の 12 件は 10 件妥当・項 1 の「3 箇所」は 4 箇所・項 9 の読解確認が退行を見落とした（→ ラウンド 3 A-1）・項 5 の BOM の理由が偽（→ R3 で訂正）。
+R3.2 の 6 件は最終確認レビューで評価（下記）。
+
+## fix-now 対応
+
+修正ラウンド 3 回（`phase3-fix-round-{1,2,3}-instructions.md`）。各ラウンドの完了は**同一観点の reviewer による再レビュー**で defect-gone を確認した
+（実装者の「直しました」を根拠にしていない）:
+
+| ラウンド | 対象 | 結果（再レビュー） | 新規に持ち込まれた欠陥 |
+|---|---|---|---|
+| 1 | ラウンド 0 の 62 件（fix-now 20 / HANDOFF 1 / 親判定 1 / 低 30） | **defect-gone 50 / 部分残存 8 / 残存 1 / 記録のみ 3** | 30 件（confidence ≥ 90: 5 件。記録の誤り 3・直し漏れ 2） |
+| 2 | ラウンド 1 の新規 30 件（A 4 / B 5 / 低 20） | **defect-gone 25 / 部分残存 3 / 悪化 1 / 記録のみ 5** | 26 件（≥ 90: 4 件。うち 3 件は同じ退行〔symlink 文言のパス〕を 3 観点が独立に指摘） |
+| 3 | ラウンド 2 の新規 26 件（A 3 / B 4 / 低） | 最終確認レビュー（下記「最終確認」） | 下記 |
+
+親が独立に再現したもの（各ラウンド後・`implement-ledger.md`）: 8 ゲート全緑 / `mutate_p3.py` 全件 caught・実ツリー不変・`/tmp` 残骸 0 /
+U+2028 端到端 / 巨大 seq・深い入れ子・seq 0 / 100 KB pointer / 親ディレクトリ不在・入力と同一パス / umask / n=5 loop の辺順 / U+FFFE rune の well-formedness /
+symlink 文言のパス / `/dev/full` で 1 行 exit 1。
+
+### 変異ベースの確認（本レポートの中心的な根拠）
+
+`delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py`（隔離コピー上で変異・`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1`・実ツリー不変）。
+**42 → 59 → 70 → 75 本、最終 75/75 caught・SKIP 0**（期待 GREEN 2 本: `CLI-follow-symlink-upfront-only` は二層目が守る / `STAR-pre-fix-star-shape-stays` は「星形テストは配置の恒等化では落ちない」という主張そのもの）。
+親が各ラウンド後に自分で実行して同じ数を得た。変異が最初 GREEN だった 4 件（`FLOW-no-node-limit` / `FLOW-point-fallback-off` / `CLI-symlink-message-without-path` / `CLI-symlink-message` の的外れ）は
+すべて「変異が悪い」で片付けずテストを足す側に倒した（R2.2 項 2 / R3.2 項 2・3）。
+
+## fix-later / backlog（Phase 3 追加分）
+
+| DP | 内容 | 判断期限 |
+|---|---|---|
+| `DP-REVIEW-JIN-P3-001` | 道具環の summon 紋（入れ子の小陣）は縮尺を詰めないため、最大の中身で n ≥ 6・examples 同型で n ≥ 7 のとき隣の紋と重なる。flow の節（B-1 で縮尺を兄弟間隔から導く規則を入れた）とは別件。選択肢: 同じ規則を道具環へ / JIN020 の上限 12 を根拠に定数を詰める / 現状のまま | Phase 5 のエディタ着手前（hit-test の設計に効く） |
+
+記録のみ（対応不要と判定・理由は notes の各 R*.2）: Unicode 空白だけの行を空行扱い / 1 行長の上限なし / FIFO + `--force` / tests の動的 import は網の対象外 /
+stdout と stderr の両方に書けないと exit 120 / `guard:` は到達不能コードでも満たされる（記法の限界・歯は挙動テスト側）。
+Phase 2 から持ち越し: `DP-REVIEW-JIN-P2-002`（空トレースの印）は未決のまま。Phase 3 は「空トレースは点 0 個・強調なし」で描き判断を待つ。
+
+## human_only（PR レビューへ送るもの・not_run）
+
+- 図としての可読性・魔法陣としての見た目の妥当性（design.yaml Phase 3 `human_only`）
+- 特に **loop の星形 {n/k} の節配置**（ADR-022・examples に loop が無いためスナップショットに現れない）と **強調色 `#cc0000`**（`DP-IMPL-JIN-P3-ACCENT-COLOR-01`・confidence medium）
+
+## 未解決の観察（記録のみ）
+
+- `record.py` の置換記録は同じ DP に**新番号の ADR** を切る（ADR-021 → ADR-022）。ADR-021 は未マージの重複として削除し ADR 番号 021 は欠番。
+  Phase 4 以降で置換記録をするときは同じ扱いにする（`implement-ledger.md` 2026-09-06）
+- `flow.steps` が n ≥ 58 では弦が消え、n ≥ 32 では本体が矢じりより短くなる（環半径を変えない限り解けない幾何の限界・layout.md §6 に明記・診断コードは増やさない）
+- `jin_core.check_text` は `flow.steps` 数千で二乗的に重い（n=10000 で 17.75 秒・306 MB。Phase 1 の性質・Phase 4 の NFR-PERF-001 は 1000 行のファイルが対象）
+
+## 最終確認（親が実行・2026-09-06）
+
+最終確認レビュー（ラウンド 3・範囲限定）: ラウンド 2 の新規 26 件は **defect-gone 17 / 部分残存 2 / 残存（低）4 / 記録のみ 5（妥当）**・fail-open 0・悪化 0。
+correctness は閾値 ±1（n=19/31/32/57/58）の自前変異 6 本で赤・`DP-REVIEW-JIN-P3-001` の起票内容を再計算で全一致。wiring+security は B-3 の共通ヘルパが
+`jin check --json` / `jin dump` / `jin schema` の stdout を巻き込まないことを実測。新規 8 件はすべて文言・数字・テスト 1 本（build 側の `/dev/full` テスト不在 =
+`_echo_or_exit` → `typer.echo` の変異が緑〔F-C-P3-303 / F-W-P3-301〕/ layout.md §6 の相互参照の向き / notes の「22 件」→ 23 / symlink 文言の並び）。
+→ **修正ラウンド 4**（文言とテスト 1 本のみ・挙動不変）: 1201 → 1202 passed / 変異 75 → **77/77**（`CLI-build-success-raw-echo` / `CLI-symlink-message-order` を追加・どちらも赤を実測）。
+ラウンド 4 の確認は `code-review-raw/all-p3-round4.md`（全観点まとめて 1 本）。
+
+```
+UV_LOCKED=1 uv sync  → Checked 76 packages in 0.41ms  EXIT=0
+uv run ruff check .  → All checks passed!  EXIT=0
+uv run ruff format --check .  → 77 files already formatted  EXIT=0
+uv run pytest --color=no  → 1202 passed in 39.02s  EXIT=0
+uv run lint-imports  → Contracts: 3 kept, 0 broken.  EXIT=0
+uv run jin check examples  → 2 ファイル / error 0 件 / warning 0 件  EXIT=0
+uv run jin fmt --check examples  →   EXIT=0
+uv run jin check tests/fixtures/build-errors  → 20 ファイル / error 0 件 / warning 0 件  EXIT=0
+uv run jin fmt --check tests/fixtures/build-errors  →   EXIT=0
+uv run jin schema | diff -u schemas/jin.schema.json -  → 差分なし  EXIT=0
+mutate_p3.py（隔離コピー・__pycache__ 削除・PYTHONDONTWRITEBYTECODE=1）  → 77/77 mutations caught  EXIT=0  SKIP=0  /tmp 残骸 0  実ツリー不変
+```
+
+`verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を親が再導出。`pipeline_e2e` は本 PR の GitHub Actions の結果で確認する。

@@ -2,7 +2,7 @@
   "schema_version": "v1",
   "kind": "auto-decisions-ledger",
   "run_dir": "delivery/20260904-1445-jin",
-  "needs_attention_count": 13,
+  "needs_attention_count": 19,
   "decisions": [
     {
       "dp_id": "DP-IMPL-JIN-P2-SYSPATH-01",
@@ -88,6 +88,41 @@
       "phase": "implementation"
     },
     {
+      "dp_id": "DP-IMPL-JIN-P3-ACCENT-COLOR-01",
+      "chosen": "選択肢 1: trace overlay の強調 1 色を #cc0000（朱）のまま承認する",
+      "rationale": "要件書 §2.5 は「白黒 2 値 + 強調 1 色（トレース時のみ）」としか書いておらず色の値が無いため、T-002（要件書に無い値を捏造しない）に従って実装確定値として起票された案件である。#cc0000 は魔法陣の朱墨に倣った選択で、白地に対する輝度コントラスト比 5.9:1 / 黒線に対して 3.6:1 という測定値を持ち、白黒どちらの隣でも見分けられる。どちらも WCAG 2.2 の 1.4.11 非テキストコントラスト（3:1）を上回る。要件書 §2.5 の「style 不使用・属性で完結」も満たしており、線で描く要素は stroke、文字と塗り潰しの点は fill を差し替える。出典は docs/spec/layout.md §6 の表と decision-conformance.md §2.24.2。選択肢 2（別の色）への変更コストは定数 jin_render.svg.ACCENT 1 つとスナップショット 1 本の更新で済むが、Phase 5-6 のエディタが同じ SVG をそのまま埋め込むため、変えるならエディタ着手前が安い。人間の好みが割れうる値であり測定値以外の裏付けが無いので confidence は medium とする。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "medium",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-06T10:37:47+09:00",
+      "constraints": [
+        {
+          "kind": "condition",
+          "text": "5.9:1 / 3.6:1 は白地を前提とした測定値である。SVG は背景を塗らず透明で埋め込む側の地色を使う（docs/spec/layout.md §3.1）ため、Phase 5-6 のエディタが暗い地色を採るときはコントラストを再評価する"
+        },
+        {
+          "kind": "prohibition",
+          "text": "発火の表現を色だけに依存させない。線幅 2 px と data-jin-fired=\"1\" を併用する現在の描き方を外さない"
+        },
+        {
+          "kind": "scope",
+          "text": "強調は 1 色に限る（要件書 §2.5 の白黒 2 値 + 強調 1 色）。style 要素を使わず属性で完結させる"
+        },
+        {
+          "kind": "limit",
+          "text": "変更するなら Phase 5 のエディタ着手前。エディタは同じ SVG をそのまま埋め込む"
+        }
+      ],
+      "compared": [
+        "選択肢 2: 別の色を指定する（jin_render.svg.ACCENT の変更 + スナップショット 1 本の更新。色覚多様性や埋め込み先の地色に合わせて後から差し替え可能）"
+      ],
+      "phase": "implementation"
+    },
+    {
       "dp_id": "DP-IMPL-JIN-P2-ADKDEPRECATION-01",
       "chosen": "google-adk 2.8.0 固定（TARGET_ADK_VERSION）のまま進め、Workflow への移行は別 Issue で扱う",
       "rationale": "HANDOFF Q-JIN-P2-03 の推奨（1 つ目）を採用。根拠: (a) ADK 自身の deprecation 文言が「Workflow cannot yet be used as an LlmAgent sub-agent」と言っている（google/adk/agents/loop_agent.py:54 / sequential_agent.py:79・version-matrix.md §8.3 #11）。Jin の delegate（LlmAgent の sub_agents に flow circle を置く）と両立しないため、今 Workflow へ移ると要件書 §2.1 の対応表と summon / delegate の意味論が崩れる。(b) HANDOFF は Sequential / Loop を挙げるが ParallelAgent も同じ理由で deprecated（google/adk/agents/parallel_agent.py:227）であり、Jin の flow.kind 3 種すべてが対象。部分移行は成立しない。(c) docs/spec/adk-mapping.md は人間確定の正典で Sequential / Parallel / LoopAgent を指定しており、正典の改訂（案 2）は要件書 §2.1 の対応表変更を伴う人間判断が要る性質なので AI 仮判断では選ばない。(d) 版は tests/contract/test_adk_version_contract.py が 2.8.0 の厳密一致で固定しており（implementation-notes.md P2-5.1 #4・NFR-VER-001）、将来版で消えても「静かに壊れる」ことはなく契約テストで検出できる。DeprecationWarning は動作に影響しない（uv run pytest 696 passed・warnings のみ）。版固定と移行時期の方針はアーキテクチャに当たるので ADR 化する。",
@@ -148,6 +183,191 @@
       "compared": [
         "生成物側に before_agent_callback で宣言済み state を seed するコードを埋め込む（§3.2 の形から離れ、利用者の guards と同居する）",
         "要件書 §2.2 の例を {findings?} 相当に変える（Jin の rune 文法に ADK の optional 記法を取り込む仕様変更）"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01",
+      "chosen": "選択肢 (a): loop の節 flow.steps[j] を角位置 (j*k) mod n に置き、辺は j → (j+1) mod n（訪問順の隣）を矢じり付きで結ぶ。星形多角形 {n/k} の見た目と「辺の順は訪問順」を同時に満たす",
+      "rationale": "質問 1（要件書 §2.5「辺の順を訪問順に一致させる」の解釈）: 決め手は矢じりではなく辺列そのものである。旧配置（節 j を角位置 j に置き、辺を j → (j+k) mod n にする）では、n=5 のとき辺を順に辿ると S0→S2→S4→S1→S3 になり、矢じりを外しても「辺の順」は訪問順（S0→S1→S2→S3→S4）にならない。したがって選択肢 (b)（矢じりを外す）は §2.5 を満たす案ではなく、向きの主張をやめて食い違いを見えなくするだけであり、選択肢 (c) は食い違いをそのまま残す。gcd(n,k)=1 により j -> (j*k) mod n は全単射なので、節を角位置 (j*k) mod n へ置き替えて辺を訪問順の隣 j → (j+1) mod n で結ぶと、角位置だけを見た辺集合は s -> (s+k) mod n のまま（星形 {n/k} は不変）で、同時に辺列と矢じりが flow.steps の実行順を指す。{n/k} を保ったまま §2.5 を満たせるのは (a) だけなので (a) を採る。出典は code-review-raw/correctness-p3.md の F-C-P3-002（confidence 70）と docs/spec/layout.md §2.1 / §6。実装は jin_render.layout._Builder._flow_slots（`[(j * step) % count for j in range(count)]`）と _flow_edges（loop は `pairs = [(j, (j + 1) % count)]`）。ADR-010（DP-JIN-SVG-DETERMINISM-01・人間確定）の condition「星形多角形 {n/k} の k の選択規則を一意に定める」には触れていない: k を返す jin_render.geometry.star_step（`max{ j : 1 <= j < n/2 かつ gcd(n, j) == 1 }`）は変更していない。質問 2（Phase 4 着手前に確定させる前提でよいか）: よい。examples 2 本に loop が無いので今回のスナップショット差分は 0 で、変えるなら図の位置に依存する成果物が増える前が最も安い。Phase 5 のエディタが節の位置を記憶する設計なら、その前提が固まる前に確定している必要がある。質問 3（n < 5 は配列順のままでよいか）: よい。ただしこれは分岐ではなく式の帰結である。_flow_slots は (j*k) mod n の 1 本だけで n<5 の特別扱いを持たず、star_step が k=1 を返す n では恒等写像になる。k=1 になるのは n<5 だけでなく n=6（2j<6 かつ gcd(6,j)=1 は j=1 のみ）も同じで、配置が実際に動くのは k>=2 になる n（5, 7 以上の該当 n）である。機械固定は packages/jin-render/tests/test_layout.py::test_loop_nodes_are_placed_so_the_arrows_follow_the_visit_order（n=3〜12 の 10 param・節の名前の側から「どの矢印も flow.steps で隣り合う 2 つを結ぶ」を見る）、::test_a_small_loop_keeps_the_array_order_placement、既存の ::test_loop_edges_follow_the_star_polygon（n=5/6/8・角位置としての辺集合が {n/k} のままであることを別に固定）。変異は STAR-slot-identity と STAR-reversed で赤を実測済み。STAR-slot-identity（_flow_slots を list(range(count)) に戻す）の効き方は実測では「角位置を恒等に戻すと辺 j → (j+1) mod n が単純多角形になるので test_loop_edges_follow_the_star_polygon の [5-2] / [8-3] が赤・test_loop_nodes_are_placed_so_the_arrows_follow_the_visit_order は全 param 緑」である。2 本のテストが独立に効くことは、修正ラウンド 2 で足した変異 2 本が示す: STAR-pre-fix-visit-order（配置を恒等に戻し辺も j → (j+k) mod n に戻す修正前挙動を当て、訪問順テストだけを見て 7 param 赤）と STAR-pre-fix-star-shape-stays（同じ修正前挙動で星形テストだけを見て 3 param 緑・EXPECT_GREEN）。修正ラウンド 2 の実測は 70 本 / 70 caught（うち 2 本は期待 GREEN・SKIP 0）。仕様側は docs/spec/layout.md §2.1（節の置き方と辺の定義・旧記述との違いの説明を含む）と §6 の表 2 行を同時に直してあり、レビューが指摘した「§2.1 の中で文が食い違う」状態は解消している。残存: loop の辺に矢じりを付けること自体は implementation-notes P3-7 項 5 の別判断（要件書 §2.5 は sequence にだけ「（矢印）」と書いている）であり、本判断はその前提の上で向きの正しさだけを決める。図としての見た目の妥当性は human_only で実装者は判定していない。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-06T13:05:05+09:00",
+      "adr_ref": "docs/adr/ADR-022-DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01.md",
+      "constraints": [
+        {
+          "kind": "condition",
+          "text": "節 j → 角位置 (j*k) mod n が全単射であること（gcd(n, k) = 1）が、星形 {n/k} の見た目を保つ前提である。k の選択規則（jin_render.geometry.star_step の max{ j : 1 <= j < n/2 かつ gcd(n, j) == 1 }・ADR-010 の condition）を変えるときは、gcd(n, k) = 1 が保たれるかを再確認する"
+        },
+        {
+          "kind": "scope",
+          "text": "変えたのは「どの節がどの角位置に載るか」の写像だけである。角位置として見た辺の集合（s → (s+k) mod n の星形）・k の決め方・節の紋の描き方・sequence / parallel の配置と辺はいずれも変えていない。配置が実際に動くのは k >= 2 になる n だけで、k = 1 になる n（n < 5 および n = 6）は配列順のまま"
+        },
+        {
+          "kind": "limit",
+          "text": "変更するなら Phase 4 着手前。examples 2 本に loop が無いため今回のスナップショット差分は 0 だが、n >= 5 で k >= 2 の loop を含む .jin のスナップショットは角位置が動く。Phase 5 のエディタが節の位置を記憶する設計にするなら、その前提としてここで確定させる"
+        },
+        {
+          "kind": "prohibition",
+          "text": "docs/spec/layout.md §2.1 の「辺の順は訪問順（flow.steps の配列順）に一致させる」と、同節の辺・角位置の定義を再び食い違わせない。とくに「節を角位置 j に置いたまま辺 j → (j+k) mod n に矢じりを付ける」組み合わせに戻さない（F-C-P3-002 が指摘した状態そのもの）"
+        }
+      ],
+      "compared": [
+        "選択肢 (b): 配置と辺は現状（節 j を角位置 j・辺は j → (j+k) mod n）のまま矢じりを外す。不採用 — 旧配置では辺列自体が S0→S2→S4→S1→S3 で、矢じりの有無に関わらず §2.5 の「辺の順を訪問順に一致させる」を満たさない。向きの主張をやめて食い違いを見えなくするだけであり、implementation-notes P3-7 項 5 の「矢じりが無いと訪問順を目で追えない」も失う",
+        "選択肢 (c): 現状のまま（節 j を角位置 j・辺は j → (j+k) mod n・矢じりあり）。不採用 — 要件書 §2.5 と docs/spec/layout.md §2.1 冒頭の文の両方と食い違ったままになる（F-C-P3-002）",
+        "角位置は現状のまま辺だけを j → (j+1) mod n にする案。不採用 — 角位置 j と j+1 は隣り合う頂点なので単純な凸多角形になり、星形多角形 {n/k} を描くという要件書 §2.5 の指定を失う",
+        "前回の記録（2026-09-06T12:04:02+09:00・auto-decider / ai_provisional）: chosen・選択肢・constraints は同一だが、rationale に変異 STAR-slot-identity の効き方を「角位置を恒等に戻すと星形テストは緑のまま訪問順テストだけが赤 = 2 本が独立に効いている証拠」と書いていた。実物は逆で、恒等に戻すと辺 j → (j+1) mod n が単純多角形になるため星形テスト test_loop_edges_follow_the_star_polygon の [5-2] / [8-3] が赤になり、訪問順テスト test_loop_nodes_are_placed_so_the_arrows_follow_the_visit_order は緑のままである（Stage 5 再レビュー F-C-P3-104・confidence 90）。修正ラウンド 2 で notes P3-R1.1 C-1 行 / mutate_p3.py のコメント / undecided_details の note の 3 箇所が実測に直り、独立性の証拠は新規変異 STAR-pre-fix-visit-order / STAR-pre-fix-star-shape-stays に置き換わった。本記録はその実測に追従させたもので、結論は変えていない"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P3-OVERLAY-REFERENT-01",
+      "chosen": "選択肢 1: trace overlay の強調規則として「pointer を末尾から 1 セグメントずつ削る祖先一致」+「参照要素の data-jin-ref による referent 規則」を承認する",
+      "rationale": "要件書 §2.5 は data-jin を「エディタがヒットテストと選択を行う鍵」と定め、さらに「jin/model が返す pointer→range 対応表と一致すること」を要求している。したがって参照を表す要素（flow.steps の節・summon の紋・delegate の小円）の data-jin は参照側の pointer でなければならない。選択肢 2（data-jin を参照先にする）はこの 2 つの契約を同時に壊す。一方トレースの行は参照先の pointer を持つため、祖先一致だけでは focus=root のとき下位 circle の model 行（/circles/4/core など）が何も強調されず、要件書 §4 の「upto までに発火した要素を強調色でオーバーレイ」が root 焦点でほぼ成立しない。これが選択肢 3 を採れない理由である。よって参照要素に追加属性 data-jin-ref=\"/circles/<k>\" を付け、参照先 circle の配下 pointer でも当たるようにする案 1 を採る。追加属性は契約違反ではない（契約は「2 属性を持つこと」であって「2 属性しか持たないこと」ではない・docs/spec/layout.md §3.1）。規則の正本は docs/spec/layout.md §7.1、根拠は decision-conformance.md §2.24.5。機械固定は tests/contract/test_render_contract.py::test_every_live_pointer_resolves_at_the_root_focus（jin run --model fake を実際に回した 11 行の全 pointer が root 焦点で解決する）で、変異 OVL-exact-only / OVL-no-referent / OVL-no-ref-attribute の 3 本が赤になることを実測している。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-06T10:37:47+09:00",
+      "adr_ref": "docs/adr/ADR-019-DP-IMPL-JIN-P3-OVERLAY-REFERENT-01.md",
+      "constraints": [
+        {
+          "kind": "scope",
+          "text": "referent 規則が効くのは深さ 2 以降の点だけである。深さ 1 の入れ子は circle を丸ごと同じ規則で描くので完全一致（規則 1）で解決する"
+        },
+        {
+          "kind": "prohibition",
+          "text": "data-jin を参照先の pointer に付け替えない。エディタのヒットテストと pointer→range 対応（要件書 §2.5）が壊れる"
+        },
+        {
+          "kind": "limit",
+          "text": "祖先一致は /circles まで登るため、data-jin=\"/circles\" を持つ描画要素を作らない。作ると 1 行のイベントで陣全体が強調される"
+        },
+        {
+          "kind": "scope",
+          "text": "追加属性は data-jin-ref / data-jin-fired / data-jin-seq / data-jin-root の 4 つに限る。data-jin-kind は要件書 §2.5 の 9 種のままとし 10 種目を作らない"
+        }
+      ],
+      "compared": [
+        "選択肢 2: data-jin を参照先の pointer にする。祖先一致だけで済むが、エディタのヒットテストが参照側を掴めなくなり、要件書 §2.5 の pointer→range 対応表との一致も崩れる",
+        "選択肢 3: 参照要素を強調しない。規則は単純になるが focus=root でトレースがほぼ見えず、要件書 §4 の overlay 要件を満たさない"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P3-RENDER-ON-ERROR-01",
+      "chosen": "選択肢 1: error 診断があるファイルは jin render も既定で拒む（exit 1）。図を出すためのオプションは Phase 3 では足さない",
+      "rationale": "CLI は jin build / jin run と同じ _load_model_or_exit を通すので、3 つのサブコマンドで「error 診断があれば拒む」挙動が揃い、申し送り phase3-handoff.md §3 の「新しい読み込み経路を作らない」に沿う。一方ライブラリ側の jin_render.render は schema を通る JinFile なら意味エラー（未定義 circle への summon / delegate / steps、JIN012 の循環、JIN013 の多重親、JIN022 …）を含んでも例外を投げない（docs/spec/layout.md §5）。したがって Phase 4 の jin/renderSvg が JSON 構文エラー中に直前の正常モデルで応答する NFR-AVAIL-001 は既に満たされており、Phase 5-6 のエディタは LSP 経由でライブラリ側から図を得るのでこの判断はエディタの体験に影響しない。加えて jin render の --force は既に「-o の既存ファイルを上書きする」の意味で使われている（packages/jin-cli/src/jin_cli/main.py:915）ため、選択肢 2 を --force で実装すると 1 つのフラグに 2 つの意味を持たせることになる。機械固定は packages/jin-cli/tests/test_render.py::test_a_file_with_error_diagnostics_is_not_rendered、根拠は decision-conformance.md §2.24.6。壊れたモデルの描き方（未解決参照は破線の点・root 未解決は circles[0] + data-jin-root=\"unresolved\"・circles が空なら空キャンバス・JIN070 の await は 12 時に破線の刻印）は layout.md §5 に確定済みで、tests/fixtures/errors/JIN0*.jin のうちモデルになる 14 本を parametrize で回している。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-06T10:37:47+09:00",
+      "constraints": [
+        {
+          "kind": "condition",
+          "text": "CLI が拒むのは、ライブラリ側 jin_render.render が意味エラーを含むモデルでも例外を投げない（例外は未定義 focus の RenderError とトレース行の型違いの ValueError だけ）ことを前提にしている。この前提を崩さない"
+        },
+        {
+          "kind": "prohibition",
+          "text": "jin render のために新しい読み込み・書き込み経路を作らない。_load_model_or_exit と _write_atomically を再利用する"
+        },
+        {
+          "kind": "limit",
+          "text": "将来「error があっても描く」を足すなら --force 以外の名前にする。--force は -o の既存ファイル上書きに使われている"
+        },
+        {
+          "kind": "scope",
+          "text": "この判断は CLI の jin render だけを縛る。Phase 4 の jin/renderSvg と Phase 5-6 のエディタはライブラリ側を呼ぶのでこの拒否の対象外"
+        }
+      ],
+      "compared": [
+        "選択肢 2: --force 等のオプションで error があっても描けるようにする。「エラーがあっても図を見たい」利用者には便利だが、jin build / jin run と挙動がずれ、--force の意味が -o の上書きと衝突する。ライブラリ側が既に描けるので Phase 4 の LSP 経由で同じ体験が得られる"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P3-ROUNDING-01",
+      "chosen": "選択肢 1: SVG 座標の丸めを 3 桁固定小数（format(x, \".3f\")）のまま承認する",
+      "rationale": "ADR-010（DP-JIN-SVG-DETERMINISM-01・人間確定）を覆すものではなく、その condition「丸め桁数は実装 Phase 3 で決定し根拠を残す」を充足する記録である。本記録は同一 dp_id の再記録（置換）であり、chosen は変えていない。変えたのは根拠 (b) の数値だけで、修正ラウンド 1（F-V-P3-008 / F-C-P3-010）で「最大座標 1300 px 級」という前回の記述が 1000 px 角キャンバスと矛盾すると指摘され、docs/spec/layout.md §4 と decision-conformance.md §2.24.1 が実測値に直された。3 桁を選んだ根拠 2 点: (a) キャンバスは 1000 px 角（viewBox 0 0 1000 1000）で正規化 1.0 が 400 px、刻み 0.001 px は devicePixelRatio 4 で描いても 1 デバイスピクセルの 1/4000 であり目に見える差にならない。(b) 最大座標はキャンバスの縁の 1000 px で、倍精度の 1 ULP は約 1.1e-13 px（1000 は [2^9, 2^10) にあり ULP = 2^-43）。libm の sin / cos が環境ごとに 1 ULP 違っても丸めの刻み 1e-3 の 10 桁下であり境界をまたがない。桁数を 10 桁以上に増やすとこのノイズがそのままバイト列に出て開発機と CI でスナップショットがずれる。出典は docs/spec/layout.md §4 と decision-conformance.md §2.24.1（仕様側とコード側の両方に同じ根拠を残してある）。機械固定は packages/jin-render/tests/test_svg.py::test_rounding_step_is_far_above_the_float_noise で、修正ラウンド 1（R1.1 の B-4 行）でテスト内の最大座標 largest を定数の直書きではなく geo.CANVAS_PX から導くように直したので、キャンバス寸法を変えたときにこの根拠が黙って古くならない。変異 DET-plain-str / DET-repr / DET-two-decimals で赤を実測している（修正ラウンド 1 後の変異は 59 本 / 59 caught）。副次の決定として、3 桁固定と両立しない SVG の楕円弧コマンド A（large-arc-flag / sweep-flag は 0 か 1 の 1 文字でなければならず 0.000 は文法違反）を使わず 3 次ベジェで描き、書き出し経路を 2 本にしないため transform も使わない。要件書 NFR-DET-001「同じ意味モデルからは常にバイト単位で同一の SVG」と整合し、末尾ゼロを落とさないことで「幾何・体裁属性の数値がすべて 3 桁で終わる」正規表現検査が成立している。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-06T12:04:02+09:00",
+      "constraints": [
+        {
+          "kind": "condition",
+          "text": "3 桁は要件書に無い実装確定値である。根拠（キャンバス 1000 px 角・正規化 1.0 = 400 px・最大座標 1000 px の倍精度 1 ULP が約 1.1e-13 px）が変わるときは桁数を再評価する。テストの最大座標は geo.CANVAS_PX から導いてあるので、キャンバス寸法を変えると test_rounding_step_is_far_above_the_float_noise が追従する"
+        },
+        {
+          "kind": "scope",
+          "text": "座標を SVG へ書き出す経路は jin_render.svg.fmt_coord の 1 本だけを通す（ADR-010 案 B）。素の float 文字列化を混在させない。末尾ゼロを落とさず -0.0 は 0.0 に正規化する"
+        },
+        {
+          "kind": "prohibition",
+          "text": "桁数を 10 桁以上に増やさない。libm の sin / cos の 1 ULP 差がバイト列に現れ、開発機と CI でスナップショットがずれる"
+        },
+        {
+          "kind": "limit",
+          "text": "変更するなら Phase 4 着手前。SVG スナップショット 4 本（packages/jin-render/tests/__snapshots__/test_snapshots.ambr）が全更新になる"
+        }
+      ],
+      "compared": [
+        "選択肢 2: 別の桁数にする（2 桁は 1000 px 角キャンバスで刻みが 0.01 px となり配置角の差が潰れうる。6 桁以上は浮動小数の末尾ノイズがバイト列に近づき決定性の余裕が減る）",
+        "案 A（ADR-010 で不採用）: float をそのまま f-string 化する。決定性が実装依存になり NFR-DET-001 の担保として弱い",
+        "案 C（ADR-010 で不採用）: Decimal または整数座標系で計算する。要件書 §2.5 が三角関数の使用を前提にしており噛み合わない",
+        "前回の記録（2026-09-06T10:37:47+09:00・auto-decider / ai_provisional）: chosen は同一だが根拠 (b) と constraint の 1 件目に「キャンバス内の最大座標（1300 px 級）の倍精度 1 ULP は約 2.3e-13 px」と書いていた。Stage 5 レビュー F-V-P3-008 / F-C-P3-010 が 1000 px 角キャンバスとの矛盾を指摘し、修正ラウンド 1 で layout.md §4・decision-conformance.md §2.24.1 を「最大座標は 1000 px（キャンバスの縁）・1 ULP は約 1.1e-13 px」に訂正した（1300 px は [2^10, 2^11) で ULP = 2^-42 ≈ 2.3e-13 になるため、前回の値は指数 1 つ分ずれていた）。本記録はその実測値に追従させたもので、結論は変えていない"
+      ],
+      "phase": "implementation"
+    },
+    {
+      "dp_id": "DP-IMPL-JIN-P3-SVG-ROOT-CONTRACT-01",
+      "chosen": "選択肢 1: svg 要素自身と defs 配下を data-jin 契約の対象外とする解釈を承認する",
+      "rationale": "要件書 §2.5 は「描画された全ての要素は data-jin と data-jin-kind を持つ」と書き、data-jin-kind を circle|core|rune|tool|state|flow-edge|guard|await|delegate の 9 種の閉じた列挙で定めている。svg 要素は文書そのものであって描画された要素ではなく、9 種のどれにも当たらない。defs の中身（textPath が参照する経路の定義）はそれ自体が描かれない。選択肢 2（svg に data-jin=\"\" を付ける）は 10 種目の kind を足すことになり、要件書 §2.5 の列挙そのものの変更を伴う（T-002: 要件書に無い値・種別を勝手に増やさない）。したがって両者を契約の対象外とし、テストは svg と defs 配下を除く全要素で回す。同じ解釈から背景の塗り（rect）も置かず SVG は透明背景にした。置くと data-jin を持たない描画要素が 1 つ増え、契約の例外がもう 1 つ必要になるからである。9 種に無い描画要素（境界環の外側に並ぶトレースの点）は 10 種目を作らず既存の circle として描き、pointer は焦点の circle・何番目のイベントかは data-jin-seq に入れている。出典は docs/spec/layout.md §3.1 と decision-conformance.md §2.24.4、申し送り phase3-handoff.md §7 の指示とも一致する。機械固定は packages/jin-render/tests/test_layout.py::test_every_element_carries_both_attributes と ::test_every_kind_is_one_of_the_nine で、変異 CONTRACT-core-no-pointer / CONTRACT-ring-no-pointer が赤になることを実測している。",
+      "status": "ai_provisional",
+      "source_file": "implementation-plan.json",
+      "needs_attention": true,
+      "confidence": "high",
+      "review_status": "pending_human_review",
+      "model": "claude-opus-5",
+      "decided_by": "auto-decider",
+      "decided_at": "2026-09-06T10:37:47+09:00",
+      "adr_ref": "docs/adr/ADR-020-DP-IMPL-JIN-P3-SVG-ROOT-CONTRACT-01.md",
+      "constraints": [
+        {
+          "kind": "scope",
+          "text": "契約の対象外にするのは svg 要素自身と defs 配下だけである。それ以外の描画要素に例外を作らない"
+        },
+        {
+          "kind": "prohibition",
+          "text": "data-jin を持たない描画要素を足さない。背景の塗り（rect）を置かず SVG は透明背景のままにする"
+        },
+        {
+          "kind": "prohibition",
+          "text": "data-jin-kind の 10 種目を作らない。9 種に無い描画要素は既存 9 種のどれに属するかを docs/spec/layout.md に書いてから足す"
+        },
+        {
+          "kind": "condition",
+          "text": "textPath が参照する path の id は jin-rune-<描画順の連番> とし、pointer をそのまま id にしない（/ は XML の NCName に使えない）。利用者入力を id に混ぜない"
+        }
+      ],
+      "compared": [
+        "選択肢 2: svg 要素に data-jin=\"\" を付け、ルート文書を表す 10 種目の data-jin-kind を足す。契約の文言どおりになるが要件書 §2.5 の 9 種の列挙を変えることになり、tests/spec の要件書突合と Phase 5 エディタのヒットテスト分岐に波及する"
       ],
       "phase": "implementation"
     },
