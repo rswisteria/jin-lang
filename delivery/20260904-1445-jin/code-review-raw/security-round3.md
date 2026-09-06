@@ -330,7 +330,9 @@ packages/jin-cli/tests/test_cli.py:727 付近（test_guard_claims_point_at_real_
 最初の読み取りでは 165 行目が
 
 ```python
-descriptor = os.open(path, os.O_WRONLY | os.O_TRUNC | os.O_CREAT | getattr(os, "O_NOFOLLOW_X", 0), 0o666)
+descriptor = os.open(
+    path, os.O_WRONLY | os.O_TRUNC | os.O_CREAT | getattr(os, "O_NOFOLLOW_X", 0), 0o666
+)
 ```
 
 （`O_NOFOLLOW_X` は存在しない属性なので `getattr` が **0** を返し、`O_NOFOLLOW` が付かない = R-1 の防御が消えた状態）

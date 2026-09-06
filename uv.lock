@@ -12,6 +12,7 @@ members = [
     "jin-adk",
     "jin-cli",
     "jin-core",
+    "jin-render",
     "jin-workspace",
 ]
 
@@ -865,6 +866,7 @@ source = { editable = "packages/jin-cli" }
 dependencies = [
     { name = "jin-adk" },
     { name = "jin-core" },
+    { name = "jin-render" },
     { name = "typer" },
 ]
 
@@ -872,6 +874,7 @@ dependencies = [
 requires-dist = [
     { name = "jin-adk", editable = "packages/jin-adk" },
     { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-render", editable = "packages/jin-render" },
     { name = "typer", specifier = ">=0.27,<1" },
 ]
 
@@ -891,6 +894,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "jin-render"
+version = "0.1.0"
+source = { editable = "packages/jin-render" }
+dependencies = [
+    { name = "jin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jin-core", editable = "packages/jin-core" }]
+
+[[package]]
 name = "jin-workspace"
 version = "0.1.0"
 source = { virtual = "." }
@@ -898,6 +912,7 @@ dependencies = [
     { name = "jin-adk" },
     { name = "jin-cli" },
     { name = "jin-core" },
+    { name = "jin-render" },
 ]
 
 [package.dev-dependencies]
@@ -913,6 +928,7 @@ requires-dist = [
     { name = "jin-adk", editable = "packages/jin-adk" },
     { name = "jin-cli", editable = "packages/jin-cli" },
     { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-render", editable = "packages/jin-render" },
 ]
 
 [package.metadata.requires-dev]

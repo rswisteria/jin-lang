@@ -1,0 +1,209 @@
+# serializer version: 1
+# name: test_example_svg_snapshot[pipeline]
+  '''
+  <svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+    <defs>
+      <path id="jin-rune-0" d="M 500.000 240.800 C 521.650 240.800 539.200 258.350 539.200 280.000 C 539.200 301.650 521.650 319.200 500.000 319.200 C 478.350 319.200 460.800 301.650 460.800 280.000 C 460.800 258.350 478.350 240.800 500.000 240.800"/>
+      <path id="jin-rune-1" d="M 690.526 570.800 C 712.175 570.800 729.726 588.350 729.726 610.000 C 729.726 631.650 712.175 649.200 690.526 649.200 C 668.876 649.200 651.326 631.650 651.326 610.000 C 651.326 588.350 668.876 570.800 690.526 570.800"/>
+    </defs>
+    <g data-jin="/circles/0" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+      <path data-jin="/circles/0/flow" data-jin-kind="flow-edge" d="M 552.800 371.452 L 637.726 518.548 M 619.065 506.227 L 637.726 518.548 L 636.386 496.227"/>
+      <path data-jin="/circles/0/flow" data-jin-kind="flow-edge" d="M 584.926 610.000 L 390.434 610.000 M 410.434 600.000 L 390.434 610.000 L 410.434 620.000"/>
+      <g data-jin="/circles/0/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/2">
+        <circle data-jin="/circles/0/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/2" cx="500.000" cy="280.000" r="105.600"/>
+        <g data-jin="/circles/2" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/2" data-jin-kind="circle" cx="500.000" cy="280.000" r="39.200"/>
+          <circle data-jin="/circles/2" data-jin-kind="circle" cx="500.000" cy="280.000" r="84.000"/>
+          <circle data-jin="/circles/2/core" data-jin-kind="core" cx="500.000" cy="280.000" r="13.440"/>
+          <path data-jin="/circles/2/state/0" data-jin-kind="state" d="M 505.600 190.400 L 505.600 201.600 L 494.400 201.600 L 494.400 190.400 Z" stroke-width="2.000"/>
+          <text data-jin="/circles/2/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="5.600">
+            <textPath data-jin="/circles/2/instruction/rune" data-jin-kind="rune" href="#jin-rune-0">下書きを書く</textPath>
+          </text>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="520.150" cy="282.989" r="2.007" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="531.755" cy="274.490" r="1.911" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="484.655" cy="266.763" r="1.059" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="471.306" cy="267.281" r="1.155" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="480.589" cy="261.520" r="1.010" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="480.157" cy="273.445" r="1.823" stroke="none" fill="#000000"/>
+        </g>
+      </g>
+      <g data-jin="/circles/0/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/3">
+        <circle data-jin="/circles/0/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/3" cx="690.526" cy="610.000" r="105.600"/>
+        <g data-jin="/circles/3" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/3" data-jin-kind="circle" cx="690.526" cy="610.000" r="39.200"/>
+          <circle data-jin="/circles/3" data-jin-kind="circle" cx="690.526" cy="610.000" r="84.000"/>
+          <circle data-jin="/circles/3/core" data-jin-kind="core" cx="690.526" cy="610.000" r="13.440"/>
+          <path data-jin="/circles/3/state/0" data-jin-kind="state" d="M 696.126 520.400 L 696.126 531.600 L 684.926 531.600 L 684.926 520.400 Z" stroke-width="2.000"/>
+          <text data-jin="/circles/3/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="5.600">
+            <textPath data-jin="/circles/3/instruction/rune" data-jin-kind="rune" href="#jin-rune-1">{draft} をレビューする</textPath>
+          </text>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="710.841" cy="636.031" r="1.212" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="672.786" cy="625.302" r="1.089" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="676.807" cy="625.904" r="1.032" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="711.375" cy="606.382" r="0.997" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="705.210" cy="631.977" r="1.572" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="710.938" cy="583.844" r="1.704" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="700.187" cy="578.149" r="1.379" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="670.511" cy="627.265" r="1.177" stroke="none" fill="#000000"/>
+        </g>
+      </g>
+      <g data-jin="/circles/0/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/1">
+        <circle data-jin="/circles/0/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/1" cx="309.474" cy="610.000" r="80.960"/>
+        <g data-jin="/circles/1" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <path data-jin="/circles/1/flow" data-jin-kind="flow-edge" d="M 309.474 551.760 L 309.474 668.240 M 306.674 662.640 L 309.474 668.240 L 312.274 662.640"/>
+          <path data-jin="/circles/1/flow" data-jin-kind="flow-edge" d="M 309.474 668.240 L 309.474 551.760 M 312.274 557.360 L 309.474 551.760 L 306.674 557.360"/>
+          <path data-jin="/circles/1/flow/exit" data-jin-kind="flow-edge" d="M 309.474 604.400 L 315.074 610.000 L 309.474 615.600 L 303.874 610.000 Z"/>
+          <circle data-jin="/circles/1/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/4" cx="309.474" cy="548.400" r="3.360"/>
+          <circle data-jin="/circles/1/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/5" cx="309.474" cy="671.600" r="3.360"/>
+        </g>
+      </g>
+    </g>
+  </svg>
+  
+  '''
+# ---
+# name: test_example_svg_snapshot[researcher]
+  '''
+  <svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+    <defs>
+      <path id="jin-rune-0" d="M 500.000 680.800 C 521.650 680.800 539.200 698.350 539.200 720.000 C 539.200 741.650 521.650 759.200 500.000 759.200 C 478.350 759.200 460.800 741.650 460.800 720.000 C 460.800 698.350 478.350 680.800 500.000 680.800"/>
+      <path id="jin-rune-1" d="M 500.000 360.000 C 577.320 360.000 640.000 422.680 640.000 500.000 C 640.000 577.320 577.320 640.000 500.000 640.000 C 422.680 640.000 360.000 577.320 360.000 500.000 C 360.000 422.680 422.680 360.000 500.000 360.000"/>
+    </defs>
+    <g data-jin="/circles/0" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="500.000" cy="500.000" r="140.000"/>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="500.000" cy="500.000" r="220.000"/>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="500.000" cy="500.000" r="300.000"/>
+      <path data-jin="/circles/0" data-jin-kind="circle" d="M 500.000 120.000 C 702.994 120.000 870.144 279.546 879.589 482.320 C 889.033 685.095 737.436 859.487 535.321 878.355 C 333.206 897.223 151.949 753.904 123.698 552.886"/>
+      <path data-jin="/circles/0" data-jin-kind="circle" d="M 123.698 447.114 C 150.062 259.523 310.565 120.000 500.000 120.000"/>
+      <line data-jin="/circles/0/tools/0" data-jin-kind="tool" x1="500.000" y1="452.000" x2="500.000" y2="304.000"/>
+      <line data-jin="/circles/0/tools/1" data-jin-kind="tool" x1="548.000" y1="500.000" x2="696.000" y2="500.000"/>
+      <line data-jin="/circles/0/tools/2" data-jin-kind="tool" x1="500.000" y1="548.000" x2="500.000" y2="614.400"/>
+      <line data-jin="/circles/0/tools/3" data-jin-kind="tool" x1="452.000" y1="500.000" x2="304.000" y2="500.000"/>
+      <circle data-jin="/circles/0/core" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+      <circle data-jin="/circles/0/tools/0" data-jin-kind="tool" cx="500.000" cy="280.000" r="24.000"/>
+      <circle data-jin="/circles/0/tools/1" data-jin-kind="tool" cx="720.000" cy="500.000" r="24.000"/>
+      <g data-jin="/circles/0/tools/2" data-jin-kind="tool" data-jin-ref="/circles/1">
+        <circle data-jin="/circles/0/tools/2" data-jin-kind="tool" data-jin-ref="/circles/1" cx="500.000" cy="720.000" r="105.600"/>
+        <g data-jin="/circles/1" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/1" data-jin-kind="circle" cx="500.000" cy="720.000" r="39.200"/>
+          <circle data-jin="/circles/1" data-jin-kind="circle" cx="500.000" cy="720.000" r="84.000"/>
+          <circle data-jin="/circles/1/core" data-jin-kind="core" cx="500.000" cy="720.000" r="13.440"/>
+          <path data-jin="/circles/1/state/0" data-jin-kind="state" d="M 505.600 630.400 L 505.600 641.600 L 494.400 641.600 L 494.400 630.400 Z" stroke-width="2.000"/>
+          <text data-jin="/circles/1/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="5.600">
+            <textPath data-jin="/circles/1/instruction/rune" data-jin-kind="rune" href="#jin-rune-0">与えられた本文を 200 字で要約する</textPath>
+          </text>
+          <circle data-jin="/circles/1/instruction/rune" data-jin-kind="rune" cx="485.320" cy="690.835" r="1.221" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/1/instruction/rune" data-jin-kind="rune" cx="480.625" cy="730.976" r="1.485" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/1/instruction/rune" data-jin-kind="rune" cx="507.673" cy="694.706" r="1.089" stroke="none" fill="#000000"/>
+        </g>
+      </g>
+      <circle data-jin="/circles/0/tools/3" data-jin-kind="tool" cx="280.000" cy="500.000" r="24.000"/>
+      <path data-jin="/circles/0/state/0" data-jin-kind="state" d="M 520.000 180.000 L 520.000 220.000 L 480.000 220.000 L 480.000 180.000 Z"/>
+      <path data-jin="/circles/0/state/1" data-jin-kind="state" d="M 480.000 820.000 L 480.000 780.000 L 520.000 780.000 L 520.000 820.000 Z" stroke-width="2.000"/>
+      <path data-jin="/circles/0/boundary/guards/0" data-jin-kind="guard" d="M 500.000 144.000 L 500.000 96.000"/>
+      <path data-jin="/circles/0/boundary/guards/1" data-jin-kind="guard" d="M 500.000 856.000 L 500.000 904.000"/>
+      <path data-jin="/circles/0/boundary/await/0" data-jin-kind="await" d="M 147.465 549.546 L 99.932 556.226 M 147.465 450.454 L 99.932 443.774"/>
+      <text data-jin="/circles/0/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="20.000">
+        <textPath data-jin="/circles/0/instruction/rune" data-jin-kind="rune" href="#jin-rune-1">あなたは慎重な調査アシスタントです。 出典を必ず示し、公開前に人間の確認を求めてくだ…</textPath>
+      </text>
+      <circle data-jin="/circles/0/instruction/rune" data-jin-kind="rune" cx="398.698" cy="550.991" r="6.667" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/0/instruction/rune" data-jin-kind="rune" cx="427.854" cy="540.870" r="6.400" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/0/instruction/rune" data-jin-kind="rune" cx="447.401" cy="604.497" r="6.416" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/0/instruction/rune" data-jin-kind="rune" cx="498.224" cy="427.645" r="7.184" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/0/instruction/rune" data-jin-kind="rune" cx="431.592" cy="451.822" r="5.239" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/0/instruction/rune" data-jin-kind="rune" cx="536.432" cy="601.820" r="6.212" stroke="none" fill="#000000"/>
+    </g>
+  </svg>
+  
+  '''
+# ---
+# name: test_focus_switch_snapshot
+  '''
+  <svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+    <defs>
+      <path id="jin-rune-0" d="M 500.000 360.000 C 577.320 360.000 640.000 422.680 640.000 500.000 C 640.000 577.320 577.320 640.000 500.000 640.000 C 422.680 640.000 360.000 577.320 360.000 500.000 C 360.000 422.680 422.680 360.000 500.000 360.000"/>
+    </defs>
+    <g data-jin="/circles/1" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+      <circle data-jin="/circles/1" data-jin-kind="circle" cx="500.000" cy="500.000" r="140.000"/>
+      <circle data-jin="/circles/1" data-jin-kind="circle" cx="500.000" cy="500.000" r="300.000"/>
+      <circle data-jin="/circles/1/core" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+      <path data-jin="/circles/1/state/0" data-jin-kind="state" d="M 520.000 180.000 L 520.000 220.000 L 480.000 220.000 L 480.000 180.000 Z" stroke-width="2.000"/>
+      <text data-jin="/circles/1/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="20.000">
+        <textPath data-jin="/circles/1/instruction/rune" data-jin-kind="rune" href="#jin-rune-0">与えられた本文を 200 字で要約する</textPath>
+      </text>
+      <circle data-jin="/circles/1/instruction/rune" data-jin-kind="rune" cx="447.570" cy="395.840" r="4.361" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/1/instruction/rune" data-jin-kind="rune" cx="430.802" cy="539.200" r="5.302" stroke="none" fill="#000000"/>
+      <circle data-jin="/circles/1/instruction/rune" data-jin-kind="rune" cx="527.403" cy="409.665" r="3.890" stroke="none" fill="#000000"/>
+    </g>
+  </svg>
+  
+  '''
+# ---
+# name: test_trace_overlay_snapshot
+  '''
+  <svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+    <defs>
+      <path id="jin-rune-0" d="M 500.000 240.800 C 521.650 240.800 539.200 258.350 539.200 280.000 C 539.200 301.650 521.650 319.200 500.000 319.200 C 478.350 319.200 460.800 301.650 460.800 280.000 C 460.800 258.350 478.350 240.800 500.000 240.800"/>
+      <path id="jin-rune-1" d="M 690.526 570.800 C 712.175 570.800 729.726 588.350 729.726 610.000 C 729.726 631.650 712.175 649.200 690.526 649.200 C 668.876 649.200 651.326 631.650 651.326 610.000 C 651.326 588.350 668.876 570.800 690.526 570.800"/>
+    </defs>
+    <g data-jin="/circles/0" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+      <path data-jin="/circles/0/flow" data-jin-kind="flow-edge" d="M 552.800 371.452 L 637.726 518.548 M 619.065 506.227 L 637.726 518.548 L 636.386 496.227"/>
+      <path data-jin="/circles/0/flow" data-jin-kind="flow-edge" d="M 584.926 610.000 L 390.434 610.000 M 410.434 600.000 L 390.434 610.000 L 410.434 620.000"/>
+      <g data-jin="/circles/0/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/2">
+        <circle data-jin="/circles/0/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/2" cx="500.000" cy="280.000" r="105.600"/>
+        <g data-jin="/circles/2" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/2" data-jin-kind="circle" cx="500.000" cy="280.000" r="39.200"/>
+          <circle data-jin="/circles/2" data-jin-kind="circle" cx="500.000" cy="280.000" r="84.000"/>
+          <circle data-jin="/circles/2/core" data-jin-kind="core" data-jin-fired="1" cx="500.000" cy="280.000" r="13.440" stroke="#cc0000" stroke-width="2.000"/>
+          <path data-jin="/circles/2/state/0" data-jin-kind="state" d="M 505.600 190.400 L 505.600 201.600 L 494.400 201.600 L 494.400 190.400 Z" stroke-width="2.000"/>
+          <text data-jin="/circles/2/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="5.600">
+            <textPath data-jin="/circles/2/instruction/rune" data-jin-kind="rune" href="#jin-rune-0">下書きを書く</textPath>
+          </text>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="520.150" cy="282.989" r="2.007" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="531.755" cy="274.490" r="1.911" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="484.655" cy="266.763" r="1.059" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="471.306" cy="267.281" r="1.155" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="480.589" cy="261.520" r="1.010" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/2/instruction/rune" data-jin-kind="rune" cx="480.157" cy="273.445" r="1.823" stroke="none" fill="#000000"/>
+        </g>
+      </g>
+      <g data-jin="/circles/0/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/3">
+        <circle data-jin="/circles/0/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/3" cx="690.526" cy="610.000" r="105.600"/>
+        <g data-jin="/circles/3" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/3" data-jin-kind="circle" cx="690.526" cy="610.000" r="39.200"/>
+          <circle data-jin="/circles/3" data-jin-kind="circle" cx="690.526" cy="610.000" r="84.000"/>
+          <circle data-jin="/circles/3/core" data-jin-kind="core" data-jin-fired="1" cx="690.526" cy="610.000" r="13.440" stroke="#cc0000" stroke-width="2.000"/>
+          <path data-jin="/circles/3/state/0" data-jin-kind="state" d="M 696.126 520.400 L 696.126 531.600 L 684.926 531.600 L 684.926 520.400 Z" stroke-width="2.000"/>
+          <text data-jin="/circles/3/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="5.600">
+            <textPath data-jin="/circles/3/instruction/rune" data-jin-kind="rune" href="#jin-rune-1">{draft} をレビューする</textPath>
+          </text>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="710.841" cy="636.031" r="1.212" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="672.786" cy="625.302" r="1.089" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="676.807" cy="625.904" r="1.032" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="711.375" cy="606.382" r="0.997" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="705.210" cy="631.977" r="1.572" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="710.938" cy="583.844" r="1.704" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="700.187" cy="578.149" r="1.379" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="670.511" cy="627.265" r="1.177" stroke="none" fill="#000000"/>
+        </g>
+      </g>
+      <g data-jin="/circles/0/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/1">
+        <circle data-jin="/circles/0/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/1" cx="309.474" cy="610.000" r="80.960"/>
+        <g data-jin="/circles/1" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <path data-jin="/circles/1/flow" data-jin-kind="flow-edge" d="M 309.474 551.760 L 309.474 668.240 M 306.674 662.640 L 309.474 668.240 L 312.274 662.640"/>
+          <path data-jin="/circles/1/flow" data-jin-kind="flow-edge" d="M 309.474 668.240 L 309.474 551.760 M 312.274 557.360 L 309.474 551.760 L 306.674 557.360"/>
+          <path data-jin="/circles/1/flow/exit" data-jin-kind="flow-edge" data-jin-fired="1" d="M 309.474 604.400 L 315.074 610.000 L 309.474 615.600 L 303.874 610.000 Z" stroke="#cc0000" stroke-width="2.000"/>
+          <circle data-jin="/circles/1/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/4" data-jin-fired="1" cx="309.474" cy="548.400" r="3.360" stroke="#cc0000" stroke-width="2.000"/>
+          <circle data-jin="/circles/1/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/5" data-jin-fired="1" cx="309.474" cy="671.600" r="3.360" stroke="#cc0000" stroke-width="2.000"/>
+        </g>
+      </g>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="500.000" cy="60.000" r="10.000" stroke="none" fill="#000000" data-jin-seq="1"/>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="737.882" cy="129.848" r="10.000" stroke="none" fill="#000000" data-jin-seq="2"/>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="900.238" cy="317.217" r="10.000" stroke="none" fill="#000000" data-jin-seq="3"/>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="935.521" cy="562.619" r="10.000" stroke="none" fill="#000000" data-jin-seq="4"/>
+      <circle data-jin="/circles/0" data-jin-kind="circle" cx="832.530" cy="788.139" r="10.000" stroke="none" fill="#000000" data-jin-seq="5"/>
+    </g>
+  </svg>
+  
+  '''
+# ---

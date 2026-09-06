@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -145,7 +146,7 @@ def test_run_with_fake_model_completes_and_writes_a_valid_trace(tmp_path: Path, 
     source = EXAMPLES / name / f"{name}.jin"
     result = run("run", str(source), "こんにちは", "--model", "fake", "--trace", str(trace))
     assert result.exit_code == 0, result.output
-    lines = trace.read_text(encoding="utf-8").splitlines()
+    lines = [line for line in trace.read_text(encoding="utf-8").split("\n") if line]
     assert lines
     from jin_core.check import check_file
 
@@ -231,7 +232,7 @@ def test_successful_run_replaces_the_previous_trace(tmp_path: Path) -> None:
         str(trace),
     )
     assert result.exit_code == 0, result.output
-    lines = trace.read_text(encoding="utf-8").splitlines()
+    lines = [line for line in trace.read_text(encoding="utf-8").split("\n") if line]
     assert lines and all('"previous"' not in line for line in lines)
     assert json.loads(lines[0])["seq"] == 1
 
@@ -487,3 +488,46 @@ def test_tool_sys_exit_at_runtime_is_a_failure(
     assert "SystemExit" in result.output
     assert "Traceback" not in result.output
     assert "asyncio" not in result.output, "asyncio の shutdown ログが漏れている"
+
+
+def test_the_build_success_message_does_not_carry_control_characters(tmp_path: Path) -> None:
+    """`jin build` の成功文言も `_safe` を通す（F-W-P3-008 / 104）。
+
+    `--out` は利用者が渡すパスで、端末に出す前に制御文字を落とさないと
+    ANSI エスケープで表示を偽装できる。`jin render` 側は R1 で直したが
+    `jin build` 側は残っていた。
+    """
+    out = tmp_path / "o\u0007ut"
+    result = run("build", "examples/pipeline/pipeline.jin", "--out", str(out))
+    assert result.exit_code == 0, result.output
+    assert "書き出しました" in result.output
+    assert "\u0007" not in result.output
+
+
+@pytest.mark.skipif(not Path("/dev/full").exists(), reason="/dev/full が無い")
+def test_a_full_stdout_on_the_build_success_message_is_one_line_not_a_traceback(
+    tmp_path: Path,
+) -> None:
+    """`jin build` の成功文言も、書けなければ 1 行 + exit 1（F-C-P3-303 / F-W-P3-301）。
+
+    R3 の B-3 で `render` と `build` の両方を `_echo_or_exit` に通したが、テストは
+    `render` 側にしか無く、`build` 側だけ `typer.echo` に戻しても緑だった。
+    `build` は 1 ファイルにつき 1 行出すので、**最初の 1 行で落ちる**ことも見る
+    （残りの行を出し続けて何十行も溢れさせない）。生成物は出来ていること。
+    """
+    jin = Path(sys.executable).parent / "jin"
+    out = tmp_path / "out"
+    with Path("/dev/full").open("wb") as full:
+        result = subprocess.run(
+            [str(jin), "build", str(EXAMPLES / "pipeline" / "pipeline.jin"), "--out", str(out)],
+            cwd=REPO_ROOT,
+            stdout=full,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    message = result.stderr.decode("utf-8", "replace")
+    assert result.returncode == 1, (result.returncode, message)
+    assert "標準出力に書けません" in message, message
+    assert "Traceback" not in message, message
+    assert len(message.splitlines()) == 1, message
+    assert (out / "Pipeline" / "agent.py").exists(), "生成そのものは終わっているはず"

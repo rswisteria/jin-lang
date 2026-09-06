@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
   "jin-core",
   "jin-adk",
+  "jin-render",
   "jin-cli",
 ]
 
@@ -18,6 +19,7 @@ members = ["packages/*"]
 [tool.uv.sources]
 jin-core = { workspace = true }
 jin-adk = { workspace = true }
+jin-render = { workspace = true }
 jin-cli = { workspace = true }
 
 [dependency-groups]
@@ -57,7 +59,7 @@ extend-exclude = ["delivery", "docs", ".venv"]
 [tool.importlinter]
 # ADR-004 (DP-COMMON-11): 依存の一方向性を機械で落とす。
 # 契約の正本は design.yaml architecture.dependency_direction.rules の 8 行。
-root_packages = ["jin_core", "jin_adk", "jin_cli"]
+root_packages = ["jin_core", "jin_adk", "jin_render", "jin_cli"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -68,25 +70,26 @@ type = "layers"
 # という**実際の契約より強い順序**を宣言してしまう。
 # Phase 3 以降の最終形（design.yaml architecture.dependency_direction.rules 3〜4）:
 #   layers = ["jin_cli", "jin_lsp", "jin_adk | jin_render", "jin_core"]
-# **Phase 2 では `"jin_adk"` を単独で書く。** `"jin_adk | jin_render"` と先に書くと、import-linter 2.14 は
-# `Missing layer 'jin_render': module jin_render does not exist.` で exit 1 になる（2026-09-05 実測・
-# delivery/20260904-1445-jin/implementation-notes.md Phase 2 節）。Phase 3 で jin_render を作るときに
-# この要素を `"jin_adk | jin_render"` へ書き換えること（素朴な直列に並べると
-# tests/contract/test_packaging_contract.py::test_layers_contract_keeps_sibling_packages_in_one_element が落とす）。
+# **Phase 3 で `"jin_adk | jin_render"` に書き換えた。** Phase 2 の時点で先に書いていたら
+# import-linter 2.14 が `Missing layer 'jin_render': module jin_render does not exist.` で exit 1 に
+# なっていた（2026-09-05 実測）。`jin_lsp` は Phase 4 でこの並びに足す（今書くと同じ理由で落ちる）。
+# 素朴な直列（別要素に並べる）に戻すと
+# tests/contract/test_packaging_contract.py::test_layers_contract_keeps_sibling_packages_in_one_element が落とす。
 # パッケージを足すときは root_packages とこの行を同時に直すこと
 # （同テストファイルが網羅を機械で確認する）。
 layers = [
   "jin_cli",
-  "jin_adk",
+  "jin_adk | jin_render",
   "jin_core",
 ]
 
 [[tool.importlinter.contracts]]
-name = "jin_core は google-adk に依存しない"
+name = "jin_core / jin_render は google-adk に依存しない"
 type = "forbidden"
-# jin_render も ADK に依存してはいけない（design.yaml のルール 2）。
-# Phase 3 で jin_render を作ったら source_modules に足すこと（W-05）。
-source_modules = ["jin_core"]
+# design.yaml のルール 2 / 4。ADK の語彙が現れてよいのは jin_adk だけ（CLAUDE.md）。
+# 契約名から `google-adk` の語を外さないこと
+# （tests/contract/test_dependency_direction.py::test_import_linter_contracts_are_declared が見ている）。
+source_modules = ["jin_core", "jin_render"]
 forbidden_modules = ["google"]
 
 [[tool.importlinter.contracts]]
@@ -96,7 +99,8 @@ forbidden_modules = ["google"]
 # （tests/contract/test_packaging_contract.py がそれを強制する）。
 name = "任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる"
 type = "forbidden"
-source_modules = ["jin_core", "jin_adk"]
+source_modules = ["jin_core", "jin_adk", "jin_render"]
 # Phase 2: `jin run` の import 実装 `jin_adk.runtime` も対象（jin_core からは到達させない）。
+# Phase 3: `jin_render` も対象（Phase 4 の `jin/renderSvg` が ws から呼ぶ経路の手前で閉じる）。
 # Phase 4 で jin_lsp を作ったら source_modules に足す（ws 公開パスから両方へ到達させない・phase2-handoff.md §6）
 forbidden_modules = ["jin_cli.resolver", "jin_adk.runtime"]

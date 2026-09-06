@@ -176,6 +176,25 @@ def test_resolver_isolation_contract_covers_every_package_but_the_cli() -> None:
     )
 
 
+def test_adk_isolation_contract_covers_every_package_but_jin_adk_and_jin_cli() -> None:
+    """F-W-P3-001: 「google-adk に依存しない」契約の `source_modules` に足し忘れると黙って緩む。
+
+    `jin_adk` は ADK の語彙が現れてよい唯一のパッケージ、`jin_cli` は `jin_adk` を
+    呼ぶ入口なので対象外。それ以外の root package は全部この契約に載っていなければ
+    ならない（Phase 3 で `jin_render` を足したときは手で書き足した）。
+
+    契約は**名前ではなく中身**（`forbidden_modules == ["google"]`）で探す。名前で探すと
+    契約名を変えただけでテストが黙って別の契約を見にいく。
+    """
+    section = importlinter_section()
+    contract = next(c for c in section["contracts"] if c.get("forbidden_modules") == ["google"])
+    expected = set(section["root_packages"]) - {"jin_adk", "jin_cli"}
+    assert set(contract["source_modules"]) >= expected, (
+        f"google-adk 隔離契約の source_modules に "
+        f"{expected - set(contract['source_modules'])} が無い"
+    )
+
+
 #: 動的 import / コード実行の入口。`importlib*` の import に加えて呼び出しも見る（F-W-P2-005:
 #: `__import__('os')` だけを注入すると行頭一致の検査は素通りした）。
 DYNAMIC_IMPORT_CALLS = frozenset({"__import__", "exec", "eval"})
@@ -283,7 +302,7 @@ def test_every_package_declares_the_jin_packages_it_imports(package: Path) -> No
     workspace の推移で手元では動くが、単体インストールでは `ModuleNotFoundError` になる。
     `uv lock --check` は CI でしか走らない（ローカルの `uv run` は lock を黙って更新する）ので、
     各パッケージが import する `jin_*` がその `dependencies` と `[tool.uv.sources]` に載っていることをここで固定する。
-    CLAUDE.md のチェックリスト 7 項目目。
+    CLAUDE.md のチェックリスト 7 項目目（全 8 項目）。
     """
     module = module_name(package)
     config = tomllib.loads((package / "pyproject.toml").read_text(encoding="utf-8"))
@@ -298,6 +317,42 @@ def test_every_package_declares_the_jin_packages_it_imports(package: Path) -> No
             f"{package.name} が {imported} を import しているが dependencies に {dist} が無い"
         )
         assert dist in sources, f"{package.name}: [tool.uv.sources] に {dist} が無い"
+
+
+@pytest.mark.parametrize("package", package_dirs(), ids=PACKAGE_IDS)
+def test_package_tests_only_import_the_jin_packages_that_package_depends_on(
+    package: Path,
+) -> None:
+    """F-W-P3-006: ADR-003 の「パッケージ単体テストは自分の層より上を見ない」を機械化する。
+
+    `src/` だけを走査していたので、`packages/jin-render/tests/` が `jin_adk` を import
+    しても誰も落とさなかった（import-linter は `src` しか見ない）。層をまたぐ import を
+    テストに書くと、そのパッケージ単体では走らないテストができる。
+
+    許すのは「そのパッケージが `dependencies` に宣言している jin-*」と「自分自身」だけ。
+    `tests`（横断の共有 conftest）は `jin_` で始まらないのでここには集まらない。
+    """
+    module = module_name(package)
+    tests_root = package / "tests"
+    if not tests_root.is_dir():
+        pytest.skip(f"{package.name} に tests/ が無い")
+    config = tomllib.loads((package / "pyproject.toml").read_text(encoding="utf-8"))
+    allowed = {module} | {
+        dep.split("[")[0]
+        .split(" ")[0]
+        .split(">")[0]
+        .split("<")[0]
+        .split("=")[0]
+        .strip()
+        .replace("-", "_")
+        for dep in config["project"].get("dependencies", [])
+        if dep.startswith("jin-")
+    }
+    used = _jin_imports(tests_root)
+    assert used <= allowed, (
+        f"{package.name}/tests が {sorted(used - allowed)} を import している。"
+        f"許されるのは {sorted(allowed)}（ADR-003 / design.yaml rule 4）"
+    )
 
 
 # --------------------------------------------------------------------------------------
@@ -341,7 +396,7 @@ def test_test_fixtures_and_cli_discover_the_same_files(tmp_path: Path) -> None:
 # CONV A-2 / CONV A-3: パッケージ追加時のチェックリストが CLAUDE.md にある
 # --------------------------------------------------------------------------------------
 def test_claude_md_has_the_package_addition_checklist() -> None:
-    """conventions review A-2: パッケージ名が pyproject.toml の 5 箇所（+ 依存する側の pyproject・計 7 項目）にハードコードされている。
+    """conventions review A-2: パッケージ名が pyproject.toml の 5 箇所 + `packages/<name>/tests/__init__.py` + 依存する側の pyproject + `test_guard_claims.py` の期待集合（CLAUDE.md のチェックリスト・計 8 項目）にハードコードされている。
 
     このテストが見るのは「チェックリストが書いてあるか」だけで、抜けの検出は
     上の各契約テストが行う。A-3（トリップワイヤの docstring）もここを指している。
@@ -357,6 +412,11 @@ def test_claude_md_has_the_package_addition_checklist() -> None:
         "__init__.py",
         "依存する側",
         "test_every_package_declares_the_jin_packages_it_imports",
+        # 8 項目目（guard 走査の期待集合）。`test_guard_claims.py` だけを期待語にすると
+        # 直後の解説文にも同じ語があるので、項目を消しても緑のままだった（実測）。
+        # 8 項目目にしか無い語で見る。抜けそのものは test_guard_claims.py の
+        # パッケージ名の等号が落とす（F-V-P3-102）
+        "走査が壊れて対象が消えたときに気づく",
     ]:
         assert item in text, f"チェックリストに {item} が無い"
 

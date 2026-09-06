@@ -1,0 +1,11 @@
+{"seq": 1, "ts": 1788656118.0925825, "agent": "Drafter", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/2/core", "input": null, "output": "fake-response"}
+{"seq": 2, "ts": 1788656118.0940733, "agent": "Reviewer", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/3/core", "input": null, "output": "fake-response"}
+{"seq": 3, "ts": 1788656118.0952127, "agent": "Critic", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/4/core", "input": null, "output": "fake-response"}
+{"seq": 4, "ts": 1788656118.0962043, "agent": "Rewriter", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/5/core", "input": null, "output": "fake-response"}
+{"seq": 5, "ts": 1788656118.0967042, "agent": "Refine_exit_check", "kind": "escalate", "name": "Refine", "pointer": "/circles/1/flow/exit", "input": {"key": "approved", "expected": true}, "output": {"actual": "fake-response", "matched": false}}
+{"seq": 6, "ts": 1788656118.097331, "agent": "Critic", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/4/core", "input": null, "output": "fake-response"}
+{"seq": 7, "ts": 1788656118.0982814, "agent": "Rewriter", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/5/core", "input": null, "output": "fake-response"}
+{"seq": 8, "ts": 1788656118.0987406, "agent": "Refine_exit_check", "kind": "escalate", "name": "Refine", "pointer": "/circles/1/flow/exit", "input": {"key": "approved", "expected": true}, "output": {"actual": "fake-response", "matched": false}}
+{"seq": 9, "ts": 1788656118.099381, "agent": "Critic", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/4/core", "input": null, "output": "fake-response"}
+{"seq": 10, "ts": 1788656118.100392, "agent": "Rewriter", "kind": "model", "name": "gemini-2.5-flash", "pointer": "/circles/5/core", "input": null, "output": "fake-response"}
+{"seq": 11, "ts": 1788656118.1008487, "agent": "Refine_exit_check", "kind": "escalate", "name": "Refine", "pointer": "/circles/1/flow/exit", "input": {"key": "approved", "expected": true}, "output": {"actual": "fake-response", "matched": false}}

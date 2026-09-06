@@ -1,14 +1,20 @@
 # AI 判断台帳（auto mode / DP-AUTOMODE-01）
 
-**人間に確認してほしい判断: 13 件**（prohibition 付き・confidence が high 以外）／レビュー待ち 5 件・全 28 件。
+**人間に確認してほしい判断: 19 件**（内訳: ⚠️ prohibition 付き 19 件 + △ confidence が high 以外 0 件）／レビュー待ち 11 件・全 34 件。
 承認・上書きは `/decide DP-XXX "<選択>" "<理由>" --decided_by "<氏名>"`（同一選択 = approved / 別選択 = overridden）。
 
 | 要確認 | DP ID | 選択 | rationale | confidence | review_status | model | 起票元 |
 |---|---|---|---|---|---|---|---|
 | ⚠️ 要人間確認 | DP-IMPL-JIN-P2-SYSPATH-01 | cwd を生成モジュールの import の間だけ sys.path に足し、import が終わったら必ず外す（jin_adk.runtime.load_generated / run_model_async に extra_sys_p… | security レビュー修正ラウンド 1 の F-S-P2-101（delivery/20260904-1445-jin/code-review-raw/security-p2-round1.md・Medium / confidence… | medium | pending_human_review | claude-fable-5-1 | implementation-plan.json |
 | ⚠️ 要人間確認 | DP-IMPL-JIN-P2-TRACEKIND-01 | 承認する（final = 実行全体の最後の行が model のときだけその行を付け替える / escalate = StateCheckAgent の判定イベントを一致しなかった回も含む + actions.escalate / part… | HANDOFF Q-JIN-P2-05 の推奨（1 つ目）を採用。根拠: (a) 要件書 §3.4 は kind の 5 種を列挙するだけで判定規則を書いていない。決めた規則は docs/spec/adk-mapping.md §2.4… | medium | pending_human_review | claude-fable-5-1 | implementation-plan.json |
+| ⚠️ 要人間確認 | DP-IMPL-JIN-P3-ACCENT-COLOR-01 | 選択肢 1: trace overlay の強調 1 色を #cc0000（朱）のまま承認する | 要件書 §2.5 は「白黒 2 値 + 強調 1 色（トレース時のみ）」としか書いておらず色の値が無いため、T-002（要件書に無い値を捏造しない）に従って実装確定値として起票された案件である。#cc0000 は魔法陣の朱墨に倣った選択で… | medium | pending_human_review | claude-opus-5 | implementation-plan.json |
 | ⚠️ 要人間確認 | DP-IMPL-JIN-P2-ADKDEPRECATION-01 | google-adk 2.8.0 固定（TARGET_ADK_VERSION）のまま進め、Workflow への移行は別 Issue で扱う | HANDOFF Q-JIN-P2-03 の推奨（1 つ目）を採用。根拠: (a) ADK 自身の deprecation 文言が「Workflow cannot yet be used as an LlmAgent sub-agent」と… | high | pending_human_review | claude-fable-5-1 | implementation-plan.json |
 | ⚠️ 要人間確認 | DP-IMPL-JIN-P2-STATESEED-01 | 現状のまま（jin run だけが宣言済み state を None で seed する。adk run 単体で KeyError になることを README / adk-mapping.md §6 に明記済み）を承認する | HANDOFF Q-JIN-P2-01 の推奨（1 つ目）を採用。根拠: (a) google-adk 2.8.0 は instruction の {key} が session.state に無いと KeyError を投げる（goog… | high | pending_human_review | claude-fable-5-1 | implementation-plan.json |
+| ⚠️ 要人間確認 | DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01 | 選択肢 (a): loop の節 flow.steps[j] を角位置 (j*k) mod n に置き、辺は j → (j+1) mod n（訪問順の隣）を矢じり付きで結ぶ。星形多角形 {n/k} の見た目と「辺の順は訪問順」を同時に満たす | 質問 1（要件書 §2.5「辺の順を訪問順に一致させる」の解釈）: 決め手は矢じりではなく辺列そのものである。旧配置（節 j を角位置 j に置き、辺を j → (j+k) mod n にする）では、n=5 のとき辺を順に辿ると S0→S… | high | pending_human_review | claude-opus-5 | implementation-plan.json |
+| ⚠️ 要人間確認 | DP-IMPL-JIN-P3-OVERLAY-REFERENT-01 | 選択肢 1: trace overlay の強調規則として「pointer を末尾から 1 セグメントずつ削る祖先一致」+「参照要素の data-jin-ref による referent 規則」を承認する | 要件書 §2.5 は data-jin を「エディタがヒットテストと選択を行う鍵」と定め、さらに「jin/model が返す pointer→range 対応表と一致すること」を要求している。したがって参照を表す要素（flow.steps… | high | pending_human_review | claude-opus-5 | implementation-plan.json |
+| ⚠️ 要人間確認 | DP-IMPL-JIN-P3-RENDER-ON-ERROR-01 | 選択肢 1: error 診断があるファイルは jin render も既定で拒む（exit 1）。図を出すためのオプションは Phase 3 では足さない | CLI は jin build / jin run と同じ _load_model_or_exit を通すので、3 つのサブコマンドで「error 診断があれば拒む」挙動が揃い、申し送り phase3-handoff.md §3 の「新し… | high | pending_human_review | claude-opus-5 | implementation-plan.json |
+| ⚠️ 要人間確認 | DP-IMPL-JIN-P3-ROUNDING-01 | 選択肢 1: SVG 座標の丸めを 3 桁固定小数（format(x, ".3f")）のまま承認する | ADR-010（DP-JIN-SVG-DETERMINISM-01・人間確定）を覆すものではなく、その condition「丸め桁数は実装 Phase 3 で決定し根拠を残す」を充足する記録である。本記録は同一 dp_id の再記録（置換… | high | pending_human_review | claude-opus-5 | implementation-plan.json |
+| ⚠️ 要人間確認 | DP-IMPL-JIN-P3-SVG-ROOT-CONTRACT-01 | 選択肢 1: svg 要素自身と defs 配下を data-jin 契約の対象外とする解釈を承認する | 要件書 §2.5 は「描画された全ての要素は data-jin と data-jin-kind を持つ」と書き、data-jin-kind を circle\|core\|rune\|tool\|state\|flow-edge\|guard\|awa… | high | pending_human_review | claude-opus-5 | implementation-plan.json |
 | ⚠️ 要人間確認 | DP-COMMON-15 | 案 B: 実装 Stage 1 の実測に委ね、実測できなければコメントのみで生成する | AI 仮判断（confidence: high）を承認。 |  | approved |  | design.yaml |
 | ⚠️ 要人間確認 | DP-COMMON-17 | 案 B: JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ | AI 仮判断（confidence: medium）を承認。 |  | approved |  | design.yaml |
 | ⚠️ 要人間確認 | DP-JIN-DIAGCODE-NUMBERING-01 | 選択肢 1: JIN012（循環参照）/ JIN013（多重親）を承認し、要件書 §2.4 の表に 2 行追加する | AI 仮判断（confidence: medium）を承認。 |  | approved |  | implementation-plan.json |

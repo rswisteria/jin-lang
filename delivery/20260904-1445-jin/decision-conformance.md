@@ -1,12 +1,16 @@
 # 決定整合性チェック（decision-conformance-check）
 
-実行日時: 2026-09-04T07:25+00:00（ラウンド 1）/ **2026-09-05T10:30+00:00（ラウンド 2・Phase 2 追記）** / 対象: `delivery/20260904-1445-jin/{requirements.json, design.yaml, implementation-plan.json}`
-実装ラウンド: **1 / 5（Jin Phase 0 + Phase 1）→ 2 / 5（Jin Phase 2・jin-adk）**
+実行日時: 2026-09-04T07:25+00:00（ラウンド 1）/ 2026-09-05T10:30+00:00（ラウンド 2・Phase 2 追記）/ **2026-09-06T01:10+00:00（ラウンド 3・Phase 3 追記）** / 対象: `delivery/20260904-1445-jin/{requirements.json, design.yaml, implementation-plan.json}`
+実装ラウンド: **1 / 5（Jin Phase 0 + Phase 1）→ 2 / 5（Jin Phase 2・jin-adk）→ 3 / 5（Jin Phase 3・jin-render）**
 
 > **ラウンド 2（Phase 2）の追記方針**: ラウンド 1 が `out_of_scope` にした行のうち Phase 2 で実装対象になった
 > DP-COMMON-14（トレース行）/ DP-COMMON-15 / DP-JIN-CODEGEN-RUNTIME-01 / DP-JIN-TRACE-POINTER-01 を
 > 同じ表の中で **constraint 1 行ずつ**に分解して reflected / not_reflected へ潰した（行頭に「**P2**」）。
 > ラウンド 1 の判定（`out_of_scope` 4 行）はそのまま残し、その直下に P2 行を並べる（修正ラウンド 1 で復元・F-V-P2-007）。
+
+> **ラウンド 3（Phase 3）の追記方針**: 同じ規律で、Phase 3 で実装対象になった DP-JIN-SVG-DETERMINISM-01 と
+> DP-COMMON-07（SVG はキャッシュしない / 純関数）を **constraint 1 行ずつ**に分解して潰した（行頭に「**P3**」）。
+> 既存の行は 1 つも消していない。Phase 3 で新たに値を確定した実装判断は §2.24 に並べた。
 
 > **本ラウンドの照合範囲**: `decision_record[]` は requirements.json 3 件 + design.yaml 17 件の計 20 件。
 > このうち Jin Phase 0 / Phase 1 のコードに触れる DP だけを `reflected` / `not_reflected` で判定し、
@@ -39,7 +43,9 @@
 | DP-COMMON-14 | ログレベル・フォーマット・ローテーションの方針は本判断では確定しない。実装 Phase 4 で決定し根拠を残す | condition | 構造化 | **out_of_scope** | Phase 4 で確定する。本ラウンドでは決めていない（勝手に先取りしていないことが遵守） |
 | DP-COMMON-07 | last-good モデルの保持は jin-lsp のドキュメント管理層 1 箇所に閉じ込める | scope | 構造化 | **reflected（先取りしない形で）** | `jin_core` にキャッシュ層を一切置いていない。`check_text` は毎回フル再計算する純関数（`check.py:164-197` の `check_text`）。保持は Phase 4 の jin-lsp が持つ |
 | DP-COMMON-07 | `jin_core` / `jin_render` はキャッシュの存在を知らない純関数のままとし、内部に状態を持たない | scope | 構造化 | **reflected（修正ラウンド 1 で成立させた）** | 修正ラウンド 1 より前は `resolve=True` のとき `jin_core.semantic._import_ref` が `importlib.import_module` を呼び、`sys.modules` というプロセス全体の可変状態を書き換えていた（同じ入力で 2 回目が別の結果になりうる = 純関数ではない）。security review S14 の指摘どおり、当時の「reflected」は**実態と乖離していた**。現在は import 実装を `jin_cli.resolver.ImportResolver` へ移し、`jin_core` は `RefResolver` プロトコルを受け取るだけになった（`jin_core/resolver.py`）。`jin_core` にモジュールレベルの可変状態は無く、モジュール定数は `parser._PARSER`（Lark の文法オブジェクト・不変）と各種の定数辞書のみ |
-| DP-COMMON-07 | SVG はキャッシュしない | scope | 構造化 | **out_of_scope** | jin-render は Phase 3 |
+| DP-COMMON-07 | SVG はキャッシュしない | scope | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。直下の **P3** 行で潰した） | jin-render は Phase 3 |
+| **P3** DP-COMMON-07 | SVG はキャッシュしない | scope | 構造化 | **reflected** | `jin_render` にキャッシュ層が無い。`render` は毎回フル計算する（`packages/jin-render/src/jin_render/layout.py` の `render`）。`functools.lru_cache` / `cache` を 1 箇所も使っていない（実測 2026-09-06: `grep -rn "lru_cache\|functools" packages/jin-render/src` → 0 件） |
+| **P3** DP-COMMON-07 | `jin_core` / `jin_render` はキャッシュの存在を知らない純関数のままとし、内部に状態を持たない | scope | 構造化 | **reflected** | `jin_render` にモジュールレベルの可変状態は無い（定数と `dataclass` だけ）。組み立て器 `_Builder`（`<textPath>` の id 連番を持つ）は `render` の呼び出しごとに生成される局所オブジェクト。ファイルも読まない（`open` / `Path` を import していない・要件書 §4）。動的 import も無い（`tests/contract/test_packaging_contract.py::test_dynamic_imports_are_confined_to_the_cli_resolver_and_jin_run` が 2 モジュール厳密一致で固定） |
 | DP-COMMON-15 | `.env.example` のキー名は実装 Stage 1 の実測に委ねる / 推測で書かない / 実測できなければコメントのみ | condition, prohibition | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。直下の **P2** 行で潰した） | `.env.example` を出すのは `jin build`（Phase 2 / FR-ADK-001）。本ラウンドで `.env.example` は生成していない（実測: `find . -path ./.venv -prune -o -name '.env*' -print` → 0 件）。**キー名を推測で書いていない**という禁止事項は遵守 |
 | **P2** DP-COMMON-15 | `.env.example` のキー名は本判断では確定しない。実装 Stage 1 で google-adk 2.8.0 が読む環境変数名を実測し、その実測値のみをテンプレートに固定する | condition | 構造化 | **reflected（値を確定・§2.13）** | 実測した 4 キーだけを `packages/jin-adk/src/jin_adk/codegen.py` の `_env_example`（`GOOGLE_GENAI_USE_ENTERPRISE` / `GOOGLE_API_KEY` / `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`）に固定。出典（file:line）を `.env.example` 本文にも書く。`packages/jin-adk/tests/test_codegen.py::test_env_example_lists_only_measured_keys` が集合一致を固定 |
 | **P2** DP-COMMON-15 | 推測・記憶・一般論に基づくキー名を `.env.example` に書かない（T-002） | prohibition | 構造化 | **reflected** | 4 キーはすべて site-packages の grep / 読解に出典がある（§2.13 の表）。`GEMINI_API_KEY`（google-genai が読む）は **書いていない**: `adk create` が書かないキーであり、`GOOGLE_API_KEY` が優先されるため（`_api_client.py:136-140`）。コメントで読み手の出典だけ示した |
@@ -55,7 +61,12 @@
 | **P2** DP-JIN-TRACE-POINTER-01 | 対応表を生成物（agent.py）に埋め込まない。生成コードは Jin を知らないままとする | scope | 構造化 | **reflected** | 対応表は `codegen.py` の `PointerMap`（`GeneratedProject.pointers`）として生成物とは別のオブジェクト。実行時は `trace.py` の `RuntimeTable` が引く。`test_codegen.py::test_pointer_map_is_not_embedded_in_the_generated_code`（`/circles/` が agent.py に無い）で固定 |
 | **P2** DP-JIN-TRACE-POINTER-01 | 引けなかったイベントは pointer を null にして黙って落とさず、対応不能であることを明示する（NFR-FAIL-001） | condition | 構造化 | **reflected** | `trace.py:108-143` の各 lookup が None を返しつつ `RuntimeTable.unresolved` に理由を積む。行は落とさない（`classify` は必ず行を返す）。CLI は `jin_cli/main.py` `run` の末尾で理由を stderr に出す。`test_trace.py::test_unknown_author_gets_a_null_pointer_not_a_dropped_row` / `::test_unknown_tool_name_gets_a_null_pointer` / `::test_duplicate_tool_names_inside_one_agent_are_reported_as_unresolvable`。変異 `TRACE-drop-unknown` / `TRACE-dup-first-wins` で赤を実測 |
 | **P2** DP-JIN-TRACE-POINTER-01 | 生成物を jin run を経由せず単体で adk run した場合はトレースの pointer が付かない。この制約をドキュメントに明示する | scope | 構造化 | **reflected** | 生成物ヘッダ（`_header`）/ `docs/spec/adk-mapping.md` §2.4 / `README.md` の 3 箇所。ヘッダは `test_header_states_regeneration_and_pointer_limits` が固定（変異 `ADR9-header` で赤を実測） |
-| DP-JIN-SVG-DETERMINISM-01 | 丸め桁数は Phase 3 で決定し根拠を `docs/spec/layout.md` に残す / 推測値を固定しない / 決定性テストは別プロセス 2 回 / 星形 {n/k} の k を Phase 0 の layout.md で一意に明文化 / 座標は丸め関数 1 本を通す | 各種 | 構造化 | **一部 reflected・残りは out_of_scope** | **Phase 0 の担当分は本ラウンドで実施**: 星形 {n/k} の k の決め方を `docs/spec/layout.md` §2.1 で `k = max{ j : 1 <= j < n/2 かつ gcd(n, j) == 1 }` として一意に明文化した。**丸め桁数は書いていない**（Phase 3 で決める旨を layout.md §4 に明記・推測値を固定しない禁止事項を遵守）。丸め関数と決定性テストは Phase 3 |
+| DP-JIN-SVG-DETERMINISM-01 | 丸め桁数は Phase 3 で決定し根拠を `docs/spec/layout.md` に残す / 推測値を固定しない / 決定性テストは別プロセス 2 回 / 星形 {n/k} の k を Phase 0 の layout.md で一意に明文化 / 座標は丸め関数 1 本を通す | 各種 | 構造化 | **一部 reflected・残りは out_of_scope** | （ラウンド 1 の判定・記録として残す。直下の **P3** 行で潰した）**Phase 0 の担当分はラウンド 1 で実施**: 星形 {n/k} の k の決め方を `docs/spec/layout.md` §2.1 で `k = max{ j : 1 <= j < n/2 かつ gcd(n, j) == 1 }` として一意に明文化した。**丸め桁数は書いていない**（Phase 3 で決める旨を layout.md §4 に明記・推測値を固定しない禁止事項を遵守）。丸め関数と決定性テストは Phase 3 |
+| **P3** DP-JIN-SVG-DETERMINISM-01 | 座標を SVG に書き出す経路は必ず丸め関数 1 本を通す（素の float 文字列化を混在させない） | scope | 構造化 | **reflected** | `jin_render.svg.fmt_coord` が唯一の書き出し口。`guard: fmt_coord -> format(value,_COORD_FORMAT)` で主張し `tests/contract/test_guard_claims.py` が固定。SVG 側は `test_layout.py::test_all_geometry_numbers_are_written_with_three_decimals` が「幾何・体裁属性の数値がすべて 3 桁で終わる」ことを正規表現で見る。変異 `DET-plain-str` / `DET-repr` で赤を実測 |
+| **P3** DP-JIN-SVG-DETERMINISM-01 | 丸め桁数の具体値は実装 Phase 3 で決定し、根拠を `docs/spec/layout.md` に残す | condition | 構造化 | **reflected（値を確定・§2.24.1）** | **3 桁固定小数**。根拠は `docs/spec/layout.md` §4 と本書 §2.24.1 の両方（仕様側とコード側は同じ欠陥・片方だけ直さない）。根拠は (a) px 換算後の解像度（1000 px 角・正規化 1.0 = 400 px。0.001 px は 4 倍 DPR でも 1 デバイスピクセルの 1/4000）と (b) 浮動小数の末尾ノイズ（最大座標 1000 px の 1 ULP は約 1.1e-13 px で丸めの刻みの 10 桁下）の 2 点を実測で示した。`test_svg.py::test_rounding_step_is_far_above_the_float_noise`。変異 `DET-two-decimals` で赤を実測 |
+| **P3** DP-JIN-SVG-DETERMINISM-01 | 推測に基づく丸め桁数を成果物に固定しない（T-002） | prohibition | 構造化 | **reflected** | ラウンド 1 は桁数を書かず「Phase 3 で決める」とだけ残した（当時の判定どおり）。ラウンド 3 で上の 2 点を実測してから確定させ、layout.md §6 の表に「実装で確定した値であり要件値ではない」と明記した |
+| **P3** DP-JIN-SVG-DETERMINISM-01 | 決定性テストは同一プロセス内 2 回ではなく、異なる `PYTHONHASHSEED` の別プロセス 2 回で行う | condition | 構造化 | **reflected** | `packages/jin-render/tests/test_determinism.py::test_two_processes_with_different_hash_seeds_agree`（seed 0 と 4242 の `subprocess` 2 本・examples 2 本）と `::test_a_trace_overlay_is_also_hash_seed_independent`（overlay も別に固定）。同一プロセス内 2 回（要件書 §9）は `::test_two_renders_in_one_process_are_byte_identical` として**別のテスト**に置いた。変異 `ORN-builtin-hash`（`hash()` に置換）で赤を実測 |
+| **P3** DP-JIN-SVG-DETERMINISM-01 | 星形多角形 {n/k} の k の選択規則を一意に定める（ラウンド 1 で layout.md §2.1 に明文化済み）を実装が守る | condition | 構造化 | **reflected** | `jin_render.geometry.star_step` が `max{ j : 1 <= j < n/2 かつ gcd(n, j) == 1 }` を整数演算（`2*j < n`）だけで実装。描画側の辺の接続まで `test_layout.py::test_loop_edges_follow_the_star_polygon` が n=5 / 6 / 8 で固定する（`n // 2` は n=5 / 7 / 9 では偶然一致するので、割れる n を選んだ）。変異 `STAR-n-half` / `STAR-always-one` / `STAR-reversed` で赤を実測 |
 | DP-JIN-EDITOR-PROTOCOL-01 | `jin/open` / `jin/save` は仮称であり Phase 0 の `docs/spec/ops.md` 執筆時に人間承認を得て確定する / ws モードのエディタだけが使う / ファイル I/O 失敗はプロトコルエラー / 逆オペレーションの扱いは Phase 4 | 各種 | 構造化 | **reflected（Phase 0 担当分）** | `docs/spec/ops.md` §5 に「リクエスト名は仮称であり人間承認を要するため §2 の 19 件の表に含めていない」と明記。19 件の表を勝手に 21 件にしていない |
 | DP-JIN-PHASE-SCOPE-01（requirements.json） | 本ランのスコープは Phase 0〜6 | — | 構造化 | **reflected** | 本ラウンドは Phase 0 + 1。Phase 2 以降は後続ラウンドの implementer が担当（親の指示どおり着手していない） |
 | DP-JIN-EDITOR-UX-01 / DP-JIN-DISTRIBUTION-01（requirements.json） | エディタ最小 UI / 配布元 | — | 構造化 | **out_of_scope** | Phase 5 / 配布は本ラウンドの対象外 |
@@ -553,6 +564,120 @@ console script は cwd を `sys.path` に含めないため、`jin run examples/
 | `equals` の空白（F-C-P2-008） | 両辺 strip（対称） | DP-IMPL-JIN-P2-EXITEQ-01 の chosen「文字列は前後の空白を除き」の範囲内。表の `"yes"` = `" yes "` を対称に読む |
 | `run_model_async`（F-C-P2-019） | 公開。CLI だけが `asyncio.run` する。同期の `run_model` はループ無しの呼び出し側（テスト）用に残す | Phase 4 の pygls から呼べる形 |
 | ファイル名の入口検査（F-S-P2-001 / 005 / 016） | 制御文字 / U+2028 / U+2029 / 孤立サロゲートを含む名前は exit 2。ヘッダは `py_literal` を通す（二重） | `.jin` 本文と同じ規律（JIN002 が本文に対して行っていること）をファイル名にも適用 |
+
+### 2.24 ラウンド 3（Phase 3）で**値を確定した**実装判断
+
+要件書 §2.5 と `docs/spec/layout.md` §1〜§2 は環半径・配置角・k の規則までしか決めていない。以下は
+**Phase 3 の実装で確定した値**であり、**要件値ではない**。全件が `docs/spec/layout.md` §6 の表にも
+同じ根拠で書いてある（仕様側とコード側の片方だけを直さないため）。
+
+#### 2.24.1 丸め桁数 = 3 桁固定小数（DP-JIN-SVG-DETERMINISM-01 の condition）
+
+`format(x, ".3f")`。末尾ゼロを落とさない（落とすと「数値がすべて 3 桁で終わる」検査が成立しない）。
+`-0.0` は `0.0` に正規化する（`cos(90°)` 級の微小値の符号は libm で揺れ、`-0.000` と `0.000` の差が
+開発機と CI でスナップショットをずらす）。根拠 2 点:
+
+1. **px 換算後の解像度に対して十分**: キャンバスは 1000 px 角、正規化 1.0 が 400 px。刻み 0.001 px は
+   devicePixelRatio 4 で描いても 1 デバイスピクセルの 1/4000。
+2. **桁を増やすと末尾ノイズがプロセス間で揺れる**: 最大座標は 1000 px（キャンバスの縁）で、
+   倍精度の 1 ULP は約 1.1e-13 px。libm の `sin` / `cos` が環境ごとに 1 ULP 違ってもこの差は刻み 1e-3 の 10 桁下で
+   境界をまたがないが、10 桁以上に増やすとそのままバイト列に出る。
+   `test_svg.py::test_rounding_step_is_far_above_the_float_noise` が数値でこれを固定する。
+
+**副次の決定**: SVG の楕円弧コマンド `A` は使わない。`A` の large-arc-flag / sweep-flag は「0」か「1」の
+1 文字でなければならず（SVG の文法）、`0.000` は文法違反になる。円弧は 90 度以下の 3 次ベジェへ分割して
+描く（`jin_render.geometry.arc_segments`・制御点係数 `4/3 * tan(θ/4)`）。同じ理由で入れ子の小陣に
+`transform` を使わない（`transform` の中の数値も丸めを通す必要があり、書き出し経路が 2 本になる）。
+
+#### 2.24.1a 修正ラウンド 1 で覆った判断（Phase 3 Stage 5 レビュー）
+
+| 項目 | ラウンド 0 の判断 | ラウンド 1 の判断 | 理由 |
+|---|---|---|---|
+| `jin render -o` の新規ファイルのモード | `0o644` 固定（umask を無視） | `0o644 & ~umask` | `jin build` は `os.open(name, O_CREAT \| O_EXCL, 0o644)` で作り、カーネルが umask を引く。「`jin build` にそろえる」と書きながら実効モードがそろっていなかった。umask 0o077 の利用者の SVG だけが group / other に読めていた（F-S-P3-004 / F-V-P3-015）。実装は `jin_cli.main._new_file_mode` |
+| `loop` の節の配置と辺 | 節 j を角位置 j に置き、辺は `j → (j+k) mod n` | 節 j を角位置 `(j*k) mod n` に置き、辺は `j → (j+1) mod n` | 見た目の星形は同じだが、矢じりが実行順を指さなかった（要件書 §2.5「辺の順を訪問順に一致させる」）。`gcd(n,k)=1` で写像が全単射なので両立する（F-C-P3-002・HANDOFF DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01） |
+| `summon` の紋 | wrapper の `<g>` に pointer を載せるだけ | 外枠の円を wrapper 直下に描く | `<g>` の朱は入れ子 `<g>` の `stroke="#000000"` に断たれ、layout.md §7.2 が言う「外枠が強調される」ものが描画に無かった（F-C-P3-003） |
+| 放射線・弦の終端 | `NESTED_SCALE * RING_BOUNDARY` 固定 | 入れ子が実際に届く半径から導く | 境界の無い小陣（指示環 0.35 まで）で線が浮いていた（F-C-P3-005） |
+
+#### 2.24.1c flow の節の縮尺は兄弟の数から決まる（Phase 3 修正ラウンド 2）
+
+`NESTED_SCALE`（0.28）は**上限**であって固定値ではない。flow の節を道具環と同じ 0.55 に
+等間隔で置くと、隣り合う節の中心距離は `2 * 0.55 * sin(pi / n)` になる。節の外枠がこの
+半分を超えると弦が 1 本も描かれず、訪問順を示す矢印がモデルの大きさで**黙って消える**
+（F-C-P3-101。examples 同型の中身で n >= 7、最大の中身では n >= 6 で消えていた）。
+
+節の外枠を `r <= 0.55 * sin(pi / n) - (ARROW_HEAD + ε)`（`ARROW_HEAD = 0.05`, `ε = 0.01`）に
+収め、超える分は**外枠・中身・隙間を同じ係数で**縮める。要件書 §2.5 の `sequence` は
+「開いた弦列(矢印)」で例外を許していないので、弦を消す側ではなく節を縮める側を採った。
+n >= 20 では上限が点の半径 0.03 を下回るので点に落とす（n = 19 はまだ小陣）。そのあとの
+境界は 2 つある: **n >= 32** で弦の本体が矢じりより短くなり（弦は描かれる）、**n >= 58** で
+弦そのものが消える（R2 に「n >= 32 で消える」と書いたのは 2 つの条件の混同・F-C-P3-205）。
+式と境界の実測値は `docs/spec/layout.md` §6。機械固定は
+`test_layout.py::test_every_flow_chord_is_drawn_whatever_the_node_count`（n=3..12 × 中身 3 種 ×
+sequence / loop）と `test_the_chord_gap_matches_the_drawn_node`。変異 `FLOW-node-scale-fixed` /
+`FLOW-no-node-limit` / `FLOW-extent-no-limit` / `FLOW-point-fallback-off` で赤を実測。
+
+道具環の `summon` 紋にはこの縮小を適用していない（弦を持たないため）。その結果として
+n >= 6（最大の中身）/ n >= 7（examples 同型）で隣の紋と重なる既知の制約があり、扱いは
+**`DP-REVIEW-JIN-P3-001`** として未決（fix-later・判断期限は Phase 5 のエディタ着手前）。
+
+#### 2.24.1b XML 1.0 `Char` の外の文字（Phase 3 修正ラウンド 1）
+
+`jin_render.svg.xml_chars` が XML 1.0 の `Char` に無い符号位置を U+FFFD へ置き換える。
+`jin_core` は C0 / C1 / DEL / 孤立サロゲートを既に拒むが、**非文字 U+FFFE / U+FFFF は通す**ので、
+そのまま書くと `xml.etree` が SVG 全体を拒む（F-S-P3-005）。**`jin_core` の検証は変えない**
+（診断コードを増やさない・CLAUDE.md）。これは描画側の出力契約である。
+
+#### 2.24.2 強調色 = `#cc0000`（要件値ではない）
+
+要件書 §2.5 は「白黒 2 値 + 強調 1 色（トレース時のみ）」としか書いておらず、色の値は無い。
+魔法陣の朱墨に倣って朱を採り、**白地に対する輝度コントラスト比 5.9:1 / 黒線に対して 3.6:1** で
+白黒どちらの隣でも見分けられることを条件にした。`<style>` を使わず属性で完結させる（要件書 §2.5）ので、
+線で描く要素は `stroke`、文字と塗り潰しの点は `fill` を差し替える。
+**人間の好みが割れうる値**なので HANDOFF `DP-IMPL-JIN-P3-ACCENT-COLOR-01` に載せた。
+
+#### 2.24.3 キャンバス・要素の大きさ・配置（要件書に無い値）
+
+`docs/spec/layout.md` §6 の表が正本（キャンバス 1000 px 角 / 正規化 1.0 = 400 px / 核 0.12 /
+紋 0.06 / state 0.05 / 刻印 0.12 / `await` の欠け 16 度 / `delegate` 0.05・環 0.82 / 入れ子の縮尺 **上限** 0.28（flow の節は §2.24.1c で兄弟間隔まで縮む・n >= 20 なら点） /
+深さ 2 の点 0.03 / `flow.steps` の節は 0.55 / 矢じり 0.05 / `flow.exit` の印は中心の菱形 0.05 /
+rune のフォント 0.05・43 文字で切り詰め / トレースの点は環 1.10・半径 0.025）。
+決め方（境界環をはみ出さない・12 個並べても重ならない・欠けと分かる …）も同じ表に書いた。
+
+#### 2.24.4 `data-jin` 契約の解釈（`<svg>` と `<defs>` を対象外にする）
+
+要件書 §2.5 は「描画された全ての要素」と書いている。`<svg>` は**文書そのもの**であって描画された要素では
+なく、`data-jin-kind` の 9 種のどれにも当たらない。`<defs>` の中身（`<textPath>` が参照する経路）は
+それ自体が描かれない。したがって両者を契約の対象外とし、テストは「`<svg>` と `<defs>` 配下を除く全要素」で
+回す。**10 種目の kind を作らない**ための解釈である。同じ理由で背景の塗り（`<rect>`）を置かない
+（置くと `data-jin` を持たない描画要素ができる）。HANDOFF `DP-IMPL-JIN-P3-SVG-ROOT-CONTRACT-01`。
+
+追加属性（`data-jin-ref` / `data-jin-fired` / `data-jin-seq` / `data-jin-root`）は契約に反しない。
+契約は「2 属性を持つこと」であって「2 属性しか持たないこと」ではない（layout.md §3.1）。
+
+#### 2.24.5 trace overlay の強調規則（祖先一致と referent 規則）
+
+pointer を末尾から削りながら「`data-jin` の完全一致」または「`data-jin-ref` の一致」を探し、
+最初に見つかった段で止める（layout.md §7.1）。referent 規則が無いと、focus=root のとき下位 circle の
+`model` 行（`/circles/4/core` など）が**何も強調しない**。参照を表す要素の `data-jin` は編集の hit-test
+のために参照側でなければならないからである。HANDOFF `DP-IMPL-JIN-P3-OVERLAY-REFERENT-01`。
+検出は `tests/contract/test_render_contract.py::test_every_live_pointer_resolves_at_the_root_focus`
+（`jin run --model fake` を実際に回した 11 行の全 pointer が root 焦点で解決する）。
+変異 `OVL-exact-only` / `OVL-no-referent` / `OVL-no-ref-attribute` で赤を実測。
+
+#### 2.24.6 壊れたモデルの描き方（layout.md §5）
+
+`jin_render.render` は schema を通る `JinFile` なら例外を投げない（Phase 4 の `jin/renderSvg` が
+直前の正常モデルで応答するため・NFR-AVAIL-001）。未解決の参照は破線の点、`root` 未解決は `circles[0]` +
+`data-jin-root="unresolved"`、`circles` が空なら空キャンバス、JIN070 の `await` は 12 時に破線の刻印。
+`tests/fixtures/errors/JIN0*.jin` のうちモデルになる 14 本（全 19 本中。JIN001 / JIN002 はモデルにならない）を parametrize で回す。
+`--force` 等で「error があっても図を出す」選択肢は Phase 3 では足さない（HANDOFF
+`DP-IMPL-JIN-P3-RENDER-ON-ERROR-01`。CLI は `jin build` / `jin run` と同じく exit 1 で拒む）。
+
+#### 2.24.7 SVG スナップショットは正規化しない
+
+design.yaml の machine 条件 1 は「（正規化後）が安定」と書いているが、`render` の出力は既にバイト単位で
+決定的である（machine 2 / 7 を別テストで固定済み）。正規化を挟むと「正規化で消える差分」（座標の桁揺れ・
+属性順の入れ替わり・要素順の変化）が検出できなくなる。どれも意味のある回帰なので**素のバイト列**で比較する。
 
 ## 3. `DP-CONFORMANCE-FAIL` の起票
 

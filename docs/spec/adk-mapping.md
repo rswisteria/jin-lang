@@ -121,7 +121,7 @@ DP-JIN-CODEGEN-RUNTIME-01（案 A・人間承認済み・ADR-008）により、`
 ### 3.1 コンパイル時エラーの一覧（`jin build` / `jin run` の `BuildError`）
 
 `jin check` を通ったモデルに対して、コード生成時に落とすもの。診断コードは増やさない
-（`docs/spec/model.md` §3.3）。exit 1 で「何が悪いか + どう直すか（hint）+ pointer」を出す。
+（`CLAUDE.md` / ADR-012）。exit 1 で「何が悪いか + どう直すか（hint）+ pointer」を出す。
 fixture は `tests/fixtures/build-errors/`（各 1 件・`jin check` は通り `generate` は落ちる）。
 
 <!-- machine-readable: build-errors -->
@@ -165,7 +165,7 @@ Phase 2 で `jin-adk`（`codegen` / `build` / `runtime` / `trace` / `fake_llm`�
 
 | Jin の構造 | 扱い |
 |---|---|
-| 1 circle に `out: true` の state が 2 件以上 | `LlmAgent.output_key` が単一値のため Phase 2 のコード生成時エラー。診断コードは増やさない（`docs/spec/model.md` §3.3） |
+| 1 circle に `out: true` の state が 2 件以上 | `LlmAgent.output_key` が単一値のため Phase 2 のコード生成時エラー。診断コードは増やさない（`CLAUDE.md` / ADR-012） |
 | `core` と `flow` の両立 / 両方欠落 | JIN022（Phase 1 の意味検査で落ちる） |
 | §3.1 の各行 | Phase 2 のコード生成時エラー（`BuildError`） |
 

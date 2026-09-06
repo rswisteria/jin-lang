@@ -9,7 +9,7 @@ pygls は 1.x → 2.x で API が変わっているため、**記憶で書くと
 ### `LanguageServer` の import パスが変わっている
 
 ```python
-from pygls.lsp.server import LanguageServer   # 2.x（正）
+from pygls.lsp.server import LanguageServer  # 2.x（正）
 # from pygls.server import LanguageServer     # 1.x の書き方。2.x には存在しない（ImportError）
 ```
 
