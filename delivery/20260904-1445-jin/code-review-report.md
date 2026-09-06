@@ -449,4 +449,7 @@ uv run jin schema | diff -u schemas/jin.schema.json -  → 差分なし  EXIT=0
 mutate_p3.py（隔離コピー・__pycache__ 削除・PYTHONDONTWRITEBYTECODE=1）  → 77/77 mutations caught  EXIT=0  SKIP=0  /tmp 残骸 0  実ツリー不変
 ```
 
-`verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を親が再導出。`pipeline_e2e` は本 PR の GitHub Actions の結果で確認する。
+ラウンド 4 の確認（`code-review-raw/all-p3-round4.md`）: 新規 8 件 defect-gone 7 / 部分残存 1（notes の数え文言・親が訂正）/ fail-open 0 / 退行 0 / 挙動不変。
+
+`verification_status.overall = verified`（`scope_labels: [backend-unit-verified]`）を親が再導出。
+`pipeline_e2e` は **`passed`**（PR #16・head `8af3df2` の GitHub Actions が実機で成功・job test pass・run 34014430189）。

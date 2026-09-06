@@ -1863,7 +1863,7 @@
       "backend_unit": "passed",
       "container_smoke": "not_applicable",
       "browser_e2e": "not_applicable",
-      "pipeline_e2e": "not_run"
+      "pipeline_e2e": "passed"
     },
     "required_layers": [
       "backend_unit"
@@ -2157,7 +2157,8 @@
       "[jin_phase=3][human_only] design.yaml items[3].verification.human_only「図としての可読性・魔法陣としての見た目の妥当性」は **not_run**。実装者は判定しない（申し送り §0 の指示どおり PR レビューへ送る）",
       "[jin_phase=3][review] 2026-09-06 Stage 5 4 並列レビュー（general-purpose 代替・隔離コピーで変異検証）: 初回 62 件（C13 / V25 / W11 / S13・confidence 90 以上 11）。修正 4 ラウンド（R1: 新規 30 / R2: 新規 26・退行 1 / R3: 新規 8〔文言・数字・テスト 1 本〕/ R4: 文言とテスト 1 本のみ）を同一観点 reviewer の再レビューで defect-gone 確認。fail-open 0。生出力 code-review-raw/*-p3*.md・集約 code-review-report.md Phase 3 節（Status: FINAL）",
       "[jin_phase=3][gates] 2026-09-06 親の最終実行（__pycache__ 削除 + PYTHONDONTWRITEBYTECODE=1）: UV_LOCKED=1 uv sync EXIT 0 / ruff check・format --check 緑（77 files）/ pytest **1202 passed** / lint-imports 3 kept 0 broken / jin schema 無ドリフト / jin check・fmt --check examples と tests/fixtures/build-errors 緑",
-      "[jin_phase=3][mutation] 2026-09-06 親が mutate_p3.py を隔離コピーで最終実行: **77/77 mutations caught**・SKIP 0・期待 GREEN 2（二層防御 1 + 主張そのもの 1）・実ツリー不変・/tmp 残骸 0。ラウンドごとの推移 42 → 59 → 70 → 75 → 77"
+      "[jin_phase=3][mutation] 2026-09-06 親が mutate_p3.py を隔離コピーで最終実行: **77/77 mutations caught**・SKIP 0・期待 GREEN 2（二層防御 1 + 主張そのもの 1）・実ツリー不変・/tmp 残骸 0。ラウンドごとの推移 42 → 59 → 70 → 75 → 77",
+      "[jin_phase=3][pipeline] 2026-09-06 PR #16（feat/jin-phase3-render → main・head 8af3df2）の GitHub Actions が実機で成功（job test pass・run 34014430189）。layers.pipeline_e2e を not_run → passed に更新。human_only（図としての可読性）は引き続き not_run"
     ],
     "replay_commands_ref": "delivery/20260904-1445-jin/replay-commands.md",
     "note": "overall は **backend_unit レイヤに限った判定**である（scope_labels 参照）。本案件に HTTP サーバもブラウザも存在しないため container_smoke / browser_e2e は not_applicable。GitHub Actions の実パイプライン通し（pipeline_e2e）は未実行。Phase 0 の human_only 条件は not_run で、PR レビューで人間が判定する。 【修正ラウンド 1】backend_unit は passed（432 件・ミューテーション 38/38 で非空虚性を実測）であり、機械規則だけを当てれば verified になる。しかし fix-round-1-instructions.md §0 が 「同一観点の code-reviewer による再レビューで defect-gone を確認するまでクローズしない」と定めており、親から「overall を自己判断で verified に戻さないこと」と明示指示があるため、**実装者側では verified を主張せず partially_verified に置く**。最終値は再レビュー後に親が再導出する。 【修正ラウンド 2】同じ理由で overall は partially_verified のまま置く。backend_unit は passed（488 件・ミューテーション 64/64 が赤）。 【ラウンド 2（Phase 2）】backend_unit passed（696 件・変異 31/31）で required_layers を満たすため overall=verified。ただし backend_unit に限った判定で、pipeline_e2e は本ブランチで not_run（ラウンド 1 の passed は main の Phase 0+1 に対するもの）、human_only（実 adk run）も not_run。最終値は親が Stage 5 レビュー後に再導出する。 【Phase 2 修正ラウンド 1】scope_labels は implementation-plan.schema.json の enum（backend-unit-verified / container-smoke-verified / browser-e2e-verified / pipeline-e2e-verified）に限られるため、ラウンド 1 の `pipeline-verified` も ラウンド 2 で足した `tdd-red-evidenced` も enum 外だった。schema 準拠の `backend-unit-verified` だけに戻し、**Phase 0+1 は main で GitHub Actions が success（pipeline_e2e passed・evidence[] の [jin_phase=0,1][post-merge] 行）、Phase 2 は本ブランチで not_run** をここに残す。TDD の Red 証跡は evidence[] の [tdd-red] 行。",
