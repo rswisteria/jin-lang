@@ -2488,3 +2488,122 @@ python3 <bundle>/skills/common/pending-decisions-generator/bin/generate.py --plu
 
 `--check` で無ドリフト（exit 0）。**残る人間作業は「未決 / AI 仮決定の承認そのもの」**
 （`/aid decide` で approved / overridden へ確定する）であって、索引の再生成ではなくなった。
+
+---
+
+# Issue #9（fix-later 7 件・DP-REVIEW-JIN-001〜007）— 2026-09-07
+
+7 件すべてに「対応する」「対応しない（理由付き）」のいずれかを記録し、
+`docs/pending-decisions.md` を生成器で再生成した（Issue #9 の完了条件 3 つ）。
+
+## I9-1. 判断の一覧（2026-09-07・toyota が確定）
+
+| DP | 判断 | 実装 |
+|---|---|---|
+| 001 `jin check` の symlink 走査 | **対応する** | `jin_cli.main._collect` の走査側で symlink を対象外にする |
+| 002 ruff の `select` | **対応しない**（前提失効） | 変更なし |
+| 003 CI の pnpm / Node 受け皿 | **対応する**（Phase 4 で確定・実装済み） | `plugin` job（Phase 4）+ `editor` job（Phase 5） |
+| 004 actions の SHA ピン | **対応しない**（方針判断） | 変更なし |
+| 005 `delivery/<run>/` の直書き | **対応する** | `tests.conftest.delivery_run()` |
+| 006 `MINIMUM_UV_COMMANDS` | **対応する** | `EXPECTED_UV_COMMANDS`（allowlist） |
+| 007 `test_rule1_detects_a_wider_indent_unit` | **対応済み**（Phase 3 R2-2 で改名） | 変更なし |
+
+## I9-2. 002 と 007 は**指摘の前提が失効していた**
+
+どちらも「直すかどうか」の前に、**まだ問題が在るのか**を測ってから決めた。
+
+- **002**: ruff 0.16.6 の**既定**が 413 ルール / 38 prefix（I・B・UP・S・ISC・PTH・RUF …）で、
+  指摘が求めていた I / B / UP は `select` を書かずに既に走っている。空のディレクトリに
+  `[tool.ruff]` だけの `pyproject.toml` を置いても同じ 413 件なので、ローカル設定の混入ではなく
+  ruff 側の既定である。実際に本ランで **I001**（import 順序）と **ISC004**（暗黙の文字列連結）が
+  検出されて修正している。CI は `UV_LOCKED=1 uv sync`（`--frozen` を付けない）で
+  `uv.lock` の 0.16.6 に固定されるので、ルール集合が動くのは lock を上げたときだけ
+- **007**: 名指しされた `test_rule1_detects_a_wider_indent_unit` は既に存在しない。
+  Phase 3 の correctness review R2-2 で `test_rule1_indent_is_two_spaces` へ改名済みで、
+  Issue が求めていた「削除ではなく命名かコメントの調整」がそのまま実施済みだった
+
+## I9-3. 001 の線引き — 走査と名指しを分ける
+
+実測（Python 3.14.6）:
+
+| 置いたもの | `rglob("*.jin")` が拾うか |
+|---|---|
+| ディレクトリへの symlink（中に `.jin` がある） | **拾わない**（3.13 以降は `**` が symlink を辿らない） |
+| ファイルへの symlink（`.jin`） | **拾う** |
+
+拾った symlink を読むと、対象ディレクトリの外にあるファイルの**存在・パース可否・
+JSON のキー名**（例 `/note`）が診断に出る。値の生テキスト 40 文字が出るわけではないが
+（実測で確認）、範囲外の情報であることに変わりはない。
+
+**走査側にだけ**フィルタを置いた。**名指しされた symlink は従来どおり読む** —
+問題は「走査が範囲を越えること」であって、ユーザーが指したものではない。
+`_collect` の非対称そのものを `test_collect_filters_symlinks_only_when_walking` が固定する。
+
+`jin fmt` の書き込み側は元から 3 段（事前 `is_symlink()` / `O_NOFOLLOW` / `os.replace`）で
+閉じていたが、**読み取り側は `check` / `fmt` のどちらも素通りだった**。`_collect` は両者の
+共通経路なので、ここに置くと両方が直る。
+
+## I9-4. 006 — 下限の数字を名前の集合にする
+
+`MINIMUM_UV_COMMANDS = 9` は走査関数の破損を件数で拾うが、**定数を下げる行為そのものは
+検出されない**（可視化の門が無い）というのが指摘だった。`EXPECTED_UV_COMMANDS`（9 件の
+明示集合）に置き換え、消えたコマンドが**名前で**失敗メッセージに出るようにした。
+集合を**空にする**と検査が無条件に通るので、要素数の下限を別のテストで固定している
+（`test_the_expected_uv_commands_are_actually_found`）。件数の下限は補助として残し、
+実測に合わせて 9 → 11 に上げた。
+
+## I9-5. 005 — 解決する形にする（ハードコードし直さない）
+
+`tests/conftest.py` に `delivery_run(slug="jin", root=None)` を 1 本置き、
+`delivery/` から**辞書順で最新**の `*-jin` を返す。名前が `YYYYMMDD-HHmm` で始まるので
+**辞書順 = 時系列順**であり、日付を解釈しない（解釈するとタイムゾーンと桁揃えの話が入る）。
+タイムスタンプの無い旧形式（`delivery/<slug>/`）はタイムスタンプ付きが 1 つも無いときだけ使う。
+見つからなければ `FileNotFoundError`（**黙って別の場所を指さない**）。
+
+直書きしていた 3 ファイル（`test_packaging_contract.py` / `test_adk_version_contract.py` /
+`test_spec_consistency.py`）を寄せ、**直書きが戻らないこと**を
+`test_no_test_hardcodes_a_delivery_run_directory` が `tests/` の走査で固定する。
+合成のランディレクトリを作るテストは、名前と期待値をタイムスタンプから**組み立てる**
+（リテラルで書くと自分の走査に引っかかる）。
+
+## I9-6. 変異（`issue9-mutations/mutate_i9.py`）— **9/9 caught**・SKIP 0
+
+| 変異 | 壊すもの |
+|---|---|
+| `COLLECT-walks-into-symlinks` | 走査の symlink フィルタ |
+| `COLLECT-drops-named-symlinks-too` | 名指しまで落とす（非対称の反対側） |
+| `COLLECT-skips-silently` | 飛ばしたことを言わない |
+| `DELIVERY-returns-the-oldest-run` | 辞書順の向き |
+| `DELIVERY-prefers-the-flat-layout` | 旧形式を優先 |
+| `DELIVERY-guesses-when-missing` | 見つからないとき `delivery/` を返す |
+| `DELIVERY-hardcoded-again` | 直書きに戻す |
+| `UV-allowlist-loses-an-entry` | allowlist から 1 件消す |
+| `UV-command-removed-from-ci` | CI から `uv run lint-imports` を消す |
+
+## I9-7. 記録の手段と、`DP-REVIEW-JIN-003` の置換記録
+
+判断は `record.py --batch`（`--validate-only` で `valid: true` を確認してから反映）。
+`record.py` は反映と同時に `undecided[]` から当該 DP を落とし、
+`pending-decisions-generator` を呼ぶ（`pending_decisions_regenerate_exit_code: 0`）。
+
+`DP-REVIEW-JIN-003` は Phase 4 で `decision_record[]` に**手で**足していたため
+`undecided[]` に残ったままで、`docs/pending-decisions.md` の未決と決定済みの
+**両方に出ていた**。あわせて rationale に「`/aid decide` による再生成は未実施」という
+**失効した注記**が残っていた（2026-09-07 に PR #22 で解消済み）。
+`record.py` で**置換記録**（`action: replaced`・`chosen` / `decided_at` 不変）を当て、
+注記を正すと同時に `undecided[]` から落とした。
+
+再生成後の `docs/pending-decisions.md` の未決リストに **`DP-REVIEW-JIN-00x` は 1 件も残っていない**
+（残っているのは別件の `DP-REVIEW-JIN-P2-001` / `P2-002` / `P3-001` と、Phase 4〜6 の HANDOFF 9 件）。
+
+## I9-8. ゲートの実測（2026-09-07）
+
+| ゲート | 結果 |
+|---|---|
+| `uv run ruff check .` / `format --check` | 緑 |
+| `uv run pytest` | 計 **1416**: 1411 passed / 2 failed / 3 skipped（2 failed は macOS 固有の既知） |
+| `uv run lint-imports` | 3 kept, 0 broken |
+| `jin check` / `fmt --check` examples | 緑 |
+| `mutate_i9.py` | **9/9 caught**・SKIP 0・実ツリー不変 |
+| `pending-decisions-generator --check` | 無ドリフト（exit 0） |
+| `implementation-plan.json` の schema | 0 errors |
