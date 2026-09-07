@@ -96,3 +96,36 @@ async def lsp_connection(websocket):
 `First argument must use the object destructuring pattern: fixtures` で落ちる。
 `({}, testInfo)` と書く必要があり、そちらは eslint の `no-empty-pattern` に当たるので
 `eslint-disable-next-line` を 1 行入れている。
+
+## 7. `jin/renderSvg` の `trace` / `upto` の境界（Phase 6 の着手前に実測）
+
+デバッグモードはサーバ側を 1 行も変えずに済むか（= `trace` + `upto` を渡すだけで
+オーバーレイが出るか）と、**壊れたトレースを渡したときに何が返るか**を、
+実際に `jin lsp --ws` を起こして生の WebSocket で測った
+（台本: `examples/pipeline/pipeline.jin` + `tests/fixtures/traces/pipeline-fake.jsonl` 11 行）。
+
+| 送ったもの | 応答 |
+|---|---|
+| `trace` 11 行 + `upto: 5` | `result.svg`。`data-jin-fired="1"` **5 個** / `data-jin-seq` **5 個** |
+| `trace` 11 行 + `upto: 0` | `result.svg`。**発火 0・点 0**（`upto: 0` は拒まれない） |
+| `trace` 11 行 + `upto: 999` | `result.svg`。発火は **5 個**（11 行の pointer は 5 種しかない） |
+| `trace` 11 行 + `upto` 省略 | `result.svg`。全イベント（発火 5 個） |
+| `trace` 11 行 + `upto: -1` | **error** `-32603` /「描画できません: upto は 0 以上でなければなりません: -1」 |
+| `trace: [{"seq": "x"}]` | **error** `-32603` /「描画できません: トレース行の seq が整数ではありません: 'x'」 |
+| `trace` + `upto` + `focus` | `result.svg`（併用できる） |
+| 同じ `upto` で 2 回 | **バイト一致**（`jin_render` の決定性がそのまま出る） |
+
+分かったこと 3 つ:
+
+1. **サーバ側の変更は不要**。Phase 3 の `jin_render` と Phase 4 の `jin/renderSvg` で
+   要件書 §7.2 の「各位置で `jin/renderSvg` を `trace + upto` 付きで呼ぶ」は満たせる
+2. **トレース行の契約違反は JSON-RPC の error で来る**（`{ok: false}` 風の結果ではない）。
+   したがってクライアントでは `sendRequest` の reject として現れる。`.jin` は壊れていないので
+   **図まで消してはいけない** — エディタは `trace` を外して描き直し、理由を画面に残す
+3. 当時の error メッセージは**どの行が悪いのかを言っていなかった**（`TraceRowError.index` を
+   捨てていた）。`jin render --trace` は同じ `index` を実ファイル行番号へ写して `path:N:` と
+   出しているので、`jin_lsp.requests.jin_render_svg` でも位置を載せるようにした（Phase 6 で修正）
+
+計測スクリプトは使い捨て（`$CLAUDE_JOB_DIR/tmp/probe6.py`）。再現手順は
+`uv run jin render examples/pipeline/pipeline.jin --trace tests/fixtures/traces/pipeline-fake.jsonl --upto N`
+で同じ数（fired / seq）が出ることでも確かめられる。

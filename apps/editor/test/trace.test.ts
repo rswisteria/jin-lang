@@ -60,9 +60,11 @@ group("parseTrace", () => {
   });
 
   test("行の区切りは `\\n` だけ（U+2028 を含む正当な出力を割らない）", () => {
-    const rows = events('{"seq": 1, "pointer": null, "output": "a\\u2028b"}\n');
+    // **生の U+2028** を JSON 文字列の中に置く（JSON はこれをそのまま許す）。
+    // エスケープ列で書くと、行を割る変異に当たらず偽緑になる（変異ハーネスで実測）。
+    const rows = events('{"seq": 1, "pointer": null, "output": "a\u2028b"}\n');
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.row["output"]).toBe("a b");
+    expect(rows[0]!.row["output"]).toBe('a\u2028b');
   });
 
   test("`\\r\\n` は 1 つだけ落とす / BOM も 1 つだけ落とす", () => {
@@ -85,9 +87,14 @@ group("parseTrace", () => {
 
   test("`seq` が整数でない行はここでは拒まない（契約は `jin_render` が持つ）", () => {
     // 二重に実装するとレンダラと食い違ったときに気づけない。読めはするが `seqOf` は null。
-    const rows = events('{"seq": "x", "pointer": null}\n{"seq": true, "pointer": null}\n');
-    expect(rows).toHaveLength(2);
-    expect(rows.map((row) => seqOf(row))).toEqual([null, null]);
+    // `true` は `bool`、`1.5` は非整数。どちらも `jin_render.overlay` が拒む値なので、
+    // スクラバの上限を数えるときに混ぜてはいけない。
+    const rows = events(
+      '{"seq": "x", "pointer": null}\n{"seq": true, "pointer": null}\n{"seq": 1.5, "pointer": null}\n',
+    );
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => seqOf(row))).toEqual([null, null, null]);
+    expect(maxSeq(rows)).toBe(0);
   });
 
   test("文字列欄の読み取り", () => {
@@ -149,6 +156,13 @@ group("eventsFiredAt", () => {
   test("`pointer: null` の行は残らない", () => {
     const withNull = events('{"seq": 1, "pointer": null}\n{"seq": 2, "pointer": "/circles/0"}\n');
     expect(eventsFiredAt(withNull, "/circles/0").map((row) => seqOf(row))).toEqual([2]);
+  });
+
+  test("**1 件も一致しない選択では 0 件**（全件へ黙って戻さない）", () => {
+    // 「絞り込めなければ全部出す」実装にすると、フィルタが掛かっているのに全件が出る。
+    // 一致は一致であって、空集合も答えである。
+    expect(eventsFiredAt(rows, "/circles/2/instruction/rune")).toHaveLength(0);
+    expect(eventsFiredAt(rows, "/circles/99")).toHaveLength(0);
   });
 
   test("別の紋の行は残らない", () => {

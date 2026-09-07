@@ -297,6 +297,40 @@ def test_the_e2e_uses_the_committed_trace_fixture() -> None:
     実行結果と一致することは `tests/contract/test_render_contract.py` が見張っている。
     """
     spec = (EDITOR / "e2e" / "debug.spec.ts").read_text(encoding="utf-8")
-    assert "tests/fixtures/traces/pipeline-fake.jsonl" in spec
-    assert "examples/pipeline/pipeline.jin" in spec
+    # **説明文ではなく代入**を見る。単なる `in` 判定だと、docstring に同じパスが
+    # 書いてあるせいで値を差し替えても緑のままになる（変異ハーネスで実測して直した）。
+    assert re.search(
+        r'const TRACE = join\(\s*REPO_ROOT,\s*"tests/fixtures/traces/pipeline-fake\.jsonl",?\s*\)',
+        spec,
+    ), "e2e が実トレース fixture を読んでいない"
+    assert re.search(r'readFileSync\(join\(REPO_ROOT, "examples/pipeline/pipeline\.jin"\)', spec), (
+        "e2e が examples/pipeline を台本にしていない"
+    )
     assert TRACE_FIXTURE.is_file()
+
+
+def test_the_detail_panel_shows_the_four_fields() -> None:
+    """machine 4: 詳細パネルが `input` / `output` / `name` / `kind` を出す。
+
+    **本体は Playwright**（`e2e/debug.spec.ts` の machine 4）である。ここは
+    「4 つの欄が消えていない」ことだけを見る弱い網で、変異ハーネス（e2e を回さない）から
+    欄の削除に気づけるようにするために置いている。
+    """
+    panel = (SRC / "debug" / "DebugPanel.tsx").read_text(encoding="utf-8")
+    spec = (EDITOR / "e2e" / "debug.spec.ts").read_text(encoding="utf-8")
+    for field in ("kind", "name", "input", "output"):
+        assert f'data-testid="jin-detail-{field}"' in panel, field
+        assert f'"jin-detail-{field}"' in spec, field
+    # **そのまま**出す（要約・切り詰めをしない）。
+    assert "JSON.stringify(value, null, 2)" in panel
+
+
+def test_the_trace_is_not_folded_into_the_view_state() -> None:
+    """DP-COMMON-19 の 5 状態を**増やさない**。
+
+    トレースの有無は「LSP との関係」と直交する（構文エラー中でもトレースは読めるし、
+    正常表示でもトレースが無いことはある）。`ViewState` に畳むと状態が 10 通りになる。
+    """
+    source = (SRC / "state" / "viewState.ts").read_text(encoding="utf-8")
+    for word in ("Replay", "trace", "upto"):
+        assert word not in source, f"{word} が ViewState に入り込んでいる"

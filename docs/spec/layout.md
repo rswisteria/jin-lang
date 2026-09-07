@@ -382,3 +382,11 @@ Phase 3 で実装済み。
   出力が既にバイト単位で決定的なので**正規化せず素のバイト列**で比較する
 - `jin_render` は `jin_core` と標準ライブラリだけに依存する。動的 import（`importlib` / `__import__` /
   `exec` / `eval` / `runpy`）を 1 箇所も持たない（`tests/contract/test_packaging_contract.py` が厳密一致で固定）
+
+**Phase 6 で消費側が増えた**（要件書 §7.2）。`apps/editor` のデバッグモードが
+`jin/renderSvg` を `trace` + `upto` 付きで呼び、返った SVG をそのまま埋める。
+**エディタは `data-jin-fired` / `data-jin-seq` を 1 つも書かない**（オーバーレイの計算を
+クライアントへ持ち出すと、同じ `upto` で同じ SVG になる保証が §4 の決定性から外れる。
+`tests/contract/test_editor_contract.py::test_the_editor_does_not_compute_the_overlay_itself`）。
+「この紋で発火したイベントだけ」のフィルタは §7.1 の**規則 1（祖先一致）と同じ判定**を使う
+（referent 規則は使わない — 詳細は `delivery/20260904-1445-jin/decision-conformance.md` §2.27.3）。

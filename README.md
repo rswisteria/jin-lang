@@ -3,10 +3,13 @@
 魔法陣型エージェント記述言語。`.jin`（JSON）1 本から Google ADK のエージェントを組み立て、
 同じファイルを魔法陣として決定的に描画する。
 
-現在の実装範囲は **Phase 0（仕様書と examples）・Phase 1（`jin-core` + `jin-cli`）・
-Phase 2（`jin-adk`: build / run / trace / FakeLlm）・Phase 3（`jin-render`: render / focus / trace overlay）・
-Phase 4（`jin-lsp`: stdio + WebSocket + Claude Code プラグイン）**。
-残りは Phase 5–6（`apps/editor`）。全体像は `jin-requirements.md` と `CLAUDE.md` を参照。
+**要件書 v1 の全 Phase（0〜6）が実装済み**。Phase 0（仕様書と examples）/
+Phase 1（`jin-core` + `jin-cli`）/ Phase 2（`jin-adk`: build / run / trace / FakeLlm）/
+Phase 3（`jin-render`: render / focus / trace overlay）/ Phase 4（`jin-lsp`: stdio + WebSocket +
+Claude Code プラグイン）/ Phase 5（`apps/editor` 編集モード + `jin editor`）/
+**Phase 6（`apps/editor` デバッグモード: トレースリプレイ）**。
+Phase 7（ライブ実行 / `import` / MCP / VS Code 拡張）は要件書 §11 で「任意」。
+全体像は `jin-requirements.md` と `CLAUDE.md` を参照。
 
 ## 使う
 
@@ -94,7 +97,7 @@ WebSocket にはブラウザの same-origin 制限が無い。**開いている�
 **hover は `ref` の docstring を出さない。** 出すには `ref` のモジュールを import する必要があり、
 hover のたびに任意コード実行になるためである（要件書 §6.2 からの意図的な逸脱）。
 
-### `jin editor` — 視覚エディタ（編集モード）
+### `jin editor` — 視覚エディタ（編集モード / デバッグモード）
 
 ```bash
 cd apps/editor && pnpm install && pnpm build   # 初回だけ。jin editor が配る dist を作る
@@ -109,7 +112,22 @@ SVG は `jin/renderSvg` から受け取り、`data-jin` でヒットテストす
 プロパティパネルの欄は `schemas/jin.schema.json` から生成する（手書きのフォーム定義を持たない）。
 
 構文エラー中は**「直前の正常な版を表示しています」と画面に明示する**（黙って古い図を出さない）。
-デバッグモード（トレースリプレイ）は Phase 6。
+
+**デバッグモード（トレースリプレイ・要件書 §7.2）** はツールバーの「デバッグ」で切り替える。
+`jin run --trace` が書いた JSONL をファイル選択で読み込み、タイムラインスクラバで `upto` を動かすと、
+その位置までに発火した要素が図に重なる（オーバーレイを描くのは `jin_render` 1 本で、
+エディタは `jin/renderSvg` に `trace` + `upto` を渡すだけ）。イベントを選ぶと
+`input` / `output` / `name` / `kind` が**そのまま**出る。要素を選んで
+「この紋で発火したイベントだけ」を入れると、その pointer（と配下）で発火した行に絞られる。
+
+```bash
+PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" \
+  --model fake --trace /tmp/t.jsonl        # トレースを書く
+uv run jin editor examples/pipeline/pipeline.jin   # 開いて「デバッグ」→ /tmp/t.jsonl を選ぶ
+```
+
+トレースは**ブラウザが読む**（サーバに読み込みリクエストを足していない）。編集モードとは
+同じ SVG・同じ選択・同じ LSP 接続を共有し、編集してもトレースは保持される。
 
 ### `jin editor` も `jin lsp --ws --root` と同じ口を開ける
 

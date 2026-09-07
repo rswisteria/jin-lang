@@ -33,6 +33,10 @@
 | **P5** DP-COMMON-18 | SSR なし単一ページ SPA（Vite）。モードはルーティングではなくページ内切替。対象ファイルは URL のクエリで受ける | scope | 構造化 | **reflected** | `apps/editor`（Vite 8・`base: "./"`・ルーティングライブラリ無し）。`src/main.tsx` が `?ws=` / `?uri=` / `#token=` を読む。配信は `jin editor` の静的サーバだけ（FR-EDITOR-004「エディタ単体のサーバを持たない」）。デバッグモードは Phase 6 で**同じページに**足す |
 | **P5** DP-COMMON-19 | 表示状態は 5 つ。判別共用体として型定義 1 箇所に置き、分岐漏れがコンパイルエラーになる形にする | condition | 構造化 | **reflected** | `src/state/viewState.ts` の `ViewState`（`disconnected` / `loading` / `ready` / `stale` / `unavailable`）。分岐は `default` を書かず `assertNever` で閉じる。**落ちることの証拠**は `test/exhaustiveness.fixture.ts`（分岐を 1 つ欠いた関数の `@ts-expect-error`。分岐を足すと「未使用のディレクティブ」で tsc が赤／網羅性を緩めても赤。両方向を実測）。名前の集合は `test/viewState.test.ts` と `tests/contract/test_editor_contract.py` の両側で等号。変異 `VIEWSTATE-three-states` / `VIEWSTATE-kinds-renamed` / `VIEWSTATE-exhaustiveness-off` / `VIEWSTATE-fixture-branch-added` / `VIEWSTATE-exhaustiveness-tripwire-removed` で赤 |
 | **P5** DP-COMMON-20 | ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層。モックする境界は DP-COMMON-17 のラッパ 1 本に限る | scope | 構造化 | **reflected** | ユニット層 = `pnpm test`（vitest・38 件。選択再解決 / 5 状態 / undo / schema フォーム / 依存方向）。スモーク層 = `pnpm e2e`（Playwright 3 件。**実際の `jin editor` プロセス**に繋ぐ）。LSP プロトコルそのものの検証は Python 側の pytest-lsp が担い、エディタ側で重複させていない |
+| **P6** DP-COMMON-16 | 選択の保持方式はデバッグモードでも同じ（Phase 6 の blocking_dp） | scope | 構造化 | **reflected** | デバッグモードは選択の仕組みを**一切増やしていない**。pointer 一致フィルタの基準は `resolveSelection` が返す pointer そのもの（`App.tsx` の `selectedPointer`）で、トレース行から選択を作る経路は置いていない。`e2e/debug.spec.ts`「編集モードとデバッグモードが同じ面・同じ選択を共有する」が、図で選んだ要素が編集モードのフォームでも同じ pointer であることを実測 |
+| **P6** DP-JIN-TRACE-POINTER-01 | コード生成時に作った ADK 識別子 → JSON Pointer の対応表を実行時に引く（Phase 2 で作成済み） | scope | 構造化 | **reflected** | Phase 6 は**対応表を作らない**。読むのは `jin run --trace` が既に書いた行の `pointer` だけで、`apps/editor/src/trace/parse.ts` の `pointerOf` が値を取り出し、強調は `jin/renderSvg` に丸投げする（エディタは `data-jin-fired` / `data-jin-seq` を 1 つも書かない = `test_the_editor_does_not_compute_the_overlay_itself`）。e2e は **`jin run --model fake` が実際に書いた** `tests/fixtures/traces/pipeline-fake.jsonl` を読む |
+| **P6** DP-COMMON-19 | 表示状態は 5 つのまま（Phase 6 で増やさない） | condition | 構造化 | **reflected** | トレースは `ViewState` の**外**（`App` の別 `useState`）。`test_the_trace_is_not_folded_into_the_view_state` が `viewState.ts` に `Replay` / `trace` / `upto` の語が入らないことで固定。変異 `VIEWSTATE-absorbs-the-trace` で赤 |
+| **P6** DP-COMMON-18 | モードはルーティングではなくページ内切替 | scope | 構造化 | **reflected** | `App.tsx` の `mode`（`"edit"` / `"debug"` の 2 値）と `data-testid="jin-mode-edit"` / `"jin-mode-debug"` の 2 ボタン。ルーティングライブラリは依存に無いまま。SVG・選択・LSP 接続はモード間で共有する |
 | DP-JIN-CANONICAL-01 | §2.3 の 5 規則は canonical writer 1 箇所にのみ実装し、Pydantic 設定と後処理へ分散させない | scope | 構造化 | **reflected** | `packages/jin-core/src/jin_core/canonical.py` が唯一の実装箇所。`model_dump` / `model_dump_json` を使っていない（`grep -n "model_dump" packages/jin-core/src/jin_core/canonical.py` の 2 ヒットはいずれも docstring の記述で、コードには 1 つも無い）。`ops.py` は編集用に `model_dump` を使うが正準形の出力経路ではない |
 | DP-JIN-CANONICAL-01 | Pydantic のモデル定義変更に writer が追随することをテストで担保する（往復無損失と `fmt(fmt(x)) == fmt(x)`） | condition | 構造化 | **reflected** | writer は `type(model).model_fields` を走査するだけでキー名も順序もハードコードしない（`canonical.py:91-99` の `_members`）。追随の担保は `packages/jin-core/tests/test_model.py::test_field_order_matches_spec` と `tests/contract/test_canonical_contract.py::test_rule2_key_order_is_schema_definition_order`（モデル定義から期待値を導出する）+ 冪等性・意味保存の各テスト |
 | DP-JIN-CANONICAL-01 | JSON エスケープ処理を自前で書くことによるバグリスクを、非 ASCII・制御文字・サロゲートペアの fixture で必ず検証する | condition | 構造化 | **reflected** | `packages/jin-core/tests/test_canonical.py` の `test_non_ascii_is_not_escaped` / `test_control_characters_are_escaped`（U+0001・U+001F を含む）/ `test_surrogate_pair_survives_roundtrip`（U+20BB7・U+1F409）/ `test_del_and_latin1_are_not_escaped`（U+007F・U+00E9）。**注記**: 独立した `.jin` ファイルの fixture ではなくテスト内リテラルで与えている。制約は「fixture で検証する」であり検証手段の形式までは指定していないが、ファイル fixture を望むならレビューで指摘されたい |
@@ -917,3 +921,70 @@ pygls 2.1.1 の `LanguageServer.start_ws` は 1 本目の接続が閉じた直�
   （`data-jin` を持たない描画要素を置かない・layout.md §3.1）
 - **codeAction の実行導線は落とした**（診断一覧のクリックで選択と hint の表示までに留めた）。
   ADR-002 の最小 UI の範囲。**PR 本文にも「落とした」と明記する**
+
+
+## 2.27 Phase 6 で決めたこと（デバッグモード / トレースリプレイ）
+
+### 2.27.1 トレースの供給元（`DP-IMPL-JIN-P6-TRACE-SOURCE-01`）
+
+要件書 §7.2 は「`jin run --trace` の JSONL を読み込み」としか書いておらず、**誰が読むか**を
+決めていない。**ブラウザの `<input type="file">` で読む**ことにした（実装済み・non-blocking）。
+
+サーバに `jin/openTrace`（仮）を足す案は、要件書 §6.3 の独自リクエスト 4 種（+ ADR-011 の
+`jin/open` / `jin/save`）への**追加**であり、ADR-011 の前例どおりリクエスト名の人間承認が要る。
+加えて `jin lsp --ws` は same-origin 制限の無い口なので（`docs/spec/ops.md` §5.1）、
+ファイルを読む口を増やすことは防御の面積を増やす。ファイル入力ならブラウザが読めるのは
+**ユーザーが選んだ 1 本**だけである。
+
+**残存**: `.jin` の隣にあるトレースを自動では拾わない（毎回ユーザーが選ぶ）。
+
+### 2.27.2 検証の分担（TS 側とレンダラ側）
+
+| 見るもの | どこ |
+|---|---|
+| 行の区切り（`\n` だけ）/ `\r` / BOM / 空行の読み飛ばし / JSON として読める / オブジェクトである | `apps/editor/src/trace/parse.ts`（`jin_cli.main._read_trace_rows` と**同じ範囲**） |
+| `seq` が 1 始まりの整数で `1..2^63-1`・`bool` でない / `pointer` が str か null | `jin_render.overlay.read_trace`（**TS 側で二重に実装しない**） |
+
+TS 側で契約まで実装すると、レンダラの規則を変えたときに片方だけ直して食い違ったことに
+気づけない。`seqOf` が整数かどうかだけを見るのは「スクラバの上限を数えるため」であって
+契約の再実装ではない（範囲は見ない）。
+
+**残る非対称**: JSON として壊れた行は**エディタが実ファイル行番号つきで**断り、
+行の契約違反は**サーバが配列の何件目かを添えて**断る。行番号はプロトコルを渡るときに
+失われる（クライアントが JSONL を配列にしてから送る）ためで、
+`jin_lsp.requests.jin_render_svg` は `TraceRowError.index` を捨てずに載せるようにした。
+
+### 2.27.3 フィルタの一致規則（要件書 §7.2「`pointer` 一致」の意味）
+
+**overlay の規則 1（`docs/spec/layout.md` §7.1）と同じ**にした。選んだ pointer が
+行の pointer と同じか、その**祖先**（`/` 区切りの段一致であって前方一致ではない）なら残す。
+図で光る要素と一覧に残る行を同じ規則にしないと、フィルタが別の意味の一致を持つ。
+
+**referent 規則（同 §7.1 の規則 2）は使わない。** `summon` の紋の `data-jin` は参照**側**の
+pointer なので、参照先 circle の行はフィルタに残らない。図ではその紋が `data-jin-ref` で
+強調されるのに一覧には出ない、というずれが**残存**する。`data-jin-ref` を見て参照先の配下も
+残すと「一致」が 2 種類になり、要件書 §7.2 の「`pointer` 一致」でなくなるので採らなかった。
+
+TS 側の期待値が正しいことは TS だけでは言えないので、
+`tests/contract/test_editor_contract.py::test_the_pointer_filter_agrees_with_the_overlay_rule` が
+実 fixture を `jin_render.overlay.is_ancestor_or_same` に通した結果と突き合わせる。
+
+### 2.27.4 詳細パネルは値を加工しない
+
+`input` / `output` は `JSON.stringify(value, null, 2)` で**そのまま**出す。要約・切り詰め・
+整形はしない（「モデル入出力を見る」という用途に反する）。`input: null` の行も欄ごと消さずに
+`null` と書く。変異 `DETAIL-truncates-the-value` / `DETAIL-drops-the-output-field` で赤。
+
+### 2.27.5 壊れたトレースで図を消さない
+
+`jin/renderSvg` が行の契約違反で拒んだとき、**`.jin` は壊れていない**ので
+`trace` を外して描き直し、理由を画面に残す（`ViewState` は `ready` のまま）。
+`unavailable` に落とすと、トレースの誤りで `.jin` の編集ができなくなる。
+`e2e/debug.spec.ts`「壊れた JSONL は行番号を添えて断り、図は残る」が実測。
+
+### 2.27.6 変異ハーネスが Playwright を回さないこと（残存）
+
+隔離コピーに `dist` が無く、`e2e/editor.ts` がコピー側の root で `uv run jin editor` を
+起こす（`.venv` の再作成に落ちる）ため、`mutate_p6.py` は `pnpm e2e` を実行しない。
+machine 1（スクラバでオーバーレイが変わる）/ machine 2（決定性）/「編集してもトレースが残る」は
+**Playwright だけ**が見張っている。machine 3 / 4 は Python 側に弱い網を置いて変異でも拾えるようにした。
