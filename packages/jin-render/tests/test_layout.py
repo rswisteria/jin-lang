@@ -109,8 +109,10 @@ def test_every_referent_resolves_in_the_model(name: str, request: pytest.Fixture
 def test_the_nine_kinds_are_all_drawn(researcher: JinFile, pipeline: JinFile) -> None:
     """検査が空虚にならない側: 9 種すべてが実際に描かれていること。
 
-    `delegate` は examples 2 本のどちらにも無い（researcher は `summon`、pipeline は `flow`）ので、
-    合成モデルを 1 本足す。
+    `delegate` は researcher にも pipeline にも無い（researcher は `summon`、pipeline は `flow`）ので、
+    合成モデルを 1 本足す。`examples/showcase` には 9 種すべてが揃っているが、jin-render の
+    パッケージテストは要件書 §2.2 の 2 本だけを固定の対象にしている（showcase 側の突合は
+    `tests/contract/test_render_contract.py::test_the_showcase_example_draws_all_nine_kinds`）。
     """
     delegating = model_from(
         [{"name": "A", "core": "m", "delegate": ["B"]}, {"name": "B", "core": "m"}], "A"
@@ -135,7 +137,7 @@ def test_the_same_pointer_may_appear_more_than_once(pipeline: JinFile) -> None:
 def dashed_model() -> JinFile:
     """破線を使う 2 種（解決しない summon の点線・delegate の点線）を含むモデル。
 
-    examples 2 本には `stroke-dasharray` が出ないので、`DASH` の桁が崩れても
+    researcher と pipeline には `stroke-dasharray` が出ないので、`DASH` の桁が崩れても
     `test_all_geometry_numbers_are_written_with_three_decimals` が緑のままだった
     （F-V-P3-001）。属性の**取りこぼし**を防ぐため、下の検査はこのモデルも回す。
     """

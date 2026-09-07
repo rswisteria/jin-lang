@@ -34,8 +34,12 @@ EXAMPLE_FILES = sorted(EXAMPLES.glob("*/*.jin"))
 
 
 def test_there_are_examples_to_compare() -> None:
-    """突合の対象が消えたら気づく（0 件でも parametrize は緑になる）。"""
-    assert len(EXAMPLE_FILES) == 2, EXAMPLE_FILES
+    """突合の対象が消えたら気づく（0 件でも parametrize は緑になる）。
+
+    要件書 §2.2 の 2 本（researcher / pipeline）に、Issue #5〜#7 の人手判定用に足した
+    `examples/showcase` を加えて 3 本である。
+    """
+    assert len(EXAMPLE_FILES) == 3, EXAMPLE_FILES
 
 
 async def _ask_server(path: Path, method: str, extra: dict | None = None) -> dict:

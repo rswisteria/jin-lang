@@ -186,6 +186,32 @@ def test_run_with_fake_model_exits_zero_in_a_real_process(tmp_path: Path, name: 
     assert "Traceback" not in result.stderr
 
 
+def test_the_showcase_example_runs_with_the_fake_model(tmp_path: Path) -> None:
+    """machine 条件 5 の 2 本とは別枠。`examples/showcase` が `--model fake` で通ること。
+
+    showcase は Issue #5〜#7 の人手判定用に足した 3 本目で、9 種すべてを描くために
+    `builtin` の紋を持つ。**`builtin` に何を書くかで走るかどうかが変わる**:
+    `google_search` は Gemini 以外のモデルを拒む（`--model fake` で
+    `ValueError: Google search tool is not supported for model fake`）うえ、
+    委譲（関数呼び出し）と同じ陣に置けない。実測のうえ関数ツールである
+    `exit_loop` を選んだので、そこが黙って戻らないようにここで固定する。
+    """
+    trace = tmp_path / "trace.jsonl"
+    result = _run(
+        "run",
+        "examples/showcase/showcase.jin",
+        "こんにちは",
+        "--model",
+        "fake",
+        "--trace",
+        str(trace),
+        env_extra={"PYTHONPATH": str(STUBS)},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    lines = [line for line in trace.read_text(encoding="utf-8").split("\n") if line]
+    assert lines and all(json.loads(line)["pointer"] is not None for line in lines)
+
+
 _SCRIPTED_RUN = """
 import sys
 import jin_cli.main
