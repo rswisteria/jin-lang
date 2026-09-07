@@ -132,6 +132,13 @@ WebSocket にはブラウザの same-origin 制限が無い。任意のページ
 | 3 | **場所と種類。** 解決後のパスが `--root` の実体の配下にあり、拡張子が `.jin` であること |
 | 4 | **symlink 拒否。** 書き先そのものが symlink なら拒む。書き込みは `os.replace`（リンクを辿らない） |
 
+**`jin editor` は同じ口を、ユーザーが `--root` を書かずに開く。** 対象ファイルの
+**親ディレクトリ**だけを root にし（`jin_cli.editor.editor_root`）、トークンは URL の
+**フラグメント**（`#token=`）で渡す — フラグメントは HTTP 要求にも `Referer` にも載らないので、
+`jin editor` が動かす静的サーバのアクセスログにも出ない。
+**残存**: ブラウザの履歴には残り、同じページの JS からは読める。
+信頼しないディレクトリの `.jin` を `jin editor` で開かないこと。
+
 **残存**: Origin ヘッダは見ていない（pygls 2.1.1 の `start_ws(host, port)` は
 `websockets` のサーバ生成オプションを露出しない・実測）。トークンで代替している。
 同じマシンの別プロセスはポートに繋げるが、トークンを知らなければこの 2 本は通らない。
@@ -156,4 +163,8 @@ WebSocket にはブラウザの same-origin 制限が無い。任意のページ
 **Phase 4 で LSP へ露出済み**（`jin/applyOps` / `jin/ops`）。
 `packages/jin-lsp/tests/test_apply_ops_roundtrip.py` が同じ 19 件を**プロトコル越しに**回し、
 サーバが返した `inverses` をそのまま送り返すと元の正準形テキストへバイト単位で戻ることを確認している。
-エディタからの利用は Phase 5。
+**Phase 5 でエディタから使っている。** `apps/editor` は編集をすべて `jin/applyOps` に流し、
+undo / redo はサーバが返した `inverses` を積むだけである（モデルの写しを積まない）。
+schema にあってもオペレーションで到達できない欄（tool の `ref` / `builtin` / `circle`）は
+`removeTool` + `addTool` の合成で書く。**20 個目を作らない**ことは
+`tests/contract/test_editor_contract.py::test_the_editor_does_not_add_a_twentieth_operation` が固定する。

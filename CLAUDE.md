@@ -39,7 +39,12 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 - **`jin-lsp` は `jin-core` と `jin-render` に依存し、`jin-adk` には依存しない。** hover の ADK クラス名は
   `docs/spec/adk-mapping.md` 由来の静的な辞書（`jin_lsp.adk_names`）から引く。`jin-adk` を入れると
   LSP の起動のたびに `google-adk` 全体の import を待つことになる（Claude Code の起動体感に直撃する）
-- `apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない
+- **`apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない。**
+  例外は `schemas/jin.schema.json` ただ 1 つ（プロパティパネルのフォームを手書きしないために読む。
+  コピーを置かず直接読む）。Python 側は import-linter、**TS 側は eslint の
+  `no-restricted-imports`**（`apps/editor/eslint.config.js`）が落とす。
+  規則が**実際に落ちる**ことは `apps/editor/test/dependencyDirection.test.ts` が
+  禁止 import を食わせて確かめる
 
 この一方向性は **import-linter** で機械的に落とす（`pyproject.toml` の `[tool.importlinter]`）。
 `uv run lint-imports` がローカルでも CI でも走る。契約の正本は
@@ -87,12 +92,16 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 | 2 | `jin-adk`（build / run / trace / FakeLlm） | 実装済み |
 | 3 | `jin-render`（render / focus / trace overlay） | 実装済み |
 | 4 | `jin-lsp`（stdio + ws）+ Claude Code プラグイン | 実装済み |
-| 5–6 | `apps/editor`（編集モード / デバッグモード） | 未着手 |
+| 5 | `apps/editor` 編集モード + `jin editor` | 実装済み |
+| 6 | `apps/editor` デバッグモード（トレースリプレイ） | 未着手 |
 
-`jin editor` は**まだ定義していない**（Phase 5）。
-空実装を先に置くと `jin --help` が嘘をつくので、未実装のものはサブコマンドごと存在させない。
-「未定義であること」の検査は `exit_code != 0` ではなく **typer の `No such command`** で見る
-（`!= 0` は実装済みのコマンドでも成立するので、Phase 3 まで `render` が偽緑だった）。
+v1 のサブコマンドは 9 つで揃った（`check` / `fmt` / `schema` / `dump` / `build` / `run` /
+`render` / `lsp` / `editor`）。空実装を先に置くと `jin --help` が嘘をつくので、
+未実装のものはサブコマンドごと存在させない。Phase 4 まではこれを
+「未定義であること」の検査（typer の `No such command`）で見ていたが、Phase 5 で
+最後の `editor` が実装されて parametrize が空になった。**空の parametrize はテストごと
+収集されずに消える**ので、`test_no_command_is_defined_beyond_the_v1_set` が
+「v1 の集合と過不足なく一致する」側から固定する形に反転させた。
 
 Phase 2 の要点（正典は `docs/spec/adk-mapping.md` §2.3 / §2.4 / §3.1 / §6）:
 
@@ -144,6 +153,30 @@ Phase 4 の要点（正典は要件書 §6 / `docs/spec/ops.md` §5〜§6 / `doc
   **コピー**。手で編集せず `uv run python scripts/sync_plugin_reference.py` で同期する
   （ずれても `jin check` は通るので静かに効く）
 
+Phase 5 の要点（正典は要件書 §7 / `docs/spec/ops.md` §5 / `delivery/20260904-1445-jin/editor-api-probe.md`）:
+
+- **エディタは 1 本の線も描かない。** SVG は `jin/renderSvg` から受け取り、`data-jin` で
+  ヒットテストするだけ（要件書 §0「レンダラは Python 1 本」）。位置が要るとき（診断バッジ）は
+  描かれた要素の `getBBox()` を使い、レイアウト規則を再実装しない。
+  `tests/contract/test_editor_contract.py::test_the_editor_never_draws_the_magic_circle_itself` が
+  `createElementNS(ns, "path" / "line" / "text" …)` を禁じる
+- **エディタは独自のモデル状態を持たない。** 編集はすべて `jin/applyOps` を往復し、
+  返ってきたモデルと SVG で置き換える。undo / redo はサーバが返した `inverses` を積むだけ
+- **フォームは `schemas/jin.schema.json` から生成する。** `apps/editor/src/form/` に欄の名前は
+  1 つも書かれていない。証拠は `test/schemaForm.test.ts`（schema に架空のキーを足すと欄が増える）。
+  コピーを置かず**リポジトリの schema を直接読む**（`vite.config.ts` の `server.fs.allow`）
+- **表示状態は 5 つ**（未接続 / 取得中 / 正常 / ステイル / 表示不能・DP-COMMON-19）。
+  **3 に潰さない**。分岐は `default` を書かず `assertNever` で閉じ、
+  `test/exhaustiveness.fixture.ts` の `@ts-expect-error` が
+  「分岐を足すと tsc が落ちる / 網羅性を緩めても tsc が落ちる」を両側から固定する
+- 選択は **circle 名 + 種別 + 要素名**で持つ（DP-COMMON-16）。生 pointer で持つと
+  `moveTool` の並び替えで選択が別要素に飛ぶ。変換は `src/state/selection.ts` の
+  `resolveSelection` **1 本**だけが行う
+- **API は記憶で書かない。** pygls の ws が binary フレームで送ること、`start_ws` が
+  1 接続で終わること、版の互換範囲はすべて `editor-api-probe.md` に実測がある
+- `apps/editor` の版は**完全一致で固定**する（`^` / `~` を使わない）。
+  レンダラの出力とバイト比較するテストがあるので、ツールチェーンが黙って動くと切り分けができない
+
 ## 開発コマンド
 
 ```bash
@@ -167,6 +200,7 @@ claude plugin validate --strict plugins/claude-code/jin  # Claude Code プラグ
 uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py   # 防御を壊して赤くなることの実測（隔離コピー上で変異する・実ツリーは書き換えない）
 uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py   # 同上（Phase 3・jin-render）
 uv run python delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py   # 同上（Phase 4・jin-lsp）
+uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同上（Phase 5・apps/editor。pytest と pnpm の両方を回す）
 ```
 
 テスト配置は ADR-003（パッケージ単位の垂直分割 + 横断契約テスト）:
@@ -233,6 +267,13 @@ import し、その生成コードが `ref` のモジュールを import する�
   ws で公開されるコードパスから `jin_cli.resolver` と `jin_adk.runtime` へ**到達しない**ことを
   forbidden contract の `source_modules`（`jin_lsp` を含む）で機械化してある。
   **`jin_lsp` は `jin_adk` を依存にも持たない**ので二重の網になっている
+- **`jin editor <file>` は `jin lsp --ws --root <file の親>` と同じ口を、`--root` を書かずに開く。**
+  ビルド済みエディタを 127.0.0.1 で静的配信し、同じプロセスで LSP(ws) を起動してブラウザを開く。
+  防御は下の `--ws` と同じ 4 段で、root は**対象ファイルの親ディレクトリだけ**。
+  起動トークンは URL の**フラグメント**（`#token=`）で渡す（フラグメントは HTTP 要求にも
+  `Referer` にも載らないので静的サーバのログにも出ない。残存: 履歴に残り、同一ページの JS は読める）。
+  静的配信の根は `dist` に固定する（`directory=` を渡さないと cwd を配る）。
+  **信頼しないディレクトリの `.jin` を `jin editor` で開かないこと**
 - **`jin lsp --ws PORT` はローカルに WebSocket の待ち受けを開く。** WebSocket には
   ブラウザの same-origin 制限が無いので、開いている任意のページが `ws://127.0.0.1:PORT` へ
   繋いでリクエストを打てる。ファイルを読み書きする `jin/open` / `jin/save`（ADR-011）は

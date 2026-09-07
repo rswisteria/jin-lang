@@ -86,18 +86,21 @@ def build_url(http_port: int, ws_port: int, file: Path, token: str, host: str) -
     return f"http://{host}:{http_port}/?{query}#token={quote(token, safe='')}"
 
 
-def serve(
-    file: Path,
-    *,
-    dist: Path | None = None,
-    host: str = "127.0.0.1",
-    open_browser: bool = True,
-    announce: Callable[[str], None] | None = None,
-) -> None:
-    """静的配信 + LSP(ws) を起動して**ブロックする**。
+def editor_root(target: Path) -> Path:
+    """`jin/open` / `jin/save` が触れてよい範囲。**対象ファイルの親ディレクトリだけ**。
 
-    hazard: serve -> webbrowser.open
-    guard: serve -> fileio.FileAccess.create
+    ここを広げると、ブラウザで開いている任意のページが `ws://127.0.0.1:<port>` へ繋いで
+    （トークンを知っていれば）より広い範囲の `.jin` を読み書きできるようになる。
+    """
+    return target.parent
+
+
+def prepare(file: Path, dist: Path | None = None) -> tuple[Path, Path]:
+    """対象ファイルと dist を検証して返す。**ここは待ち受けを開かない。**
+
+    `serve` から検証だけを切り出してあるのは、テストが安全に呼べるようにするためである
+    （`serve` は最後にブロックするので、入口の拒否を `serve` 経由で試すと、
+    拒否が壊れた瞬間にテストがハングして「失敗」ではなく「無反応」になる）。
     """
     target = file.resolve()
     if target.suffix != ".jin":
@@ -112,9 +115,26 @@ def serve(
         )
     if not (root / "index.html").is_file():
         raise EditorError(f"index.html がありません: {root}")
+    return target, root
+
+
+def serve(
+    file: Path,
+    *,
+    dist: Path | None = None,
+    host: str = "127.0.0.1",
+    open_browser: bool = True,
+    announce: Callable[[str], None] | None = None,
+) -> None:
+    """静的配信 + LSP(ws) を起動して**ブロックする**。
+
+    hazard: serve -> webbrowser.open
+    guard: serve -> fileio.FileAccess.create
+    """
+    target, root = prepare(file, dist)
 
     # `jin/open` / `jin/save` が触れてよいのは**対象ファイルの親ディレクトリ**だけ。
-    files = fileio.FileAccess.create(target.parent)
+    files = fileio.FileAccess.create(editor_root(target))
     server = create_server(files=files)
 
     httpd = _static_server(host, root)
@@ -189,6 +209,8 @@ __all__ = [
     "EditorError",
     "build_url",
     "default_dist",
+    "editor_root",
     "free_port",
+    "prepare",
     "serve",
 ]

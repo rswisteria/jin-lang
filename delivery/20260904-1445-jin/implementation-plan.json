@@ -468,6 +468,19 @@
       "called": true,
       "result": "passed",
       "note": "pygls 2.1.1 / pytest-lsp 1.0.1 の API は delivery/20260904-1445-jin/lsp-api-probe.md の実測に固定した（1.x → 2.x で import パスから変わっている）。probe が書いていなかった 3 点は Phase 4 で実測し probe へ追記: (1) pytest_lsp.LanguageClient は JsonRPCClient を継承しており start_ws を持つので ws のラウンドトリップも pytest-lsp のクライアントで張れる（ClientServerConfig では張れないという probe §2 の指摘は正しい）、(2) 未知メソッドの params / result は namedtuple(rename=True) に変換され `await` / `$schema` / JSON Pointer が黙って `_0` に化ける、(3) ws の client.stop() は shutdown_session() を先に呼ばないと返らない（run_websocket が recv() でブロックしたまま stop_event を見ない）。"
+    },
+    {
+      "owners": [
+        "client"
+      ],
+      "jin_phase": 5,
+      "skill": "editor-implementation",
+      "trigger": "Stage 2 core（Phase 5・apps/editor の実装本体。版と外部 API は記憶で書かず editor-api-probe.md の実測に固定する）",
+      "stage": "core",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "TS 側の版は npm レジストリで実測して固定した（完全一致・`^` / `~` を使わない）。`typescript-eslint@8.69.0` の peer が `typescript >=4.8.4 <6.1.0` なので TS 7 系は使えない。`vscode-ws-jsonrpc@3.5.0` が `vscode-jsonrpc ~8.2.1` に固定しているので 9 系は入れない。実行時 API も 2 件実測して直した: pygls の ws は JSON を binary フレームで送る（ブラウザ既定の blob のままだと JSON.parse が失敗し、エラーが握り潰されて Promise が永久に pending）／pygls の start_ws は 1 接続で shutdown する（ページ再読み込みでエディタが死ぬ）。詳細は delivery/20260904-1445-jin/editor-api-probe.md。"
     }
   ],
   "tasks": [
@@ -1941,6 +1954,15 @@
         "decided_at": "2026-09-07T10:20:00+09:00",
         "rationale": "Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。「claude plugin validate の job だけ足す」と「pnpm / Node job も今回足す」を提示し、後者を採った。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の apps/editor が pnpm を足す先を先に用意する。受け皿を先に置くのは、Phase 5 で赤くなったテストを『テストを差し替える』だけで消せる動線を塞ぐため（Issue #9 の起票理由そのもの）。**本ラウンドで足したのは Node のセットアップまでで、pnpm 自体のインストールは apps/editor が実在する Phase 5 に回した**（入れる対象が無い状態で pnpm install を書くと、その行が何も検証しないまま緑になる）。**注記: この decision_record は実装ラウンド側の記録であり、Issue #9 が定める `/aid decide` による docs/pending-decisions.md の再生成は未実施である**（md の手編集は禁止されているため、生成器で行う必要がある）。"
       }
+    },
+    {
+      "id": "DP-JIN-EDITOR-UX-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T14:00:00+09:00",
+        "rationale": "ADR-002（承認済み）が定める「機能要件（§7.1 / §7.2）だけを満たす最小 UI を作り、デザインは後で差し替える」を Phase 5 でそのまま適用した。したがって design.yaml items[5].verification.human_only「UI/UX の妥当性」は **not_run** であり、実装者は判定しない。実装したのは機能を満たす最小限の見た目である（`apps/editor/src/style.css` は 1 ファイル・トークンも設計システムも持たない）。"
+      }
     }
   ],
   "undecided": [
@@ -1956,7 +1978,11 @@
     "DP-REVIEW-JIN-P3-001",
     "DP-IMPL-JIN-P4-POINTER-SHAPE-01",
     "DP-IMPL-JIN-P4-EXTRACT-01",
-    "DP-IMPL-JIN-P4-HOVER-DOCSTRING-01"
+    "DP-IMPL-JIN-P4-HOVER-DOCSTRING-01",
+    "DP-IMPL-JIN-P5-RENAME-FOLLOW-01",
+    "DP-IMPL-JIN-P5-TOKEN-CHANNEL-01",
+    "DP-IMPL-JIN-P5-HITAREA-01",
+    "DP-IMPL-JIN-P5-ADD-DEFAULTS-01"
   ],
   "verification_status": {
     "smoke": "not_applicable",
@@ -1965,14 +1991,15 @@
     "layers": {
       "backend_unit": "passed",
       "container_smoke": "not_applicable",
-      "browser_e2e": "not_applicable",
+      "browser_e2e": "passed",
       "pipeline_e2e": "passed"
     },
     "required_layers": [
       "backend_unit"
     ],
     "scope_labels": [
-      "backend-unit-verified"
+      "backend-unit-verified",
+      "browser-e2e-verified"
     ],
     "overall": "verified",
     "domain_checks": [
@@ -2150,6 +2177,50 @@
         "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
         "jin_phase": 4,
         "detail": "P4 行 7 件 reflected / not_reflected 0 / unknown 0（§2.25 に確定値 6 件）"
+      },
+      {
+        "skill": "pnpm-test",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#P5-5",
+        "jin_phase": 5,
+        "detail": "`pnpm test`（vitest・DP-COMMON-20 の 1 層目）→ **38 passed**。選択再解決 / 5 状態 / undo スタック / schema からのフォーム生成 / 依存方向の注入テスト"
+      },
+      {
+        "skill": "pnpm-build",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 5,
+        "detail": "`pnpm build`（`tsc --noEmit && vite build`）→ 0 errors。**DP-COMMON-19 の 5 状態の網羅を落とすのは tsc** であり vitest は型を見ないので、build をゲートから外せない"
+      },
+      {
+        "skill": "playwright-smoke",
+        "result": "passed",
+        "layer": "browser_e2e",
+        "evidence": "apps/editor/e2e/smoke.spec.ts",
+        "jin_phase": 5,
+        "detail": "`pnpm e2e`（Playwright・DP-COMMON-20 の 2 層目）→ **3 passed**。実際の `jin editor` プロセスに繋ぎ、開く → 紋を追加 → 保存 → `jin fmt` の出力とバイト一致まで通す。undo でファイルがバイト単位で元に戻ることも見る"
+      },
+      {
+        "skill": "eslint-dependency-contract",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 5,
+        "detail": "DP-COMMON-11 の 2 本目（`apps/editor` → Python パッケージ）を pnpm 側で落とす。`apps/editor/test/dependencyDirection.test.ts` が禁止 import 4 種を `ESLint.lintText` に食わせて**規則が実際に落ちる**ことを確認（`schemas/jin.schema.json` は通る）。Python 側の二層目は `tests/contract/test_dependency_direction.py`"
+      },
+      {
+        "skill": "mutation-harness",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py",
+        "jin_phase": 5,
+        "detail": "**30/30 mutations caught**・SKIP 0・実ツリー不変。pytest と pnpm の 2 系統を変異ごとに使い分ける。偽緑を 2 件検出（網羅性トリップワイヤの語が docstring にも出る / 静的配信の根の固定が guard 主張だけで見られていた）"
+      },
+      {
+        "skill": "phase-5-human-only-review",
+        "result": "not_run",
+        "jin_phase": 5,
+        "detail": "design.yaml items[5].verification.human_only「UI/UX の妥当性」は human_only であり実施していない。ADR-002 / DP-JIN-EDITOR-UX-01 によりデザイナー参加後に差し替える前提。実施済みと報告してはならない"
       }
     ],
     "skip_policy": {
@@ -2307,7 +2378,12 @@
       "[jin_phase=4][pipeline] 2026-09-07 PR #17（feat/jin-phase4-lsp → main）の GitHub Actions が実機で成功。**pull_request run 34079894406**（head `7523d25`）は job `test` pass 2m42s / job `plugin` pass 9s。初回 run 34079223651（head `78dc11c`）も両 job pass で、その `test` job の実測は `1373 passed, 1 skipped`（pytest 本体 141.38s）。**マージ後の push/main run 34080158969（merge commit `3bd272d`）も success 2m47s**。layers.pipeline_e2e は Phase 3 で passed 済みで、Phase 4 でも新設した plugin job を含めて維持されている",
       "[jin_phase=4][pipeline] 2026-09-07 CI の `test` job の 1 skipped は tests/contract/test_plugin_contract.py::test_claude_plugin_validate_passes である（ubuntu-latest の Python 環境に claude CLI を入れていないため）。CI で claude plugin validate を実際に走らせているのは新設した `plugin` job のほうで、その実測は `claude --version` = **2.1.263 (Claude Code)** / `✔ Validation passed`。npm install -g は版が浮くので、将来 plugin job が赤くなったときにプラグイン側の破損と CLI 側の変化を切り分けられるよう版を残す",
       "[jin_phase=4][human_only] design.yaml items[4].verification.human_only「Claude Code に実際にプラグインを入れて `.jin` の編集体験が成立するか」は **not_run**。実装者は判定しない（PR レビューで人間が判定する）。PR #17 は `Closes #5` ではなく `Refs #5` で出し、Issue #5 は人間が確認してから閉じる形にした",
-      "[jin_phase=4][decision] 2026-09-07 人間確定 3 件を decision_record[] に記録: DP-JIN-EDITOR-PROTOCOL-01（ADR-011 の constraints が求めていたリクエスト名の確定 = `jin/open` / `jin/save`・Phase 4 で防御込み実装）/ DP-IMPL-JIN-P4-DEBOUNCE-01（150 ms・根拠は check-text-benchmark.md の実測）/ DP-REVIEW-JIN-003（CI に plugin job と Node の受け皿）。**DP-REVIEW-JIN-003 について Issue #9 が定める `/aid decide` 経由の docs/pending-decisions.md 再生成は未実施**（md の手編集は禁止なので生成器で行う必要がある）。HANDOFF 3 件（POINTER-SHAPE / EXTRACT / HOVER-DOCSTRING）は undecided[] + undecided_details[] へ、いずれも non-blocking・推奨案で実装済み"
+      "[jin_phase=4][decision] 2026-09-07 人間確定 3 件を decision_record[] に記録: DP-JIN-EDITOR-PROTOCOL-01（ADR-011 の constraints が求めていたリクエスト名の確定 = `jin/open` / `jin/save`・Phase 4 で防御込み実装）/ DP-IMPL-JIN-P4-DEBOUNCE-01（150 ms・根拠は check-text-benchmark.md の実測）/ DP-REVIEW-JIN-003（CI に plugin job と Node の受け皿）。**DP-REVIEW-JIN-003 について Issue #9 が定める `/aid decide` 経由の docs/pending-decisions.md 再生成は未実施**（md の手編集は禁止なので生成器で行う必要がある）。HANDOFF 3 件（POINTER-SHAPE / EXTRACT / HOVER-DOCSTRING）は undecided[] + undecided_details[] へ、いずれも non-blocking・推奨案で実装済み",
+      "[jin_phase=5][gates] 2026-09-07 親の実行: ruff check・format --check 緑（108 files）/ pytest **1396 passed / 2 failed / 3 skipped**（2 failed は macOS 固有の環境差で main の HEAD でも落ちる）/ lint-imports 3 kept 0 broken / jin schema 無ドリフト / jin check・fmt --check examples / sync_plugin_reference --check / **pnpm lint・build（tsc + vite）・test（38 passed）・e2e（3 passed）**",
+      "[jin_phase=5][mutation] 2026-09-07 mutate_p5.py を隔離コピーで実行: **30/30 mutations caught**・SKIP 0・実ツリー不変。node_modules は実ツリーへの symlink（複製しない）。偽緑 2 件と、変異でハングする形 1 件を検出して直した（後者は検証を prepare() に切り出し、入口の拒否を serve 経由で試さない形に）",
+      "[jin_phase=5][human_only] design.yaml items[5].verification.human_only「UI/UX の妥当性」は **not_run**。ADR-002 によりデザイナー参加後に差し替える前提であり、本ランでは判定しない",
+      "[jin_phase=5][scope] 要件書 §7.1 のうち **codeAction の実行導線は落とした**（診断一覧のクリックで選択と hint の表示までに留めた）。ADR-002 の最小 UI の範囲。PR 本文にも明記した。ドラッグ並べ替えと「環の空き位置をクリック」は形を変えて実装（implementation-notes.md P5-9 の表）",
+      "[jin_phase=5][defect] 2026-09-07 **Phase 4 から潜んでいた欠陥を 1 件修正**: pygls 2.1.1 の `LanguageServer.start_ws` は 1 本目の接続が閉じた直後に `shutdown()` を呼ぶため、ws のクライアントが再接続できない（ブラウザのエディタはページ再読み込みで死ぬ）。`JinLanguageServer.serve_ws` を足し、`jin lsp --ws` もこちらを使う。再発検知は test_ws_roundtrip.py::test_the_server_survives_a_client_reconnect"
     ],
     "replay_commands_ref": "delivery/20260904-1445-jin/replay-commands.md",
     "note": "overall は **backend_unit レイヤに限った判定**である（scope_labels 参照）。本案件に HTTP サーバもブラウザも存在しないため container_smoke / browser_e2e は not_applicable。GitHub Actions の実パイプライン通し（pipeline_e2e）は未実行。Phase 0 の human_only 条件は not_run で、PR レビューで人間が判定する。 【修正ラウンド 1】backend_unit は passed（432 件・ミューテーション 38/38 で非空虚性を実測）であり、機械規則だけを当てれば verified になる。しかし fix-round-1-instructions.md §0 が 「同一観点の code-reviewer による再レビューで defect-gone を確認するまでクローズしない」と定めており、親から「overall を自己判断で verified に戻さないこと」と明示指示があるため、**実装者側では verified を主張せず partially_verified に置く**。最終値は再レビュー後に親が再導出する。 【修正ラウンド 2】同じ理由で overall は partially_verified のまま置く。backend_unit は passed（488 件・ミューテーション 64/64 が赤）。 【ラウンド 2（Phase 2）】backend_unit passed（696 件・変異 31/31）で required_layers を満たすため overall=verified。ただし backend_unit に限った判定で、pipeline_e2e は本ブランチで not_run（ラウンド 1 の passed は main の Phase 0+1 に対するもの）、human_only（実 adk run）も not_run。最終値は親が Stage 5 レビュー後に再導出する。 【Phase 2 修正ラウンド 1】scope_labels は implementation-plan.schema.json の enum（backend-unit-verified / container-smoke-verified / browser-e2e-verified / pipeline-e2e-verified）に限られるため、ラウンド 1 の `pipeline-verified` も ラウンド 2 で足した `tdd-red-evidenced` も enum 外だった。schema 準拠の `backend-unit-verified` だけに戻し、**Phase 0+1 は main で GitHub Actions が success（pipeline_e2e passed・evidence[] の [jin_phase=0,1][post-merge] 行）、Phase 2 は本ブランチで not_run** をここに残す。TDD の Red 証跡は evidence[] の [tdd-red] 行。",
@@ -2566,6 +2642,42 @@
       "decide_by_phase": "implementation",
       "phase_impact": "要件書 §6.2 の hover 行は「要素 → ADK クラス名と生成される引数、rune の全文、Python 参照の docstring（--resolve 相当）」と書いている。最後の 1 つを出すには ref のモジュールを import する必要があり、Python の import はモジュールのトップレベルを実行するので、**hover のたびに任意コードをこの長寿命プロセスの権限で実行する**ことになる。jin lsp --ws は外に口が開いているので、ADR-018（--resolve の子プロセス隔離・30 秒タイムアウト）が閉じた危険を、hover という頻繁な操作で作り直すことになる。import-linter の forbidden 契約が jin_lsp → jin_cli.resolver を機械で落としており、別実装を書けば同じ危険の新設である。選択肢: (a) 実装しない（要件書の当該句をPhase 4 で落とし、理由を記録する） (b) --resolve と同じ子プロセス隔離を hover にも適用する（hover ごとにプロセス起動。応答性を大きく損なう。要件書 §6.4 の 1 秒に収まらない可能性） (c) 明示的なオプトイン（jin lsp --resolve-hover）でだけ有効にする。**推奨と実装は (a)**。要件書との差分なので PR 本文にも明記した。ADK クラス名と rune の全文は実装済み。",
       "recommendation": "(a) 実装しない",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P5-RENAME-FOLLOW-01",
+      "title": "rename を当てた直後の選択追随の規則",
+      "raised_by": "impl-p5 (Phase 5・DP-COMMON-16 の cons が名指ししていた論点)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "DP-COMMON-16 案 B の cons が「名前が変わる rename 直後の再解決規則を別途決める必要がある」と明記していた箇所である。選択は circle 名 + 種別 + 要素名で保持するので、rename を当てると 3 つ組が古い名前を指したままになる。選択肢: (a) 当てたオペレーションが選択中の要素の rename なら、選択の名前を新名へ差し替える (b) rename 後は選択を外す（安全だが、名前を直すたびにフォームが閉じるので実用に耐えない） (c) 応答のモデルと直前のモデルを突き合わせて差分から推測する（過剰）。**推奨と実装は (a)**。サーバの rename は参照を全て追随させる（ops.md §3）ので、名前だけ差し替えれば新モデル上で同じ要素を指す。実装は selection.ts の followRename 1 本。",
+      "recommendation": "(a) 選択の名前を新名へ差し替える",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P5-TOKEN-CHANNEL-01",
+      "title": "jin editor の起動トークンをブラウザにどう渡すか",
+      "raised_by": "impl-p5 (Phase 5・security 観点で起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`jin editor` は自分でブラウザを開くので、起動トークンを URL に載せる必要がある。選択肢: (a) クエリ（`?token=`） (b) **フラグメント（`#token=`）** (c) 静的サーバが index.html にトークンを埋め込んで配る。(a) はリクエストラインに載るので `jin editor` 自身の静的サーバのアクセスログに出るし、外部へ遷移したときの `Referer` にも載る。(c) は配信物がリクエストごとに変わるので ビルド成果物をそのまま配る前提（FR-EDITOR-004）と噛み合わない。**推奨と実装は (b)**。フラグメントは HTTP 要求にも `Referer` にも載らない。残存（ブラウザの履歴に残る・同じページの JS からは読める）は README と ops.md §5.1 に明記した。",
+      "recommendation": "(b) フラグメント",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P5-HITAREA-01",
+      "title": "線画（fill=\"none\"）の SVG に対する当たり判定の広げ方",
+      "raised_by": "impl-p5 (Phase 5・実測で起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "`jin render` の出力は `docs/spec/layout.md` のとおり全部 `fill=\"none\"` の線画である。ブラウザ既定の `pointer-events: visiblePainted` では **1 px の線の上しか当たらない**ので、環をクリックしても `<svg>` に抜ける（Playwright が「`<svg …> intercepts pointer events`」でclick を拒む形で実測）。選択肢: (a) CSS で `[data-jin] { pointer-events: all; }` (b) エディタ側で透明な当たり判定用の図形を重ねる (c) レンダラ（Python）に `pointer-events` 属性を出させる。(b) は**エディタが図形を作る**ことになり要件書 §0 に触れる。(c) はレンダラの出力が変わるのでスナップショットと決定性の議論をやり直すことになる。**推奨と実装は (a)**。塗りは足していないので描画は変わらない。重なりは SVG の規則どおり後から描かれた要素が勝ち、紋は環より優先される。",
+      "recommendation": "(a) CSS の pointer-events",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P5-ADD-DEFAULTS-01",
+      "title": "「環の空き位置をクリック → addTool / addState」で作る要素の初期値",
+      "raised_by": "impl-p5 (Phase 5・要件書 §7.1 の実装で起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "要件書 §7.1 は追加の導線だけを書いており、作る要素の中身を決めていない。選択肢: (a) スキーマ上必須の欄だけを埋め、値は空にする（`{name: \"tool1\", kind: \"tool\", ref: \"\"}`）(b) もっともらしい既定値を入れる（`ref: \"module.function\"` など） (c) 追加前にダイアログで値を尋ねる。(b) は**ユーザーが書いていない参照を捏造する**ことであり、CLAUDE.md の「要件書に無い値を推測で置かない」に反する。(c) は ADR-002 の最小 UI から外れる。**推奨と実装は (a)**。空なら `jin check` が未解決参照として診断を出すので、次に何をすべきかが図の上に出る。名前は `tool1` / `state1` … と衝突しない連番。",
+      "recommendation": "(a) 必須欄だけを空で埋める",
       "status": "ai_provisional"
     }
   ]

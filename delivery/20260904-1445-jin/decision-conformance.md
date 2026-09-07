@@ -25,8 +25,14 @@
 | DP-COMMON-09 | 横断契約テストの置き場は `tests/contract/` とする。パッケージ横断 fixture の共有方法は実装 Stage で決め、根拠を残す | condition | 構造化 | **reflected** | `tests/contract/`（4 ファイル）。fixture 共有方法は `tests/conftest.py:1-22` の docstring に決定と根拠を記載（リポジトリ直下 conftest + 単一 pytest rootdir）。`pyproject.toml:32` の `testpaths` |
 | DP-COMMON-09 | テストはネットワークアクセスと API キーを一切必要としない（NFR-TEST-001） | scope | 構造化 | **reflected** | 全 225 テストがネットワーク接続なしで通る。外部通信するコードは `jin_core.semantic._import_ref`（`--resolve` 時のローカル import のみ）だけで、HTTP クライアントを一切 import していない（`packages/jin-core/src/jin_core/semantic.py:212` の `_import_ref` のみ） |
 | DP-COMMON-11 | `design.yaml architecture.dependency_direction.rules` の 8 行を契約の正本とし、検査ツールを差し替えても契約は動かさない | scope | 構造化 | **reflected** | `tests/contract/test_dependency_direction.py:1-12` の docstring で正本を明記。`CLAUDE.md`「パッケージ境界」節でも同じ参照 |
-| DP-COMMON-11 | CI は jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと | condition | 構造化 | **部分 reflected** | 1 本目（jin-core → google-adk）は `pyproject.toml:56-60` の forbidden contract で担保し、**違反を注入して実際に BROKEN になることを実測**（`tests/contract/test_dependency_direction.py:76-104`。実測ログ: `no adk BROKEN` / `jin_core.canonical -> google (l.1)` / exit 1）。CI は `.github/workflows/ci.yml:23`（`uv run lint-imports`）。2 本目（apps/editor）は **apps/editor がまだ存在しないため未対応**。隠さないよう `test_editor_contract_is_not_yet_enforced` が「apps/editor ができたらこのテストが赤くなる」形で固定してある |
-| DP-COMMON-11 | apps/editor は Python パッケージを直接 import しない（LSP プロトコルにのみ依存する） | scope | 構造化 | **out_of_scope** | apps/editor は Phase 5。本ラウンドの成果物に無い |
+| DP-COMMON-11 | CI は jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと | condition | 構造化 | **部分 reflected** | 1 本目（jin-core → google-adk）は `pyproject.toml:56-60` の forbidden contract で担保し、**違反を注入して実際に BROKEN になることを実測**（`tests/contract/test_dependency_direction.py:76-104`。実測ログ: `no adk BROKEN` / `jin_core.canonical -> google (l.1)` / exit 1）。CI は `.github/workflows/ci.yml:23`（`uv run lint-imports`）。2 本目（apps/editor）は **Phase 5 で対応済み**（下の **P5** 行）。ラウンド 1〜4 の間は `test_editor_contract_is_not_yet_enforced` が「apps/editor ができたらこのテストが赤くなる」形で未対応を隠さずに固定していた |
+| DP-COMMON-11 | apps/editor は Python パッケージを直接 import しない（LSP プロトコルにのみ依存する） | scope | 構造化 | **out_of_scope**（ラウンド 1 の判定・記録として残す。**P5** 行で潰した） | apps/editor は Phase 5。本ラウンドの成果物に無い |
+| **P5** DP-COMMON-11 | apps/editor は Python パッケージを直接 import しない（2 本目の契約） | scope | 構造化 | **reflected** | `apps/editor/eslint.config.js` の `no-restricted-imports`（`**/packages/**` / `jin_core` 等 / `**/*.py`）。**規則が実際に落ちる**ことは `apps/editor/test/dependencyDirection.test.ts` が禁止 import 4 種を `ESLint.lintText` に食わせて確認（`schemas/jin.schema.json` は通ることも見る）。CI の `editor` job の `pnpm lint`。Python 側の二層目は `tests/contract/test_dependency_direction.py` の 2 本（設定の所在 + `apps/editor/src` の import 文の直読み）。変異 `DEPS-eslint-rule-removed` / `DEPS-eslint-rule-removed-ts` / `DEPS-packages-pattern-removed` / `DEPS-editor-imports-python` で赤を実測 |
+| **P5** DP-COMMON-16 | 保持してよいのは「モデルから導出できない UI 意図」だけ。選択は circle 名 + 種別 + 要素名の 3 つ組で保持し、applyOps 応答のたびに新モデル上の pointer を引き直す | scope | 構造化 | **reflected** | `apps/editor/src/state/selection.ts`（`resolveSelection` が唯一の変換）。保持するのは選択の 3 つ組 / focus の circle 名 / undo・redo のオペレーション列 / パネル開閉だけで、モデルの部分更新は 1 行も無い（`ViewState.model` は応答で丸ごと置き換わる）。`test/selection.test.ts` が「moveTool で並び替えても追随」「同名 tool を持つ別 circle へ飛ばない」を実測。変異 `SELECTION-raw-index` / `SELECTION-ignores-circle-scope` で赤 |
+| **P5** DP-COMMON-17 | JSON-RPC クライアント 1 層 + Jin 固有 4 リクエストの型付きラッパ。ラッパを 1 モジュールに閉じ込め、UI はその関数だけを呼ぶ | scope | 構造化 | **reflected** | `src/rpc/jsonrpc.ts`（`vscode-ws-jsonrpc` + `vscode-jsonrpc` 8.2.1）/ `src/rpc/jin.ts`（`JinApi` インタフェース）/ `src/rpc/protocol.ts`（型定義 1 ファイル）。UI から `connection` を触るコードは無い。版の選定根拠は `editor-api-probe.md` §1（DP-COMMON-17 が「実装 Stage の tech-version-check に委ねる」としていたもの） |
+| **P5** DP-COMMON-18 | SSR なし単一ページ SPA（Vite）。モードはルーティングではなくページ内切替。対象ファイルは URL のクエリで受ける | scope | 構造化 | **reflected** | `apps/editor`（Vite 8・`base: "./"`・ルーティングライブラリ無し）。`src/main.tsx` が `?ws=` / `?uri=` / `#token=` を読む。配信は `jin editor` の静的サーバだけ（FR-EDITOR-004「エディタ単体のサーバを持たない」）。デバッグモードは Phase 6 で**同じページに**足す |
+| **P5** DP-COMMON-19 | 表示状態は 5 つ。判別共用体として型定義 1 箇所に置き、分岐漏れがコンパイルエラーになる形にする | condition | 構造化 | **reflected** | `src/state/viewState.ts` の `ViewState`（`disconnected` / `loading` / `ready` / `stale` / `unavailable`）。分岐は `default` を書かず `assertNever` で閉じる。**落ちることの証拠**は `test/exhaustiveness.fixture.ts`（分岐を 1 つ欠いた関数の `@ts-expect-error`。分岐を足すと「未使用のディレクティブ」で tsc が赤／網羅性を緩めても赤。両方向を実測）。名前の集合は `test/viewState.test.ts` と `tests/contract/test_editor_contract.py` の両側で等号。変異 `VIEWSTATE-three-states` / `VIEWSTATE-kinds-renamed` / `VIEWSTATE-exhaustiveness-off` / `VIEWSTATE-fixture-branch-added` / `VIEWSTATE-exhaustiveness-tripwire-removed` で赤 |
+| **P5** DP-COMMON-20 | ユニット層（モック）+ スモーク層（実 LSP プロセス）の 2 層。モックする境界は DP-COMMON-17 のラッパ 1 本に限る | scope | 構造化 | **reflected** | ユニット層 = `pnpm test`（vitest・38 件。選択再解決 / 5 状態 / undo / schema フォーム / 依存方向）。スモーク層 = `pnpm e2e`（Playwright 3 件。**実際の `jin editor` プロセス**に繋ぐ）。LSP プロトコルそのものの検証は Python 側の pytest-lsp が担い、エディタ側で重複させていない |
 | DP-JIN-CANONICAL-01 | §2.3 の 5 規則は canonical writer 1 箇所にのみ実装し、Pydantic 設定と後処理へ分散させない | scope | 構造化 | **reflected** | `packages/jin-core/src/jin_core/canonical.py` が唯一の実装箇所。`model_dump` / `model_dump_json` を使っていない（`grep -n "model_dump" packages/jin-core/src/jin_core/canonical.py` の 2 ヒットはいずれも docstring の記述で、コードには 1 つも無い）。`ops.py` は編集用に `model_dump` を使うが正準形の出力経路ではない |
 | DP-JIN-CANONICAL-01 | Pydantic のモデル定義変更に writer が追随することをテストで担保する（往復無損失と `fmt(fmt(x)) == fmt(x)`） | condition | 構造化 | **reflected** | writer は `type(model).model_fields` を走査するだけでキー名も順序もハードコードしない（`canonical.py:91-99` の `_members`）。追随の担保は `packages/jin-core/tests/test_model.py::test_field_order_matches_spec` と `tests/contract/test_canonical_contract.py::test_rule2_key_order_is_schema_definition_order`（モデル定義から期待値を導出する）+ 冪等性・意味保存の各テスト |
 | DP-JIN-CANONICAL-01 | JSON エスケープ処理を自前で書くことによるバグリスクを、非 ASCII・制御文字・サロゲートペアの fixture で必ず検証する | condition | 構造化 | **reflected** | `packages/jin-core/tests/test_canonical.py` の `test_non_ascii_is_not_escaped` / `test_control_characters_are_escaped`（U+0001・U+001F を含む）/ `test_surrogate_pair_survives_roundtrip`（U+20BB7・U+1F409）/ `test_del_and_latin1_are_not_escaped`（U+007F・U+00E9）。**注記**: 独立した `.jin` ファイルの fixture ではなくテスト内リテラルで与えている。制約は「fixture で検証する」であり検証手段の形式までは指定していないが、ファイル fixture を望むならレビューで指摘されたい |
@@ -840,3 +846,74 @@ security reviewer に見てほしい箇所（すべて `guard:` 記法で主張�
 
 `importlib` を使う実装は `jin_cli/resolver.py` と `jin_adk/runtime.py` の 2 つだけ
 （`test_the_only_module_importing_importlib_is_the_cli_resolver` が厳密一致）。`jin_core` には無い。
+
+## 2.26 Phase 5 で決めたこと（`apps/editor` + `jin editor`）
+
+### 2.26.1 「独自のモデル状態を持たない」の線引き
+
+要件書 §10 #10 / FR-EDITOR-001 の禁止は「**モデルの写しを持たない**」であって、
+「サーバの応答を画面に出すために保持しない」ではない（それでは 1 ピクセルも描けない）。
+実装で引いた線:
+
+- 持つ — 直近の応答（`model` / `pointers` / `svg` / `diagnostics`）と、
+  **モデルから導出できない UI 意図**（選択の 3 つ組 / focus の circle 名 /
+  undo・redo のオペレーション列 / パネル開閉）。DP-COMMON-16 の推奨がそのまま言っている集合である
+- 持たない — **モデルを局所的に書き換える経路**。`ViewState` の `model` は
+  `jin/applyOps` の応答で丸ごと置き換わるだけで、部分更新するコードが 1 行も無い
+
+undo / redo に積むのもオペレーション列だけ（`test/history.test.ts` がエントリのキーが
+`forward` / `inverse` の 2 つだけであることを等号で見る）。
+
+### 2.26.2 `rename` 直後の選択追随（DP-IMPL-JIN-P5-RENAME-FOLLOW-01）
+
+DP-COMMON-16 案 B の cons が「別途決める必要がある」と名指ししていた箇所。
+**当てたオペレーションが選択中の要素の rename なら、選択の名前を新名へ差し替える。**
+サーバの `rename` は参照を全て追随させる（`docs/spec/ops.md` §3）ので、
+名前だけ差し替えれば新モデル上で同じ要素を指す。実装は `selection.ts::followRename` 1 本。
+変異 `SELECTION-rename-not-followed` で赤を実測。
+
+### 2.26.3 起動トークンは URL のフラグメントで渡す（DP-IMPL-JIN-P5-TOKEN-CHANNEL-01）
+
+クエリ（`?token=`）に置くとリクエストラインに載るので、`jin editor` 自身が動かす静的サーバの
+アクセスログに出るうえ、外部へ遷移したときの `Referer` にも載る。
+フラグメント（`#token=`）はどちらにも載らない。**残存**: ブラウザの履歴には残り、
+同じページの JS からは読める。README と `docs/spec/ops.md` §5.1 に明記した。
+
+### 2.26.4 線画の当たり判定（DP-IMPL-JIN-P5-HITAREA-01）
+
+`jin render` の出力は全部 `fill="none"` の線画なので、ブラウザ既定の
+`pointer-events: visiblePainted` では **1 px の線の上しか当たらない**（実測）。
+エディタ側の CSS で `[data-jin] { pointer-events: all; }` にした。
+**塗りは足していないので描画は変わらない** — 当たり判定だけを広げている。
+透明な図形を重ねる案は「エディタが図形を作る」ことになり要件書 §0 に触れるので採らなかった。
+
+### 2.26.5 追加する要素の初期値（DP-IMPL-JIN-P5-ADD-DEFAULTS-01）
+
+**スキーマ上必須の欄だけを埋め、値は空にする**（`{name: "tool1", kind: "tool", ref: ""}`）。
+`ref` に架空のモジュール名を入れるのは、ユーザーが書いていない参照を捏造することであり、
+「要件書に無い値を推測で置かない」に反する。空なら `jin check` が未解決参照として診断を出すので、
+次に何をすべきかが図の上に出る。
+
+### 2.26.6 Phase 4 から潜んでいた欠陥の修正（pygls の `start_ws`）
+
+pygls 2.1.1 の `LanguageServer.start_ws` は 1 本目の接続が閉じた直後に `shutdown()` を呼ぶ。
+`jin lsp --ws` はこれを使っていたので、**ws のクライアントは再接続できなかった**
+（ブラウザのエディタではページを 1 回再読み込みしただけで死ぬ）。
+`JinLanguageServer.serve_ws` を足し、接続ごとに `pygls.io_.run_websocket` を回して
+`shutdown()` を呼ばない形にした。`stop_event` も接続ごとに作り直す
+（使い回すと 1 本目の切断で set されたまま残り、2 本目が受信ループに入らない）。
+再発検知は `test_ws_roundtrip.py::test_the_server_survives_a_client_reconnect`
+（生の `websockets` で 3 回張り直す。**LSP の `shutdown` / `exit` は送らない** —
+それを受けたサーバが終了するのは正しい挙動であって、直したい欠陥ではない）。
+変異 `WS-shutdown-after-one-client` / `WS-shared-stop-event` / `EDITOR-uses-pygls-start-ws` で赤を実測。
+
+### 2.26.7 要件書 §7.1 から形を変えた／落としたもの
+
+`implementation-notes.md` P5-9 の表が正本。要点だけ:
+
+- **ドラッグ並べ替え**は「紋を別の紋の上で離すとその添字へ移す」形にした。
+  角度から添字を求めるにはレイアウト規則の再実装が要り、要件書 §0 に触れる
+- **「環の空き位置をクリック」**はツールバーのボタンにした。SVG に「空き位置」を表す要素が無い
+  （`data-jin` を持たない描画要素を置かない・layout.md §3.1）
+- **codeAction の実行導線は落とした**（診断一覧のクリックで選択と hint の表示までに留めた）。
+  ADR-002 の最小 UI の範囲。**PR 本文にも「落とした」と明記する**

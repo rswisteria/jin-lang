@@ -116,7 +116,12 @@ def test_the_exhaustiveness_tripwire_is_present() -> None:
     網羅性検査を緩めた瞬間に `pnpm build` が赤くなる。
     """
     fixture = (EDITOR / "test" / "exhaustiveness.fixture.ts").read_text(encoding="utf-8")
-    assert "@ts-expect-error" in fixture
+    # **説明文ではなくディレクティブ**を数える。docstring にも同じ語が出るので、
+    # 単なる `in` 判定だと行を消しても緑のままになる（変異ハーネスで実測して直した）。
+    directives = [
+        line for line in fixture.splitlines() if line.lstrip().startswith("// @ts-expect-error")
+    ]
+    assert len(directives) == 1, directives
     assert "assertNever" in fixture
 
 
@@ -130,6 +135,19 @@ def test_the_editor_does_not_add_a_twentieth_operation() -> None:
     used = set(re.findall(r'op: "([A-Za-z]+)"', source))
     assert used <= known, sorted(used - known)
     assert len(known) == 19, len(known)
+
+
+def test_jin_editor_does_not_use_the_pygls_start_ws() -> None:
+    """`jin editor` は `JinLanguageServer.serve_ws` を使う（pygls の `start_ws` ではない）。
+
+    pygls 2.1.1 の `start_ws` は 1 本目の接続が閉じた直後に `shutdown()` を呼ぶので、
+    **ページを再読み込みしただけでエディタが死ぬ**。挙動そのものは
+    `packages/jin-lsp/tests/test_ws_roundtrip.py::test_the_server_survives_a_client_reconnect`
+    が見張っている。ここは呼び先が戻っていないことの二層目である。
+    """
+    source = (REPO_ROOT / "packages/jin-cli/src/jin_cli/editor.py").read_text(encoding="utf-8")
+    assert "server.serve_ws(" in source
+    assert "server.start_ws(" not in source
 
 
 JIN = Path(sys.executable).parent / "jin"
