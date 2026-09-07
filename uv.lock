@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -12,6 +12,7 @@ members = [
     "jin-adk",
     "jin-cli",
     "jin-core",
+    "jin-lsp",
     "jin-render",
     "jin-workspace",
 ]
@@ -198,6 +199,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f1/51/bc1729d3cfdc214b4935f4e886e4dd443c3065fd8e1e66423fe84b490f81/authlib-1.8.0.tar.gz", hash = "sha256:f3ecd5f1da737262fb53bf1a4d95c4ea1ad9dd509316587a255c99ab1838a4f0", size = 177759, upload-time = "2026-08-30T12:12:34.833Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b8/c6/6f124bcfbbfb20fba22c939b4e43a06dccfc0e1ca20e5634ca573cb1e271/authlib-1.8.0-py2.py3-none-any.whl", hash = "sha256:88aebbd9af6757e14e912d5dc007ae1dc1f3e27e3b2152ce7c552ee2c3b3c121", size = 260804, upload-time = "2026-08-30T12:12:33.162Z" },
+]
+
+[[package]]
+name = "cattrs"
+version = "26.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d6/b2/42f4524e5479b090040b5fd8bb316dd8c65a079bb6492494ce2079dc91be/cattrs-26.2.0.tar.gz", hash = "sha256:3cf49f69df8326bcf17a3cb3d3d3ec4a856858fe3a7473746c9044c317d3ba55", size = 524993, upload-time = "2026-09-06T20:31:58.055Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/4d/6b8460462012a52075ba97932197f8c141be71b8e5f7e918af08ee73424b/cattrs-26.2.0-py3-none-any.whl", hash = "sha256:c680f17cd1df3a1c038ad1db8d90a9c595568cc54c4e8098e7ceb8d7b9bd826b", size = 74830, upload-time = "2026-09-06T20:31:56.327Z" },
 ]
 
 [[package]]
@@ -866,6 +880,7 @@ source = { editable = "packages/jin-cli" }
 dependencies = [
     { name = "jin-adk" },
     { name = "jin-core" },
+    { name = "jin-lsp" },
     { name = "jin-render" },
     { name = "typer" },
 ]
@@ -874,6 +889,7 @@ dependencies = [
 requires-dist = [
     { name = "jin-adk", editable = "packages/jin-adk" },
     { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-lsp", editable = "packages/jin-lsp" },
     { name = "jin-render", editable = "packages/jin-render" },
     { name = "typer", specifier = ">=0.27,<1" },
 ]
@@ -891,6 +907,23 @@ dependencies = [
 requires-dist = [
     { name = "lark", specifier = ">=1.3,<2" },
     { name = "pydantic", specifier = ">=2.13,<3" },
+]
+
+[[package]]
+name = "jin-lsp"
+version = "0.1.0"
+source = { editable = "packages/jin-lsp" }
+dependencies = [
+    { name = "jin-core" },
+    { name = "jin-render" },
+    { name = "pygls", extra = ["ws"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-render", editable = "packages/jin-render" },
+    { name = "pygls", extras = ["ws"], specifier = ">=2.1,<3" },
 ]
 
 [[package]]
@@ -912,6 +945,7 @@ dependencies = [
     { name = "jin-adk" },
     { name = "jin-cli" },
     { name = "jin-core" },
+    { name = "jin-lsp" },
     { name = "jin-render" },
 ]
 
@@ -919,6 +953,7 @@ dependencies = [
 dev = [
     { name = "import-linter" },
     { name = "pytest" },
+    { name = "pytest-lsp" },
     { name = "ruff" },
     { name = "syrupy" },
 ]
@@ -928,6 +963,7 @@ requires-dist = [
     { name = "jin-adk", editable = "packages/jin-adk" },
     { name = "jin-cli", editable = "packages/jin-cli" },
     { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-lsp", editable = "packages/jin-lsp" },
     { name = "jin-render", editable = "packages/jin-render" },
 ]
 
@@ -935,6 +971,7 @@ requires-dist = [
 dev = [
     { name = "import-linter", specifier = ">=2.14,<3" },
     { name = "pytest", specifier = ">=9.1,<10" },
+    { name = "pytest-lsp", specifier = ">=1.0,<2" },
     { name = "ruff", specifier = ">=0.16,<1" },
     { name = "syrupy", specifier = ">=6.0,<7" },
 ]
@@ -997,6 +1034,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/da/34/28fff3ab31ccff1fd4f6c7c7b0ceb2b6968d8ea4950663eadcb5720591a0/lark-1.3.1.tar.gz", hash = "sha256:b426a7a6d6d53189d318f2b6236ab5d6429eaf09259f1ca33eb716eed10d2905", size = 382732, upload-time = "2025-10-27T18:25:56.653Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/3d/14ce75ef66813643812f3093ab17e46d3a206942ce7376d31ec2d36229e7/lark-1.3.1-py3-none-any.whl", hash = "sha256:c629b661023a014c37da873b4ff58a817398d12635d3bbb2c5a03be7fe5d1e12", size = 113151, upload-time = "2025-10-27T18:25:54.882Z" },
+]
+
+[[package]]
+name = "lsprotocol"
+version = "2025.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "cattrs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/26/67b84e6ec1402f0e6764ef3d2a0aaf9a79522cc1d37738f4e5bb0b21521a/lsprotocol-2025.0.0.tar.gz", hash = "sha256:e879da2b9301e82cfc3e60d805630487ac2f7ab17492f4f5ba5aaba94fe56c29", size = 74896, upload-time = "2025-06-17T21:30:18.156Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/f0/92f2d609d6642b5f30cb50a885d2bf1483301c69d5786286500d15651ef2/lsprotocol-2025.0.0-py3-none-any.whl", hash = "sha256:f9d78f25221f2a60eaa4a96d3b4ffae011b107537facee61d3da3313880995c7", size = 76250, upload-time = "2025-06-17T21:30:19.455Z" },
 ]
 
 [[package]]
@@ -1454,6 +1504,25 @@ wheels = [
 ]
 
 [[package]]
+name = "pygls"
+version = "2.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "cattrs" },
+    { name = "lsprotocol" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/da/2e/7bbe061d175c0baddde8fc9edb908a4c31ba5d9165b8c68e3439c3a9f138/pygls-2.1.1.tar.gz", hash = "sha256:1da03ba9053201bb337dcdd8d121df70feb2a91e1a0dcc74de5da79755b1a201", size = 55091, upload-time = "2026-03-25T11:19:10.541Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fd/1a/208293b6c350f5abea6941d5606080d4a492644052504f5312e5de30a902/pygls-2.1.1-py3-none-any.whl", hash = "sha256:510a6dea2476177230c7d851125e5948efdf3fdb9ebfd8543fc434972f8faed4", size = 68975, upload-time = "2026-03-25T11:19:11.374Z" },
+]
+
+[package.optional-dependencies]
+ws = [
+    { name = "websockets" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.21.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1476,6 +1545,34 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e4/47/b9efed96c114afcfa3c9d3fe98a76a1d14c74a9e266d397cf6eb64be5e01/pytest-9.1.1.tar.gz", hash = "sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313", size = 1636369, upload-time = "2026-06-19T10:58:32.857Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl", hash = "sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c", size = 386536, upload-time = "2026-06-19T10:58:31.347Z" },
+]
+
+[[package]]
+name = "pytest-asyncio"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/43/7c/d36d04db312ecf4298932ef77e6e4a9e8ad017906e24e34f0b0c361a2473/pytest_asyncio-1.4.0.tar.gz", hash = "sha256:c6c0d2259945122819f171a32ecea2c349ead889ee28176caaf492143424be42", size = 58514, upload-time = "2026-05-26T09:56:04.083Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/e2/08a497ef684b88559c9cc5f4ad53a37e7b99e727094a86d6ea32536d5d3c/pytest_asyncio-1.4.0-py3-none-any.whl", hash = "sha256:933ca923a23075a87fb7070c0ec272a6848489824d887c85c812670932835aa1", size = 16930, upload-time = "2026-05-26T09:56:02.576Z" },
+]
+
+[[package]]
+name = "pytest-lsp"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pygls" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/b6/6cf89ad14813dd318d8a415e4d01809f89a6bf4649bf12df9934977329e7/pytest_lsp-1.0.1.tar.gz", hash = "sha256:cd9950fec2991e65364430dd419daeedf546928788f457e1106d5b751aea0be8", size = 29443, upload-time = "2026-06-17T22:36:04.952Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/0e/e7dfc7fc80921004ea5989ef8d8d44762323f46dfd9e1440184483387242/pytest_lsp-1.0.1-py3-none-any.whl", hash = "sha256:1a44390556253e384a1921cfc2eb9aad1c315e08576629e52942c71d35b95596", size = 26730, upload-time = "2026-06-17T22:36:03.562Z" },
 ]
 
 [[package]]

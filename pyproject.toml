@@ -7,6 +7,7 @@ dependencies = [
   "jin-core",
   "jin-adk",
   "jin-render",
+  "jin-lsp",
   "jin-cli",
 ]
 
@@ -20,6 +21,7 @@ members = ["packages/*"]
 jin-core = { workspace = true }
 jin-adk = { workspace = true }
 jin-render = { workspace = true }
+jin-lsp = { workspace = true }
 jin-cli = { workspace = true }
 
 [dependency-groups]
@@ -30,6 +32,11 @@ dev = [
   "import-linter>=2.14,<3",
   # 生成 agent.py のスナップショット（要件書 §9「コード生成」）。版は version-matrix.md §8（Phase 2）
   "syrupy>=6.0,<7",
+  # 要件書 §9「LSP: pytest-lsp で … 各ラウンドトリップ」。版は version-matrix.md §9（Phase 4）。
+  # **ws のラウンドトリップは pytest-lsp では張れない**（`ClientServerConfig` が
+  # `server_command` しか受けず WebSocket の接続先を持たない・lsp-api-probe.md §2 の実測）。
+  # ws 側は `websockets` クライアントの自前ハーネス（packages/jin-lsp/tests/ws_harness.py）で回す。
+  "pytest-lsp>=1.0,<2",
 ]
 
 [tool.pytest.ini_options]
@@ -59,7 +66,7 @@ extend-exclude = ["delivery", "docs", ".venv"]
 [tool.importlinter]
 # ADR-004 (DP-COMMON-11): 依存の一方向性を機械で落とす。
 # 契約の正本は design.yaml architecture.dependency_direction.rules の 8 行。
-root_packages = ["jin_core", "jin_adk", "jin_render", "jin_cli"]
+root_packages = ["jin_core", "jin_adk", "jin_render", "jin_lsp", "jin_cli"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -70,15 +77,19 @@ type = "layers"
 # という**実際の契約より強い順序**を宣言してしまう。
 # Phase 3 以降の最終形（design.yaml architecture.dependency_direction.rules 3〜4）:
 #   layers = ["jin_cli", "jin_lsp", "jin_adk | jin_render", "jin_core"]
-# **Phase 3 で `"jin_adk | jin_render"` に書き換えた。** Phase 2 の時点で先に書いていたら
-# import-linter 2.14 が `Missing layer 'jin_render': module jin_render does not exist.` で exit 1 に
-# なっていた（2026-09-05 実測）。`jin_lsp` は Phase 4 でこの並びに足す（今書くと同じ理由で落ちる）。
+# **Phase 3 で `"jin_adk | jin_render"` に書き換え、Phase 4 で `"jin_lsp"` を足して最終形にした。**
+# Phase 2 の時点で先に書いていたら import-linter 2.14 が
+# `Missing layer 'jin_render': module jin_render does not exist.` で exit 1 になっていた（2026-09-05 実測）。
+# `jin_lsp` は **`jin_adk | jin_render` より上・`jin_cli` より下の単独レイヤ**である
+# （design.yaml rule 5「jin-lsp は jin-core / jin-adk / jin-render に依存してよい」・
+# rule 6「jin-cli は jin-lsp に依存する」）。兄弟ではないので `|` で並べない。
 # 素朴な直列（別要素に並べる）に戻すと
 # tests/contract/test_packaging_contract.py::test_layers_contract_keeps_sibling_packages_in_one_element が落とす。
 # パッケージを足すときは root_packages とこの行を同時に直すこと
 # （同テストファイルが網羅を機械で確認する）。
 layers = [
   "jin_cli",
+  "jin_lsp",
   "jin_adk | jin_render",
   "jin_core",
 ]
@@ -89,7 +100,7 @@ type = "forbidden"
 # design.yaml のルール 2 / 4。ADK の語彙が現れてよいのは jin_adk だけ（CLAUDE.md）。
 # 契約名から `google-adk` の語を外さないこと
 # （tests/contract/test_dependency_direction.py::test_import_linter_contracts_are_declared が見ている）。
-source_modules = ["jin_core", "jin_render"]
+source_modules = ["jin_core", "jin_render", "jin_lsp"]
 forbidden_modules = ["google"]
 
 [[tool.importlinter.contracts]]
@@ -99,8 +110,12 @@ forbidden_modules = ["google"]
 # （tests/contract/test_packaging_contract.py がそれを強制する）。
 name = "任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる"
 type = "forbidden"
-source_modules = ["jin_core", "jin_adk", "jin_render"]
+source_modules = ["jin_core", "jin_adk", "jin_render", "jin_lsp"]
 # Phase 2: `jin run` の import 実装 `jin_adk.runtime` も対象（jin_core からは到達させない）。
 # Phase 3: `jin_render` も対象（Phase 4 の `jin/renderSvg` が ws から呼ぶ経路の手前で閉じる）。
-# Phase 4 で jin_lsp を作ったら source_modules に足す（ws 公開パスから両方へ到達させない・phase2-handoff.md §6）
+# Phase 4: `jin_lsp` も対象。**これが本命**である。`jin lsp --ws` は WebSocket を
+# ローカルに開くので、そこから `jin_cli.resolver`（`ref` の import）と `jin_adk.runtime`
+# （生成コードの import）へ到達できてはならない（phase2-handoff.md §6）。
+# jin_lsp が jin_adk 自体を依存に持たないこと（`packages/jin-lsp/pyproject.toml`）と
+# 二重の網になっている。
 forbidden_modules = ["jin_cli.resolver", "jin_adk.runtime"]

@@ -1,0 +1,30 @@
+[project]
+name = "jin-lsp"
+version = "0.1.0"
+description = "Jin の Language Server（stdio / WebSocket・標準機能と独自リクエスト）"
+requires-python = ">=3.12"
+# 版の根拠: delivery/20260904-1445-jin/version-matrix.md（Phase 4 で実測を追記）。
+# **`pygls[ws]` の `[ws]` を落とさないこと。** 素の pygls には `websockets` が入らず、
+# `jin lsp --ws PORT` が実行時に ModuleNotFoundError で落ちる
+# （delivery/20260904-1445-jin/lsp-api-probe.md §1「WebSocket には extra が要る」の実測）。
+# `lsprotocol` は pygls が `==2025.0.0` に厳密ピンしているので**ここで再ピンしない**。
+#
+# jin-lsp は jin-core と jin-render に依存する（design.yaml rule 5）。
+# **jin-adk には依存しない**（google-adk を LSP 起動のたびに丸ごと読み込むことになる。
+# hover の ADK クラス名は docs/spec/adk-mapping.md の静的な対応表から引く）。
+dependencies = [
+  "jin-core",
+  "jin-render",
+  "pygls[ws]>=2.1,<3",
+]
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+jin-render = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jin_lsp"]

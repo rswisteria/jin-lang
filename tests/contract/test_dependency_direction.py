@@ -210,19 +210,29 @@ def test_jin_core_imports_no_other_jin_package() -> None:
                 assert not (top.startswith("jin_") and top != "jin_core"), f"{path}: {name}"
 
 
-@pytest.mark.parametrize("later_package", ["jin_lsp"])
-def test_later_packages_do_not_exist_yet(later_package: str) -> None:
-    """Phase 3 までが実装済み。Phase 4 以降のパッケージはまだ無い。
+#: design.yaml `architecture.dependency_direction.rules` が名指しする Python パッケージの全集合。
+#: **Phase 4（`jin_lsp`）で最後の 1 つが埋まった。** v1 のスコープではこれ以上増えない
+#: （要件書 §1.2 のリポジトリ構成。`apps/editor` は Python パッケージではない）。
+PLANNED_PACKAGES = ("jin_core", "jin_adk", "jin_render", "jin_lsp", "jin_cli")
 
-    `jin_adk` は Phase 2（実装ラウンド 2）で、`jin_render` は Phase 3（実装ラウンド 3）で
-    追加し、この parametrize から外した。`jin_lsp` は残す（Phase 4 で同じ手順を踏む）。
 
-    存在するようになったらこのテストが赤くなる。そのとき直すのは**この 1 行ではなく**
-    `CLAUDE.md` の「パッケージを足すときのチェックリスト」の 8 項目である
+@pytest.mark.parametrize("planned_package", PLANNED_PACKAGES)
+def test_every_planned_package_exists(planned_package: str) -> None:
+    """design.yaml が名指しする 5 パッケージが全て実在する（Phase 4 で最後の 1 つが埋まった）。
+
+    Phase 3 まではこれが `test_later_packages_do_not_exist_yet`（未実装パッケージが**無い**ことを
+    固定するトリップワイヤ）だった。`jin_adk` は Phase 2、`jin_render` は Phase 3、
+    `jin_lsp` は Phase 4 で追加され、parametrize から順に外れて空になったため、
+    **同じ 5 つの名前を「全部ある」側から固定する形に反転させた**（削除ではない。
+    この docstring が持つチェックリストの所在ごと消える）。
+
+    パッケージを足すときに直すのは**この 1 行ではなく** `CLAUDE.md` の
+    「パッケージを足すときのチェックリスト」の 8 項目である
     （conventions review A-3・Phase 3 修正ラウンド 3 で 8 項目に）:
 
     1. `[project].dependencies` / 2. `[tool.uv.sources]` / 3. `root_packages` /
-    4. layers 契約（兄弟は `"jin_adk | jin_render"` と `|` 区切り）/
+    4. layers 契約（**兄弟だけ**が `"jin_adk | jin_render"` と `|` 区切り。`jin_lsp` は
+       `jin_cli` と `jin_adk | jin_render` の間の単独レイヤ）/
     5. forbidden 契約の `source_modules` / 6. `packages/<name>/tests/__init__.py` /
     7. 依存する側の `packages/<x>/pyproject.toml`（Phase 2 修正ラウンド 1・F-W-P2-001）/
     8. `test_guard_claims.py` の期待集合（Phase 3 修正ラウンド 1・F-V-P3-006）
@@ -232,7 +242,22 @@ def test_later_packages_do_not_exist_yet(later_package: str) -> None:
     1〜7 の抜けは `tests/contract/test_packaging_contract.py` が名指しで落とす。
     8 は `test_guard_claims.py` がパッケージ名の等号で自己検出する。
     """
-    assert not (REPO_ROOT / "packages" / later_package.replace("_", "-")).exists()
+    assert (REPO_ROOT / "packages" / planned_package.replace("_", "-")).is_dir()
+
+
+def test_the_planned_package_set_matches_the_workspace() -> None:
+    """`PLANNED_PACKAGES` が `packages/` の実体と**過不足なく**一致する。
+
+    上のテストは「列挙した名前が実在する」しか見ないので、`PLANNED_PACKAGES` から名前を
+    1 つ削れば黙って緑になる（`packages/jin-lsp/` を作ったのに列挙を忘れる、が通ってしまう）。
+    等号で固定して、**列挙側が縮んだこと自体**を検出する。
+    """
+    on_disk = {
+        path.name.replace("-", "_")
+        for path in (REPO_ROOT / "packages").iterdir()
+        if path.is_dir() and (path / "pyproject.toml").is_file()
+    }
+    assert on_disk == set(PLANNED_PACKAGES)
 
 
 def test_editor_contract_is_not_yet_enforced() -> None:

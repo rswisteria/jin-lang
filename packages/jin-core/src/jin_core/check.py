@@ -259,4 +259,23 @@ def check_file(path: str | Path, *, resolver: RefResolver | None = None) -> Chec
     return check_text(text, str(path), resolver=resolver)
 
 
-__all__ = ["CheckResult", "JinReadError", "check_file", "check_text", "read_source"]
+def models_at(pointer: str, document: Any) -> list[type[BaseModel]]:
+    """pointer が指す位置のモデルクラス候補（`_model_at` の公開名）。
+
+    JIN002 の hint を作るために内部で使っている解決を、`jin-lsp` の completion が
+    **同じ実装で**使えるように公開する。ここを再実装すると「スキーマ由来のキー」
+    （要件書 §6.2 の completion 行）の解釈が 2 つになり、片方だけ古くなる。
+
+    `jin_core` は LSP を知らないままである（返すのは Pydantic のクラスだけ）。
+    """
+    return _model_at(pointer, document)
+
+
+__all__ = [
+    "CheckResult",
+    "JinReadError",
+    "check_file",
+    "check_text",
+    "models_at",
+    "read_source",
+]
