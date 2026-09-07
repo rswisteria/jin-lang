@@ -2607,3 +2607,20 @@ JSON のキー名**（例 `/note`）が診断に出る。値の生テキスト 4
 | `mutate_i9.py` | **9/9 caught**・SKIP 0・実ツリー不変 |
 | `pending-decisions-generator --check` | 無ドリフト（exit 0） |
 | `implementation-plan.json` の schema | 0 errors |
+
+### I9-8.1 実機 CI（PR #23・run 34111030455・head `0d9a380`・2026-09-07）
+
+`pull_request` の GitHub Actions が **3 job とも success**。
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test` | success | **1415 passed, 1 skipped** / `Contracts: 3 kept, 0 broken.` |
+| `editor` | success | Phase 6 のまま（本ランは TS に触っていない） |
+| `plugin` | success | `claude plugin validate --strict` |
+
+手元（macOS）の計 1416 = **1411 passed / 2 failed / 3 skipped** と、CI（Linux）の
+**1415 passed / 1 skipped** は合計 1416 で一致する。差の内訳は Phase 6 と同じで、
+(a) macOS 固有の 2 失敗が Linux では緑、(b) 手元でスキップされる 3 件のうち 2 件が CI では実行される。
+
+**`test` job が実際にこのラウンドの変更を通っている**ことは、`uv run lint-imports` の
+`Contracts: 3 kept` と件数の増（Phase 6 の 1407 → 1415、+8 = 001 の 3 本 + 005 の 4 本 + 006 の 1 本）で見える。
