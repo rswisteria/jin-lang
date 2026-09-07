@@ -2282,3 +2282,181 @@ Playwright のブラウザは CI が自前で取得する（`chromium_headless_s
 | 「入れ子の小陣をダブルクリックで `focus` を切り替える」 | 実装済み（`jin/renderSvg` に `focus` を渡し直す） | |
 | 「codeAction を実行できる」 | **未実装**（HANDOFF `DP-IMPL-JIN-P5-CODEACTION-UI-01`） | `textDocument/codeAction` の往復は Phase 4 で通っているが、エディタ側の導線は診断一覧のクリック（選択と hint の表示）までに留めた。ADR-002 の最小 UI の範囲。**PR 本文に「落とした」と明記する** |
 | 「circle 同士を結ぶ → `addDelegate` または `summon` ツール追加」 | `addDelegate` だけ実装。**`summon` の紋はエディタから作れない** | 「紋を追加」は常に `kind: "tool"` で作り、フォームの `kind` は schema の `const` なので読み取り専用になる。kind を変える導線（種別を選ぶ UI）は ADR-002 の差し替え対象。`.jin` を直接書くか Claude Code から足せば図には出る。**PR 本文に「落とした」と明記する** |
+
+---
+
+# Phase 6（デバッグモード / トレースリプレイ）— Issue #7・2026-09-07
+
+要件書 §7.2 / design.yaml `implementation_phases.items[6]`。
+**要件書 v1 の最後の Phase**である（Phase 7 は §11 で「任意」・`scope.wont`）。
+
+## P6-1. 成果物と件数
+
+| 追加 | 中身 |
+|---|---|
+| `apps/editor/src/trace/parse.ts` | JSONL → 行（実ファイル行番号つき）。`seqOf` / `pointerOf` / `stringOf` / `maxSeq` |
+| `apps/editor/src/trace/filter.ts` | `isAncestorOrSame` / `eventsFiredAt`（pointer 一致フィルタ） |
+| `apps/editor/src/debug/replay.ts` | `Replay`（読み込んだトレース + `upto`）と `loadTrace(File)` |
+| `apps/editor/src/debug/DebugPanel.tsx` | ファイル入力 / スクラバ / イベント一覧 / 詳細 |
+| `apps/editor/test/trace.test.ts` | 24 件（parse 10 / `isAncestorOrSame` 6 / `eventsFiredAt` 8） |
+| `apps/editor/e2e/debug.spec.ts` | 6 本（machine 4 件 + 壊れた JSONL + モード共有） |
+| `delivery/.../phase6-mutations/mutate_p6.py` | 変異 19 件 |
+
+| 変更 | 中身 |
+|---|---|
+| `apps/editor/src/App.tsx` | モード切替（ページ内）/ `refresh` の第 3 引数に `Replay` / トレースの保持 |
+| `apps/editor/src/style.css` | デバッグパネルの見た目 |
+| `packages/jin-lsp/src/jin_lsp/requests.py` | トレース行の契約違反で**何件目か**を言う |
+| `tests/contract/test_editor_contract.py` | Phase 6 の契約 6 件 |
+
+**サーバ側のプロトコルは 1 本も増やしていない**（要件書 §6.3 の 4 種 + ADR-011 の 2 種のまま）。
+
+## P6-2. トレースをどこから読むか（`DP-IMPL-JIN-P6-TRACE-SOURCE-01`）
+
+要件書 §7.2 は「`jin run --trace` の JSONL を読み込み」としか書いておらず、
+**誰が読むか**を決めていない。選択肢は 2 つあった:
+
+| 案 | 採否 |
+|---|---|
+| (a) ブラウザの `<input type="file">` で読む | **採用** |
+| (b) `jin/openTrace`（仮）を足してサーバに読ませる | 不採用 |
+
+(b) は要件書 §6.3 の独自リクエスト 4 種（+ ADR-011 の 2 種）への**追加**であり、
+ADR-011 の前例どおり**リクエスト名の人間承認が要る**。加えて `jin lsp --ws` は
+same-origin 制限の無い口なので（`docs/spec/ops.md` §5.1）、ファイルを読む口を
+1 本増やすことは防御の面積を増やす。(a) ならブラウザが読めるのは
+**ユーザーが選んだ 1 本**だけで、サーバの口は広がらない。Playwright の
+`setInputFiles` でそのまま駆動できるので検査も落ちる。
+
+**残存 3 つ**:
+
+1. エディタは `.jin` の隣にあるトレースを自動で拾わない（毎回ユーザーが選ぶ）
+2. **スクラブのたびにトレース配列を丸ごと ws で送り直す。** サーバがトレースを保持する経路は
+   (a) を採った帰結として無い。`jin render` は 1 行ずつ読んで常駐させない（F-S-P3-011）が、
+   エディタは `upto` を動かすたびに全行を送る。v1 の想定（fake で 11 行）では問題にならないが、
+   モデル出力の大きい長いセッションでは 1 回のスクラブが MB 単位の送信になる
+3. `<input type="file">` は**同じファイルを選び直しても `change` を出さない**（ブラウザの仕様）。
+   「行番号を見て直す → 同じファイルを選び直す」が行番号を出す意味そのものの動線なので、
+   `onChange` で `event.target.value = ""` に戻して次の選択が必ず発火するようにした。
+   **Playwright の `setInputFiles` は常に `change` を発火させる**ので、この挙動は
+   自動検査で守られていない（人手で確認した）
+
+## P6-3. どこまでを TS 側で検証するか
+
+`parse.ts` が見るのは **`jin_cli.main._read_trace_rows` と同じ範囲**だけである:
+
+- 行の区切りは **`\n` だけ**（JS の `split("\n")` は U+2028 / U+2029 で割らない）
+- 行末の `\r` は 1 つだけ落とす / 先頭 BOM は 1 つだけ落とす
+- 空行は読み飛ばす（**行番号は実ファイルの位置のまま**・F-V-P3-004 と同じ理由）
+- `JSON.parse` して**オブジェクト**であること
+
+`seq` / `pointer` の契約（1 始まり・`1..2^63-1`・`bool` を除く・`pointer` は str か null）は
+**`jin_render.overlay.read_trace` が持つ**。TS 側で二重に実装すると、レンダラの規則を
+変えたときに片方だけ直して食い違ったことに気づけない。`seqOf` は「スクラバの上限を
+数えるため」に整数かどうかだけを見る（`1.5` / `true` / `"x"` は `null`）。
+
+**結果として残る非対称**: JSON として壊れた行は**エディタが行番号つきで**断り、
+行の契約違反は**サーバが何件目かを添えて**断る。行番号はプロトコルを渡るときに失われる
+（クライアントが JSONL を配列にしてから送る）ので、サーバが言えるのは配列の位置までである。
+
+## P6-4. フィルタの一致規則は overlay の規則 1 と同じ
+
+`eventsFiredAt` は「選んだ pointer が行の pointer と**同じかその祖先**」で残す。
+これは `jin_render.overlay.is_ancestor_or_same` の写しであり、**前方一致ではない**
+（`/circles/2` は `/circles/20/core` を拾わない）。図で光る要素と一覧に残る行を
+同じ規則にしないと、フィルタが「別の意味の一致」を持つことになる。
+
+**referent 規則（`docs/spec/layout.md` §7.1 の規則 2）は使わない。** `summon` の紋の
+`data-jin` は参照**側**の pointer なので、参照先 circle の行（`/circles/4/core` など）は
+フィルタに残らない。図ではその紋が `data-jin-ref` で強調されるのに一覧には出ない、という
+ずれが**残存**する。`data-jin-ref` を見て参照先の配下も残すと「一致」が 2 種類になり、
+要件書 §7.2 の「`pointer` 一致」でなくなるので採らなかった。
+
+TS 側の期待値が正しいことは TS だけでは言えないので、
+`tests/contract/test_editor_contract.py::test_the_pointer_filter_agrees_with_the_overlay_rule` が
+**実 fixture × `jin_render.overlay.is_ancestor_or_same`** を Python で計算し、
+`test/trace.test.ts` に書かれた期待値と突き合わせる（レンダラの規則を変えれば赤くなる）。
+
+## P6-5. トレースは `ViewState` の外に置く（DP-COMMON-19 を触らない）
+
+5 状態は「LSP との関係」を表しており、トレースの有無はそれと**直交する**
+（構文エラー中でもトレースは読めるし、正常表示でもトレースが無いことはある）。
+`ViewState` に畳むと状態が 10 通りになる。`App` の別 `useState` に置き、
+`refresh(focus, diagnostics, replay)` の**引数**で渡す。
+
+副作用として **編集してもトレースが保持される**（`jin/applyOps` の応答で
+`ViewState` を置き換えても `replay` は残る）。
+**残存**: 編集で配列が並び替わると、古いトレースの pointer が別の要素を指しうる。
+
+`tests/contract/test_editor_contract.py::test_the_trace_is_not_folded_into_the_view_state` が
+`viewState.ts` に `Replay` / `trace` / `upto` の語が入らないことで固定する。
+
+## P6-6. 変異（`phase6-mutations/mutate_p6.py`）— **19/19 caught**・SKIP 0
+
+**変異が偽緑を 4 件検出した**（いずれも「テストがその防御を見ていなかった」）:
+
+| 変異 | 偽緑の理由 | 直した内容 |
+|---|---|---|
+| `TRACE-splits-on-unicode-separators` | U+2028 を**エスケープ列**（`\\u2028`）で書いていたので、生の U+2028 で割る変異に当たらない | TS の ` `（単一バックスラッシュ）で**生の文字**を JSON 文字列に入れる |
+| `TRACE-seq-accepts-non-integers` | `seqOf` に `1.5` を通す検査が無かった | `1.5` を fixture に足し、`maxSeq` が 0 になることも見る |
+| `FILTER-falls-back-to-everything` | 「1 件も一致しない選択」の検査が無く、`if (kept.length === 0) return events;` を入れても緑 | 0 件になる選択（rune / 存在しない circle）を追加 |
+| `E2E-uses-a-hand-made-trace` | fixture パスを `in` で見ていて、**docstring にも同じパスが書いてある**ので値を差し替えても緑（Phase 5 の `@ts-expect-error` と同型） | `const TRACE = join(REPO_ROOT, "…")` の**代入**を正規表現で見る |
+
+**この表で守られていないもの**: 隔離コピーに `dist` が無く、`e2e/editor.ts` がコピー側の
+root で `uv run jin editor` を起こす（`.venv` の再作成に落ちる）ため、**変異ハーネスは
+Playwright を回さない**。machine 1（スクラバでオーバーレイが変わる）と machine 2（決定性）と
+「編集してもトレースが残る」は Playwright だけが見張っている。machine 3 / 4 は
+Python 側に弱い網（`test_the_pointer_filter_agrees_with_the_overlay_rule` /
+`test_the_detail_panel_shows_the_four_fields`）を置いたので変異でも拾える。
+
+## P6-7. 完了条件（design.yaml `implementation_phases.items[6].verification`）
+
+### machine — 4 件すべて満たす
+
+| # | 条件 | 実装と検査 |
+|---|---|---|
+| 1 | JSONL を読み込み、スクラバで `upto` を動かすとオーバーレイが変化する | `e2e/debug.spec.ts` machine 1（`upto` 11 → 発火 5 / 点 11、0 → 0 / 0、3 → 3 / 3。点は 1..3 の連番） |
+| 2 | 同一 `upto` では常に同じ SVG | 同 machine 2（5 → 3 → 5 → 0 → 5 で 1 回目と 3・5 回目が**バイト一致**、間の 3 は別物） |
+| 3 | pointer 一致フィルタが指定 pointer で発火した行だけを残す | 同 machine 3（`/circles/2/core` → seq 1 / `/circles/3/core` → seq 2 / rune → 0 件）+ `test/trace.test.ts` 7 件 + Python 側の突合 |
+| 4 | 詳細パネルが `input` / `output` / `name` / `kind` を出す | 同 machine 4（`escalate` 行のオブジェクト入出力と、`input: null` の行を**そのまま**表示） |
+
+### human_only — **not_run**（PR レビューへ送る）
+
+- 「オーバーレイの視認性」。ADR-002 / DP-JIN-EDITOR-UX-01 のとおり本ランでは判定しない
+
+## P6-8. ゲートの実測（2026-09-07・`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1`）
+
+| ゲート | 結果 |
+|---|---|
+| `uv run ruff check .` / `format` | 緑 |
+| `uv run pytest` | 計 **1408**: **1403 passed / 2 failed / 3 skipped**（2 failed は macOS 固有の既知・`main` の HEAD でも落ちる） |
+| `uv run lint-imports` | 3 kept, 0 broken |
+| `scripts/generate_schema.py` | 無ドリフト |
+| `jin check` / `fmt --check` examples | 緑 |
+| `pnpm lint` / `build` / `test` / `e2e` | 緑（**test 62 / e2e 9**） |
+| `mutate_p6.py` | **19/19 caught**・SKIP 0・実ツリー不変 |
+
+macOS 固有の 2 失敗（`test_over_long_root_name_is_refused_not_a_traceback` /
+`test_unsafe_file_names_are_rejected_at_the_entry[bad\udcff.jin-\\udcff]`）は
+**変更前の作業ツリーでも同じく落ちる**ことを `git stash` で確認済み。Linux の CI では緑。
+
+### P6-8.1 実機 CI（PR #21・run 34096877462・head `a313671`・2026-09-07）
+
+`pull_request` の GitHub Actions が **3 job とも success**。
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test` | success（2m09s） | **1407 passed, 1 skipped**（1011 warnings・113.17s）/ `Contracts: 3 kept, 0 broken.` |
+| `editor` | success（1m08s） | `pnpm test` **62 passed**（6 files）/ `pnpm e2e` **9 passed**（19.9s） |
+| `plugin` | success（11s） | `claude plugin validate --strict` |
+
+手元（macOS）の計 1408 = **1403 passed / 2 failed / 3 skipped** と、CI（Linux）の
+**1407 passed / 1 skipped** は合計 1408 で一致する。差の内訳は
+(a) macOS 固有の 2 失敗が Linux では緑（`test_over_long_root_name_is_refused_not_a_traceback` /
+`test_unsafe_file_names_are_rejected_at_the_entry[bad\udcff.jin-\\udcff]`）、
+(b) 手元でスキップされる 3 件のうち 2 件が CI では実行される。
+**Phase 6 の変更が macOS 固有の 2 失敗を作ったのではない**ことは
+`git stash` でも確認済み（P6-8）。
+
+`editor` job の e2e が **3 → 9 本**になった（デバッグモードの 6 本が加わった）。
+`upto` を動かすたびに `jin/renderSvg` が往復する経路が、CI の実行環境でも 19.9 秒で通っている。

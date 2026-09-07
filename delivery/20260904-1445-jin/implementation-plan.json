@@ -481,6 +481,19 @@
       "called": true,
       "result": "passed",
       "note": "TS 側の版は npm レジストリで実測して固定した（完全一致・`^` / `~` を使わない）。`typescript-eslint@8.69.0` の peer が `typescript >=4.8.4 <6.1.0` なので TS 7 系は使えない。`vscode-ws-jsonrpc@3.5.0` が `vscode-jsonrpc ~8.2.1` に固定しているので 9 系は入れない。実行時 API も 2 件実測して直した: pygls の ws は JSON を binary フレームで送る（ブラウザ既定の blob のままだと JSON.parse が失敗し、エラーが握り潰されて Promise が永久に pending）／pygls の start_ws は 1 接続で shutdown する（ページ再読み込みでエディタが死ぬ）。詳細は delivery/20260904-1445-jin/editor-api-probe.md。"
+    },
+    {
+      "owners": [
+        "client"
+      ],
+      "jin_phase": 6,
+      "skill": "editor-debug-mode",
+      "trigger": "Stage 2 core（Phase 6・デバッグモード。着手前に jin/renderSvg の trace / upto の境界を実測してから書く）",
+      "stage": "core",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "サーバ側のプロトコルは 1 本も増やしていない（要件書 §6.3 の 4 種 + ADR-011 の 2 種のまま）。着手前に jin lsp --ws を起こして生の WebSocket で 8 通り測った（editor-api-probe.md §7）: upto 0 は拒まれない / upto -1 と seq 非整数は JSON-RPC の error で来る / 同じ upto はバイト一致 / focus と併用できる。行の契約違反が error で来るので、エディタは trace を外して図を残す（.jin は壊れていないため）。トレースはブラウザの <input type=\"file\"> で読む（DP-IMPL-JIN-P6-TRACE-SOURCE-01）。"
     }
   ],
   "tasks": [
@@ -1974,7 +1987,8 @@
     "DP-IMPL-JIN-P5-TOKEN-CHANNEL-01",
     "DP-IMPL-JIN-P5-HITAREA-01",
     "DP-IMPL-JIN-P5-ADD-DEFAULTS-01",
-    "DP-IMPL-JIN-P5-CODEACTION-UI-01"
+    "DP-IMPL-JIN-P5-CODEACTION-UI-01",
+    "DP-IMPL-JIN-P6-TRACE-SOURCE-01"
   ],
   "verification_status": {
     "smoke": "not_applicable",
@@ -2214,6 +2228,46 @@
         "result": "not_run",
         "jin_phase": 5,
         "detail": "design.yaml items[5].verification.human_only「UI/UX の妥当性」は human_only であり実施していない。ADR-002 / DP-JIN-EDITOR-UX-01 によりデザイナー参加後に差し替える前提。実施済みと報告してはならない"
+      },
+      {
+        "skill": "playwright-debug-mode",
+        "result": "passed",
+        "layer": "browser_e2e",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#p6-7-完了条件",
+        "detail": "design.yaml items[6] machine 1〜4 を Playwright で実測（`pnpm e2e` は debug 6 本 + smoke 3 本 = **9 passed**）。machine 1: `upto` 11 → 発火 5 / 点 11、0 → 0 / 0、3 → 3 / 3（点は 1..3 の連番）。machine 2: 5 → 3 → 5 → 0 → 5 で 1 回目と 3・5 回目の SVG が**バイト一致**、間の 3 は別物。machine 3: `/circles/2/core` → seq 1 / `/circles/3/core` → seq 2 / rune → 0 件。machine 4: `escalate` 行のオブジェクト入出力と `input: null` の行を**そのまま**表示。台本は `examples/pipeline/pipeline.jin` + `jin run --model fake` が実際に書いた `tests/fixtures/traces/pipeline-fake.jsonl`（11 行）。"
+      },
+      {
+        "skill": "pnpm-test",
+        "result": "passed",
+        "layer": "browser_e2e",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#p6-7-完了条件",
+        "detail": "`pnpm test`（vitest）→ 38 → **62 passed**。追加は `test/trace.test.ts` 24 件（JSONL の読み取り 10 / `isAncestorOrSame` 6 / `eventsFiredAt` 8）。フィルタの期待値は Python 側の `test_the_pointer_filter_agrees_with_the_overlay_rule` が実 fixture × `jin_render.overlay.is_ancestor_or_same` の計算と突き合わせる。"
+      },
+      {
+        "skill": "mutation-harness",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#p6-6-変異",
+        "detail": "`mutate_p6.py` **19/19 caught**・SKIP 0・実ツリー不変。偽緑を 4 件検出して検査を足した（U+2028 をエスケープ列で書いていた / `seqOf` に非整数を通す検査が無い / 「1 件も一致しない選択」の検査が無い / e2e の fixture パスを `in` で見ていて docstring でも成立）。**Playwright は回さない**（隔離コピーに dist が無く、`uv run jin editor` が `.venv` の再作成に落ちる）ので、machine 1 / 2 と「編集してもトレースが残る」はこの表では守られていない。"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "detail": "P6 行 4 件 reflected / not_reflected 0 / unknown 0（§2.27 に確定値 6 節）"
+      },
+      {
+        "skill": "phase-6-human-only-review",
+        "result": "not_run",
+        "layer": "browser_e2e",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#human_only--not_run",
+        "detail": "design.yaml items[6].verification.human_only「オーバーレイの視認性」は human_only であり実施していない。ADR-002 / DP-JIN-EDITOR-UX-01 のとおり PR レビューへ送る。"
       }
     ],
     "skip_policy": {
@@ -2683,6 +2737,15 @@
       "decide_by_phase": "implementation",
       "phase_impact": "要件書 §7.1 は「診断は SVG 上の該当要素にバッジで表示し、クリックで hint を出す。codeAction を実行できる」と書いている。前半（バッジ・hint）は実装したが、**後半（codeAction の実行）は落とした**。`textDocument/codeAction` の往復は Phase 4 で通っており（`jin.applyOps` コマンドの引数をそのまま `jin/applyOps` に投げれば実行できる）、足りないのはエディタ側の UI だけである。選択肢: (a) Phase 5 で実装しない（診断一覧のクリックで選択と hint の表示までに留める） (b) Phase 5 で実装する（バッジのクリックで候補を列挙し、選んだら applyOps へ流す） (c) Phase 6 に回す。**推奨と実装は (a)**。理由は ADR-002 が「機能要件だけを満たす最小 UI を作り、デザインは後で差し替える」と定めており、候補の列挙 UI は差し替え対象そのものだから。ただし**要件書の文言からの逸脱なので PR 本文に明記した**（Phase 4 の DP-IMPL-JIN-P4-HOVER-DOCSTRING-01 と同じ扱い）。",
       "recommendation": "(a) Phase 5 では実装しない",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P6-TRACE-SOURCE-01",
+      "title": "デバッグモードのトレース JSONL を誰が読むか",
+      "raised_by": "impl-p6 (Phase 6・要件書 §7.2 が読み手を決めていないため起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "要件書 §7.2 は「`jin run --trace` の JSONL を読み込み」としか書いておらず、ブラウザが読むのかサーバが読むのかを決めていない。選択肢: (a) ブラウザの `<input type=\"file\">` で読む (b) `jin/openTrace`（仮）を足してサーバに読ませる (c) `jin editor` の起動引数でトレースを受け、サーバが起動時に読む。**推奨と実装は (a)**。(b) は要件書 §6.3 の独自リクエスト 4 種（+ ADR-011 の 2 種）への追加であり、ADR-011 の前例どおりリクエスト名の人間承認を要する。加えて `jin lsp --ws` は same-origin 制限の無い口なので（ops.md §5.1）、ファイルを読む口を増やすと防御の面積が増える。(a) ならブラウザが読めるのはユーザーが選んだ 1 本だけで、Playwright の setInputFiles でそのまま駆動できる。残存: `.jin` の隣にあるトレースを自動では拾わない（毎回ユーザーが選ぶ）。",
+      "recommendation": "(a) ブラウザの <input type=\"file\"> で読む",
       "status": "ai_provisional"
     }
   ]

@@ -177,6 +177,23 @@ Phase 5 の要点（正典は要件書 §7 / `docs/spec/ops.md` §5 / `delivery/
 - `apps/editor` の版は**完全一致で固定**する（`^` / `~` を使わない）。
   レンダラの出力とバイト比較するテストがあるので、ツールチェーンが黙って動くと切り分けができない
 
+Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
+
+- **サーバ側のプロトコルを増やさない。** トレース JSONL は**ブラウザ**が
+  `<input type="file">` で読む（`apps/editor/src/trace/parse.ts`）。`jin/openTrace` のような
+  リクエストを足すのは要件書 §6.3 の 4 種（+ ADR-011 の 2 種）への追加で人間承認が要り、
+  `jin lsp --ws` の口も広がる（`tests/contract/test_editor_contract.py::test_the_debug_mode_does_not_add_a_new_lsp_request`）
+- **TS 側で行の契約を二重に実装しない。** `parse.ts` が見るのは
+  `jin_cli.main._read_trace_rows` と同じ範囲（`\n` 区切り / `\r` と BOM / 空行の読み飛ばし /
+  JSON オブジェクトであること）だけで、`seq` / `pointer` の契約は `jin_render.overlay.read_trace` が持つ
+- **フィルタの一致は overlay の規則 1 と同じ**（`jin_render.overlay.is_ancestor_or_same` の写し）。
+  `/` 区切りの段一致であって前方一致ではない（`/circles/2` は `/circles/20/core` を拾わない）。
+  referent 規則（`data-jin-ref`）は**使わない**
+- **エディタは `data-jin-fired` / `data-jin-seq` を 1 つも書かない。** オーバーレイを描くのは
+  `jin_render` 1 本で、同じ `upto` なら同じ SVG になる（machine 2）
+- トレースは `ViewState` の**外**に置く（5 状態を増やさない）。編集しても保持される
+- 壊れたトレースで**図を消さない**。`.jin` は壊れていないので `trace` を外して描き直し、理由を残す
+
 ## 開発コマンド
 
 ```bash
@@ -201,6 +218,9 @@ uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py   # 防�
 uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py   # 同上（Phase 3・jin-render）
 uv run python delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py   # 同上（Phase 4・jin-lsp）
 uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同上（Phase 5・apps/editor。pytest と pnpm の両方を回す）
+uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同上（Phase 6・デバッグモード）
+cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
+uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 ```
 
 テスト配置は ADR-003（パッケージ単位の垂直分割 + 横断契約テスト）:
