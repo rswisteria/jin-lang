@@ -2193,6 +2193,22 @@ undo / redo に積むのも**オペレーション列だけ**である（`test/h
 | `pnpm test`（**新規**・vitest） | **38 passed** |
 | `pnpm e2e`（**新規**・Playwright） | **3 passed** |
 
+### P5-5.1 実機 CI（PR #19・run 34090280409・head `6319986`・2026-09-07）
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test`（ubuntu-latest） | **pass** 2m59s | `1400 passed, 1 skipped`（pytest 本体 147.24s / 6 snapshots passed） |
+| `editor`（ubuntu-latest・**新規**） | **pass** 1m11s | `pnpm lint` / `pnpm build` / `pnpm test` **39 passed** / `pnpm e2e` **3 passed**（11.7s） |
+| `plugin`（ubuntu-latest） | **pass** 15s | `claude plugin validate --strict` |
+
+手元（macOS）の `1396 passed / 2 failed / 3 skipped` と足して 1401 で一致する。内訳は §P4-5.1 と同じで、
+手元の 3 skip（`/dev/full` 不在）は Linux で走って通り（+3）、macOS 固有の 2 失敗も Linux では通る（+2）。
+CI の 1 skip は `test_claude_plugin_validate_passes`（`test` job に `claude` CLI が無い）。
+
+Playwright のブラウザは CI が自前で取得する（`chromium_headless_shell-1234` を 4 秒で取得）。
+手元で 1.62.0 に固定した理由（この環境で 1.63.0 のブラウザを DL できなかった）は
+**CI には掛からない**ことが実機で確認できた。
+
 ## P5-6. 変異（`phase5-mutations/mutate_p5.py`）
 
 **30/30 caught・SKIP 0・実ツリー不変。** Phase 4 までと違い、**検査が 2 系統**ある
