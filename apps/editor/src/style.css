@@ -90,3 +90,98 @@ body {
 .jin-severity-warning {
   color: #d97706;
 }
+
+/* --- デバッグモード（要件書 §7.2） ------------------------------------- */
+.jin-debug h2 {
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+}
+
+.jin-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+  font-size: 0.85rem;
+}
+
+.jin-trace-error {
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.5rem;
+  border-left: 3px solid #dc2626;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.jin-trace-rows {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+}
+
+.jin-trace-rows button {
+  display: grid;
+  grid-template-columns: 2.5rem 5rem 1fr;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  border: 0;
+  border-bottom: 1px solid #f3f4f6;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+/* 未発火（`seq > upto`）は薄く出す。**消さない** — 何が残っているかが見えなくなる。 */
+.jin-trace-rows button[data-fired="0"] {
+  opacity: 0.45;
+}
+
+.jin-trace-rows button[data-selected="1"] {
+  background: #fff7ed;
+  outline: 2px solid #c2410c;
+  outline-offset: -2px;
+}
+
+.jin-trace-rows .jin-trace-name {
+  grid-column: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jin-trace-detail {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+}
+
+.jin-trace-detail dt {
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.jin-trace-detail dd {
+  margin: 0 0 0.35rem;
+}
+
+.jin-trace-detail pre {
+  margin: 0;
+  padding: 0.3rem 0.4rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.jin-toolbar button[data-active="1"] {
+  background: #1f2937;
+  color: #f9fafb;
+}

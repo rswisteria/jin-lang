@@ -26,6 +26,7 @@ from jin_core import canonical, ops
 from jin_core.model import JinFile
 from jin_core.parser import PointerTable
 from jin_render import render
+from jin_render.overlay import TraceRowError
 
 from jin_lsp.session import DocumentState
 
@@ -143,7 +144,18 @@ def jin_render_svg(
     model, stale = _require_model(state, uri)
     try:
         svg = render(model, focus=focus, trace=trace, upto=upto)
-    except Exception as exc:  # RenderError / TraceRowError / ValueError
+    except TraceRowError as exc:
+        # **どの行が悪いのかを言う**（NFR-FAIL-001）。`TraceRowError.index` は
+        # `trace` 配列の中の位置（0 始まり）で、**JSONL の行番号ではない**。
+        # 行番号はプロトコルを渡るときに失われる（クライアントが JSONL を読んで
+        # 配列にしてから送る）ので、ここで言えるのは位置までである。
+        # `jin render --trace` は同じ `index` を実ファイル行番号へ写して `path:N:` と出す。
+        raise RequestError(
+            "JIN002",
+            f"描画できません: トレースの {exc.index + 1} 件目: {exc}",
+            "trace の各行に seq（1 始まりの整数）と pointer（文字列 または null）を入れてください",
+        ) from exc
+    except Exception as exc:  # RenderError / ValueError
         raise RequestError(
             "JIN002",
             f"描画できません: {exc}",

@@ -4,7 +4,8 @@ TS 側の検査（`pnpm lint` / `pnpm build` / `pnpm test` / `pnpm e2e`）が本
 ここが見るのは **「その検査が所定の位置にあり、CI で走る」** ことと、
 Python 側からしか言えないこと（`jin editor` の入口・正準形の往復）である。
 
-要件書 §7 / design.yaml `implementation_phases.items[5].verification.machine` 7 件に対応する。
+要件書 §7 / design.yaml `implementation_phases.items[5]`（Phase 5・machine 7 件）と
+`items[6]`（Phase 6・machine 4 件）に対応する。
 """
 
 from __future__ import annotations
@@ -192,3 +193,110 @@ def test_jin_editor_reports_a_missing_build(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "Traceback" not in result.stderr
     assert "index.html" in result.stderr or "pnpm build" in result.stderr
+
+
+# ======================================================================================
+# Phase 6: デバッグモード（要件書 §7.2 / design.yaml items[6]）
+# ======================================================================================
+TRACE_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "traces" / "pipeline-fake.jsonl"
+
+
+def test_the_debug_mode_does_not_add_a_new_lsp_request() -> None:
+    """トレースは**ブラウザが読む**（HANDOFF `DP-IMPL-JIN-P6-TRACE-SOURCE-01`）。
+
+    要件書 §6.3 の独自リクエスト 4 種（+ ADR-011 の `jin/open` / `jin/save`）への
+    **追加は仕様変更**であり、人間の承認が要る。`<input type="file">` なら
+    読めるのはユーザーが選んだ 1 本だけで、`jin lsp --ws` の口も広がらない
+    （`docs/spec/ops.md` §5.1）。
+    """
+    protocol = (SRC / "rpc" / "protocol.ts").read_text(encoding="utf-8")
+    listed = re.search(r"JIN_METHOD = \{(.*?)\} as const", protocol, re.DOTALL)
+    assert listed is not None, "JIN_METHOD が見つからない"
+    methods = set(re.findall(r'"(jin/[A-Za-z]+)"', listed.group(1)))
+    assert methods == {
+        "jin/model",
+        "jin/renderSvg",
+        "jin/ops",
+        "jin/applyOps",
+        "jin/open",
+        "jin/save",
+    }, sorted(methods)
+
+    # ソースのどこにも 6 種以外の `jin/…` を書いていないこと。
+    used: set[str] = set()
+    for path in sorted(SRC.rglob("*.ts*")):
+        used |= set(re.findall(r'"(jin/[A-Za-z]+)"', path.read_text(encoding="utf-8")))
+    assert used <= methods, sorted(used - methods)
+
+    # ブラウザ側で JSONL を読む口が実在すること（読み込みをサーバへ回していない）。
+    parse = (SRC / "trace" / "parse.ts").read_text(encoding="utf-8")
+    assert "parseTrace" in parse
+    assert 'type="file"' in (SRC / "debug" / "DebugPanel.tsx").read_text(encoding="utf-8")
+
+
+def test_the_editor_does_not_compute_the_overlay_itself() -> None:
+    """machine 2 の前提: オーバーレイを描くのは `jin_render` 1 本（要件書 §0 / §4 最終項）。
+
+    `data-jin-fired` / `data-jin-seq` はサーバが返した SVG に**既に入っている**。
+    エディタがこれを自分で付け始めたら、同じ `upto` で同じ SVG になる保証が
+    レンダラの決定性（DP-JIN-SVG-DETERMINISM-01）から外れる。
+    """
+    offenders = [
+        f"{path.relative_to(REPO_ROOT)}: {name}"
+        for path in sorted(SRC.rglob("*.ts*"))
+        for name in ("data-jin-fired", "data-jin-seq")
+        if name in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == [], offenders
+
+
+def test_the_pointer_filter_agrees_with_the_overlay_rule() -> None:
+    """machine 3: フィルタの一致規則が overlay の規則 1 と**同じ**であること。
+
+    強い証拠は TS 側の `test/trace.test.ts` だが、その期待値が正しいことは
+    TS だけでは言えない。ここで `jin_render.overlay.is_ancestor_or_same` に
+    **実トレース**を通した結果を計算し、TS が書いている期待値と突き合わせる。
+    レンダラ側の規則を変えれば、こちらの計算が動いて TS の期待値とずれ、赤くなる。
+    """
+    from jin_render.overlay import is_ancestor_or_same
+
+    rows = [
+        json.loads(line)
+        for line in TRACE_FIXTURE.read_text(encoding="utf-8").split("\n")
+        if line.strip()
+    ]
+    assert len(rows) == 11, len(rows)
+
+    source = (EDITOR / "test" / "trace.test.ts").read_text(encoding="utf-8")
+    checked = 0
+    for pointer in ("/circles/2/core", "/circles/4/core", "/circles/4", "/circles/1/flow/exit"):
+        expected = [
+            row["seq"]
+            for row in rows
+            if row["pointer"] is not None and is_ancestor_or_same(pointer, row["pointer"])
+        ]
+        found = re.search(
+            re.escape(f'eventsFiredAt(rows, "{pointer}")')
+            + r"[\s\S]{0,90}?toEqual\(\[([0-9, ]*)\]\)",
+            source,
+        )
+        assert found is not None, f"TS 側に {pointer} の期待値が無い"
+        written = [int(value) for value in found.group(1).split(",") if value.strip()]
+        assert written == expected, (pointer, written, expected)
+        checked += 1
+    assert checked == 4
+
+    # **前方一致にしない**ことの検査が TS 側に置かれていること（変異の主対象）。
+    assert '"/circles/20/core"' in source, "段一致（`/` 区切り）の反例が無い"
+
+
+def test_the_e2e_uses_the_committed_trace_fixture() -> None:
+    """デバッグモードの e2e が**実際に `jin run` が書いた**トレースを読むこと。
+
+    作り物の JSONL を使うと「レンダラが読める形」から静かにずれる。この fixture が
+    実行結果と一致することは `tests/contract/test_render_contract.py` が見張っている。
+    """
+    spec = (EDITOR / "e2e" / "debug.spec.ts").read_text(encoding="utf-8")
+    assert "tests/fixtures/traces/pipeline-fake.jsonl" in spec
+    assert "examples/pipeline/pipeline.jin" in spec
+    assert TRACE_FIXTURE.is_file()

@@ -90,3 +90,31 @@ def test_diagnostics_stop_at_the_first_failing_stage() -> None:
     state = store.update("file:///a.jin", BROKEN)
     codes = {d.code for d in state.diagnostics}
     assert codes == {"JIN001"}, f"段 1 で止まっていない: {codes}"
+
+
+def test_render_svg_names_the_offending_trace_row() -> None:
+    """トレース行の契約違反は**何件目か**を言って断る（NFR-FAIL-001・要件書 §7.2）。
+
+    エディタ（Phase 6）は JSONL を読んで**配列**にしてから送るので、行番号は
+    プロトコルを渡るときに失われる。サーバが言えるのは配列の中の位置までであり、
+    それを黙って捨てると「トレースのどこかが悪い」しか出せなくなる。
+    """
+    import pytest
+    from jin_lsp import requests
+
+    store = DocumentStore()
+    state = store.update("file:///a.jin", GOOD)
+    good_row = {"seq": 1, "pointer": None}
+
+    with pytest.raises(requests.RequestError) as caught:
+        requests.jin_render_svg(
+            state, "file:///a.jin", trace=[good_row, good_row, {"seq": "x", "pointer": None}]
+        )
+    assert caught.value.code == "JIN002"
+    # 0 始まりの `index` ではなく**人が数える位置**で言う。
+    assert "3 件目" in caught.value.message, caught.value.message
+    assert "seq" in caught.value.message
+
+    # 正しい行なら通る（拒む側だけを見て緑にならないため）。
+    result = requests.jin_render_svg(state, "file:///a.jin", trace=[good_row], upto=1)
+    assert result["svg"].startswith("<svg")
