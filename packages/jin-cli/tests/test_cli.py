@@ -635,8 +635,8 @@ def test_fmt_keeps_the_original_when_the_replace_fails(
 
 
 # ---- S12: シンボリックリンク --------------------------------------------------------------
-def test_fmt_does_not_follow_symlinks(tmp_path: Path) -> None:
-    """S12: 対象ディレクトリの外にあるファイルを書き換えない。"""
+def _outside_link(tmp_path: Path) -> tuple[Path, Path, Path, str]:
+    """対象ディレクトリの中から外のファイルを指す symlink を 1 本張る。"""
     outside = tmp_path / "outside"
     outside.mkdir()
     target = outside / "real.jin"
@@ -645,15 +645,73 @@ def test_fmt_does_not_follow_symlinks(tmp_path: Path) -> None:
 
     inside = tmp_path / "inside"
     inside.mkdir()
-    (inside / "link.jin").symlink_to(target)
+    link = inside / "link.jin"
+    link.symlink_to(target)
+    return inside, link, target, original
 
-    result = run("fmt", str(inside))
+
+def test_fmt_does_not_follow_symlinks(tmp_path: Path) -> None:
+    """S12: 対象ディレクトリの外にあるファイルを書き換えない。
+
+    **symlink を名指しで渡す。** ディレクトリを渡すと `_collect` の走査側
+    （DP-REVIEW-JIN-001）が先に落とすので、`fmt` 自身の事前判定を通らない。
+    ここで固定したいのは後者である。
+    """
+    _inside, link, target, original = _outside_link(tmp_path)
+
+    result = run("fmt", str(link))
     assert target.read_text(encoding="utf-8") == original
     # 「シンボリックリンク」を含むだけでは緩い。下位のガード（R-1）が出す
     # 「書き込みを拒みました」でも通ってしまい、この事前判定を消しても赤くならない。
     # 事前判定は**飛ばして exit 0** で終わることが持ち味なので、そこまで固定する。
-    assert f"シンボリックリンクなので整形しません: {inside / 'link.jin'}" in result.output
+    assert f"シンボリックリンクなので整形しません: {link}" in result.output
     assert result.exit_code == 0, result.output
+
+
+# ---- DP-REVIEW-JIN-001: 走査は対象ディレクトリの外へ出ない --------------------------------
+def test_check_does_not_read_a_symlink_found_by_walking_a_directory(tmp_path: Path) -> None:
+    """走査で拾った symlink は**読まない**。範囲外ファイルの中身が診断に載らないこと。
+
+    `Path.rglob` はディレクトリ symlink は辿らないが（Python 3.14 実測）、
+    **ファイル symlink は拾う**。読むと、対象ディレクトリの外にあるファイルの
+    存在・パース可否・JSON のキー名が診断に出る。
+    """
+    inside, link, target, _original = _outside_link(tmp_path)
+    # リンク先を「Jin として壊れている」ものにする。読まれれば診断が必ず出る。
+    target.write_text('{"secretkey": "sk-DO-NOT-LEAK"}\n', encoding="utf-8")
+    # 走査が空にならないよう、正当なファイルを 1 つ置く。
+    write_jin(inside / "ok.jin", MINIMAL)
+
+    result = run("check", str(inside))
+    assert result.exit_code == 0, result.output
+    assert "secretkey" not in result.output, "リンク先のキー名が診断に載っている"
+    assert "sk-DO-NOT-LEAK" not in result.output
+    # **黙って飛ばさない**（NFR-FAIL-001）。
+    assert f"シンボリックリンクなので対象にしません: {link}" in result.output
+
+
+def test_a_symlink_named_directly_is_still_checked(tmp_path: Path) -> None:
+    """名指しされた symlink は従来どおり読む。問題は走査が範囲外へ出ることだけ。"""
+    _inside, link, target, _original = _outside_link(tmp_path)
+    target.write_text('{"secretkey": 1}\n', encoding="utf-8")
+
+    result = run("check", str(link))
+    assert result.exit_code == 1, result.output
+    assert "JIN002" in result.output, "名指しの symlink まで飛ばしている"
+    assert "対象にしません" not in result.output
+
+
+def test_fmt_does_not_reach_a_symlink_found_by_walking_a_directory(tmp_path: Path) -> None:
+    """`fmt` も走査側で落ちる（読み取りの経路は `check` と共通の `_collect`）。"""
+    inside, link, target, original = _outside_link(tmp_path)
+    write_jin(inside / "ok.jin", MINIMAL)
+
+    result = run("fmt", str(inside))
+    assert result.exit_code == 0, result.output
+    assert target.read_text(encoding="utf-8") == original
+    assert f"シンボリックリンクなので対象にしません: {link}" in result.output
+    # 走査側で落ちているので、`fmt` 自身の事前判定の文言は出ない。
+    assert "シンボリックリンクなので整形しません" not in result.output
 
 
 # ======================================================================================
@@ -914,17 +972,24 @@ def test_fmt_does_not_write_through_a_symlink_on_the_fallback_path(
         os.chmod(work, 0o755)
 
 
-def test_collect_does_not_filter_symlinks(tmp_path: Path) -> None:
-    """R-2: docstring が誤って `_collect` にガードがあると書いていた。実際は無い。
+def test_collect_filters_symlinks_only_when_walking(tmp_path: Path) -> None:
+    """「どこにガードがあるか」を思い込みではなくテストで固定する。
 
-    「どこにガードがあるか」を思い込みではなくテストで固定しておく。
-    `_collect` は `.jin` を集めるだけで、シンボリックリンクを落とさない。
+    R-2 の時点では `_collect` にフィルタが**無かった**（docstring の誤りを正した）。
+    DP-REVIEW-JIN-001（2026-09-07 toyota 確定）で**走査側にだけ**足したので、
+    非対称であること自体をここで固定する:
+
+    - **名指し**（`_collect([link])`）— 落とさない。ユーザーが指したものだから
+    - **走査**（`_collect([link.parent])`）— 落とす。範囲外へ出るのは走査の仕事ではない
+
+    書き込みのガードは今も `_collect` には無い。`fmt` の事前 `is_symlink()` と、
+    その下の `O_NOFOLLOW` / `os.replace` が担う（上の 4 本が固定している）。
     """
     from jin_cli.main import _collect
 
     _work, _victim, swapped, _original = _victim_and_symlink(tmp_path)
-    assert _collect([swapped]) == [swapped]
-    assert _collect([swapped.parent]) == [swapped]
+    assert _collect([swapped]) == [swapped], "名指しの symlink まで落としている"
+    assert _collect([swapped.parent]) == [], "走査が対象ディレクトリの外へ出ている"
 
 
 # ---- R-2: `guard:` 記法の検査は tests/contract/test_guard_claims.py へ移した（Phase 2 修正ラウンド 1・

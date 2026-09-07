@@ -1965,18 +1965,94 @@
       "decision_record": {
         "decided_by": "toyota",
         "decided_at": "2026-09-07T10:20:00+09:00",
-        "rationale": "Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。「claude plugin validate の job だけ足す」と「pnpm / Node job も今回足す」を提示し、後者を採った。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の apps/editor が pnpm を足す先を先に用意する。受け皿を先に置くのは、Phase 5 で赤くなったテストを『テストを差し替える』だけで消せる動線を塞ぐため（Issue #9 の起票理由そのもの）。**本ラウンドで足したのは Node のセットアップまでで、pnpm 自体のインストールは apps/editor が実在する Phase 5 に回した**（入れる対象が無い状態で pnpm install を書くと、その行が何も検証しないまま緑になる）。**注記: この decision_record は実装ラウンド側の記録であり、Issue #9 が定める `/aid decide` による docs/pending-decisions.md の再生成は未実施である**（md の手編集は禁止されているため、生成器で行う必要がある）。"
-      }
+        "rationale": "Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の apps/editor が pnpm を足す先を先に用意する。受け皿を先に置くのは、Phase 5 で赤くなったテストを『テストを差し替える』だけで消せる動線を塞ぐため（Issue #9 の起票理由そのもの）。Phase 4 で足したのは Node のセットアップまでで、pnpm 自体のインストールは apps/editor が実在する Phase 5 に回した（入れる対象が無い状態で pnpm install を書くと、その行が何も検証しないまま緑になる）。Phase 5 で editor job（pnpm install --frozen-lockfile / lint / build / test / e2e）を実装し、実機 CI で 3 job とも success を確認済み。【2026-09-07 追記・置換記録】Phase 4 時点の記録には『Issue #9 が定める /aid decide による docs/pending-decisions.md の再生成は未実施』と書いていたが、2026-09-07 に生成器（pending-decisions-generator/bin/generate.py --plugin-root .）で再生成して解消した（PR #22）。chosen は不変で、失効した注記だけを差し替えている。"
+      },
+      "chosen": "対応する: claude plugin validate の受け皿（plugin job）と pnpm / Node の受け皿の両方を CI に足す",
+      "compared": [
+        "claude plugin validate の job だけ足す"
+      ]
+    },
+    {
+      "id": "DP-REVIEW-JIN-001",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T17:10:00+09:00",
+        "rationale": "実測（2026-09-07・Python 3.14.6）: `Path.rglob` はディレクトリ symlink を辿らないが、ファイル symlink は拾って読む。ダミーの機密ファイルへ symlink を張って `jin check <dir>` を掛けると、対象ディレクトリ外のファイルが読まれ、JIN001 のトークンや JIN002 のキー名（例 `/note`）が診断に載った。値の生テキスト 40 文字が出るわけではないが、範囲外ファイルの存在・パース可否・キー名が漏れる。`jin fmt` は既に `path.is_symlink()` で拒んでおり、`check` だけが非対称に残っていた。走査（ユーザーが範囲を指定した探索）で範囲外へ出るのが問題であって、ユーザーが直接名指しした symlink は意図的な指定なので従来どおり検査する。黙って飛ばすと『ファイルが減ったこと』に気づけないので 1 行出す（NFR-FAIL-001）。副次的に、Python の版による rglob の symlink 挙動の違いに依存しない明示判定になる。"
+      },
+      "chosen": "対応する: jin check のディレクトリ走査で symlink を飛ばし、飛ばしたことを 1 行出す（直接名指しされた symlink は従来どおり検査する）",
+      "compared": [
+        "対応しない（読み取りのみでリスクを受容し記録だけ残す）"
+      ]
+    },
+    {
+      "id": "DP-REVIEW-JIN-002",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T17:10:00+09:00",
+        "rationale": "実測（2026-09-07・ruff 0.16.6）: `select` を書いていない状態で有効なルールは 413 件 / 38 prefix（I・B・UP・S・ISC・PTH・RUF などを含む）。空のディレクトリに `[tool.ruff]` だけの pyproject.toml を置いても同じ 413 件なので、これは ruff 0.16 系の既定であってローカル設定の混入ではない。実際に本ランで I001（import 順序）と ISC004（暗黙の文字列連結）が検出され、修正している。つまり指摘が求めていた I / B / UP は既に走っている。CI は `UV_LOCKED=1 uv sync`（`--frozen` を付けない）で uv.lock の ruff 0.16.6 に固定されるので、ルール集合が動くのは lock を上げたときだけであり、それは通常の依存更新として扱える。select を明示すると ruff の改善（新ルール）が自動で入らなくなり、リストの保守が発生する側面もある。よって対応しない。"
+      },
+      "chosen": "対応しない: 指摘の前提（ruff の既定が E4/E7/E9+F のみ）は失効しているため、実測を記録して閉じる",
+      "compared": [
+        "有効ルールを [tool.ruff.lint] select に明示して固定する",
+        "ruff の版を宣言側でも完全一致に固定する"
+      ]
+    },
+    {
+      "id": "DP-REVIEW-JIN-004",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T17:10:00+09:00",
+        "rationale": "サプライチェーン厳格化の方針判断。現在の `uses:` は `actions/checkout@v4` / `astral-sh/setup-uv@v5` / `actions/setup-node@v4` / `pnpm/action-setup@v4` / `actions/upload-artifact@v4` の 5 本で、GitHub 公式と広く使われている action のみ。SHA ピンは dependabot などの更新経路をセットで入れないと腐って古い action を使い続けることになり、内部リポジトリの現状ではピン単体の利得より保守コストが上回ると判断した。Issue の記述『setup-uv は version: \"0.12.9\" を明示済み』は uv 本体の版のことで action 自体は `@v5` である点を記録に残す（実測で確認）。方針が変われば SHA ピン + dependabot をセットで入れる。"
+      },
+      "chosen": "対応しない: GitHub Actions の uses をミュータブルタグのままにする",
+      "compared": [
+        "5 本を commit SHA にピンし、dependabot の github-actions 更新を足す"
+      ]
+    },
+    {
+      "id": "DP-REVIEW-JIN-005",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T17:10:00+09:00",
+        "rationale": "実測（2026-09-07）: `delivery/20260904-1445-jin` を直書きしているテストは 5 ファイル（`tests/contract/test_packaging_contract.py` / `test_adk_version_contract.py` / `tests/spec/test_spec_consistency.py` ほか）。src 側 7 ファイルのヒットは docstring・コメントの参照であり実行時のパス解決ではないので対象外。Issue #9 の指定どおり、パスをハードコードし直すのではなく `delivery/` を走査して辞書順最新の `*-jin` を選ぶ形にする。解決関数は 1 箇所（`tests/conftest.py`）に置き、5 箇所をそれに寄せる。新しいランディレクトリを置くと解決先が切り替わることをテストで固定する（そうしないと『解決している』ことが検査されない）。"
+      },
+      "chosen": "対応する: ランディレクトリを解決する形に変える（パスをハードコードし直さない）",
+      "compared": [
+        "対応しない（壊れ方が loud なので次のランで直す）"
+      ]
+    },
+    {
+      "id": "DP-REVIEW-JIN-006",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T17:10:00+09:00",
+        "rationale": "現状の `MINIMUM_UV_COMMANDS = 9` は走査関数の破損を件数の下限で検出するが、定数を下げる行為そのものは検出されない（可視化の門が無い）というのが指摘。期待する uv コマンドを名前の集合として書き、`EXPECTED <= set(commands)` で見る形に変えると、消えたコマンドが名前で失敗メッセージに出るので『定数を下げて黙らせる』経路が消える。件数の下限は走査の縮みを見る補助として残す。ci.yml のステップを意図的に減らすときは、この集合を編集する時点で何を検査しなくなるかが目に入る。"
+      },
+      "chosen": "対応する: 下限の数値を、期待する uv コマンドの明示集合（allowlist）に置き換える",
+      "compared": [
+        "対応しない（走査が壊れれば件数が落ちて赤くなる）"
+      ]
+    },
+    {
+      "id": "DP-REVIEW-JIN-007",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T17:10:00+09:00",
+        "rationale": "実測（2026-09-07）: Issue が名指しした `test_rule1_detects_a_wider_indent_unit` は既に存在しない。Phase 3 の correctness review R2-2 で `test_rule1_indent_is_two_spaces` へ改名済みで、`tests/contract/test_canonical_contract.py` の docstring に旧名と『INDENT の変異を捕まえる実効ガードはこちら側にある』旨が残っている。Issue が求めていた対応は『削除ではなく命名かコメントの調整で足りる』であり、それが実施済み。したがって新たな変更は不要で、いつどこで解消されたかを記録して閉じる。"
+      },
+      "chosen": "対応済みとして記録する（コードは触らない）",
+      "compared": [
+        "docstring の追記や変異ハーネスの実測を足して、実効ガードとの関係をさらに明確にする"
+      ]
     }
   ],
   "undecided": [
-    "DP-REVIEW-JIN-001",
-    "DP-REVIEW-JIN-002",
-    "DP-REVIEW-JIN-003",
-    "DP-REVIEW-JIN-004",
-    "DP-REVIEW-JIN-005",
-    "DP-REVIEW-JIN-006",
-    "DP-REVIEW-JIN-007",
     "DP-REVIEW-JIN-P2-001",
     "DP-REVIEW-JIN-P2-002",
     "DP-REVIEW-JIN-P3-001",
