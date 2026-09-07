@@ -319,13 +319,36 @@ def test_ci_validates_the_claude_code_plugin(ci_text: str) -> None:
 
 
 def test_ci_has_a_node_toolchain_for_the_editor(ci_text: str) -> None:
-    """DP-REVIEW-JIN-003 の 2 本目: Node の受け皿。
+    """DP-REVIEW-JIN-003 の 2 本目: Node / pnpm の受け皿。
 
-    `apps/editor`（Phase 5）は pnpm で回す。受け皿が無いと、Phase 5 で足す人が
-    pytest の赤を「テストを差し替える」だけで消せてしまう（起票理由そのもの）。
+    Phase 4 では Node のセットアップだけを置いた（入れる対象が無い状態の
+    `pnpm install` は何も検証しないまま緑になるため）。**Phase 5 で `apps/editor` が
+    できたので pnpm を足した**。ここが緩むと、Phase 5 で赤くなったテストを
+    「テストを差し替える」だけで消せてしまう（Issue #9 の起票理由そのもの）。
     """
     assert "actions/setup-node" in ci_text, "Node のセットアップが無い"
     assert re.search(r'node-version:\s*"\d+"', ci_text), "node-version が固定されていない"
+    assert "pnpm/action-setup" in ci_text, "pnpm のセットアップが無い"
+
+
+def test_ci_runs_the_editor_gates(ci_text: str) -> None:
+    """要件書 §9「エディタ: pnpm test / Playwright スモーク」が CI で走る。
+
+    `pnpm build` を外せないのは、**DP-COMMON-19 の 5 状態の網羅性を落とすのは tsc** で
+    あり（`pnpm build` が `tsc --noEmit` を含む）、`pnpm test`（vitest）は型を見ないからである。
+    `--frozen-lockfile` は lock と package.json のずれで落とす（uv 側で `--frozen` を
+    **付けない**のと同じ規律。pnpm では名前が逆であることに注意）。
+    """
+    assert re.search(r"^  editor:\s*$", ci_text, re.MULTILINE), "editor job が無い"
+    for step in (
+        "pnpm install --frozen-lockfile",
+        "pnpm lint",
+        "pnpm build",
+        "pnpm test",
+        "pnpm e2e",
+        "playwright install",
+    ):
+        assert step in ci_text, f"editor job に `{step}` が無い"
 
 
 def test_ci_detects_plugin_reference_drift(ci_text: str) -> None:

@@ -103,14 +103,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # DP-REVIEW-JIN-003 の 2 本目: **Node の受け皿**。
-      # Phase 5 の `apps/editor` はこの job に `pnpm/action-setup` と
-      # `pnpm install` / `pnpm test` を足す。受け皿を先に置くのは、Phase 5 で
-      # 赤くなったテストを「テストを差し替える」だけで消せる動線を塞ぐためである
-      # （Issue #9 の起票理由）。
-      # **pnpm 自体はまだ入れていない。** 入れる対象（`apps/editor`）が存在しない状態で
-      # `pnpm install` を書くと、その行が何も検証しないまま緑になり、
-      # 塞ごうとしている動線をこの job 自身が作ることになる。
+      # DP-REVIEW-JIN-003 の 2 本目。Phase 4 では Node のセットアップだけを置き、
+      # 入れる対象（`apps/editor`）が無い状態の `pnpm install` は書かなかった。
+      # **Phase 5 で `apps/editor` ができたので pnpm を足した**（下の editor job）。
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -125,3 +120,69 @@ jobs:
       # `--strict` は警告もエラー扱いにする（CI で緩めない）。
       - name: Validate the Claude Code plugin
         run: claude plugin validate --strict plugins/claude-code/jin
+
+  # 要件書 §7 / §9「エディタ: pnpm test / Playwright スモーク」。
+  # DP-REVIEW-JIN-003（Issue #9）の 2 本目がここで完結する。
+  # Python と Node の両方が要る（スモークは実際の `jin editor` プロセスに繋ぐ）ので、
+  # test job（Python だけ）でも plugin job（Node だけ）でもなく独立した job にする。
+  editor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      UV_LOCKED: "1"
+    defaults:
+      run:
+        working-directory: apps/editor
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.9"
+
+      # `jin editor` を動かすので Python 側も要る（スモークは実プロセスに繋ぐ）。
+      - name: Sync Python dependencies
+        working-directory: .
+        run: uv sync
+
+      # pnpm は `packageManager` の版で入れる（package.json が正本・二重管理にしない）。
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: apps/editor/pnpm-lock.yaml
+
+      # `--frozen-lockfile` は lock と package.json のずれで落とす
+      # （uv 側で `--frozen` を**付けない**のと同じ規律。こちらは名前が逆で、
+      #  pnpm の `--frozen-lockfile` が「lock を書き換えるなら失敗せよ」に当たる）。
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # DP-COMMON-19 の 5 状態の網羅は **tsc** が落とす（`pnpm build` が tsc を含む）。
+      - name: Build
+        run: pnpm build
+
+      # ユニット層（DP-COMMON-20 の 1 層目）。LSP はモックする。
+      - name: Unit tests
+        run: pnpm test
+
+      # スモーク層（同 2 層目）。ブラウザの取得はセットアップであり、
+      # テスト自体は localhost の ws しか使わない（NFR-TEST-001）。
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke (Playwright)
+        run: pnpm e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/editor/playwright-report/
+          retention-days: 7

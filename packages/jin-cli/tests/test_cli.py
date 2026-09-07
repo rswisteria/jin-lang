@@ -36,7 +36,7 @@ def run(*args: str):
 
 
 # --------------------------------------------------------------------------------------
-# Phase 1 の 4 つ + Phase 2 の build / run。render / lsp / editor は後続 Phase
+# Phase 1 の 4 つ + Phase 2 の build / run。render は Phase 3・lsp は Phase 4・editor は Phase 5
 # --------------------------------------------------------------------------------------
 def test_help_lists_phase1_commands() -> None:
     """Phase 1 の 4 つが出ること。Phase 2 の build / run は `test_build_run.py::test_help_lists_phase2_commands`。"""
@@ -46,23 +46,29 @@ def test_help_lists_phase1_commands() -> None:
         assert name in result.output
 
 
-@pytest.mark.parametrize("name", ["editor"])
-def test_later_phase_commands_are_not_defined_yet(name: str) -> None:
-    """`editor` は Phase 5。**未定義であることを未定義として**確かめる。
+#: v1 のサブコマンドの全集合（要件書 §5 + §6.1 + §7.3）。**`jin --help` が嘘をつかない**ことを
+#: 両側から固定する（CLAUDE.md「未実装のものはサブコマンドごと存在させない」）。
+#: Phase 5 で `editor` が実装され、未定義側の parametrize は空になった。
+#: 空の parametrize は**テストごと収集されない**ので、代わりに「全部ある」側を等号で見る。
+ALL_COMMANDS = ("check", "fmt", "schema", "dump", "build", "run", "render", "lsp", "editor")
 
-    Phase 3 まではここに `render` と `lsp` も並んでいたが、`run(name, "x.jin")` の
-    `exit_code != 0` は**実装済みのコマンドでも**成立する（存在しないファイルを
-    渡しているので当然落ちる）ので、実装したあとも緑のままだった（偽緑）。
-    未定義であることは typer の「No such command」で見る。
+
+def test_no_command_is_defined_beyond_the_v1_set() -> None:
+    """`jin --help` に v1 の集合以外のコマンドが増えていない。
+
+    Phase 4 まではここが `test_later_phase_commands_are_not_defined_yet`（`editor` が
+    **未定義**であることを typer の「No such command」で固定するトリップワイヤ）だった。
+    Phase 5 で `editor` を実装したので parametrize が空になり、
+    **空の parametrize はテストごと収集されずに消える**（検査が黙って無くなる）。
+    そこで「v1 の集合と過不足なく一致する」側へ反転させた。
+    10 個目のサブコマンドを足すとここが赤くなる。
     """
-    result = run(name, "x.jin")
-    assert result.exit_code == 2
-    assert "No such command" in result.output, result.output
+    assert set(
+        app.registered_commands and [c.name or c.callback.__name__ for c in app.registered_commands]
+    ) == set(ALL_COMMANDS)
 
 
-@pytest.mark.parametrize(
-    "name", ["check", "fmt", "schema", "dump", "build", "run", "render", "lsp"]
-)
+@pytest.mark.parametrize("name", ALL_COMMANDS)
 def test_implemented_commands_are_defined(name: str) -> None:
     """実装済みのコマンドが `--help` を持つ（上のテストの裏返し）。
 

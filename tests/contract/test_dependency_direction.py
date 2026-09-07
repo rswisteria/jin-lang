@@ -6,14 +6,17 @@
 DP-COMMON-11 の constraints:
 「CI は jin-core → google-adk と apps/editor → Python パッケージの 2 本を必ず落とすこと」
 
-本ラウンドで実在するのは Python 側（jin_core / jin_cli）だけなので、ここで担保するのは 1 本目である。
-2 本目（apps/editor → Python パッケージ）は apps/editor が存在する Phase 5 で pnpm 側に足す。
-その未対応を隠さないよう、下の `test_editor_contract_is_not_yet_enforced` が「まだ無い」ことを明示的に固定する。
+1 本目（`jin_core` → `google-adk`）は import-linter が落とす。
+**2 本目（`apps/editor` → Python パッケージ）は Phase 5 で pnpm 側（eslint の
+`no-restricted-imports`）に足した。** Python のツールでは TS を検査できないので道具が違う。
+下の `test_the_editor_contract_is_enforced_on_the_pnpm_side` がその仕掛けの所在を、
+`apps/editor/test/dependencyDirection.test.ts` が**規則が実際に落ちること**を見る。
 """
 
 from __future__ import annotations
 
 import ast
+import json
 import re
 import shutil
 import subprocess
@@ -260,13 +263,51 @@ def test_the_planned_package_set_matches_the_workspace() -> None:
     assert on_disk == set(PLANNED_PACKAGES)
 
 
-def test_editor_contract_is_not_yet_enforced() -> None:
-    """DP-COMMON-11 の 2 本目（apps/editor → Python パッケージ）は未対応であることを明示する。
+EDITOR = REPO_ROOT / "apps" / "editor"
 
-    apps/editor がまだ無いので検査対象が存在しない。Phase 5 で apps/editor を作るときに
-    pnpm 側の静的検査を足し、このテストを置き換えること。
+
+def test_the_editor_contract_is_enforced_on_the_pnpm_side() -> None:
+    """DP-COMMON-11 の 2 本目（`apps/editor` → Python パッケージ）を pnpm 側が落とす。
+
+    Phase 4 まではこれが `test_editor_contract_is_not_yet_enforced`（`apps/editor` が
+    **無い**ことを固定するトリップワイヤ）だった。Phase 5 で `apps/editor` を作ったので
+    赤くなったが、**テストを差し替えるだけで済ませない**（Issue #9 / `DP-REVIEW-JIN-003`）。
+    先に pnpm 側の静的検査（eslint の `no-restricted-imports`）を足し、
+    その検査が**実際に落ちる**ことを `apps/editor/test/dependencyDirection.test.ts` が
+    禁止 import を食わせて確かめている。ここではその仕掛けが所定の位置にあることを見る。
+
+    Python 側（import-linter）と TS 側（eslint）で道具が違うので、
+    契約が 2 本とも生きていることは**両方のテスト**で担保する。
     """
-    assert not (REPO_ROOT / "apps" / "editor").exists(), (
-        "apps/editor ができた。DP-COMMON-11 の constraints に従い "
-        "pnpm 側の静的検査（Python パッケージを import しない）を足してからこのテストを差し替えること"
+    config = (EDITOR / "eslint.config.js").read_text(encoding="utf-8")
+    assert "no-restricted-imports" in config, "禁止 import の規則が無い"
+    assert "**/packages/**" in config, "packages 配下の import が禁止されていない"
+    assert "jin_core" in config and "jin_lsp" in config, "Python パッケージ名が禁止されていない"
+
+    probe = (EDITOR / "test" / "dependencyDirection.test.ts").read_text(encoding="utf-8")
+    assert "eslint.lintText" in probe or "lintText" in probe, (
+        "規則が**落ちる**ことを確かめる注入テストが無い"
+        "（規則が存在することと、規則が落ちることは別 — Phase 0+1 の偽 green）"
     )
+
+    package_json = json.loads((EDITOR / "package.json").read_text(encoding="utf-8"))
+    assert "lint" in package_json["scripts"], "pnpm lint が無い"
+    assert "test" in package_json["scripts"], "pnpm test が無い"
+
+
+def test_the_editor_does_not_import_python_packages_in_its_sources() -> None:
+    """念のための二層目: `apps/editor/src` の import 文を直接読む。
+
+    eslint が設定ごと外されたときに気づくための独立な網である
+    （検査ツールを差し替えても契約は動かない・本モジュールの冒頭）。
+    `schemas/jin.schema.json` だけは例外で、これは Python パッケージではなく
+    Pydantic から生成してコミットされた成果物である（要件書 §7.1）。
+    """
+    forbidden = re.compile(
+        r"""from\s+['"]([^'"]*(?:packages/|jin_core|jin_adk|jin_render|jin_lsp|jin_cli)[^'"]*)['"]"""
+    )
+    offenders: list[str] = []
+    for path in sorted((EDITOR / "src").rglob("*.ts*")):
+        for match in forbidden.finditer(path.read_text(encoding="utf-8")):
+            offenders.append(f"{path.relative_to(REPO_ROOT)}: {match.group(1)}")
+    assert offenders == [], offenders

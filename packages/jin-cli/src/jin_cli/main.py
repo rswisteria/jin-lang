@@ -108,6 +108,8 @@ from jin_lsp.server import main as lsp_main
 from jin_render import RenderError, TraceRowError, brief
 from jin_render import render as render_svg
 
+from jin_cli.editor import EditorError
+from jin_cli.editor import serve as editor_serve
 from jin_cli.resolver import RESOLVE_TIMEOUT_SECONDS, SubprocessResolver
 
 app = typer.Typer(
@@ -1158,6 +1160,46 @@ def lsp(
     if verbose:
         argv.append("--verbose")
     lsp_main(argv)
+
+
+@app.command()
+def editor(
+    file: Annotated[Path, typer.Argument(help="開く `.jin` ファイル")],
+    dist: Annotated[
+        Path | None,
+        typer.Option("--dist", help="ビルド済みエディタの場所（既定: apps/editor/dist）"),
+    ] = None,
+    host: Annotated[str, typer.Option("--host", help="待ち受けアドレス")] = "127.0.0.1",
+    no_browser: Annotated[
+        bool, typer.Option("--no-browser", help="ブラウザを開かず URL を stderr に出す")
+    ] = False,
+) -> None:
+    """視覚エディタを開く（要件書 §7.3）。
+
+    ビルド済みのエディタを 127.0.0.1 で配信し、同じプロセスで LSP(ws) を起動して
+    ブラウザを開く。**エディタ単体のサーバは持たない**（FR-EDITOR-004）。
+
+    **これは `jin lsp --ws --root <file の親>` と同じ口を開く。** WebSocket には
+    same-origin 制限が無いので、ブラウザで開いている任意のページがこのポートへ
+    繋いでリクエストを打てる。`jin/open` / `jin/save` は起動トークンの一致・
+    親ディレクトリ配下の `.jin` に限定・symlink 拒否で閉じているが（`docs/spec/ops.md` §5.1）、
+    **信頼しないディレクトリの `.jin` を `jin editor` で開かないこと**。
+
+    終了は Ctrl-C。
+    """
+    try:
+        editor_serve(
+            file,
+            dist=dist,
+            host=host,
+            open_browser=not no_browser,
+            announce=lambda line: typer.echo(line, err=True),
+        )
+    except EditorError as exc:
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=1) from exc
+    except KeyboardInterrupt:
+        raise typer.Exit(code=0) from None
 
 
 if __name__ == "__main__":  # pragma: no cover
