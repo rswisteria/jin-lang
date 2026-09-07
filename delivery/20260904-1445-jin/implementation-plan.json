@@ -494,6 +494,19 @@
       "called": true,
       "result": "passed",
       "note": "サーバ側のプロトコルは 1 本も増やしていない（要件書 §6.3 の 4 種 + ADR-011 の 2 種のまま）。着手前に jin lsp --ws を起こして生の WebSocket で 8 通り測った（editor-api-probe.md §7）: upto 0 は拒まれない / upto -1 と seq 非整数は JSON-RPC の error で来る / 同じ upto はバイト一致 / focus と併用できる。行の契約違反が error で来るので、エディタは trace を外して図を残す（.jin は壊れていないため）。トレースはブラウザの <input type=\"file\"> で読む（DP-IMPL-JIN-P6-TRACE-SOURCE-01）。"
+    },
+    {
+      "owners": [
+        "shared"
+      ],
+      "jin_phase": null,
+      "skill": "fix-later-decisions",
+      "trigger": "Issue #9（fix-later 7 件・DP-REVIEW-JIN-001〜007）。判断の前に 7 件それぞれの現状を実測し、指摘の前提が今も成り立つかを確かめてから選択肢を出す",
+      "stage": "post",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "7 件を人間確定（toyota）: 対応する 3（001 走査の symlink / 005 ランディレクトリ解決 / 006 uv コマンドの allowlist）・対応しない 2（002 / 004）・対応済み 1（007）・Phase 4 で確定済み 1（003）。**002 と 007 は指摘の前提が失効していた** — 002 は ruff 0.16.6 の既定が 413 ルール / 38 prefix で I / B / UP が既に走っており（本ランで I001 / ISC004 が実際に検出された）、007 は Phase 3 の R2-2 で改名済みだった。記録は record.py --batch（--validate-only で valid: true を確認してから反映）。DP-REVIEW-JIN-003 は Phase 4 で手で足したため未決と決定済みの両方に出ており、rationale の失効注記とあわせて置換記録（action: replaced）で直した。"
     }
   ],
   "tasks": [
@@ -2344,6 +2357,22 @@
         "jin_phase": 6,
         "evidence": "delivery/20260904-1445-jin/implementation-notes.md#human_only--not_run",
         "detail": "design.yaml items[6].verification.human_only「オーバーレイの視認性」は human_only であり実施していない。ADR-002 / DP-JIN-EDITOR-UX-01 のとおり PR レビューへ送る。"
+      },
+      {
+        "skill": "mutation-harness",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": null,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#i9-6-変異",
+        "detail": "`mutate_i9.py` **9/9 caught**・SKIP 0・実ツリー不変。Issue #9 で「対応する」とした 3 件の防御を壊す: 走査の symlink フィルタ / 名指しまで落とす（非対称の反対側）/ 黙って飛ばす / 辞書順の向き / 旧形式を優先 / 見つからないとき delivery/ を返す / 直書きに戻す / allowlist から 1 件消す / CI から uv run lint-imports を消す。"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": null,
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "detail": "§2.28（3 節）。DP-REVIEW-JIN-001〜007 が decision_record[] に status: decided / decided_by: toyota で入り、undecided[] から落ちた。再生成後の docs/pending-decisions.md の未決リストに DP-REVIEW-JIN-00x は 1 件も残っていない（generate.py --check は exit 0）。"
       }
     ],
     "skip_policy": {
