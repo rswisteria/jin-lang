@@ -2460,3 +2460,31 @@ macOS 固有の 2 失敗（`test_over_long_root_name_is_refused_not_a_traceback`
 
 `editor` job の e2e が **3 → 9 本**になった（デバッグモードの 6 本が加わった）。
 `upto` を動かすたびに `jin/renderSvg` が往復する経路が、CI の実行環境でも 19.9 秒で通っている。
+
+### P6-8.2 マージ後の main（run 34097916577・merge commit `e3b90ad`・2026-09-07）
+
+PR #21 を人間がマージしたあとの `push`/main も **3 job とも success**
+（`test` **1407 passed, 1 skipped** / `Contracts: 3 kept, 0 broken.` / `editor` / `plugin`）。
+PR 上の run 34096877462 と同じ数字であり、マージで壊れたものは無い。
+
+**Issue #7 は open のまま**にする。human_only（オーバーレイの視認性）を人間が確認してから閉じる
+（Issue #5 / #6 と同じ扱い・ADR-002 / DP-JIN-EDITOR-UX-01）。
+
+### P6-9. `docs/pending-decisions.md` の再生成（Phase 4 からの申し送りを解消）
+
+Phase 4 で「`/aid decide` 経由の再生成が未実施」と申し送っていた項目を、
+**ファイル自身が定める生成器**で解消した:
+
+```bash
+python3 <bundle>/skills/common/pending-decisions-generator/bin/generate.py --plugin-root .
+```
+
+差分は**純粋な追加のみ 12 行**（既存行の削除・書き換えは 0）:
+
+| 節 | 追加された行 |
+|---|---|
+| 未決リスト | Phase 4 の 3 件（`DP-IMPL-JIN-P4-EXTRACT-01` / `-HOVER-DOCSTRING-01` / `-POINTER-SHAPE-01`）・Phase 5 の 5 件（`-P5-ADD-DEFAULTS-01` / `-CODEACTION-UI-01` / `-HITAREA-01` / `-RENAME-FOLLOW-01` / `-TOKEN-CHANNEL-01`）・**Phase 6 の 1 件（`DP-IMPL-JIN-P6-TRACE-SOURCE-01`）** |
+| 決定済み | 人間確定 3 件（`DP-IMPL-JIN-P4-DEBOUNCE-01` / `DP-JIN-EDITOR-PROTOCOL-01` / **`DP-REVIEW-JIN-003`**） |
+
+`--check` で無ドリフト（exit 0）。**残る人間作業は「未決 / AI 仮決定の承認そのもの」**
+（`/aid decide` で approved / overridden へ確定する）であって、索引の再生成ではなくなった。

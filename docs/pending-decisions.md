@@ -12,6 +12,15 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 
 | 起票元ファイル | DP ID |
 |---|---|
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P4-EXTRACT-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P4-HOVER-DOCSTRING-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P4-POINTER-SHAPE-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-ADD-DEFAULTS-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-CODEACTION-UI-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-HITAREA-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-RENAME-FOLLOW-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-TOKEN-CHANNEL-01 |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P6-TRACE-SOURCE-01 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-001 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-002 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 |
@@ -83,15 +92,18 @@ auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/dec
 | 20260904-1445-jin/design.yaml | DP-JIN-TRACE-POINTER-01 | toyota | 2026-09-04T21:20:09+09:00 | AI 仮判断（confidence: medium）を承認。 | docs/adr/ADR-009-DP-JIN-TRACE-POINTER-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-DIAGCODE-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-DIAGPREC-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
+| 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P4-DEBOUNCE-01 | toyota | 2026-09-07T10:20:00+09:00 | 要件書に無い値。選択肢 150ms / 300ms / 50ms を提示し 150ms を採った。根拠は delivery/20260904-1445-jin/check-text-benchmark.md の実測: 現実的な 1000 行の check_text は中央値 8.9 ms なので 150 ms 待っても体感は即時のまま、敵対的なファイル（名前 128 字 × 未解決参照 400… |  |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-POSBASE-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-TDD-P0-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-TESTFIXTURE-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-TOOLNAME-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-UPSTREAM-01 | toyota | 2026-09-04T21:20:59+09:00 | 人間レビューで承認（2026-09-04 toyota）。実装ラウンド 1 で impl-p01 が根拠付きで確定した値を、内容を変えずに人間確定へ昇格させる。根拠は delivery/20260904-1445-jin/decision-conformance.md §2 を参照。 |  |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-DIAGCODE-NUMBERING-01 | toyota | 2026-09-04T21:12:47+09:00 | AI 仮判断（confidence: medium）を承認。 | docs/adr/ADR-012-DP-JIN-DIAGCODE-NUMBERING-01.md |
+| 20260904-1445-jin/implementation-plan.json | DP-JIN-EDITOR-PROTOCOL-01 | toyota | 2026-09-07T10:20:00+09:00 | ADR-011（案 C・ai_provisional）の constraints[] が「リクエスト名は仮称であり、要件書 §6.3 の独自リクエスト 4 種への追加として人間の承認を得たうえで docs/spec/ops.md で確定させる」と定めていた。2026-09-07 に `jin/open` / `jin/save` を正式名として確定し、あわせて「Phase 4 で防御込みで実装す… |  |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-JIN050-LOOP-SCOPE-01 | toyota | 2026-09-04T21:20:07+09:00 | AI 仮判断（confidence: medium）を承認。 | docs/adr/ADR-014-DP-JIN-JIN050-LOOP-SCOPE-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-RENAME-SCOPE-01 | toyota | 2026-09-04T21:12:47+09:00 | AI 仮判断（confidence: high）を承認。 | docs/adr/ADR-013-DP-JIN-RENAME-SCOPE-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-RESOLVE-ISOLATION-01 | toyota | 2026-09-06T01:20:41+09:00 | Issue #8 の人間判断（2026-09-06 toyota）。決め手は要件書 §6.2 の hover が「Python 参照の docstring（--resolve 相当）」を要求している点で、Phase 4 の長寿命 LSP プロセスは必ず参照解決を行う。(b) は LSP の問題に答えず、(c) は README / CLAUDE.md / --help に既にある警告の再掲で汚染… | docs/adr/ADR-018-DP-JIN-RESOLVE-ISOLATION-01.md |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 | toyota | 2026-09-07T10:20:00+09:00 | Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。「claude plugin validate の job だけ足す」と「pnpm / Node job も今回足す」を提示し、後者を採った。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の… |  |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-008 | toyota | 2026-09-06T01:20:41+09:00 | Issue #8 の人間判断（2026-09-06 toyota）。Issue の指示「まず 1000 行の実ファイルで実測し、満たしていれば『実測して満たした』と記録して閉じてよい（過剰最適化しない）」に従う。実測は delivery/20260904-1445-jin/check-text-benchmark.md（スクリプト: 同 bench/bench_check_text.py・Pyt… |  |
 
 <!-- AUTO-GENERATED END: pending-decisions-generator -->
