@@ -349,12 +349,12 @@ def create_server(
             )
         text = canonical.dumps(state.model)
         path = ls.files.write(uri, text)
-        ls.analyze_now(uri, text, state.version)
+        saved = ls.analyze_now(uri, text, state.version)
         return {
             "uri": uri,
             "path": str(path),
             "text": text,
-            "diagnostics": [d.to_json_dict() for d in ls.documents.update(uri, text).diagnostics],
+            "diagnostics": [d.to_json_dict() for d in saved.diagnostics],
         }
 
     return server

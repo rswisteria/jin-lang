@@ -89,8 +89,12 @@ def test_from_lsp_position_is_one_based() -> None:
     assert jin == JinPosition(1, 1)
 
 
-def test_diagnostic_carries_code_severity_and_hint_in_data() -> None:
-    """`hint` は LSP `Diagnostic` に標準フィールドが無いので `data` に載せる（要件書 §5）。"""
+def test_diagnostic_carries_code_severity_and_hint() -> None:
+    """`hint` は `data` に載せ、**`message` にも足す**（要件書 §5 / 成功条件 3）。
+
+    `data` はクライアントが codeAction の往復で持ち回るもので、人には表示されない。
+    hint が見えなければ「LSP 診断の出力だけで修正しきれる」は成り立たない。
+    """
     from jin_core.diagnostics import Diagnostic as JinDiagnostic
 
     lines = ['{"root": "Summarizr"}\n']
@@ -107,7 +111,7 @@ def test_diagnostic_carries_code_severity_and_hint_in_data() -> None:
     assert lsp.code == "JIN011"
     assert lsp.severity == types.DiagnosticSeverity.Error
     assert lsp.source == "jin"
-    assert lsp.message == "circle 'Summarizr' は定義されていません"
+    assert lsp.message == "circle 'Summarizr' は定義されていません\n近い名前: Summarizer"
     assert lsp.data == {"pointer": "/root", "hint": "近い名前: Summarizer"}
 
 

@@ -1,16 +1,17 @@
 {
   "$comment": "implementation-plan.schema.json 準拠。実装ラウンド 1/5（Jin Phase 0 + Phase 1）が新規作成した。後続 4 ラウンドはこのファイルを extend すること。skill_plan[] / tasks[] / verification_status.evidence[] の各要素には jin_phase タグ（0..6）を付ける。 実装ラウンド 2/5（Jin Phase 2・jin-adk）が 2026-09-05 に extend した（impl-p2）。round は現在のラウンドを指す。",
   "round": {
-    "index": 3,
+    "index": 4,
     "of": 5,
     "jin_phases": [
       0,
       1,
       2,
-      3
+      3,
+      4
     ],
-    "scope": "Phase 3（jin-render: 決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay と jin render）= Issue #4。ラウンド 1（Phase 0+1・impl-p01）とラウンド 2（Phase 2・impl-p2）は main にマージ済み。Phase 4 以降は別ラウンド。 【R1】jin_phases は累積表記（[0,1,2,3]）。",
-    "implementer": "impl-p3"
+    "scope": "Phase 4（jin-lsp: stdio + WebSocket / 標準 LSP 機能 / 独自リクエスト 4 種 + jin/open・jin/save / jin lsp と Claude Code プラグイン）= Issue #5。ラウンド 1〜3（Phase 0+1 / Phase 2 / Phase 3）は main にマージ済み。Phase 5–6（apps/editor）は別ラウンド。 【R1】jin_phases は累積表記（[0,1,2,3,4]）。",
+    "implementer": "impl-p4"
   },
   "modules": [
     {
@@ -454,6 +455,18 @@
       "result": "passed",
       "note": "実施主体は親（/aid auto-deliver の実行主体）。feature-dev:code-reviewer は Bash を持たず隔離コピーでの変異検証ができないため、同じ規律（confidence 0〜100・全件報告）を課した general-purpose Subagent 4 本（correctness / conventions / wiring / security）で代替。初回 62 finding（C13 / V25 / W11 / S13・confidence 90 以上 11）。修正 3 ラウンド + 最終確認ののち同一観点 reviewer による defect-gone 確認を完了（R1: 修正が新規 30 件を持ち込み R2 で 25 件解消 / R2: 新規 26 件・うち退行 1 件〔symlink 文言のパス〕を R3 で解消 / R3: 最終確認は code-review-raw/*-p3-round3.md）。生出力は code-review-raw/*-p3*.md（初回 4 + round1 4 + round2 4 + round3 4）。集約は code-review-report.md の Phase 3 節。DP-IMPL-STAGE-06-REVIEW-CALLED-01 案 (i) に従い親が called を書き戻した。",
       "trigger": "Stage 4 verify の後（decision-conformance-check と同じタイミング・Phase 3 でも実施）"
+    },
+    {
+      "owners": [
+        "backend"
+      ],
+      "jin_phase": 4,
+      "skill": "lsp-server-implementation",
+      "stage": "core",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "pygls 2.1.1 / pytest-lsp 1.0.1 の API は delivery/20260904-1445-jin/lsp-api-probe.md の実測に固定した（1.x → 2.x で import パスから変わっている）。probe が書いていなかった 3 点は Phase 4 で実測し probe へ追記: (1) pytest_lsp.LanguageClient は JsonRPCClient を継承しており start_ws を持つので ws のラウンドトリップも pytest-lsp のクライアントで張れる（ClientServerConfig では張れないという probe §2 の指摘は正しい）、(2) 未知メソッドの params / result は namedtuple(rename=True) に変換され `await` / `$schema` / JSON Pointer が黙って `_0` に化ける、(3) ws の client.stop() は shutdown_session() を先に呼ばないと返らない（run_websocket が recv() でブロックしたまま stop_event を見ない）。"
     }
   ],
   "tasks": [
@@ -1105,6 +1118,65 @@
       ],
       "status": "done",
       "note": "要件書に無い値（丸め桁数 / 強調色 / px サイズ / 各要素の大きさ）は layout.md §6 と decision-conformance.md §2.24 の**両方**に「実装で確定した値であり要件値ではない」と明記した（仕様側とコード側は同じ欠陥・片方だけ直さない）。"
+    },
+    {
+      "id": "T-P4-01",
+      "jin_phase": 4,
+      "title": "jin-lsp パッケージと stdio サーバ（位置変換 / last-good / 段階診断の露出 / 独自リクエスト 4 種）",
+      "outputs": [
+        "packages/jin-lsp/pyproject.toml",
+        "packages/jin-lsp/src/jin_lsp/{__init__,__main__,logs,positions,session,locate,protocol,requests,server,fileio,adk_names}.py",
+        "packages/jin-lsp/src/jin_lsp/features/{__init__,completion,navigation,edits}.py",
+        "packages/jin-lsp/tests/{__init__,conftest,test_positions,test_session,test_stdio_roundtrip,test_features,test_apply_ops_roundtrip,test_performance}.py"
+      ],
+      "status": "done",
+      "note": "CLAUDE.md のパッケージ追加チェックリスト 8 項目をすべて実施。Phase 3 のトリップワイヤ test_later_packages_do_not_exist_yet は parametrize が空になるため、同じ 5 つの名前を 「全部実在する」側から固定する test_every_planned_package_exists に反転させた（削除ではない。docstring が持つチェックリストの所在ごと消えるため）。"
+    },
+    {
+      "id": "T-P4-02",
+      "jin_phase": 4,
+      "title": "WebSocket トランスポートと jin/open・jin/save（ADR-011・4 段の防御）",
+      "outputs": [
+        "packages/jin-lsp/src/jin_lsp/fileio.py",
+        "packages/jin-lsp/tests/test_ws_roundtrip.py",
+        "packages/jin-cli/src/jin_cli/main.py（lsp サブコマンド）"
+      ],
+      "status": "done",
+      "note": "ADR-011 の constraints「リクエスト名は仮称であり人間の承認を得たうえで docs/spec/ops.md で 確定させる」は 2026-09-07 に toyota が確定（jin/open / jin/save）。ws は same-origin 制限が 無いので --root 明示・起動トークン・root 配下の .jin・symlink 拒否の 4 段で閉じた。テストで実際の欠陥を 1 件踏んだ: Path.resolve() の結果を書き先にしていたため root 配下の symlink 経由でリンク先の実体が書き換わった（symlink を辿る前のパスを書き先にし、書き先自体が symlink なら拒む形に直した）。"
+    },
+    {
+      "id": "T-P4-03",
+      "jin_phase": 4,
+      "title": "Claude Code プラグインと CI の受け皿（要件書 §8 / DP-REVIEW-JIN-003）",
+      "outputs": [
+        "plugins/claude-code/jin/{.claude-plugin/plugin.json,.lsp.json,README.md}",
+        "plugins/claude-code/jin/skills/jin-lang/{SKILL.md,reference/model.md,reference/jin.schema.json}",
+        "plugins/claude-code/jin/hooks/{hooks.json,check_jin.sh,check_install.sh}",
+        "scripts/sync_plugin_reference.py",
+        "tests/contract/test_plugin_contract.py",
+        ".github/workflows/ci.yml（plugin job: Node + claude plugin validate --strict）"
+      ],
+      "status": "done",
+      "note": "DP-REVIEW-JIN-003（Issue #9・Phase 4 着手時の必須参照）が指摘していた「CI に pnpm / Node ジョブと claude plugin validate の受け皿が無い」を解消した。Node の受け皿を先に置くのは、Phase 5 で apps/editor を足す人が pytest の赤を『テストを差し替える』だけで消せる動線を塞ぐためである。reference/ は symlink ではなくコピー（git-subdir 配布でリンク先が消えるため）。"
+    },
+    {
+      "id": "T-P4-04",
+      "jin_phase": 4,
+      "title": "仕様と記録の書き戻し（ops.md / diagnostics.md / ADR-011 / CLAUDE.md / README / 変異ハーネス）",
+      "outputs": [
+        "docs/spec/ops.md（§5 jin/open・jin/save の確定と 4 段の防御 / §6 stale / §7 実装状況）",
+        "docs/spec/diagnostics.md（§5.1 に Phase 4 の実装状況と hint の載せ方）",
+        "docs/adr/ADR-011-DP-JIN-EDITOR-PROTOCOL-01.md（影響）",
+        "CLAUDE.md（Phase 4 を実装済みに・要点・jin lsp --ws の危険性）",
+        "README.md（jin lsp / プラグイン）",
+        "delivery/20260904-1445-jin/decision-conformance.md（§1 の P4 行 7 件 + §2.25）",
+        "delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py",
+        "delivery/20260904-1445-jin/implementation-notes.md（P4 節）",
+        "delivery/20260904-1445-jin/lsp-api-probe.md（Phase 4 の実測 3 点を追記）",
+        "delivery/20260904-1445-jin/version-matrix.md（§9）"
+      ],
+      "status": "done",
+      "note": "コードの docstring が「この突合テストがある」と書いているのに実在しなかったものを 2 件作った（jin_lsp.requests.OPERATION_SPECS ↔ ops.md §2 の表 / jin_lsp.adk_names ↔ adk-mapping.md）。Phase 0+1 の R-2「実装と乖離した安全宣言」と同型なので、書いた側を実在させる方向で直した。"
     }
   ],
   "milestones": [
@@ -2007,6 +2079,46 @@
         "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
         "jin_phase": 3,
         "detail": "P3 行 7 件 reflected / not_reflected 0 / unknown 0（§2.24 に確定値 7 件）"
+      },
+      {
+        "skill": "lsp-roundtrip-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "packages/jin-lsp/tests/{test_stdio_roundtrip,test_ws_roundtrip,test_features,test_apply_ops_roundtrip}.py",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 1〜4: initialize → didOpen → publishDiagnostics が stdio と ws の両方で通る。標準機能 8 種と独自リクエスト 4 種が往復する。applyOps は 19 オペレーションすべてについて 順→逆で元の正準形テキストへバイト一致で戻る"
+      },
+      {
+        "skill": "cli-lsp-byte-identity-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "tests/contract/test_lsp_contract.py",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 5・6: formatting の出力が jin fmt と、jin/renderSvg の出力が jin render と バイト一致する（どちらも別プロセスで実際に動かして突き合わせる）"
+      },
+      {
+        "skill": "lsp-performance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "packages/jin-lsp/tests/test_performance.py",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 7 / NFR-PERF-001: 現実的な 1000 行弱（886 行）の .jin に対する didOpen → publishDiagnostics のラウンドトリップが 1 秒以内。デバウンス（150ms）は didChange のみで、連打しても診断は 1 回しか走らないことを回数で固定した"
+      },
+      {
+        "skill": "plugin-validate-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "tests/contract/test_plugin_contract.py / .github/workflows/ci.yml（plugin job）",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 10・11: claude plugin validate --strict が PASS（手元で実測・CI に job を追加）。skills/jin-lang/reference/ の 2 本が docs/spec/model.md と schemas/jin.schema.json とバイト一致する（生成器 scripts/sync_plugin_reference.py と契約テストの二重の網。生成器が実際にずれを見つけることも 隔離コピー上で確認した）"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "jin_phase": 4,
+        "detail": "P4 行 7 件 reflected / not_reflected 0 / unknown 0（§2.25 に確定値 6 件）"
       }
     ],
     "skip_policy": {

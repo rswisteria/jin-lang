@@ -19,7 +19,7 @@ import pytest
 import pytest_lsp
 from jin_core import canonical
 from jin_core.model import JinFile
-from jin_lsp.server import DEBOUNCE_SECONDS, JinLanguageServer
+from jin_lsp.server import DEBOUNCE_SECONDS, JinLanguageServer, create_server
 from lsprotocol import types
 from pytest_lsp import ClientServerConfig, LanguageClient
 
@@ -120,10 +120,25 @@ async def test_a_burst_of_edits_runs_the_analysis_once() -> None:
 
 @pytest.mark.asyncio
 async def test_did_open_is_not_debounced() -> None:
-    """`didOpen` は待たずに走る（NFR-PERF-001 の計測にデバウンス値を混ぜない）。"""
-    server = JinLanguageServer(debounce=10.0)
-    server.analyze_now(URI, big_document(circles=2))
-    assert server.diagnostics_runs == 1
+    """`didOpen` **ハンドラ**は待たずに走る（NFR-PERF-001 の計測にデバウンス値を混ぜない）。
+
+    最初はここで `server.analyze_now(...)` を直接呼んでいたが、それでは
+    「`analyze_now` は待たない」しか言っておらず、**ハンドラが `schedule_analysis` を
+    呼ぶように変えても緑のまま**だった（変異 `DEBOUNCE-on-did-open` が捕まらずに露見）。
+    `create_server` が登録した**そのハンドラ**を取り出して呼ぶ。
+    """
+    server = create_server(debounce=9.0)
+    handler = server.protocol.fm.features[types.TEXT_DOCUMENT_DID_OPEN]
+    handler(
+        types.DidOpenTextDocumentParams(
+            text_document=types.TextDocumentItem(
+                uri=URI, language_id="jin", version=1, text=big_document(circles=2)
+            )
+        )
+    )
+    # デバウンスしていれば 9 秒後まで走らない = ここでは 0 回になる。
+    assert server.diagnostics_runs == 1, "didOpen がデバウンスされている"
+    assert server.state_of(URI) is not None
 
 
 @pytest.mark.asyncio

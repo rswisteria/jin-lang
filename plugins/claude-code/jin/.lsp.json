@@ -1,0 +1,9 @@
+{
+  "jin": {
+    "command": "jin",
+    "args": ["lsp"],
+    "extensionToLanguage": {
+      ".jin": "jin"
+    }
+  }
+}

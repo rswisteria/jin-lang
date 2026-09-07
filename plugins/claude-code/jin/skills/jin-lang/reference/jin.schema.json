@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "$defs": {
+    "Boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "guards": {
+          "items": {
+            "$ref": "#/$defs/Guard"
+          },
+          "title": "Guards",
+          "type": "array"
+        },
+        "await": {
+          "items": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "title": "Await",
+          "type": "array"
+        }
+      },
+      "title": "Boundary",
+      "type": "object"
+    },
+    "Circle": {
+      "additionalProperties": false,
+      "description": "陣。核あり（core）と核なし（flow）の 2 種類がある（JIN022）。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "title": "Name",
+          "type": "string"
+        },
+        "core": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Core"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "instruction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Instruction"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tools": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "builtin": "#/$defs/ToolBuiltin",
+                "summon": "#/$defs/ToolSummon",
+                "tool": "#/$defs/ToolFunction"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ToolFunction"
+              },
+              {
+                "$ref": "#/$defs/ToolBuiltin"
+              },
+              {
+                "$ref": "#/$defs/ToolSummon"
+              }
+            ]
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "delegate": {
+          "items": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "title": "Delegate",
+          "type": "array"
+        },
+        "state": {
+          "items": {
+            "$ref": "#/$defs/State"
+          },
+          "title": "State",
+          "type": "array"
+        },
+        "flow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Flow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "boundary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Boundary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Circle",
+      "type": "object"
+    },
+    "Flow": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "sequence",
+            "parallel",
+            "loop"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowExit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "steps"
+      ],
+      "title": "Flow",
+      "type": "object"
+    },
+    "FlowExit": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "maxLength": 128,
+          "title": "Key",
+          "type": "string"
+        },
+        "equals": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "maxLength": 65536,
+              "type": "string"
+            }
+          ],
+          "title": "Equals"
+        }
+      },
+      "required": [
+        "key",
+        "equals"
+      ],
+      "title": "FlowExit",
+      "type": "object"
+    },
+    "Guard": {
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "enum": [
+            "before_agent",
+            "after_agent",
+            "before_model",
+            "after_model",
+            "before_tool",
+            "after_tool"
+          ],
+          "title": "On",
+          "type": "string"
+        },
+        "ref": {
+          "maxLength": 128,
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "on",
+        "ref"
+      ],
+      "title": "Guard",
+      "type": "object"
+    },
+    "Instruction": {
+      "additionalProperties": false,
+      "properties": {
+        "rune": {
+          "maxLength": 65536,
+          "title": "Rune",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rune"
+      ],
+      "title": "Instruction",
+      "type": "object"
+    },
+    "State": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 128,
+          "title": "Type",
+          "type": "string"
+        },
+        "out": {
+          "default": false,
+          "title": "Out",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "State",
+      "type": "object"
+    },
+    "ToolBuiltin": {
+      "additionalProperties": false,
+      "description": "kind: builtin → ADK の組み込みツールのインスタンス。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "builtin",
+          "title": "Kind",
+          "type": "string"
+        },
+        "builtin": {
+          "maxLength": 128,
+          "title": "Builtin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "builtin"
+      ],
+      "title": "ToolBuiltin",
+      "type": "object"
+    },
+    "ToolFunction": {
+      "additionalProperties": false,
+      "description": "kind: tool → ADK の FunctionTool（await 対象なら LongRunningFunctionTool）。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "tool",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref": {
+          "maxLength": 128,
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "ref"
+      ],
+      "title": "ToolFunction",
+      "type": "object"
+    },
+    "ToolSummon": {
+      "additionalProperties": false,
+      "description": "kind: summon → ADK の AgentTool。親子辺は作らない（docs/spec/model.md §4）。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "summon",
+          "title": "Kind",
+          "type": "string"
+        },
+        "circle": {
+          "maxLength": 128,
+          "title": "Circle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "circle"
+      ],
+      "title": "ToolSummon",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`.jin` ファイル 1 本に対応するルートモデル。",
+  "properties": {
+    "$schema": {
+      "maxLength": 2048,
+      "title": "$Schema",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "root": {
+      "maxLength": 128,
+      "title": "Root",
+      "type": "string"
+    },
+    "circles": {
+      "items": {
+        "$ref": "#/$defs/Circle"
+      },
+      "title": "Circles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "$schema",
+    "version",
+    "root",
+    "circles"
+  ],
+  "title": "JinFile",
+  "type": "object"
+}

@@ -102,13 +102,23 @@ def to_lsp_diagnostic(lines: list[str], diagnostic: JinDiagnostic) -> types.Diag
 
     `hint` が無いときは **キーごと落とす**。`{"hint": null}` を送るとクライアントが
     「ヒントはある（中身が空）」と読みうる。
+
+    **`hint` は `message` にも載せる。** `data` は codeAction の往復のために
+    クライアントが持ち回るものであって、人（や LLM）に**表示されない**。
+    要件書 成功条件 3 は「Claude Code が `.jin` を書くとき、JSON Schema と
+    `jin check --json` / LSP 診断の出力だけで構文・意味エラーを修正しきれる」ことを
+    求めているので、hint が見えないと stdio のクライアントではその条件が成り立たない。
+    `data` にも残すのは、コードアクション（`_suggested_names`）が候補名を
+    そこから読むためである。
     """
     data: dict[str, str] = {"pointer": diagnostic.pointer}
+    message = diagnostic.message
     if diagnostic.hint is not None:
         data["hint"] = diagnostic.hint
+        message = f"{message}\n{diagnostic.hint}"
     return types.Diagnostic(
         range=to_lsp_range(lines, diagnostic.range),
-        message=diagnostic.message,
+        message=message,
         severity=_SEVERITY[diagnostic.severity],
         code=diagnostic.code,
         source=DIAGNOSTIC_SOURCE,

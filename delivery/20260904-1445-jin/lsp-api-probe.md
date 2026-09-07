@@ -120,3 +120,85 @@ jin-lsp  : pygls[ws]>=2.1,<3      # ws extra を必ず付ける。lsprotocol は
 jin-adk  : google-adk>=2.8,<3
 dev      : pytest / syrupy>=6 / pytest-lsp>=1.0 / ruff
 ```
+
+
+---
+
+## 5. Phase 4 の実装で追加した実測（2026-09-07・impl-p4）
+
+§1〜§4 は親セッションが Phase 0 の時点で取ったもの。以下は Phase 4 で実装しながら**踏んで**確かめた
+一次証拠である。probe は「記憶で書かない」ための唯一の拠り所なので、新しい実測はここに集める。
+
+### 5.1 ws のラウンドトリップは pytest-lsp の**クライアント**で張れる（§2 の補足）
+
+§2 の指摘（`ClientServerConfig` が `server_command` しか受け取らず ws を張れない）は正しい。
+一方 `pytest_lsp.LanguageClient` の MRO は
+`LanguageClient → pygls.lsp.client.LanguageClient → BaseLanguageClient → JsonRPCClient → object` で、
+`JsonRPCClient.start_ws(host, port)` を**継承している**（実測）。
+
+```python
+client = make_test_lsp_client()          # あるいは自前の converter を渡した LanguageClient
+await client.start_ws("127.0.0.1", port)  # サーバは自分で subprocess.Popen で起こす
+await client.initialize_session(...)
+```
+
+したがって「ws 用の JSON-RPC ハーネスを一から書く」必要は無い。サーバの起動と待ち受けの確認だけ
+自前で行えばよい（`packages/jin-lsp/tests/test_ws_roundtrip.py` の `WsServer`）。
+
+### 5.2 `client.stop()` は `shutdown_session()` を先に呼ばないと**返らない**
+
+`pygls.client.run_websocket` は `while not stop_event.is_set(): data = await websocket.recv(...)` で、
+**`recv()` でブロックしている間は `stop_event` を見ない**（ソース実測）。`stop()` は
+`stop_event.set()` してから `asyncio.gather(*self._async_tasks)` を待つので、サーバ側が接続を
+閉じるまで永久に待つ。
+
+正しい手順は `await client.shutdown_session()` → `await client.stop()`。`shutdown` / `exit` を受けた
+サーバが接続を閉じ、`ConnectionClosed` でループが抜ける。stdio では起きない（サブプロセスの
+終了を待つ経路が別にある）。
+
+### 5.3 未知メソッドの params / result は `namedtuple(rename=True)` に変換される
+
+`pygls/protocol/__init__.py` の `_dict_to_object` が
+`json.loads(..., object_hook=lambda p: namedtuple(type_name, p.keys(), rename=True)(*p.values()))` を
+使っている。**`rename=True` は Python の識別子にできないキーを `_0` / `_1` へ黙って置き換える。**
+
+`.jin` のモデルはまさにそういうキーを持つ:
+
+| キー | 使えない理由 | 化ける先 |
+|---|---|---|
+| `await`（`boundary.await`） | Python の予約語 | `_0` |
+| `$schema` | `$` が識別子に使えない | `_0` |
+| `/circles/0/name`（JSON Pointer） | `/` が識別子に使えない | `_0` |
+
+`structure_message` は `get_message_type(method)` で型を引けたメソッド（= LSP の標準メソッド）には
+`lsprotocol` の型付き構造化を使うので、この変換を受けるのは**独自リクエストだけ**である。
+
+回避は `converter_factory` の差し替え（`jin_lsp.protocol.jin_converter`）。
+`JsonRPCRequestMessage` / `JsonRPCNotification`（サーバが受ける params）と
+`JsonRPCResponseMessage`（クライアントが受ける result）の 3 つのフックを
+「触らない」実装に置き換える。ブラウザの素の WebSocket クライアントは JSON をそのまま読むので
+この問題を持たない（影響を受けるのは pygls を使う Python 側だけ）。
+
+### 5.4 pytest-lsp の既定クライアントは `workspace/applyEdit` に応答しない
+
+`pytest_lsp/client.py` の `default_feature` で登録されているのは
+`workspace/configuration` / `workspace/diagnostic/refresh` / `textDocument/publishDiagnostics` /
+`window/workDoneProgress/create` / `$/progress` / `window/logMessage` / `window/showMessage` /
+`window/showDocument` の 8 つだけである（実測）。`workspace/applyEdit` は無い。
+
+`jin/applyOps` はサーバからこのリクエストを打つので、テスト側で
+`@client.feature(types.WORKSPACE_APPLY_EDIT)` を登録しないと `MethodNotFound` になる。
+サーバ側は `initialize` で相手が宣言していなければ**送らない**ようにしてある
+（送って失敗すると「オペレーションは当たったのにテキストが更新されない」食い違いだけが残る）。
+
+### 5.5 実測に使った版（`version-matrix.md` §9 と同じ）
+
+| パッケージ | 版 |
+|---|---|
+| pygls | 2.1.1 |
+| lsprotocol | 2025.0.0（pygls が厳密ピン） |
+| pytest-lsp | 1.0.1 |
+| pytest-asyncio | 1.4.0（pytest-lsp が連れてくる） |
+| websockets | 15.0.1 |
+| cattrs | 26.2.0 |
+| Python | 3.14.7（`.python-version`） |

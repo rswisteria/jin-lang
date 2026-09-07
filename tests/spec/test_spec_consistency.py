@@ -215,6 +215,34 @@ def test_ops_match_requirements() -> None:
     assert actual == expected, f"\n  ops.md : {actual}\n  要件書 : {expected}"
 
 
+def test_jin_ops_response_matches_the_spec_table() -> None:
+    """`jin/ops` が返す一覧が `docs/spec/ops.md` §2 の表と一致すること（要件書 §6.3）。
+
+    `jin_lsp.requests.OPERATION_SPECS` の docstring が「この突合がある」と書いている。
+    **書いてあるのに無い**状態を作らない（Phase 0+1 の R-2 と同型の欠陥）。
+
+    比べるのは（名前, 逆オペレーション）だけである。`target` 列は
+    `setRoot` が `` （ルート）`（散文つき）、`rename` が「対象要素（circle / tool /
+    state）」と書かれており、機械の等号に揃えようとすると**仕様の読みやすさを
+    コードの都合で壊す**ことになる。
+    """
+    from jin_lsp.requests import OPERATION_SPECS
+
+    block = machine_block(SPEC_DIR / "ops.md", "ops-list")
+    listed = [(first_code_span(row[0]), first_code_span(row[3])) for row in table_rows(block)]
+    actual = [(spec["name"], spec["inverse"]) for spec in OPERATION_SPECS]
+    assert actual == listed, f"\n  jin/ops : {actual}\n  ops.md  : {listed}"
+
+
+def test_jin_ops_response_has_no_twentieth_operation() -> None:
+    """`jin/ops` に 20 個目を足さない（要件書 §6.3 の v1 は 19 件）。"""
+    from jin_core.ops import OPERATIONS
+    from jin_lsp.requests import OPERATION_SPECS
+
+    assert len(OPERATION_SPECS) == 19
+    assert {spec["name"] for spec in OPERATION_SPECS} == set(OPERATIONS)
+
+
 # --------------------------------------------------------------------------------------
 # 3. layout.md ↔ 要件書 §2.5（machine 条件 3 / 4）
 # --------------------------------------------------------------------------------------
@@ -247,6 +275,61 @@ def test_adk_vocabulary_matches_requirements() -> None:
     block = machine_block(SPEC_DIR / "adk-mapping.md", "adk-vocabulary")
     actual = [first_code_span(row[0]) for row in table_rows(block)]
     assert actual == expected, f"\n  adk-mapping.md: {actual}\n  要件書 §2.1   : {expected}"
+
+
+def test_hover_names_the_adk_classes_from_the_mapping_document() -> None:
+    """hover が出す ADK クラス名が `docs/spec/adk-mapping.md` に由来すること。
+
+    `jin_lsp.adk_names` の docstring が「この突合がある」と書いている。
+    `jin_lsp` は `jin_adk` にも `google-adk` にも依存しない（hover のためだけに
+    ADK 全体を LSP プロセスへ読み込まない）ので、対応は静的な辞書として持つ。
+    その辞書が仕様書から**ずれていないこと**をここで見る。
+
+    §2.1 の「ADK 対応」列と §2.2 の実測 API 表に現れるクラス名が、
+    `adk_names` の値のどこかに全部出てくることを確かめる。
+    """
+    from jin_lsp import adk_names
+
+    values = " ".join(
+        [
+            adk_names.LLM_AGENT[0],
+            adk_names.LLM_AGENT[1],
+            adk_names.GUARD_CALLBACKS,
+            adk_names.LOOP_MAX_ARGUMENT,
+            *(name for name, _ in adk_names.FLOW_AGENTS.values()),
+            *(signature for _, signature in adk_names.FLOW_AGENTS.values()),
+            *(name for name, _ in adk_names.TOOL_CLASSES.values()),
+            *adk_names.AWAIT_TOOL_CLASS,
+        ]
+    )
+    mapping = read(SPEC_DIR / "adk-mapping.md")
+    expected = [
+        "LlmAgent",
+        "SequentialAgent",
+        "ParallelAgent",
+        "LoopAgent",
+        "FunctionTool",
+        "LongRunningFunctionTool",
+        "AgentTool",
+        "max_iterations",
+        "output_key",
+    ]
+    for name in expected:
+        assert name in mapping, f"{name} が adk-mapping.md に無い（テスト側の期待が古い）"
+        assert name in values, f"{name} が jin_lsp.adk_names に無い"
+
+
+def test_hover_maps_every_flow_kind() -> None:
+    """`flow.kind` の 3 種すべてに ADK クラスが対応していること。
+
+    片方だけ足すと hover が `KeyError` で落ちる（`_circle_hover` は辞書を直接引く）。
+    """
+    from typing import get_args
+
+    from jin_core.model import FlowKind
+    from jin_lsp import adk_names
+
+    assert set(adk_names.FLOW_AGENTS) == set(get_args(FlowKind))
 
 
 def test_adk_vocabulary_row_count_is_twelve_not_eleven() -> None:

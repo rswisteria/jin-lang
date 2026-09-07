@@ -70,6 +70,13 @@
 | DP-JIN-EDITOR-PROTOCOL-01 | `jin/open` / `jin/save` は仮称であり Phase 0 の `docs/spec/ops.md` 執筆時に人間承認を得て確定する / ws モードのエディタだけが使う / ファイル I/O 失敗はプロトコルエラー / 逆オペレーションの扱いは Phase 4 | 各種 | 構造化 | **reflected（Phase 0 担当分）** | `docs/spec/ops.md` §5 に「リクエスト名は仮称であり人間承認を要するため §2 の 19 件の表に含めていない」と明記。19 件の表を勝手に 21 件にしていない |
 | DP-JIN-PHASE-SCOPE-01（requirements.json） | 本ランのスコープは Phase 0〜6 | — | 構造化 | **reflected** | 本ラウンドは Phase 0 + 1。Phase 2 以降は後続ラウンドの implementer が担当（親の指示どおり着手していない） |
 | DP-JIN-EDITOR-UX-01 / DP-JIN-DISTRIBUTION-01（requirements.json） | エディタ最小 UI / 配布元 | — | 構造化 | **out_of_scope** | Phase 5 / 配布は本ラウンドの対象外 |
+| **P4** DP-COMMON-07 | last-good モデルは 1 世代だけ保持する | scope | 構造化 | **reflected** | `jin_lsp.session.DocumentState.last_good` は `LastGood` を 1 つ持つだけで、履歴の配列を持たない（`packages/jin-lsp/tests/test_session.py::test_only_one_generation_of_last_good_is_kept` が「2 つ前に戻らない」ことと「`history` 属性が無い」ことの両方で固定）。変異 `LASTGOOD-drop` で赤を実測 |
+| **P4** DP-COMMON-07 | SVG はキャッシュしない | scope | 構造化 | **reflected** | `jin_lsp.requests.jin_render_svg` は毎回 `jin_render.render` を呼ぶ。`jin_lsp` に `lru_cache` / `functools` は 1 箇所も無い（実測 2026-09-07） |
+| **P4** DP-COMMON-07 | `jin_core` / `jin_render` はキャッシュの存在を知らない純関数のままとする | scope | 構造化 | **reflected** | 記憶は `jin_lsp.session` にだけある。`jin_core` / `jin_render` の側は Phase 4 で 1 行も状態を持たされていない（`jin_core.check.models_at` の追加は既存 `_model_at` の公開エイリアスで、状態を持たない） |
+| **P4** DP-COMMON-14 | トレース JSONL とサーバログを分離し、サーバログは **stderr 固定** | scope | 構造化 | **reflected** | `jin_lsp.logs.configure` が root logger の既存ハンドラを外して stderr のハンドラだけを付ける（`guard: configure -> sys.stderr`）。加えて `tests/contract/test_lsp_contract.py::test_the_lsp_package_never_prints_to_stdout` が `jin_lsp` 全モジュールを AST で走査し、`print(...)` と `sys.stdout.*` を**構文として**禁じる（走査自体が壊れていないことも別テストで固定）。変異 `LOG-stdout` / `LOG-print-to-stdout` で赤を実測 |
+| **P4** DP-JIN-EDITOR-PROTOCOL-01（ADR-011） | 独自リクエスト `jin/open` / `jin/save` を 2 本追加し、ws モードのエディタだけが使う | scope | 構造化 | **reflected** | `jin_lsp.server` に 2 本を登録。`jin_lsp.fileio.FileAccess` が `--root` 明示・起動トークン・root 配下の `.jin`・symlink 拒否の 4 段で閉じる。stdio では `FileAccess(root=None)` なので常に拒否。変異 `FILE-*` の 6 本で赤を実測 |
+| **P4** DP-JIN-EDITOR-PROTOCOL-01（ADR-011） | リクエスト名は仮称であり、人間の承認を得たうえで `docs/spec/ops.md` で確定させる | condition | 構造化 | **reflected** | 2026-09-07 に toyota が `jin/open` / `jin/save` を正式名として確定。`docs/spec/ops.md` §5 と ADR-011「影響」に記録した。§2 の 19 件の表には**入れない**（要件書 §6.3 の独自リクエスト側への追加であり、意味編集オペレーションではない） |
+| **P4** DP-JIN-POINTER-RANGE-01 | LSP（0 始まり / UTF-16）への変換は `jin-lsp` の 1 モジュールだけが行う | condition | 構造化 | **reflected** | `jin_lsp.positions` が唯一の変換点。UTF-16 換算は pygls の `PositionCodec` に委ね、`guard: to_lsp_position -> _CODEC.position_to_client_units` で「本当に codec を通っている」ことを機械で固定。変異 `POS-off-by-one` / `POS-no-utf16` で赤を実測 |
 
 **判定サマリ（ラウンド 1）**: reflected 14 / 部分 reflected 1 / not_reflected 0 / unknown 0 / out_of_scope 13
 → **PASS**（`not_reflected` と `unknown` はゼロ。「部分 reflected」1 件は apps/editor 未存在が理由で、
@@ -678,6 +685,105 @@ pointer を末尾から削りながら「`data-jin` の完全一致」または�
 design.yaml の machine 条件 1 は「（正規化後）が安定」と書いているが、`render` の出力は既にバイト単位で
 決定的である（machine 2 / 7 を別テストで固定済み）。正規化を挟むと「正規化で消える差分」（座標の桁揺れ・
 属性順の入れ替わり・要素順の変化）が検出できなくなる。どれも意味のある回帰なので**素のバイト列**で比較する。
+
+### 2.25 ラウンド 4（Phase 4）で**値を確定した**実装判断
+
+要件書 §6 は LSP の機能一覧までしか決めていない。以下は **Phase 4 の実装で確定した値**であり、
+**要件値ではない**。
+
+#### 2.25.1 `didChange` のデバウンス = 150 ms（人間確定）
+
+**2026-09-07 に toyota が確定**（DP-IMPL-JIN-P4-DEBOUNCE-01）。実装は
+`jin_lsp.server.DEBOUNCE_SECONDS`。根拠は `delivery/20260904-1445-jin/check-text-benchmark.md` の実測:
+
+- 現実的な 1000 行の `check_text` は中央値 **8.9 ms**。150 ms 待っても体感は即時のまま
+- 敵対的なファイル（名前 128 字 × 未解決参照 400 件）は 1000 行以内でも最悪 **5.1 秒**かかる。
+  Issue #8 の人間判断が「Phase 4 の LSP は打鍵ごとの再計算をデバウンスし、古い要求を
+  キャンセルすること」を constraint にしているのはこれを長寿命プロセスの停止にしないためである
+
+**`didOpen` には掛けない。** 開いた瞬間の診断を遅らせる理由が無く、NFR-PERF-001 の
+計測（1000 行 1 秒）にデバウンス値が混ざると「速いかどうか」ではなく「どれだけ待つと決めたか」を
+測ることになる。`packages/jin-lsp/tests/test_performance.py` が「連打しても診断は 1 回」
+「didOpen は待たない」「閉じたら走らせない」を回数で固定する。変異 `DEBOUNCE-no-cancel` /
+`DEBOUNCE-on-did-open` で赤を実測。
+
+**残存**: 走り出した `check_text` そのものは止められない（同期の CPU 仕事）。ここで担保するのは
+「打鍵ごとに計算が積み上がらない」ことであり、敵対的なファイルの 1 件ぶん（最悪 5.1 秒）は残る
+（check-text-benchmark.md が「残存」として記録済み）。
+
+#### 2.25.2 `hint` は `Diagnostic.data` と `message` の両方に載せる
+
+要件書 §5 の診断 JSON は `pointer` と `hint` を持つが、LSP `Diagnostic` に対応する標準フィールドは
+**無い**（`lsp-api-probe.md` §1 の実測した引数一覧に含まれない）。
+
+- `data` に `{"pointer": ..., "hint": ...}` を載せる — コードアクション（`_suggested_names`）が
+  候補名をここから読む。エディタは `pointer` で SVG 上の要素へバッジを出す（要件書 §7.1）
+- **`message` の 2 行目にも hint を足す** — `data` はクライアントが往復のために持ち回るもので
+  人（や LLM）には表示されない。要件書 成功条件 3「LSP 診断の出力だけで構文・意味エラーを
+  修正しきれる」は、hint が `message` に無いと stdio のクライアントで成立しない
+
+変異 `POS-hint-not-in-message` で赤を実測。
+
+#### 2.25.3 `jin/model` の pointer→range 対応表は**配列**（DP-IMPL-JIN-P4-POINTER-SHAPE-01）
+
+`jin dump` は `{pointer: range}` の辞書で出すが、`jin/model` は
+`[{"pointer": ..., "start": ..., "end": ...}, ...]` の配列で返す。順序は pointer の辞書順で決定的。
+
+**根拠（実測）**: pygls 2.1.1 は型を知らないメソッドの `params` / `result` を
+`namedtuple(..., rename=True)` で作った `pygls.protocol.Object` に変換する
+（`pygls/protocol/__init__.py` の `_dict_to_object`）。`rename=True` は **Python の識別子に
+できないキーを `_0` / `_1` へ黙って置き換える**。JSON Pointer は `/` を含むので、辞書のキーに
+置くと鍵ごと消える（2026-09-07 実測）。配列なら任意のクライアントで壊れない。
+
+同じ理由で `jin_lsp.protocol.jin_converter` を用意し、サーバ（受け取る `params`）と
+Python のクライアント（受け取る `result`）の両方でこのフックを外している。
+外さないと `boundary.await`（Python の予約語）と `$schema`（`$` が識別子に使えない）が
+`_0` に化けて、`jin/applyOps` に載せたモデルの一部が**黙って壊れる**。
+変異 `PROTO-default-converter` / `POINTERS-as-object` で赤を実測。
+
+#### 2.25.4 `workspace/applyEdit` は**全文 1 個**の `TextEdit`
+
+最小差分を作らない。正準形は要素の順序も整えるので、行単位の最小差分にしても実際にはほぼ全行が
+動く。1 個にしておけば「サーバが作った正準形」と「クライアントに残るテキスト」がずれる余地が無い
+（要件書 成功条件 5 のバイト同一性）。`jin_lsp.features.edits.whole_document_edit` が唯一の作り口で、
+終端は**最終行の次の行の先頭**にする（最終行の長さを数えると、行末に改行が無いファイルで 1 文字取りこぼす）。
+
+クライアントが `workspace/applyEdit` を宣言していなければ**送らない**。送るとリクエストが
+`MethodNotFound` で失敗し、「オペレーションは当たったのにテキストが更新されない」食い違いだけが残る。
+代わりに応答へ `applied: false` と `text` を載せて、当てるべきテキストを渡す（NFR-FAIL-001）。
+
+#### 2.25.5 JIN020 の「サブ陣に抽出」の規則（DP-IMPL-JIN-P4-EXTRACT-01）
+
+要件書 §6.2 は「JIN020 → 選択要素をサブ陣に抽出」とだけ書いている。LSP の codeAction には
+「どの紋を選んだか」が届かない（診断は circle 全体を指す）ので、決定的な規則を決めた:
+
+| 項目 | 決めた値 |
+|---|---|
+| 移す紋 | **12 個目以降**（`MAX_ELEMENTS - 1` を超えた分）。元の陣に `summon` を 1 つ足すので、13 個目以降にすると抽出後も 13 個残って JIN020 が解消しない（実測で踏んだ） |
+| 新しい陣の名前 | `<元の名前>Extracted`。衝突したら末尾に 2, 3 … |
+| 新しい陣の `core` | **元の陣の core をそのまま**（要件書に無いモデル名を捏造しない） |
+| 出さない場合 | `state` が 12 を超えたとき（state は陣に固有で移せない）、元の陣に `core` が無いとき（サブ陣の core を決める根拠が要件書に無い） |
+
+`packages/jin-lsp/tests/test_features.py::test_code_action_extracts_the_overflowing_tools_into_a_sub_circle`
+が「抽出後に JIN020 が消えること」まで見る（動くが直らないアクションにしない）。
+変異 `EXTRACT-keeps-twelve` で赤を実測。
+
+#### 2.25.6 hover の「Python 参照の docstring」は**実装しない**（要件書 §6.2 からの逸脱）
+
+要件書 §6.2 の hover 行は「要素 → ADK クラス名と生成される引数、rune の全文、
+**Python 参照の docstring（`--resolve` 相当）**」と書いているが、最後の 1 つを Phase 4 では出さない。
+
+`ref` の docstring を読むにはそのモジュールを import する必要があり、それは
+「hover のたびに任意の Python コードをこの長寿命プロセスの権限で実行する」ことである。
+`jin lsp --ws` は外に口が開いているので、`jin_cli.resolver` が子プロセス隔離（ADR-018）で
+閉じた危険を、hover という頻繁な操作で作り直すことになる。import-linter の forbidden 契約が
+`jin_lsp → jin_cli.resolver` を機械で落としており、別実装を書けば同じ危険の新設になる。
+
+**要件書との差分なので HANDOFF（DP-IMPL-JIN-P4-HOVER-DOCSTRING-01）として起票し、PR 本文にも明記する。**
+ADK クラス名と rune の全文は実装済みで、対応表は `jin_lsp.adk_names`（`docs/spec/adk-mapping.md` 由来の
+静的な辞書。`tests/spec/test_spec_consistency.py` が突合する）から引く。
+`jin_adk` を依存に入れないのは、hover のためだけに `google-adk` を LSP プロセスへ読み込むと
+Claude Code がセッションを開くたびに ADK 全体の import を待つことになるためである。
 
 ## 3. `DP-CONFORMANCE-FAIL` の起票
 

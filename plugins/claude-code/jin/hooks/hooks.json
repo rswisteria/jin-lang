@@ -1,0 +1,28 @@
+{
+  "description": "`.jin` を書いたら jin check を走らせ、jin が入っていなければ入れ方を出す（要件書 §8）。",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check_jin.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check_install.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

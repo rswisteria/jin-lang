@@ -25,4 +25,11 @@ design.yaml fired_decision_points[DP-JIN-EDITOR-PROTOCOL-01] の推奨案（案 
 
 ## 影響
 
-_（影響は案件側で追記）_
+Phase 4（2026-09-07）で実装した。`constraints[]` が求めていた「リクエスト名を人間の承認を得て
+確定させる」は、`jin/open` / `jin/save` を正式名として確定し `docs/spec/ops.md` §5 に記録した
+（toyota が確定）。
+
+案 C は「ws モードのエディタだけが使う」ので、**stdio では常に拒否**する実装にした。
+また `jin lsp --ws` は same-origin 制限の無い口を開けるため、`--root` の明示・起動トークン・
+root 配下の `.jin` に限定・symlink 拒否の 4 段で閉じている（ops.md §5.1）。
+Origin ヘッダを見ていないことは残存として同節に記録した。

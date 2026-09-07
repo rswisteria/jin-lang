@@ -193,6 +193,17 @@ loop 本体が作る state を終了条件に使うのが通常の書き方だ�
 列の単位変換は日本語の rune を含む `.jin`（本案件の examples がまさにそれ）で実際に効くため、
 Phase 4 で必ず実施すること。`jin_core` 側は一貫してコードポイント単位で数える。
 
+**Phase 4 で実装済み**: `packages/jin-lsp/src/jin_lsp/positions.py` が唯一の変換点である。
+UTF-16 への換算は pygls の `PositionCodec`（既定 `PositionEncodingKind.Utf16`）に委ね、
+`guard:` 記法で「その関数が本当に codec を通っている」ことを機械で固定している。
+サロゲートペアの**途中**を指す LSP 位置はコードポイントで表せないため境界へ丸められる
+（丸めが 1 回で収束することを `packages/jin-lsp/tests/test_positions.py` が固定する）。
+
+要件書 §5 の `hint` は LSP `Diagnostic` に対応する標準フィールドが無いので、
+`data`（`{"pointer": ..., "hint": ...}`）と **`message` の 2 行目**の両方に載せる。
+`data` はクライアントが codeAction の往復で持ち回るもので人には表示されないため、
+`message` に無いと要件書 成功条件 3（「LSP 診断の出力だけで修正しきれる」）が成り立たない。
+
 ## 6. fixture
 
 `tests/fixtures/errors/JINxxx_*.jin` に各コード 1 つ以上。**そのファイルは対応コードをちょうど 1 つだけ出す**。
