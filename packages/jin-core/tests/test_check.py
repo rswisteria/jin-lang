@@ -170,6 +170,51 @@ def test_jin002_unknown_key_hint_lists_allowed_keys() -> None:
     assert "instruction" in hint and "boundary" in hint
 
 
+def test_jin002_unknown_key_inside_a_tool_lists_the_tool_keys() -> None:
+    """判別共用体（`tools[]`）の中でも「許されるキー」を挙げられること。
+
+    `Tool` は `Annotated[ToolFunction | ToolBuiltin | ToolSummon, Field(discriminator="kind")]`
+    である。`_unwrap` が `Annotated` を剥がしていなかったころは `list[Tool]` から
+    1 クラスも取れず、この hint が**空**になっていた（Phase 4 の completion が
+    同じ解決を使おうとして気づいた）。hint が空でも診断は出るので、
+    テストが無いと静かに劣化する。
+    """
+    doc = {
+        "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+        "version": 1,
+        "root": "A",
+        "circles": [
+            {
+                "name": "A",
+                "core": "m",
+                "tools": [{"name": "s", "kind": "tool", "ref": "m:s", "typo": 1}],
+            }
+        ],
+    }
+    result = check_text(json.dumps(doc, indent=2), "x.jin")
+    assert result.diagnostics[0].code == "JIN002"
+    hint = result.diagnostics[0].hint or ""
+    assert "ref" in hint and "kind" in hint, hint
+
+
+def test_models_at_resolves_the_discriminated_union_of_tools() -> None:
+    """`models_at` が `tools[]` の候補を返す（`jin-lsp` の completion が使う公開名）。"""
+    from jin_core.check import models_at
+
+    doc = {
+        "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+        "version": 1,
+        "root": "A",
+        "circles": [
+            {"name": "A", "core": "m", "tools": [{"name": "s", "kind": "tool", "ref": "m:s"}]}
+        ],
+    }
+    names = {cls.__name__ for cls in models_at("/circles/0/tools", doc)}
+    assert names == {"ToolFunction", "ToolBuiltin", "ToolSummon"}
+    # 要素まで降りるとソースの `kind` で 1 つに絞られる
+    assert [c.__name__ for c in models_at("/circles/0/tools/0", doc)] == ["ToolFunction"]
+
+
 def test_jin002_missing_key_points_at_parent_range() -> None:
     doc = {"version": 1, "root": "A", "circles": [{"name": "A", "core": "m"}]}
     result = check_text(json.dumps(doc, indent=2), "x.jin")

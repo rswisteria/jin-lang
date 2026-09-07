@@ -1,0 +1,9 @@
+{
+  "name": "jin",
+  "description": "Jin(陣) — 魔法陣型エージェント記述言語。.jin の診断・定義ジャンプ・補完を LSP で提供し、書き方の手順を skill として与える。",
+  "version": "0.1.0",
+  "author": {
+    "name": "xtone"
+  },
+  "license": "MIT"
+}

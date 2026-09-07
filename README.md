@@ -4,8 +4,9 @@
 同じファイルを魔法陣として決定的に描画する。
 
 現在の実装範囲は **Phase 0（仕様書と examples）・Phase 1（`jin-core` + `jin-cli`）・
-Phase 2（`jin-adk`: build / run / trace / FakeLlm）・Phase 3（`jin-render`: render / focus / trace overlay）**。
-全体像と残りの Phase は `jin-requirements.md` と `CLAUDE.md` を参照。
+Phase 2（`jin-adk`: build / run / trace / FakeLlm）・Phase 3（`jin-render`: render / focus / trace overlay）・
+Phase 4（`jin-lsp`: stdio + WebSocket + Claude Code プラグイン）**。
+残りは Phase 5–6（`apps/editor`）。全体像は `jin-requirements.md` と `CLAUDE.md` を参照。
 
 ## 使う
 
@@ -19,6 +20,7 @@ uv run jin dump examples/researcher/researcher.jin   # モデル + pointer→ran
 uv run jin build examples/pipeline/pipeline.jin --out /tmp/out   # ADK プロジェクト（/tmp/out/Pipeline/ + .env.example）
 uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl   # FakeLlm で実行・トレース（0600）
 uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg    # 魔法陣 SVG（-o 無しは標準出力）
+uv run jin lsp                     # LSP サーバ（stdio）
 ```
 
 ### `jin render` — 魔法陣 SVG
@@ -52,6 +54,56 @@ uv run jin render <file> --trace t.jsonl --upto 5   # jin run --trace の出力�
   自分の出力 `{findings}` を参照しているため、初回ターンで ADK が `KeyError`（未設定の state 参照）を出す。
   `jin run` は宣言済みの state を空で初期化してから実行するので通る（`docs/spec/adk-mapping.md` §6）
 - トレースの `pointer` は `jin run` が付ける。`adk run` で単体実行しても Jin の pointer は付かない
+
+### `jin lsp` — 言語サーバ
+
+```bash
+uv run jin lsp                              # stdio（Claude Code / VS Code 向け・既定）
+uv run jin lsp --ws 8765                    # WebSocket（ブラウザのエディタ向け）
+uv run jin lsp --ws 8765 --root ./workspace # jin/open と jin/save を ./workspace 配下の .jin に限って許す
+```
+
+**stdio と WebSocket でサーバ実装は同一**である（要件書 §6.1）。提供する機能:
+
+| 種類 | 内容 |
+|---|---|
+| 標準 | diagnostics / completion / definition / references / hover / documentSymbol / formatting / rename / codeAction |
+| 独自 | `jin/model` / `jin/renderSvg` / `jin/applyOps` / `jin/ops`（要件書 §6.3） |
+| ws 専用 | `jin/open` / `jin/save`（ADR-011。ブラウザにはファイルシステムが無いため） |
+
+- **formatting の出力は `jin fmt` と、`jin/renderSvg` の出力は `jin render` とバイト一致する。**
+  どちらも `jin_core` / `jin_render` の同じ関数を呼ぶだけで、LSP 側は位置変換とプロトコル露出しか持たない
+- 診断は **JSON 構文 → スキーマ → 意味**の順に段階的に出る。前段が通らなければ後段は出ない
+- **JSON 構文エラー中も hover と `jin/renderSvg` は直前の正常なモデルで答える**（応答の `stale` が真になる）
+- 打鍵は 150 ms デバウンスして古い要求をキャンセルする。ファイルを開いた瞬間の診断は待たない
+
+### `jin lsp --ws` はローカルに口を開ける
+
+WebSocket にはブラウザの same-origin 制限が無い。**開いている任意のページが `ws://127.0.0.1:PORT` へ
+繋いでリクエストを打てる。** ファイルを読み書きする `jin/open` / `jin/save` はそのため 4 段で閉じてある:
+
+1. **既定で無効。** `--root <ディレクトリ>` を明示したときだけ有効になる
+2. **起動トークン。** 起動時に生成して stderr へ出す。リクエストの `token` で毎回示す
+3. **場所と種類。** `--root` の実体の配下にある `.jin` だけ
+4. **symlink 拒否。** 書き先そのものが symlink なら拒む
+
+残存: Origin ヘッダは見ていない（pygls が `start_ws` でサーバ生成オプションを露出しないため）。
+詳細と根拠は `docs/spec/ops.md` §5.1。
+
+**hover は `ref` の docstring を出さない。** 出すには `ref` のモジュールを import する必要があり、
+hover のたびに任意コード実行になるためである（要件書 §6.2 からの意図的な逸脱）。
+
+### Claude Code プラグイン
+
+`plugins/claude-code/jin/` を入れると `.jin` の診断・定義ジャンプが Claude Code で効く（要件書 §8）。
+
+```bash
+uv tool install jin-cli   # jin コマンドが PATH に要る
+```
+
+`skills/jin-lang/reference/` は `docs/spec/model.md` と `schemas/jin.schema.json` の**コピー**で、
+`uv run python scripts/sync_plugin_reference.py` が同期する（手で編集しない）。
+CI が `--check` でずれを落とし、`claude plugin validate --strict` も走らせる。
 
 ### `jin check --resolve` は任意コードを実行する
 

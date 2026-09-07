@@ -1828,3 +1828,255 @@ R3.3 の「plan の変更は `DP-REVIEW-JIN-P3-001` の追加だけ」は**私�
 `backend_unit = passed` / `container_smoke = not_applicable` / `browser_e2e = not_applicable` /
 `pipeline_e2e = not_run` / `overall = verified`（`scope_labels = ["backend-unit-verified"]` の
 範囲での判定）。human_only は `not_run` のまま。
+
+
+# ============================================================================
+# Phase 4（jin-lsp）— ラウンド 4 / Issue #5
+# ============================================================================
+
+## P4-1. 成果物と件数
+
+| 項目 | 値 |
+|---|---|
+| `uv run pytest` | **1197 passed → 1369 passed**（+172。ほかに環境差の 2 failed / 3 skipped は着手前と同じ） |
+| 変異ハーネス | **22/22 caught**（SKIP 0・実ツリー不変・`/tmp` 残骸 0） |
+| CI と同じ 8 ゲート + 2 | 全緑（§P4-5 に実測値。プラグイン validate と reference 同期を追加）。実機 CI も両 job pass（§P4-5.1） |
+| HANDOFF | 3 件（すべて non-blocking・推奨案で実装済み。§P4-6） |
+| 人間確定 | 3 件（§P4-3） |
+
+新規ファイル:
+
+```
+packages/jin-lsp/pyproject.toml
+packages/jin-lsp/src/jin_lsp/{__init__,__main__,logs,positions,session,locate,protocol,requests,server,fileio,adk_names}.py
+packages/jin-lsp/src/jin_lsp/features/{__init__,completion,navigation,edits}.py
+packages/jin-lsp/tests/{__init__,conftest,test_positions,test_session,test_stdio_roundtrip,test_ws_roundtrip,test_features,test_apply_ops_roundtrip,test_performance}.py
+tests/contract/{test_lsp_contract,test_plugin_contract}.py
+plugins/claude-code/jin/{.claude-plugin/plugin.json,.lsp.json,README.md}
+plugins/claude-code/jin/skills/jin-lang/{SKILL.md,reference/model.md,reference/jin.schema.json}
+plugins/claude-code/jin/hooks/{hooks.json,check_jin.sh,check_install.sh}
+scripts/sync_plugin_reference.py
+delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py
+```
+
+変更ファイル:
+
+```
+pyproject.toml                                   dependencies / uv.sources / root_packages / layers / forbidden 2 本 / dev に pytest-lsp
+uv.lock                                          pygls[ws] 2.1.1 / lsprotocol 2025.0.0 / pytest-lsp 1.0.1 / pytest-asyncio 1.4.0
+packages/jin-cli/pyproject.toml                  dependencies / uv.sources に jin-lsp
+packages/jin-cli/src/jin_cli/main.py             lsp サブコマンド
+packages/jin-core/src/jin_core/check.py          _unwrap が Annotated を剥がす / models_at を公開
+.github/workflows/ci.yml                         plugin job（Node + claude plugin validate --strict）と reference 同期の検出
+tests/contract/test_dependency_direction.py      トリップワイヤを「5 パッケージが全部ある」側へ反転
+tests/contract/test_guard_claims.py              期待集合に jin-lsp
+tests/contract/test_ci_contract.py               plugin job / Node / reference 同期の検査
+tests/spec/test_spec_consistency.py              jin/ops ↔ ops.md §2 / adk_names ↔ adk-mapping.md の突合
+packages/jin-core/tests/test_check.py            Annotated の回帰テスト 2 本
+packages/jin-cli/tests/test_cli.py               偽緑の修正 + jin lsp のテスト
+docs/spec/ops.md                                 §5 jin/open・jin/save の確定 / §6 stale / §7 実装状況
+docs/spec/diagnostics.md                         §5.1 に Phase 4 の実装状況と hint の載せ方
+docs/adr/ADR-011-DP-JIN-EDITOR-PROTOCOL-01.md    影響
+CLAUDE.md                                        Phase 4 = 実装済み / 要点 / jin lsp --ws の危険性 / 開発コマンド
+README.md                                        jin lsp / プラグイン
+delivery/20260904-1445-jin/lsp-api-probe.md      §5（Phase 4 の実測 5 点）
+delivery/20260904-1445-jin/version-matrix.md     §9
+delivery/20260904-1445-jin/decision-conformance.md  §1 に P4 行 7 件 + §2.25（確定値 6 件）
+delivery/20260904-1445-jin/implementation-plan.json extend（round.index=4 / skill_plan 1 / tasks 4 / domain_checks 5）
+```
+
+## P4-2. 実測で踏んだ欠陥（テストが先に見つけたもの）
+
+**「テストが緑であることは品質の証拠にならない」**（Phase 0+1 からの原則）。以下は
+**実装を書いたあとテストが赤くして**見つかったもので、どれも書いている最中は気づいていなかった。
+
+| # | 欠陥 | どう露見したか | 直し方 |
+|---|---|---|---|
+| 1 | `jin/save` が **symlink 経由で実体を書き換えた** | `test_save_replaces_a_symlink_instead_of_following_it`（当時の名前）が「実体が無傷であること」を見ていて赤くなった | `Path.resolve()` の結果を書き先にしていた。symlink を辿る**前**のパスを書き先にし、書き先自体が symlink なら拒む。root 配下かどうかの判定だけは `resolve()` 後で見る（`..` と root 外へのリンクを塞ぐため） |
+| 2 | JIN020 の抽出コードアクションが **JIN020 を解消しなかった** | 「抽出後の診断が空であること」を見るアサーションで赤くなった | 13 個目以降を移していたが、元の陣に `summon` を 1 つ足すので 12 + 1 = 13 個残っていた。12 個目以降を移す（`MAX_ELEMENTS - 1` を残す） |
+| 3 | `jin_core.check._unwrap` が **`Annotated` を剥がしていなかった** | completion が `tools[].kind` の enum を 1 つも出せず赤くなった | 判別共用体 `Tool` から 1 クラスも取れていなかった。JIN002 の hint が `tools[]` の中で空になる**既存の欠陥**でもあったので `jin_core` 側で直し、回帰テストを両方（`test_check.py` と `test_features.py`）に置いた |
+| 4 | `secrets.compare_digest` が **非 ASCII で `TypeError`** | 「トークンが違えば拒む」テストが、拒否理由ではなく型エラーで赤くなった | 攻撃者は任意の文字列を送れる。バイト列にしてから比べる |
+
+**偽緑を 1 件見つけて直した**:
+
+`packages/jin-cli/tests/test_cli.py::test_later_phase_commands_are_not_defined_yet` は
+`run(name, "x.jin")` の `exit_code != 0` を見ていた。存在しないファイルを渡しているので
+**実装済みのコマンドでも成立する**。Phase 3 で `render` を実装したあとも緑のままだった。
+typer の `No such command` で見る形に直し、実装済みコマンド側（`--help` が exit 0）も固定した。
+
+**変異ハーネスが偽緑をもう 1 件見つけた**:
+
+`test_did_open_is_not_debounced` は `server.analyze_now(...)` を直接呼んでいた。
+これでは「`analyze_now` は待たない」しか言っておらず、`did_open` **ハンドラ**を
+`schedule_analysis` に変えても緑のままだった（変異 `DEBOUNCE-on-did-open` が捕まらずに露見）。
+`create_server` が登録したそのハンドラを `server.protocol.fm.features[...]` から取り出して呼ぶ形に直した。
+
+**コードが自称していた検査を 2 件実在させた**（Phase 0+1 の R-2 と同型）:
+
+`jin_lsp.requests.OPERATION_SPECS` と `jin_lsp.adk_names` の docstring が
+「`tests/spec/test_spec_consistency.py` が仕様書と突合する」と書いていたが、そのテストは
+存在しなかった。書いた側を実在させる方向で直した（docstring を消すと、次に誰かが
+同じ種類の嘘を書ける）。
+
+## P4-3. 人間が確定した判断（2026-09-07・toyota）
+
+| DP | 決定 | 反映先 |
+|---|---|---|
+| `DP-JIN-EDITOR-PROTOCOL-01`（ADR-011 の constraint） | `jin/open` / `jin/save` を**正式名として確定**し、**Phase 4 で防御込みで実装**する（Phase 5 送りにしない） | `docs/spec/ops.md` §5 / ADR-011「影響」/ `jin_lsp.fileio` |
+| `DP-IMPL-JIN-P4-DEBOUNCE-01`（新規） | `didChange` のデバウンスは **150 ms** | `jin_lsp.server.DEBOUNCE_SECONDS` / decision-conformance §2.25.1 |
+| `DP-REVIEW-JIN-003`（Issue #9） | CI に **`claude plugin validate` の job と pnpm / Node の受け皿の両方**を足す | `.github/workflows/ci.yml` の `plugin` job |
+
+`DP-REVIEW-JIN-003` の**記録**（`/aid decide` による `decision_record` の生成と
+`docs/pending-decisions.md` の再生成）は Issue #9 の手順に従って別途行う必要がある。
+本ラウンドでは**手編集していない**（Issue #9 が「md の手編集は禁止」と定めているため）。
+PR 本文に明記する。
+
+## P4-4. TDD の Red 証跡
+
+モジュールごとに「テストを書く → 赤を見る → 実装する」を回した。赤の内容は都度確認している。
+
+| 順 | テスト | 最初の赤 | 緑にした実装 |
+|---|---|---|---|
+| 1 | `test_positions.py`（12 件） | `ImportError: cannot import name 'positions'` | `jin_lsp/positions.py` |
+| 2 | 同上の往復テスト | サロゲートペア中間位置で `0:13 != 0:12` | **テスト側が誤り**だった。中間位置はコードポイントで表せないので「丸めが 1 回で収束する」形に直した |
+| 3 | `test_session.py`（8 件） | `ModuleNotFoundError: jin_lsp.session` | `jin_lsp/session.py` |
+| 4 | 同上 | `state.model is None`（サンプルが schema を通らなかった） | `$schema` / `version` を持つ最小の `.jin` を `conftest.py` に用意 |
+| 5 | `test_stdio_roundtrip.py`（16 件） | 全件 ERROR（`jin_lsp.server` が無い） | `server.py` / `requests.py` / `features/*` |
+| 6 | 同上 | `TypeError: tuple indices must be integers`（応答が `Object` に化けた） | `jin/model` の対応表を配列に + `jin_lsp/protocol.py` |
+| 7 | 同上 | `AttributeError: 'Object' object has no attribute 'get'`（**サーバが受ける params も化けていた**） | converter を `jin_converter` に差し替え |
+| 8 | `test_ws_roundtrip.py`（11 件） | 最初のテストで**ハング**（`client.stop()` が返らない） | `shutdown_session()` を先に呼ぶ（probe §5.2 に記録） |
+| 9 | `test_apply_ops_roundtrip.py`（41 件） | `$schema` が `_0` に化けて model が一致しない | クライアント側の converter も差し替え |
+| 10 | `test_features.py`（17 件） | enum 候補が空 / 抽出後も JIN020 が残る | `_enum_models` / `keep = MAX_ELEMENTS - 1` |
+| 11 | `test_performance.py`（6 件） | — | 最初から緑（886 行が 1 秒以内）。デバウンスの回数テストは変異で偽緑が判明して書き直した |
+| 12 | `tests/contract/test_lsp_contract.py`（8 件） | `AttributeError: 'dict' object has no attribute 'svg'` | 応答の取り出しを dict に |
+
+## P4-5. CI と同じゲート（2026-09-07・`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1` で実測）
+
+| ゲート | 結果 |
+|---|---|
+| `uv sync`（`UV_LOCKED=1` 相当は `uv lock --check` で確認） | クリーン |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 全ファイル整形済み |
+| `uv run pytest` | **1369 passed / 2 failed / 3 skipped**（下記） |
+| `uv run lint-imports` | 3 contracts kept / 0 broken |
+| `uv run jin schema \| diff -u schemas/jin.schema.json -` | 差分なし |
+| `uv run jin check examples` | error 0 / warning 0 |
+| `uv run jin fmt --check examples` | 差分なし |
+| `uv run python scripts/sync_plugin_reference.py --check`（**新規**） | 同期済み |
+| `claude plugin validate --strict plugins/claude-code/jin`（**新規**） | Validation passed |
+
+**残る 2 件の失敗は本ラウンドと無関係な環境差**である（`main` の HEAD でも同じ 2 件が落ちる。
+着手前に実測して記録した）:
+
+- `packages/jin-adk/tests/test_build.py::test_over_long_root_name_is_refused_not_a_traceback` —
+  ENAMETOOLONG の閾値が macOS（APFS・255 **文字**）と Linux（ext4・255 **バイト**）で違い、
+  非 ASCII 86 文字がエラーにならない
+- `packages/jin-cli/tests/test_build_run.py::test_unsafe_file_names_are_rejected_at_the_entry[bad\udcff.jin]` —
+  macOS が不正な UTF-8 バイトを含むファイル名を `OSError: Illegal byte sequence` で拒み、
+  テストが用意しようとしたファイルを作れない
+
+どちらも CI（ubuntu-latest）では緑である（Phase 3 の PR #16 で実機確認済み）。
+
+### P4-5.1 実機 CI（PR #17・run 34079223651・head `78dc11c`・2026-09-07）
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test`（ubuntu-latest） | **pass** 2m38s | `1373 passed, 1 skipped` / pytest 本体 141.38s / 6 snapshots passed |
+| `plugin`（ubuntu-latest） | **pass** 8s | `claude --version` = **2.1.263 (Claude Code)** / `✔ Validation passed` |
+
+手元（macOS）の `1369 passed / 2 failed / 3 skipped` と足して 1374 で一致する。内訳:
+
+- 手元の 3 skip はすべて `/dev/full` が無いこと（macOS）で、Linux では走って通る（+3）
+- 上に挙げた macOS 固有の 2 失敗は Linux では通る（+2）。**PR 本文の「CI では緑」の主張はこれで裏取りできた**
+- CI の 1 skip は `tests/contract/test_plugin_contract.py::test_claude_plugin_validate_passes`。
+  `test` job には `claude` CLI が無いためで、**CI で validate を実際に走らせているのは `plugin` job のほう**である
+  （同テストの docstring にもこの実態を書いた）
+
+`test_diagnostics_for_a_thousand_lines_arrive_within_a_second`（1 秒予算）は共有 runner でも
+通った。手元より遅い環境で予算が破れないことを実機で確認できたので、値は据え置く。
+
+`@anthropic-ai/claude-code` は `npm install -g` で版が浮く。**2026-09-07 に PASS したのは 2.1.263** である。
+`plugin` job が将来赤くなったときに「プラグイン側が壊れた」のか「CLI の版が上がって検査が厳しくなった」のかを
+切り分けるために記録しておく。
+
+## P4-6. HANDOFF（human-decision-request・いずれも non-blocking・推奨案で実装済み）
+
+| ID | 論点 | 推奨（実装した案） | 根拠 |
+|---|---|---|---|
+| `DP-IMPL-JIN-P4-POINTER-SHAPE-01` | `jin/model` の pointer→range 対応表の形（`jin dump` と同じ辞書か、配列か） | **配列** | pygls 2.1.1 は未知メソッドの応答 dict を `namedtuple(rename=True)` に変換し、`/` を含むキーを `_0` に置き換える（実測）。辞書だと鍵ごと消える。decision-conformance §2.25.3 |
+| `DP-IMPL-JIN-P4-EXTRACT-01` | JIN020 の「選択要素をサブ陣に抽出」の規則（LSP には「どれを選んだか」が届かない） | **12 個目以降を `<name>Extracted` へ移し、core は元から継承。state と core 無しには出さない** | 抽出後に JIN020 が解消することを機械で確かめられる規則にした。要件書に無いモデル名を捏造しない。decision-conformance §2.25.5 |
+| `DP-IMPL-JIN-P4-HOVER-DOCSTRING-01` | 要件書 §6.2 hover の「Python 参照の docstring（`--resolve` 相当）」 | **実装しない**（要件書からの意図的な逸脱） | `ref` の docstring を読むにはそのモジュールを import する必要があり、hover のたびに任意コード実行になる。`jin lsp --ws` は外に口が開いている。ADR-018 が子プロセス隔離で閉じた危険を作り直すことになる。decision-conformance §2.25.6 |
+
+## P4-7. 完了条件（design.yaml `implementation_phases.items[4].verification`）
+
+### machine — 11 件すべて満たす
+
+| # | 条件 | 証拠 |
+|---|---|---|
+| 1 | pytest-lsp で initialize → didOpen → publishDiagnostics が stdio と ws の両方で通る | `test_stdio_roundtrip.py::test_did_open_publishes_no_diagnostics_for_a_valid_file` / `test_ws_roundtrip.py::test_did_open_publishes_diagnostics_over_websocket` |
+| 2 | completion / definition / references / hover / documentSymbol / formatting / rename / codeAction が往復する | `test_features.py`（17 件）+ `test_stdio_roundtrip.py` の formatting |
+| 3 | `jin/model` / `jin/renderSvg` / `jin/applyOps` / `jin/ops` が stdio と ws の両方で往復する | `test_stdio_roundtrip.py` / `test_ws_roundtrip.py::test_the_four_custom_requests_round_trip_over_websocket` |
+| 4 | applyOps の 19 オペレーションで「再パース → 期待モデル」と「逆で元に戻る」 | `test_apply_ops_roundtrip.py`（19 × 2 + 3 件。ケース表が 19 件を過不足なく覆うことも等号で固定） |
+| 5 | formatting の出力が `jin fmt` とバイト一致 | `tests/contract/test_lsp_contract.py::test_formatting_over_lsp_is_byte_identical_to_jin_fmt`（CLI を別プロセスで実行） |
+| 6 | `jin/renderSvg` の出力が `jin render` とバイト一致 | 同 `::test_render_svg_over_lsp_is_byte_identical_to_jin_render` |
+| 7 | 1000 行の診断応答が 1 秒以内 | `test_performance.py::test_diagnostics_for_a_thousand_lines_arrive_within_a_second`（886 行・LSP のラウンドトリップ全体で計測） |
+| 8 | 構文エラー中に hover / renderSvg が直前の正常モデルで応答する | `test_stdio_roundtrip.py::test_render_svg_falls_back_to_the_last_good_model` / `::test_hover_falls_back_to_the_last_good_model` |
+| 9 | 診断が JSON 構文 → スキーマ → 意味の順で段階的に出る | `test_stdio_roundtrip.py` の JIN001 only / JIN002 only / 段 3 到達の 3 本 |
+| 10 | `claude plugin validate` が PASS | 手元で実測（`--strict` も PASS）+ CI の `plugin` job + `tests/contract/test_plugin_contract.py` |
+| 11 | `skills/jin-lang/reference/` が `docs/spec/` と `schemas/` と一致 | `test_plugin_contract.py::test_the_reference_copy_matches_the_canonical_source`（バイト一致）+ 生成器 `--check` を CI で実行 |
+
+### human_only — **not_run**（PR レビューへ送る）
+
+> 実際の Claude Code セッションで `.jin` を開いて診断・定義ジャンプが効くことの確認。
+> auto mode に人間が不在のため実施できない。
+
+プラグインの構造・`.lsp.json`・hooks の妥当性は `claude plugin validate --strict` と
+`tests/contract/test_plugin_contract.py` が機械で見ているが、**実セッションでの体験は見ていない**。
+
+## P4-8. 変異ハーネス（`phase4-mutations/mutate_p4.py`）
+
+**22/22 caught**。`phase3-mutations/mutate_p3.py` と同じ流儀（隔離コピー上で変異・
+`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1`・実ツリー不変）に加えて、
+**1 変異あたり 300 秒のタイムアウト**を入れた。
+
+タイムアウトを入れたのは実際にハングを踏んだためである。`jin_core.check` の段 1 の
+early return を消す変異を書いたところ、`parsed` が未定義のままサーバが起動時にクラッシュし、
+クライアントが `wait_for_notification` で**永久に待った**（13 分気づかなかった）。
+ハングは「赤」ではないので `TIMEOUT (!! ハングした)` として別に報告する。
+段階診断そのものは `jin_core` の網が見ているので、Phase 4 の表は
+「診断が LSP に載って届くこと」（`DIAG-not-published`）を壊す形にした。
+
+壊した防御:
+
+```
+LOG-stdout / LOG-print-to-stdout          stderr 固定と print 禁止（DP-COMMON-14）
+LASTGOOD-drop / -semantic-error-discarded last-good 1 世代とその「正常」の定義（DP-COMMON-07）
+POS-off-by-one / -no-utf16 / -hint-not-in-message   位置変換と hint の載せ方
+DIAG-not-published                        診断が publish されること
+FILE-*（6 本）                            jin/open・jin/save の 4 段の防御（ADR-011）
+PROTO-default-converter                   未知メソッドの params / result を素の JSON で扱う
+EXTRACT-keeps-twelve                      JIN020 の抽出が JIN020 を解消すること
+POINTERS-as-object                        対応表が配列であること
+OPS-twentieth                             オペレーションを 20 個目にしない
+UNWRAP-no-annotated                       判別共用体から候補を取れること
+DEBOUNCE-no-cancel / -on-did-open         デバウンスとキャンセル
+PLUGIN-stale-reference                    reference/ が正典のコピーであること
+```
+
+## P4-9. Stage 5 レビュー依頼（親が実施）
+
+**対象**（新規 + 変更は §P4-1 の一覧）。特に見てほしいところ:
+
+1. **`jin_lsp/fileio.py`** — ws は same-origin 制限の無い口である。4 段の防御に穴が無いか。
+   TOCTOU（`is_symlink` の判定と `os.replace` のあいだ）をどう考えるべきか。
+   Origin ヘッダを見ていないことの残存リスク（`docs/spec/ops.md` §5.1 に記録済み）
+2. **`jin_lsp/protocol.py`** — converter を差し替えて未知メソッドの params を素の dict で受ける。
+   LSP 標準メソッドの型付き構造化を壊していないか（`structure_message` が
+   `get_message_type` で型を引ける限り影響しないという読みが正しいか）
+3. **`jin_lsp/features/edits.py`** — 19 オペレーションの合成で参照 1 個を書き換えている
+   （`_reference_replacement`）。20 個目を作らない制約は守れているが、合成が
+   `apply_ops` の原子性を前提にしていることが読み取れるか
+4. **`jin_core/check.py` の `_unwrap`** — `Annotated` を剥がすようにした。JIN002 の hint が
+   変わる（良くなる）が、既存 fixture の期待を壊していないか（テストは全緑）
+5. **`decision-conformance.md` §2.25** — 確定値 6 件の根拠が「要件値ではない」と読めるか
+6. **要件書 §6.2 からの逸脱**（hover の docstring）— この判断が妥当か。§P4-6 の 3 件目

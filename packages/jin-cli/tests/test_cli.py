@@ -46,11 +46,75 @@ def test_help_lists_phase1_commands() -> None:
         assert name in result.output
 
 
-@pytest.mark.parametrize("name", ["render", "lsp", "editor"])
+@pytest.mark.parametrize("name", ["editor"])
 def test_later_phase_commands_are_not_defined_yet(name: str) -> None:
-    """build / run は Phase 2 で定義した（`test_build_run.py`）。残り 3 つは未定義のまま。"""
+    """`editor` は Phase 5。**未定義であることを未定義として**確かめる。
+
+    Phase 3 まではここに `render` と `lsp` も並んでいたが、`run(name, "x.jin")` の
+    `exit_code != 0` は**実装済みのコマンドでも**成立する（存在しないファイルを
+    渡しているので当然落ちる）ので、実装したあとも緑のままだった（偽緑）。
+    未定義であることは typer の「No such command」で見る。
+    """
     result = run(name, "x.jin")
-    assert result.exit_code != 0
+    assert result.exit_code == 2
+    assert "No such command" in result.output, result.output
+
+
+@pytest.mark.parametrize(
+    "name", ["check", "fmt", "schema", "dump", "build", "run", "render", "lsp"]
+)
+def test_implemented_commands_are_defined(name: str) -> None:
+    """実装済みのコマンドが `--help` を持つ（上のテストの裏返し）。
+
+    `jin --help` が嘘をつかないこと（CLAUDE.md「未実装のものはサブコマンドごと
+    存在させない」）を両側から固定する。
+    """
+    result = run(name, "--help")
+    assert result.exit_code == 0, result.output
+
+
+# --------------------------------------------------------------------------------------
+# jin lsp（Phase 4）
+# --------------------------------------------------------------------------------------
+def test_lsp_help_describes_both_transports() -> None:
+    """両トランスポート（要件書 §6.1）がヘルプに出ること。
+
+    オプション名そのものは探さない。typer/rich が `-` と `-stdio` の間に
+    ANSI の色指定を挟むので `"--stdio" in output` は偽になる（実測）。
+    説明文で見る。
+    """
+    result = run("lsp", "--help")
+    assert result.exit_code == 0
+    assert "stdio で待ち受ける" in result.output
+    assert "WebSocket で待ち受ける" in result.output
+
+
+def test_lsp_refuses_both_transports_at_once() -> None:
+    result = run("lsp", "--stdio", "--ws", "1234")
+    assert result.exit_code == 2
+    assert "同時に指定できません" in result.output
+
+
+def test_lsp_refuses_root_without_ws() -> None:
+    """`--root` は ws 専用（stdio のファイル I/O はクライアントの仕事・ADR-011）。"""
+    result = run("lsp", "--root", ".")
+    assert result.exit_code == 2
+    assert "--ws と一緒に" in result.output
+
+
+@pytest.mark.parametrize("port", ["0", "65536", "-1"])
+def test_lsp_refuses_a_port_outside_the_valid_range(port: str) -> None:
+    result = run("lsp", "--ws", port)
+    assert result.exit_code == 2
+
+
+def test_lsp_danger_is_documented() -> None:
+    """`--ws` の危険（ローカルに口を開ける）がヘルプに書いてあること。
+
+    `--resolve` / `jin run` と同じ規律（`test_cli_contract.py::test_resolve_danger_is_documented`）。
+    """
+    result = run("lsp", "--help")
+    assert "jin/open" in result.output or "jin/save" in result.output
 
 
 # --------------------------------------------------------------------------------------

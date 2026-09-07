@@ -146,3 +146,21 @@ E1（2026-09-04）と E3（2026-09-05）の値は一致した。`uv lock` → `U
 
 技術選定の DP 起票は無し（要件書 §1.1 / §10 が人間確定済み）。実装判断として決めた値は
 `decision-conformance.md` §2.13〜§2.21 に根拠つきで記録した。
+
+
+## 9. Phase 4（jin-lsp）で追加した依存（2026-09-07 実測）
+
+`uv lock` で解決し、`uv sync` 後に `importlib.metadata.version` で読んだ実際の版。
+
+| パッケージ | 宣言 | 入った版 | 備考 |
+|---|---|---|---|
+| pygls | `pygls[ws]>=2.1,<3` | **2.1.1** | **`[ws]` を落とさない。** 素の pygls には `websockets` が入らず `jin lsp --ws` が実行時に落ちる（`lsp-api-probe.md` §1） |
+| lsprotocol | （宣言しない） | **2025.0.0** | pygls が `==2025.0.0` に**厳密ピン**している。別途ピンし直さない |
+| websockets | （`pygls[ws]` 経由） | **15.0.1** | extra が引く |
+| cattrs | （pygls 経由） | 26.2.0 | |
+| attrs | （pygls 経由） | 26.1.0 | |
+| pytest-lsp | `pytest-lsp>=1.0,<2`（dev） | **1.0.1** | pytest 9.1.1 と解決できることを `uv lock` で実測 |
+| pytest-asyncio | （pytest-lsp 経由） | **1.4.0** | pytest-lsp が連れてくる。fixture は `@pytest_asyncio.fixture` |
+
+`jin-lsp` は **`jin-adk` を依存に持たない**（`google-adk` を LSP プロセスへ読み込まないため）。
+hover の ADK クラス名は `docs/spec/adk-mapping.md` 由来の静的な辞書から引く。

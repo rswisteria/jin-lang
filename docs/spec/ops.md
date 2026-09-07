@@ -98,19 +98,62 @@ flow の構造に依存し、rename の前後で可視範囲が変わりうる�
 
 `jin_core.ops.OpError` が `code` / `message` / `hint` / `pointer` を持つ。
 
-## 5. Phase 4 で確定させる論点（本ラウンドでは決めない）
+## 5. `jin/open` / `jin/save`（Phase 4 で確定・ADR-011）
 
-- **`jin/open` / `jin/save`**（DP-JIN-EDITOR-PROTOCOL-01・案 C・`ai_provisional`）:
-  ws モードのエディタ専用の独自リクエストを 2 本追加する案が採られているが、
-  同 DP の `constraints[]` により**リクエスト名は仮称であり、要件書 §6.3 の独自リクエスト 4 種への追加として
-  人間の承認を得たうえで本文書で確定させる**。よって本ラウンドでは §2 の表に含めていない
-- 逆オペレーションの表現形式のプロトコル露出と、適用失敗時のクライアントへの返し方（同 DP の `constraints[]`）
+DP-JIN-EDITOR-PROTOCOL-01（案 C）の `constraints[]` は「リクエスト名は仮称であり、
+人間の承認を得たうえで本文書で確定させる」と定めていた。**2026-09-07 に toyota が
+`jin/open` / `jin/save` を正式名として確定し、Phase 4 で実装した。**
 
-## 6. 本ラウンドでの実装状況
+**これらは §2 の 19 オペレーションではない。** §2 の表は意味編集オペレーションの一覧であり、
+`jin/open` / `jin/save` は要件書 §6.3 の独自リクエスト（`jin/model` / `jin/renderSvg` /
+`jin/applyOps` / `jin/ops`）に並ぶ**リクエスト**である。表に足すと 19 件の等号が崩れる。
+
+| リクエスト | params | 応答 |
+|---|---|---|
+| `jin/open` | `uri` / `token` | `uri` / `text` / `diagnostics[]` |
+| `jin/save` | `uri` / `token` / `text`（省略可） | `uri` / `path` / `text` / `diagnostics[]` |
+
+- **ws モードのエディタだけが使う。** stdio のクライアント（Claude Code / VS Code）は
+  従来どおりクライアントがファイル I/O を担うので、stdio では常に拒否する
+- `jin/save` が書くのは**正準形**である（§1「テキストへの反映は正準形を通す」/
+  要件書 成功条件 5「エディタ保存と `jin fmt` の出力がバイト一致」）。
+  `text` を省略するとサーバが持っているモデルの正準形を書く
+- 構文エラー（JIN001）のあるテキストは保存しない。壊れたファイルを残さない
+
+### 5.1 防御（`jin lsp --ws` は same-origin 制限の無い口である）
+
+WebSocket にはブラウザの same-origin 制限が無い。任意のページが `ws://127.0.0.1:PORT` へ
+繋いで `jin/save` を打てるので、4 段で閉じる（実装は `jin_lsp.fileio`）:
+
+| 段 | 内容 |
+|---|---|
+| 1 | **既定で無効。** `jin lsp --ws PORT --root <ディレクトリ>` と明示したときだけ有効 |
+| 2 | **起動トークン。** 起動時に生成して stderr へ出す。params の `token` で毎回示す |
+| 3 | **場所と種類。** 解決後のパスが `--root` の実体の配下にあり、拡張子が `.jin` であること |
+| 4 | **symlink 拒否。** 書き先そのものが symlink なら拒む。書き込みは `os.replace`（リンクを辿らない） |
+
+**残存**: Origin ヘッダは見ていない（pygls 2.1.1 の `start_ws(host, port)` は
+`websockets` のサーバ生成オプションを露出しない・実測）。トークンで代替している。
+同じマシンの別プロセスはポートに繋げるが、トークンを知らなければこの 2 本は通らない。
+
+## 6. 応答の `stale`
+
+`jin/model` と `jin/renderSvg` は `stale`（真偽値）を返す。真なら**現在のテキストが
+壊れていて、直前の正常なモデル（last-good）で答えた**ことを表す（NFR-AVAIL-001 の
+エラー回復・DP-COMMON-07）。黙って古い図を返すとエディタからは「編集が効かない」ように
+見えるので、必ず伝える（NFR-FAIL-001「黙って落とさない」と同じ精神）。
+
+`jin/applyOps` は last-good に当てない。ユーザーが見ていない版を書き戻すことになるためで、
+構文エラー中の適用要求は JIN001 で拒む。
+
+## 7. 実装状況
 
 `jin_core.ops` に 19 オペレーションすべてを**純関数として実装済み**（`apply_op` / `apply_ops`）。
 各オペレーションは逆オペレーションを返し、`apply_ops` は 1 つでも失敗したら何も適用しない。
 `packages/jin-core/tests/test_ops.py` が全 19 件について
 「適用 → 正準形テキスト → 再パース → 期待モデル」と「逆オペレーションで元に戻る（バイト一致）」を検証している。
 
-LSP への露出（`jin/applyOps` / `jin/ops`）は Phase 4、エディタからの利用は Phase 5。
+**Phase 4 で LSP へ露出済み**（`jin/applyOps` / `jin/ops`）。
+`packages/jin-lsp/tests/test_apply_ops_roundtrip.py` が同じ 19 件を**プロトコル越しに**回し、
+サーバが返した `inverses` をそのまま送り返すと元の正準形テキストへバイト単位で戻ることを確認している。
+エディタからの利用は Phase 5。

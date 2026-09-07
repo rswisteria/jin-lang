@@ -1,16 +1,17 @@
 {
   "$comment": "implementation-plan.schema.json 準拠。実装ラウンド 1/5（Jin Phase 0 + Phase 1）が新規作成した。後続 4 ラウンドはこのファイルを extend すること。skill_plan[] / tasks[] / verification_status.evidence[] の各要素には jin_phase タグ（0..6）を付ける。 実装ラウンド 2/5（Jin Phase 2・jin-adk）が 2026-09-05 に extend した（impl-p2）。round は現在のラウンドを指す。",
   "round": {
-    "index": 3,
+    "index": 4,
     "of": 5,
     "jin_phases": [
       0,
       1,
       2,
-      3
+      3,
+      4
     ],
-    "scope": "Phase 3（jin-render: 決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay と jin render）= Issue #4。ラウンド 1（Phase 0+1・impl-p01）とラウンド 2（Phase 2・impl-p2）は main にマージ済み。Phase 4 以降は別ラウンド。 【R1】jin_phases は累積表記（[0,1,2,3]）。",
-    "implementer": "impl-p3"
+    "scope": "Phase 4（jin-lsp: stdio + WebSocket / 標準 LSP 機能 / 独自リクエスト 4 種 + jin/open・jin/save / jin lsp と Claude Code プラグイン）= Issue #5。ラウンド 1〜3（Phase 0+1 / Phase 2 / Phase 3）は main にマージ済み。Phase 5–6（apps/editor）は別ラウンド。 【R1】jin_phases は累積表記（[0,1,2,3,4]）。",
+    "implementer": "impl-p4"
   },
   "modules": [
     {
@@ -454,6 +455,18 @@
       "result": "passed",
       "note": "実施主体は親（/aid auto-deliver の実行主体）。feature-dev:code-reviewer は Bash を持たず隔離コピーでの変異検証ができないため、同じ規律（confidence 0〜100・全件報告）を課した general-purpose Subagent 4 本（correctness / conventions / wiring / security）で代替。初回 62 finding（C13 / V25 / W11 / S13・confidence 90 以上 11）。修正 3 ラウンド + 最終確認ののち同一観点 reviewer による defect-gone 確認を完了（R1: 修正が新規 30 件を持ち込み R2 で 25 件解消 / R2: 新規 26 件・うち退行 1 件〔symlink 文言のパス〕を R3 で解消 / R3: 最終確認は code-review-raw/*-p3-round3.md）。生出力は code-review-raw/*-p3*.md（初回 4 + round1 4 + round2 4 + round3 4）。集約は code-review-report.md の Phase 3 節。DP-IMPL-STAGE-06-REVIEW-CALLED-01 案 (i) に従い親が called を書き戻した。",
       "trigger": "Stage 4 verify の後（decision-conformance-check と同じタイミング・Phase 3 でも実施）"
+    },
+    {
+      "owners": [
+        "backend"
+      ],
+      "jin_phase": 4,
+      "skill": "lsp-server-implementation",
+      "stage": "core",
+      "required": true,
+      "called": true,
+      "result": "passed",
+      "note": "pygls 2.1.1 / pytest-lsp 1.0.1 の API は delivery/20260904-1445-jin/lsp-api-probe.md の実測に固定した（1.x → 2.x で import パスから変わっている）。probe が書いていなかった 3 点は Phase 4 で実測し probe へ追記: (1) pytest_lsp.LanguageClient は JsonRPCClient を継承しており start_ws を持つので ws のラウンドトリップも pytest-lsp のクライアントで張れる（ClientServerConfig では張れないという probe §2 の指摘は正しい）、(2) 未知メソッドの params / result は namedtuple(rename=True) に変換され `await` / `$schema` / JSON Pointer が黙って `_0` に化ける、(3) ws の client.stop() は shutdown_session() を先に呼ばないと返らない（run_websocket が recv() でブロックしたまま stop_event を見ない）。"
     }
   ],
   "tasks": [
@@ -1105,6 +1118,65 @@
       ],
       "status": "done",
       "note": "要件書に無い値（丸め桁数 / 強調色 / px サイズ / 各要素の大きさ）は layout.md §6 と decision-conformance.md §2.24 の**両方**に「実装で確定した値であり要件値ではない」と明記した（仕様側とコード側は同じ欠陥・片方だけ直さない）。"
+    },
+    {
+      "id": "T-P4-01",
+      "jin_phase": 4,
+      "title": "jin-lsp パッケージと stdio サーバ（位置変換 / last-good / 段階診断の露出 / 独自リクエスト 4 種）",
+      "outputs": [
+        "packages/jin-lsp/pyproject.toml",
+        "packages/jin-lsp/src/jin_lsp/{__init__,__main__,logs,positions,session,locate,protocol,requests,server,fileio,adk_names}.py",
+        "packages/jin-lsp/src/jin_lsp/features/{__init__,completion,navigation,edits}.py",
+        "packages/jin-lsp/tests/{__init__,conftest,test_positions,test_session,test_stdio_roundtrip,test_features,test_apply_ops_roundtrip,test_performance}.py"
+      ],
+      "status": "done",
+      "note": "CLAUDE.md のパッケージ追加チェックリスト 8 項目をすべて実施。Phase 3 のトリップワイヤ test_later_packages_do_not_exist_yet は parametrize が空になるため、同じ 5 つの名前を 「全部実在する」側から固定する test_every_planned_package_exists に反転させた（削除ではない。docstring が持つチェックリストの所在ごと消えるため）。"
+    },
+    {
+      "id": "T-P4-02",
+      "jin_phase": 4,
+      "title": "WebSocket トランスポートと jin/open・jin/save（ADR-011・4 段の防御）",
+      "outputs": [
+        "packages/jin-lsp/src/jin_lsp/fileio.py",
+        "packages/jin-lsp/tests/test_ws_roundtrip.py",
+        "packages/jin-cli/src/jin_cli/main.py（lsp サブコマンド）"
+      ],
+      "status": "done",
+      "note": "ADR-011 の constraints「リクエスト名は仮称であり人間の承認を得たうえで docs/spec/ops.md で 確定させる」は 2026-09-07 に toyota が確定（jin/open / jin/save）。ws は same-origin 制限が 無いので --root 明示・起動トークン・root 配下の .jin・symlink 拒否の 4 段で閉じた。テストで実際の欠陥を 1 件踏んだ: Path.resolve() の結果を書き先にしていたため root 配下の symlink 経由でリンク先の実体が書き換わった（symlink を辿る前のパスを書き先にし、書き先自体が symlink なら拒む形に直した）。"
+    },
+    {
+      "id": "T-P4-03",
+      "jin_phase": 4,
+      "title": "Claude Code プラグインと CI の受け皿（要件書 §8 / DP-REVIEW-JIN-003）",
+      "outputs": [
+        "plugins/claude-code/jin/{.claude-plugin/plugin.json,.lsp.json,README.md}",
+        "plugins/claude-code/jin/skills/jin-lang/{SKILL.md,reference/model.md,reference/jin.schema.json}",
+        "plugins/claude-code/jin/hooks/{hooks.json,check_jin.sh,check_install.sh}",
+        "scripts/sync_plugin_reference.py",
+        "tests/contract/test_plugin_contract.py",
+        ".github/workflows/ci.yml（plugin job: Node + claude plugin validate --strict）"
+      ],
+      "status": "done",
+      "note": "DP-REVIEW-JIN-003（Issue #9・Phase 4 着手時の必須参照）が指摘していた「CI に pnpm / Node ジョブと claude plugin validate の受け皿が無い」を解消した。Node の受け皿を先に置くのは、Phase 5 で apps/editor を足す人が pytest の赤を『テストを差し替える』だけで消せる動線を塞ぐためである。reference/ は symlink ではなくコピー（git-subdir 配布でリンク先が消えるため）。"
+    },
+    {
+      "id": "T-P4-04",
+      "jin_phase": 4,
+      "title": "仕様と記録の書き戻し（ops.md / diagnostics.md / ADR-011 / CLAUDE.md / README / 変異ハーネス）",
+      "outputs": [
+        "docs/spec/ops.md（§5 jin/open・jin/save の確定と 4 段の防御 / §6 stale / §7 実装状況）",
+        "docs/spec/diagnostics.md（§5.1 に Phase 4 の実装状況と hint の載せ方）",
+        "docs/adr/ADR-011-DP-JIN-EDITOR-PROTOCOL-01.md（影響）",
+        "CLAUDE.md（Phase 4 を実装済みに・要点・jin lsp --ws の危険性）",
+        "README.md（jin lsp / プラグイン）",
+        "delivery/20260904-1445-jin/decision-conformance.md（§1 の P4 行 7 件 + §2.25）",
+        "delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py",
+        "delivery/20260904-1445-jin/implementation-notes.md（P4 節）",
+        "delivery/20260904-1445-jin/lsp-api-probe.md（Phase 4 の実測 3 点を追記）",
+        "delivery/20260904-1445-jin/version-matrix.md（§9）"
+      ],
+      "status": "done",
+      "note": "コードの docstring が「この突合テストがある」と書いているのに実在しなかったものを 2 件作った（jin_lsp.requests.OPERATION_SPECS ↔ ops.md §2 の表 / jin_lsp.adk_names ↔ adk-mapping.md）。Phase 0+1 の R-2「実装と乖離した安全宣言」と同型なので、書いた側を実在させる方向で直した。"
     }
   ],
   "milestones": [
@@ -1841,6 +1913,33 @@
         "角位置は現状のまま辺だけを j → (j+1) mod n にする案。不採用 — 角位置 j と j+1 は隣り合う頂点なので単純な凸多角形になり、星形多角形 {n/k} を描くという要件書 §2.5 の指定を失う",
         "前回の記録（2026-09-06T12:04:02+09:00・auto-decider / ai_provisional）: chosen・選択肢・constraints は同一だが、rationale に変異 STAR-slot-identity の効き方を「角位置を恒等に戻すと星形テストは緑のまま訪問順テストだけが赤 = 2 本が独立に効いている証拠」と書いていた。実物は逆で、恒等に戻すと辺 j → (j+1) mod n が単純多角形になるため星形テスト test_loop_edges_follow_the_star_polygon の [5-2] / [8-3] が赤になり、訪問順テスト test_loop_nodes_are_placed_so_the_arrows_follow_the_visit_order は緑のままである（Stage 5 再レビュー F-C-P3-104・confidence 90）。修正ラウンド 2 で notes P3-R1.1 C-1 行 / mutate_p3.py のコメント / undecided_details の note の 3 箇所が実測に直り、独立性の証拠は新規変異 STAR-pre-fix-visit-order / STAR-pre-fix-star-shape-stays に置き換わった。本記録はその実測に追従させたもので、結論は変えていない"
       ]
+    },
+    {
+      "id": "DP-JIN-EDITOR-PROTOCOL-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T10:20:00+09:00",
+        "rationale": "ADR-011（案 C・ai_provisional）の constraints[] が「リクエスト名は仮称であり、要件書 §6.3 の独自リクエスト 4 種への追加として人間の承認を得たうえで docs/spec/ops.md で確定させる」と定めていた。2026-09-07 に `jin/open` / `jin/save` を正式名として確定し、あわせて「Phase 4 で防御込みで実装する」（Phase 5 送りにしない）ことを選んだ。ws は same-origin 制限が無く、任意のページが ws://127.0.0.1:PORT へ繋いで jin/save を打てるため、実装するなら防御が同時に要る: --root 明示のときだけ有効・起動トークン（stderr へ出す）・root 配下の .jin のみ・書き先が symlink なら拒否。記録は docs/spec/ops.md §5 と §5.1、ADR-011「影響」。残存（Origin ヘッダ未検査・pygls が start_ws でサーバ生成オプションを露出しない）も同節に明記した。"
+      }
+    },
+    {
+      "id": "DP-IMPL-JIN-P4-DEBOUNCE-01",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T10:20:00+09:00",
+        "rationale": "要件書に無い値。選択肢 150ms / 300ms / 50ms を提示し 150ms を採った。根拠は delivery/20260904-1445-jin/check-text-benchmark.md の実測: 現実的な 1000 行の check_text は中央値 8.9 ms なので 150 ms 待っても体感は即時のまま、敵対的なファイル（名前 128 字 × 未解決参照 400 件・最悪 5.1 秒）の打鍵連打で計算が積み上がるのを防げる。Issue #8 の人間判断が constraint にしていた「打鍵ごとの再計算をデバウンスし古い要求をキャンセルする」への対応である。didOpen には掛けない（NFR-PERF-001 の計測にデバウンス値が混ざる）。実装は jin_lsp.server.DEBOUNCE_SECONDS、根拠は decision-conformance.md §2.25.1。"
+      }
+    },
+    {
+      "id": "DP-REVIEW-JIN-003",
+      "status": "decided",
+      "decision_record": {
+        "decided_by": "toyota",
+        "decided_at": "2026-09-07T10:20:00+09:00",
+        "rationale": "Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。「claude plugin validate の job だけ足す」と「pnpm / Node job も今回足す」を提示し、後者を採った。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の apps/editor が pnpm を足す先を先に用意する。受け皿を先に置くのは、Phase 5 で赤くなったテストを『テストを差し替える』だけで消せる動線を塞ぐため（Issue #9 の起票理由そのもの）。**本ラウンドで足したのは Node のセットアップまでで、pnpm 自体のインストールは apps/editor が実在する Phase 5 に回した**（入れる対象が無い状態で pnpm install を書くと、その行が何も検証しないまま緑になる）。**注記: この decision_record は実装ラウンド側の記録であり、Issue #9 が定める `/aid decide` による docs/pending-decisions.md の再生成は未実施である**（md の手編集は禁止されているため、生成器で行う必要がある）。"
+      }
     }
   ],
   "undecided": [
@@ -1853,7 +1952,10 @@
     "DP-REVIEW-JIN-007",
     "DP-REVIEW-JIN-P2-001",
     "DP-REVIEW-JIN-P2-002",
-    "DP-REVIEW-JIN-P3-001"
+    "DP-REVIEW-JIN-P3-001",
+    "DP-IMPL-JIN-P4-POINTER-SHAPE-01",
+    "DP-IMPL-JIN-P4-EXTRACT-01",
+    "DP-IMPL-JIN-P4-HOVER-DOCSTRING-01"
   ],
   "verification_status": {
     "smoke": "not_applicable",
@@ -2007,6 +2109,46 @@
         "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
         "jin_phase": 3,
         "detail": "P3 行 7 件 reflected / not_reflected 0 / unknown 0（§2.24 に確定値 7 件）"
+      },
+      {
+        "skill": "lsp-roundtrip-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "packages/jin-lsp/tests/{test_stdio_roundtrip,test_ws_roundtrip,test_features,test_apply_ops_roundtrip}.py",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 1〜4: initialize → didOpen → publishDiagnostics が stdio と ws の両方で通る。標準機能 8 種と独自リクエスト 4 種が往復する。applyOps は 19 オペレーションすべてについて 順→逆で元の正準形テキストへバイト一致で戻る"
+      },
+      {
+        "skill": "cli-lsp-byte-identity-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "tests/contract/test_lsp_contract.py",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 5・6: formatting の出力が jin fmt と、jin/renderSvg の出力が jin render と バイト一致する（どちらも別プロセスで実際に動かして突き合わせる）"
+      },
+      {
+        "skill": "lsp-performance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "packages/jin-lsp/tests/test_performance.py",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 7 / NFR-PERF-001: 現実的な 1000 行弱（886 行）の .jin に対する didOpen → publishDiagnostics のラウンドトリップが 1 秒以内。デバウンス（150ms）は didChange のみで、連打しても診断は 1 回しか走らないことを回数で固定した"
+      },
+      {
+        "skill": "plugin-validate-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "tests/contract/test_plugin_contract.py / .github/workflows/ci.yml（plugin job）",
+        "jin_phase": 4,
+        "detail": "design.yaml machine 10・11: claude plugin validate --strict が PASS（手元で実測・CI に job を追加）。skills/jin-lang/reference/ の 2 本が docs/spec/model.md と schemas/jin.schema.json とバイト一致する（生成器 scripts/sync_plugin_reference.py と契約テストの二重の網。生成器が実際にずれを見つけることも 隔離コピー上で確認した）"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "jin_phase": 4,
+        "detail": "P4 行 7 件 reflected / not_reflected 0 / unknown 0（§2.25 に確定値 6 件）"
       }
     ],
     "skip_policy": {
@@ -2391,6 +2533,33 @@
       "phase_impact": "道具環（0.55）の summon 紋の外枠は 0.28*実寸 + 0.04（最大 0.3228 / examples 同型 0.2640）で、隣接する紋の中心距離 2*0.55*sin(pi/n) と比べると、最大の中身で n=6、examples 同型で n=7 から重なる（レビューの実測）。さらに外枠の内縁 0.55 - r は 0.227 / 0.286 なので、n に関係なく指示環の rune 帯（0.35〜0.40）を横切る。flow の節には修正ラウンド 2 で兄弟間隔からの縮小（DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01 とは別の F-C-P3-101 対応）を入れたが、紋は弦を持たないので「消える」ことが無く、同じ規則を当てていない。選択肢: (a) _summon_extent にも limit = 0.55*sin(pi/n) - ε を渡して flow の節と同じ規則で縮める（弦が無いので矢じり分は不要。図の一貫性が上がるが examples のスナップショットは動かない） (b) tools は JIN020 で 12 個までなので、その上限を根拠に紋の定数（NESTED_SCALE / SUMMON_GAP）を詰めて重ならない値に固定する（n に依存しないぶん単純だが、小さい n でも紋が小さくなる） (c) 現状のまま。layout.md §6 に「道具環の紋は縮尺を詰めない（既知の重なり）」と書いて既知の制約として残す。rune 帯との交差は RING_TOOLS 上に半径 0.3 級の円を置く設計自体の帰結なので、(a)(b) のどちらでも解けない。直すなら環半径か縮尺の話で要件書 §2.5 に戻る。",
       "parent_dp": "DP-JIN-SVG-DETERMINISM-01",
       "note": "fix-later（Phase 3 修正ラウンド 3 の親判定）。コードは変えていない。現状は (c) 相当で、docs/spec/layout.md §6 に既知の重なりとして 1 行書いた。判断期限は Phase 5 のエディタ着手前（エディタが紋の hit-test を持つため、重なった紋のどちらを掴むかがそこで問題になる）。"
+    },
+    {
+      "id": "DP-IMPL-JIN-P4-POINTER-SHAPE-01",
+      "title": "jin/model の pointer→range 対応表の形（辞書か配列か）",
+      "raised_by": "impl-p4 (Phase 4・pygls の応答変換を実測して起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "jin dump は {pointer: range} の辞書で出すが、jin/model を同じ形にすると pygls のクライアントで鍵が消える。pygls 2.1.1 は型を知らないメソッドの params / result を namedtuple(..., rename=True) に変換し、Python の識別子にできないキーを _0 / _1 へ黙って置き換えるためである（2026-09-07 実測）。JSON Pointer は / を含むので全滅する。選択肢: (a) 配列 [{pointer, start, end}, ...] にする（順序は pointer の辞書順で決定的。jin dump と形が違うが、jin dump は人が読む CLI 出力でこちらはプロトコルなので違ってよい） (b) 辞書のまま出し、pygls を使うクライアント側に converter の差し替えを求める（ブラウザは素の JSON なので無事だが、VS Code 拡張など Python 以外のクライアントには関係が無い制約を押しつける） (c) 両方返す（冗長）。**推奨と実装は (a)**。Phase 5 のエディタは配列を読む。",
+      "recommendation": "(a) 配列",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P4-EXTRACT-01",
+      "title": "JIN020「選択要素をサブ陣に抽出」の決定的な規則",
+      "raised_by": "impl-p4 (Phase 4・要件書 §6.2 の codeAction 行の実装で起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "要件書 §6.2 は「JIN020 → 選択要素をサブ陣に抽出」とだけ書いている。LSP の codeAction には「どの紋を選んだか」が届かない（診断は circle 全体を指す）ので、どれを移すかを規則で決める必要がある。選択肢: (a) 12 個目以降（MAX_ELEMENTS - 1 を残す）を <元の名前>Extracted へ移し、core は元から継承。元の陣には summon の紋を 1 つ足す。state が 12 を超えた場合と core が無い場合はアクションを出さない (b) 13 個目以降を移す（summon の 1 個ぶんを勘定に入れないと抽出後も JIN020 が残る。実測で踏んだ） (c) アクションを出さず、要件書の当該句を落とす。**推奨と実装は (a)**。抽出後に JIN020 が解消することをテストで確かめている（動くが直らないアクションにしない）。新しい陣の core を元から継承するのは、要件書に無いモデル名を捏造しないため。",
+      "recommendation": "(a) 12 個目以降を移す",
+      "status": "ai_provisional"
+    },
+    {
+      "id": "DP-IMPL-JIN-P4-HOVER-DOCSTRING-01",
+      "title": "hover の「Python 参照の docstring（--resolve 相当）」を実装するか（要件書 §6.2 からの逸脱）",
+      "raised_by": "impl-p4 (Phase 4・security 観点で起票)",
+      "decide_by_phase": "implementation",
+      "phase_impact": "要件書 §6.2 の hover 行は「要素 → ADK クラス名と生成される引数、rune の全文、Python 参照の docstring（--resolve 相当）」と書いている。最後の 1 つを出すには ref のモジュールを import する必要があり、Python の import はモジュールのトップレベルを実行するので、**hover のたびに任意コードをこの長寿命プロセスの権限で実行する**ことになる。jin lsp --ws は外に口が開いているので、ADR-018（--resolve の子プロセス隔離・30 秒タイムアウト）が閉じた危険を、hover という頻繁な操作で作り直すことになる。import-linter の forbidden 契約が jin_lsp → jin_cli.resolver を機械で落としており、別実装を書けば同じ危険の新設である。選択肢: (a) 実装しない（要件書の当該句をPhase 4 で落とし、理由を記録する） (b) --resolve と同じ子プロセス隔離を hover にも適用する（hover ごとにプロセス起動。応答性を大きく損なう。要件書 §6.4 の 1 秒に収まらない可能性） (c) 明示的なオプトイン（jin lsp --resolve-hover）でだけ有効にする。**推奨と実装は (a)**。要件書との差分なので PR 本文にも明記した。ADK クラス名と rune の全文は実装済み。",
+      "recommendation": "(a) 実装しない",
+      "status": "ai_provisional"
     }
   ]
 }

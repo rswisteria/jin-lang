@@ -28,14 +28,17 @@ jin-core  ←  jin-adk | jin-render  ←  jin-lsp  ←  jin-cli
 1 要素に `"jin_adk | jin_render"` と `|` 区切りで書く。別要素に並べると片方向だけを禁じる、
 実際より強い順序を宣言してしまう）
 
-Phase 3 時点で実在するのは `jin-core` / `jin-adk` / `jin-render` / `jin-cli`。`jin-adk` は ADK の語彙
-（LlmAgent / Runner / BaseLlm …）がリポジトリ内で現れてよい唯一のパッケージ。
+Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-adk` / `jin-render` / `jin-lsp` / `jin-cli`）。
+`jin-adk` は ADK の語彙（LlmAgent / Runner / BaseLlm …）がリポジトリ内で現れてよい唯一のパッケージ。
 
 - `jin-core` は他の `jin-*` に依存しない（最下層）
 - **`jin-core` / `jin-render` は `google-adk` に依存しない。** ADK の語彙は `jin-adk` 側にだけ現れる
 - **`jin-render` は `jin-core` と標準ライブラリだけに依存する。** `jin-adk` は**兄弟**であり
   import すると layers 契約が BROKEN になる（トレースの型を `jin_adk.trace` から取らない。
   overlay に要るのは `seq` と `pointer` だけなので `jin_render.overlay` に最小の読み取り型を置く）
+- **`jin-lsp` は `jin-core` と `jin-render` に依存し、`jin-adk` には依存しない。** hover の ADK クラス名は
+  `docs/spec/adk-mapping.md` 由来の静的な辞書（`jin_lsp.adk_names`）から引く。`jin-adk` を入れると
+  LSP の起動のたびに `google-adk` 全体の import を待つことになる（Claude Code の起動体感に直撃する）
 - `apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない
 
 この一方向性は **import-linter** で機械的に落とす（`pyproject.toml` の `[tool.importlinter]`）。
@@ -83,11 +86,13 @@ Phase 3 時点で実在するのは `jin-core` / `jin-adk` / `jin-render` / `jin
 | 1 | `jin-core` + `jin-cli`（check / fmt / schema / dump） | 実装済み |
 | 2 | `jin-adk`（build / run / trace / FakeLlm） | 実装済み |
 | 3 | `jin-render`（render / focus / trace overlay） | 実装済み |
-| 4 | `jin-lsp`（stdio + ws）+ Claude Code プラグイン | 未着手 |
+| 4 | `jin-lsp`（stdio + ws）+ Claude Code プラグイン | 実装済み |
 | 5–6 | `apps/editor`（編集モード / デバッグモード） | 未着手 |
 
-`jin lsp` / `jin editor` は**まだ定義していない**。
+`jin editor` は**まだ定義していない**（Phase 5）。
 空実装を先に置くと `jin --help` が嘘をつくので、未実装のものはサブコマンドごと存在させない。
+「未定義であること」の検査は `exit_code != 0` ではなく **typer の `No such command`** で見る
+（`!= 0` は実装済みのコマンドでも成立するので、Phase 3 まで `render` が偽緑だった）。
 
 Phase 2 の要点（正典は `docs/spec/adk-mapping.md` §2.3 / §2.4 / §3.1 / §6）:
 
@@ -116,6 +121,29 @@ Phase 3 の要点（正典は `docs/spec/layout.md`）:
 - SVG スナップショットは `packages/jin-render/tests/__snapshots__/`（syrupy）。
   レイアウトを直したら `uv run pytest packages/jin-render --snapshot-update` で更新し、差分を読んでからコミット
 
+Phase 4 の要点（正典は要件書 §6 / `docs/spec/ops.md` §5〜§6 / `docs/spec/diagnostics.md` §5.1）:
+
+- **pygls / pytest-lsp の API は記憶で書かない。** 一次証拠は
+  `delivery/20260904-1445-jin/lsp-api-probe.md`（1.x → 2.x で import パスから変わっている）
+- **位置変換は `jin_lsp.positions` の 1 モジュールだけ**が行う（1 始まり・コードポイント ↔
+  0 始まり・UTF-16）。UTF-16 換算は pygls の `PositionCodec` に委ね、`guard:` 記法で固定する
+- **stdio では stdout が JSON-RPC の通信路**である（DP-COMMON-14）。`jin_lsp` に `print(` と
+  `sys.stdout.*` を 1 つも置かない（`tests/contract/test_lsp_contract.py` が AST で走査して落とす）。
+  ログは `jin_lsp.logs.configure` が stderr へ固定する
+- **未知メソッドの params / result は `jin_lsp.protocol.jin_converter` を通す。** 素の pygls は
+  `namedtuple(rename=True)` に変換するので、`await` / `$schema` / JSON Pointer のような
+  識別子にできないキーが**黙って `_0` に化ける**（実測）。同じ理由で `jin/model` の
+  pointer→range 対応表は辞書ではなく**配列**で返す
+- last-good モデルは**1 世代だけ**（DP-COMMON-07）。構文エラー中も hover / renderSvg が
+  直前の正常モデルで答える（NFR-AVAIL-001）。SVG はキャッシュしない
+- `didChange` は **150 ms デバウンス**して古い要求をキャンセルする。`didOpen` は待たない
+  （NFR-PERF-001 の計測にデバウンス値を混ぜない）
+- **オペレーションを 20 個目にしない**（要件書 §6.3 の v1 は 19 件）。参照 1 個の書き換えも
+  既存オペレーションの合成で書く（`jin_lsp.features.edits._reference_replacement`）
+- プラグインの `skills/jin-lang/reference/` は `docs/spec/model.md` と `schemas/jin.schema.json` の
+  **コピー**。手で編集せず `uv run python scripts/sync_plugin_reference.py` で同期する
+  （ずれても `jin check` は通るので静かに効く）
+
 ## 開発コマンド
 
 ```bash
@@ -131,8 +159,14 @@ uv run jin build examples/researcher/researcher.jin --out /tmp/out   # ADK プ�
 PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl
 uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg      # 魔法陣 SVG（-o 無しは stdout）
 uv run jin render examples/pipeline/pipeline.jin --trace tests/fixtures/traces/pipeline-fake.jsonl --upto 5   # trace overlay
+uv run jin lsp                            # LSP サーバ（stdio・Claude Code / VS Code 向け）
+uv run jin lsp --ws 8765 --root .         # 同（WebSocket・ブラウザのエディタ向け。--root は jin/open / jin/save を許す範囲）
+uv run python scripts/sync_plugin_reference.py          # プラグインの reference/ を正典から同期
+uv run python scripts/sync_plugin_reference.py --check   # 同期がずれていたら exit 1（CI が走らせる）
+claude plugin validate --strict plugins/claude-code/jin  # Claude Code プラグインの検証（CI の plugin job と同じ）
 uv run python delivery/20260904-1445-jin/phase2-mutations/mutate_p2.py   # 防御を壊して赤くなることの実測（隔離コピー上で変異する・実ツリーは書き換えない）
 uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py   # 同上（Phase 3・jin-render）
+uv run python delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py   # 同上（Phase 4・jin-lsp）
 ```
 
 テスト配置は ADR-003（パッケージ単位の垂直分割 + 横断契約テスト）:
@@ -155,7 +189,7 @@ uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py   # 同�
   `jin-lsp` の 1 モジュールだけが行う（`docs/spec/diagnostics.md` §5.1）
 - 具体値（しきい値・バージョン）を推測で置かない。要件書に無い値は決めた根拠を仕様書に残す
 
-## `--resolve` と `jin run` の危険性
+## `--resolve` と `jin run` の危険性（と `jin lsp --ws`）
 
 `jin check --resolve` は `.jin` の `tools[].ref` / `boundary.guards[].ref` が指すモジュールを
 **実際に import する**。Python の import は**モジュールのトップレベルを実行する**ので、これは
@@ -195,7 +229,15 @@ import し、その生成コードが `ref` のモジュールを import する�
   `-P` で cwd を子の `sys.path` に足さない（cwd 解決経路を新設しない）。**子は同じ権限で走るので S1
   （任意コード実行）は残る**。汚染再現テストは `packages/jin-cli/tests/test_cli.py::test_check_resolve_isolates_files_from_each_other`
 - `--resolve` の実装は `packages/jin-cli/src/jin_cli/resolver.py`（親 `SubprocessResolver` + 子 `ImportResolver`）だけにある。
-  `jin_core` には置かない。Phase 4 の `jin-lsp` は `jin_core` / `jin_adk` / `jin_render` に依存できる
-  （design.yaml rule 5）ので、ws で公開されるコードパスから `jin_cli.resolver` と `jin_adk.runtime` を
-  **import しない**ことを Phase 4 の契約で機械化する（`phase2-handoff.md` §6: forbidden contract の
-  `source_modules` に `jin_lsp` を足す）。現在の forbidden contract は `jin_core` / `jin_adk` からの到達を落とす
+  `jin_core` には置かない。`jin-lsp` は `jin_core` / `jin_render` に依存する（design.yaml rule 5）が、
+  ws で公開されるコードパスから `jin_cli.resolver` と `jin_adk.runtime` へ**到達しない**ことを
+  forbidden contract の `source_modules`（`jin_lsp` を含む）で機械化してある。
+  **`jin_lsp` は `jin_adk` を依存にも持たない**ので二重の網になっている
+- **`jin lsp --ws PORT` はローカルに WebSocket の待ち受けを開く。** WebSocket には
+  ブラウザの same-origin 制限が無いので、開いている任意のページが `ws://127.0.0.1:PORT` へ
+  繋いでリクエストを打てる。ファイルを読み書きする `jin/open` / `jin/save`（ADR-011）は
+  そのため **既定で無効**で、`--root <ディレクトリ>` を明示したときだけ、そのディレクトリ配下の
+  `.jin` に限って有効になる。加えて起動トークン（起動時に stderr へ出す）の一致を要求し、
+  書き先が symlink なら拒む。4 段の防御と残存（Origin 未検査）は `docs/spec/ops.md` §5.1 が正本。
+  **hover は `ref` の docstring を出さない。** 出すには `ref` のモジュールを import する必要があり、
+  hover のたびに任意コード実行になる（要件書 §6.2 からの意図的な逸脱・decision-conformance §2.25.6）

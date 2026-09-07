@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import UnionType
-from typing import Any, Union, get_args, get_origin
+from typing import Annotated, Any, Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
 
@@ -72,8 +72,19 @@ class CheckResult:
 
 
 def _unwrap(annotation: Any) -> list[type]:
-    """Optional / list / Union を剥がして BaseModel サブクラスを集める。"""
+    """Optional / list / Union / Annotated を剥がして BaseModel サブクラスを集める。
+
+    **`Annotated` を剥がすこと。** `Tool` は
+    `Annotated[ToolFunction | ToolBuiltin | ToolSummon, Field(discriminator="kind")]`
+    という判別共用体であり、これを剥がさないと `list[Tool]` から 1 クラスも取れない。
+    そうなると `_model_at("/circles/0/tools/0")` が空を返し、JIN002 の hint が
+    `tools[]` の中で「許されるキー」を挙げられなくなる（Phase 4 の completion が
+    同じ解決を使おうとして気づいた）。
+    """
     origin = get_origin(annotation)
+    if origin is Annotated:
+        args = get_args(annotation)
+        return _unwrap(args[0]) if args else []
     if origin in (Union, UnionType):
         out: list[type] = []
         for arg in get_args(annotation):
@@ -259,4 +270,23 @@ def check_file(path: str | Path, *, resolver: RefResolver | None = None) -> Chec
     return check_text(text, str(path), resolver=resolver)
 
 
-__all__ = ["CheckResult", "JinReadError", "check_file", "check_text", "read_source"]
+def models_at(pointer: str, document: Any) -> list[type[BaseModel]]:
+    """pointer が指す位置のモデルクラス候補（`_model_at` の公開名）。
+
+    JIN002 の hint を作るために内部で使っている解決を、`jin-lsp` の completion が
+    **同じ実装で**使えるように公開する。ここを再実装すると「スキーマ由来のキー」
+    （要件書 §6.2 の completion 行）の解釈が 2 つになり、片方だけ古くなる。
+
+    `jin_core` は LSP を知らないままである（返すのは Pydantic のクラスだけ）。
+    """
+    return _model_at(pointer, document)
+
+
+__all__ = [
+    "CheckResult",
+    "JinReadError",
+    "check_file",
+    "check_text",
+    "models_at",
+    "read_source",
+]

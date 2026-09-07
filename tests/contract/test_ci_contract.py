@@ -301,3 +301,39 @@ def test_every_job_has_a_timeout(ci_lines: list[str]) -> None:
     ]
     assert jobs, "jobs: の下にジョブが見つからない"
     assert len(timeouts) >= len(jobs), f"timeout-minutes が無いジョブがある: {jobs}"
+
+
+# --------------------------------------------------------------------------------------
+# DP-REVIEW-JIN-003（Issue #9）: プラグインと Node の受け皿
+# --------------------------------------------------------------------------------------
+def test_ci_validates_the_claude_code_plugin(ci_text: str) -> None:
+    """要件書 §9「プラグイン: `claude plugin validate` を CI で実行」。
+
+    手元の `tests/contract/test_plugin_contract.py` は `claude` が無ければスキップする。
+    **CI ではスキップさせない**ので、job の存在をここで固定する
+    （DP-REVIEW-JIN-003 が「受け皿が無い」として起票していた欠落）。
+    """
+    assert "claude plugin validate" in ci_text, "plugin validate の job が無い"
+    assert "--strict" in ci_text, "CI では --strict で走らせる（警告を見逃さない）"
+    assert re.search(r"^  plugin:\s*$", ci_text, re.MULTILINE), "plugin job が無い"
+
+
+def test_ci_has_a_node_toolchain_for_the_editor(ci_text: str) -> None:
+    """DP-REVIEW-JIN-003 の 2 本目: Node の受け皿。
+
+    `apps/editor`（Phase 5）は pnpm で回す。受け皿が無いと、Phase 5 で足す人が
+    pytest の赤を「テストを差し替える」だけで消せてしまう（起票理由そのもの）。
+    """
+    assert "actions/setup-node" in ci_text, "Node のセットアップが無い"
+    assert re.search(r'node-version:\s*"\d+"', ci_text), "node-version が固定されていない"
+
+
+def test_ci_detects_plugin_reference_drift(ci_text: str) -> None:
+    """`reference/` のずれを CI で落とす（要件書 §8 / design.yaml machine 11）。
+
+    ツリーを書き換えずに比較すること（W-04 と同じ規律。生成してから git diff を
+    取る形にすると、後続のテストが常に同期済みのツリーを見ることになる）。
+    """
+    assert "sync_plugin_reference.py --check" in ci_text
+    step = ci_text.split("Detect plugin reference drift", 1)[1].split("- name:", 1)[0]
+    assert "--check" in step, "書き換えてから比較する形になっている"

@@ -104,6 +104,7 @@ from jin_core.check import CheckResult, JinReadError, check_file, read_source
 from jin_core.diagnostics import Diagnostic, has_error
 from jin_core.model import JinFile
 from jin_core.schema_export import render as render_schema
+from jin_lsp.server import main as lsp_main
 from jin_render import RenderError, TraceRowError, brief
 from jin_render import render as render_svg
 
@@ -113,7 +114,7 @@ app = typer.Typer(
     name="jin",
     help=(
         "Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン"
-        "（check / fmt / schema / dump / build / run / render）"
+        "（check / fmt / schema / dump / build / run / render / lsp）"
     ),
     no_args_is_help=True,
     add_completion=False,
@@ -1101,6 +1102,62 @@ def render(
         raise typer.Exit(code=1) from exc
     _echo_or_exit(f"書き出しました: {_safe(str(out))}")
     raise typer.Exit(code=0)
+
+
+@app.command()
+def lsp(
+    stdio: Annotated[bool, typer.Option("--stdio", help="stdio で待ち受ける（既定）")] = False,
+    ws: Annotated[
+        int | None,
+        typer.Option("--ws", metavar="PORT", help="WebSocket で待ち受ける（ブラウザのエディタ用）"),
+    ] = None,
+    host: Annotated[
+        str, typer.Option("--host", help="--ws のときの待ち受けアドレス")
+    ] = "127.0.0.1",
+    root: Annotated[
+        Path | None,
+        typer.Option(
+            "--root",
+            help=(
+                "--ws のとき、jin/open と jin/save が触れてよいディレクトリ"
+                "（省略時は jin/open / jin/save を拒む）"
+            ),
+        ),
+    ] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", help="ログを詳細にする（stderr）")] = False,
+) -> None:
+    """LSP サーバを起動する（要件書 §6.1）。既定は stdio。
+
+    stdio は Claude Code / VS Code 向け、WebSocket はブラウザのエディタ向けで、
+    **サーバ実装は同一**である（FR-LSP-002）。
+
+    `--ws` は **ローカルに待ち受けポートを開く**。WebSocket には same-origin 制限が
+    無いので、ブラウザで開いている任意のページがこのポートへ繋いでリクエストを
+    打てる。`jin/open` / `jin/save`（ADR-011）はそれゆえ既定で**無効**であり、
+    `--root` を明示したときだけ、そのディレクトリ配下の `.jin` に限って有効になる。
+    さらに起動トークンの一致を要求する（トークンは起動時に stderr へ出す）。
+    """
+    if stdio and ws is not None:
+        typer.echo("--stdio と --ws は同時に指定できません", err=True)
+        raise typer.Exit(code=2)
+    if ws is None and root is not None:
+        typer.echo(
+            "--root は --ws と一緒に指定してください"
+            "（stdio モードのファイル I/O はクライアントが行います・ADR-011）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if ws is not None and not (1 <= ws <= 65535):
+        typer.echo(f"--ws のポートは 1〜65535 です（指定値: {brief(ws)}）", err=True)
+        raise typer.Exit(code=2)
+    argv: list[str] = []
+    if ws is not None:
+        argv += ["--ws", str(ws), "--host", host]
+    if root is not None:
+        argv += ["--root", str(root)]
+    if verbose:
+        argv.append("--verbose")
+    lsp_main(argv)
 
 
 if __name__ == "__main__":  # pragma: no cover

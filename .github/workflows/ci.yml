@@ -87,3 +87,41 @@ jobs:
       # NFR-DET-002: examples が正準形であること。
       - name: Check canonical form of examples
         run: uv run jin fmt --check examples
+
+      # 要件書 §8: プラグインの reference/ は docs/spec/ と schemas/ のコピーである。
+      # ずれても `jin check` は通るので静かに効く（LLM が古い仕様で書こうとして失敗する）。
+      # ツリーを書き換えずに比較する（W-04・schema drift と同じ規律）。
+      - name: Detect plugin reference drift
+        run: uv run python scripts/sync_plugin_reference.py --check
+
+  # 要件書 §9「プラグイン: claude plugin validate を CI で実行」。
+  # DP-REVIEW-JIN-003（Issue #9）が「CI に受け皿が無い」として起票していたもの。
+  # Python の job とは道具立てが違う（Node と claude CLI）ので job を分ける。
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # DP-REVIEW-JIN-003 の 2 本目: **Node の受け皿**。
+      # Phase 5 の `apps/editor` はこの job に `pnpm/action-setup` と
+      # `pnpm install` / `pnpm test` を足す。受け皿を先に置くのは、Phase 5 で
+      # 赤くなったテストを「テストを差し替える」だけで消せる動線を塞ぐためである
+      # （Issue #9 の起票理由）。
+      # **pnpm 自体はまだ入れていない。** 入れる対象（`apps/editor`）が存在しない状態で
+      # `pnpm install` を書くと、その行が何も検証しないまま緑になり、
+      # 塞ごうとしている動線をこの job 自身が作ることになる。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Show Claude Code version
+        run: claude --version
+
+      # 要件書 §8 のレイアウトと .lsp.json / hooks の妥当性。
+      # `--strict` は警告もエラー扱いにする（CI で緩めない）。
+      - name: Validate the Claude Code plugin
+        run: claude plugin validate --strict plugins/claude-code/jin
