@@ -2228,6 +2228,46 @@
         "result": "not_run",
         "jin_phase": 5,
         "detail": "design.yaml items[5].verification.human_only「UI/UX の妥当性」は human_only であり実施していない。ADR-002 / DP-JIN-EDITOR-UX-01 によりデザイナー参加後に差し替える前提。実施済みと報告してはならない"
+      },
+      {
+        "skill": "playwright-debug-mode",
+        "result": "passed",
+        "layer": "browser_e2e",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#p6-7-完了条件",
+        "detail": "design.yaml items[6] machine 1〜4 を Playwright で実測（`pnpm e2e` は debug 6 本 + smoke 3 本 = **9 passed**）。machine 1: `upto` 11 → 発火 5 / 点 11、0 → 0 / 0、3 → 3 / 3（点は 1..3 の連番）。machine 2: 5 → 3 → 5 → 0 → 5 で 1 回目と 3・5 回目の SVG が**バイト一致**、間の 3 は別物。machine 3: `/circles/2/core` → seq 1 / `/circles/3/core` → seq 2 / rune → 0 件。machine 4: `escalate` 行のオブジェクト入出力と `input: null` の行を**そのまま**表示。台本は `examples/pipeline/pipeline.jin` + `jin run --model fake` が実際に書いた `tests/fixtures/traces/pipeline-fake.jsonl`（11 行）。"
+      },
+      {
+        "skill": "pnpm-test",
+        "result": "passed",
+        "layer": "browser_e2e",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#p6-7-完了条件",
+        "detail": "`pnpm test`（vitest）→ 38 → **62 passed**。追加は `test/trace.test.ts` 24 件（JSONL の読み取り 10 / `isAncestorOrSame` 6 / `eventsFiredAt` 8）。フィルタの期待値は Python 側の `test_the_pointer_filter_agrees_with_the_overlay_rule` が実 fixture × `jin_render.overlay.is_ancestor_or_same` の計算と突き合わせる。"
+      },
+      {
+        "skill": "mutation-harness",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#p6-6-変異",
+        "detail": "`mutate_p6.py` **19/19 caught**・SKIP 0・実ツリー不変。偽緑を 4 件検出して検査を足した（U+2028 をエスケープ列で書いていた / `seqOf` に非整数を通す検査が無い / 「1 件も一致しない選択」の検査が無い / e2e の fixture パスを `in` で見ていて docstring でも成立）。**Playwright は回さない**（隔離コピーに dist が無く、`uv run jin editor` が `.venv` の再作成に落ちる）ので、machine 1 / 2 と「編集してもトレースが残る」はこの表では守られていない。"
+      },
+      {
+        "skill": "decision-conformance-check",
+        "result": "passed",
+        "layer": "backend_unit",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/decision-conformance.md",
+        "detail": "P6 行 4 件 reflected / not_reflected 0 / unknown 0（§2.27 に確定値 6 節）"
+      },
+      {
+        "skill": "phase-6-human-only-review",
+        "result": "not_run",
+        "layer": "browser_e2e",
+        "jin_phase": 6,
+        "evidence": "delivery/20260904-1445-jin/implementation-notes.md#human_only--not_run",
+        "detail": "design.yaml items[6].verification.human_only「オーバーレイの視認性」は human_only であり実施していない。ADR-002 / DP-JIN-EDITOR-UX-01 のとおり PR レビューへ送る。"
       }
     ],
     "skip_policy": {

@@ -45,6 +45,11 @@ async function openTrace(page: Page, path = TRACE): Promise<Locator> {
 async function scrub(page: Page, upto: number): Promise<void> {
   await page.getByTestId("jin-upto").fill(String(upto));
   await expect(page.getByTestId("jin-upto-value")).toHaveText(String(upto));
+  // **図が届くまで待つ。** `upto` の表示は状態を置いた時点で変わるが、SVG は
+  // `jin/model` → `jin/renderSvg` の往復のあとに入る。ここで待たないと
+  // machine 2（決定性）が**古い図どうし**を比べて、遅い実行環境で揺れる。
+  // この fixture の `seq` は 1..11 の連番なので、点の数がそのまま `upto` になる。
+  await expect(page.getByTestId("jin-canvas").locator("[data-jin-seq]")).toHaveCount(upto);
 }
 
 test("machine 1: JSONL を読み込み、スクラバで upto を動かすとオーバーレイが変わる", async ({

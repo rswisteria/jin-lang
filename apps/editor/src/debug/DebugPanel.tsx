@@ -45,6 +45,10 @@ export function DebugPanel(props: DebugPanelProps): React.JSX.Element {
           accept=".jsonl,.json,.log,text/plain,application/json"
           onChange={(event) => {
             const file = event.target.files?.[0];
+            // **同じファイルを選び直しても発火させる。** `<input type="file">` は
+            // 値が変わらないと `change` を出さないので、行番号を見て直した
+            // 同じトレースを選び直したときに**黙って何も起きない**（NFR-FAIL-001）。
+            event.target.value = "";
             if (file !== undefined) props.onLoad(file);
           }}
         />

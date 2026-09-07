@@ -2298,7 +2298,7 @@ Playwright のブラウザは CI が自前で取得する（`chromium_headless_s
 | `apps/editor/src/trace/filter.ts` | `isAncestorOrSame` / `eventsFiredAt`（pointer 一致フィルタ） |
 | `apps/editor/src/debug/replay.ts` | `Replay`（読み込んだトレース + `upto`）と `loadTrace(File)` |
 | `apps/editor/src/debug/DebugPanel.tsx` | ファイル入力 / スクラバ / イベント一覧 / 詳細 |
-| `apps/editor/test/trace.test.ts` | 23 件（parse 10 / `isAncestorOrSame` 6 / `eventsFiredAt` 7） |
+| `apps/editor/test/trace.test.ts` | 24 件（parse 10 / `isAncestorOrSame` 6 / `eventsFiredAt` 8） |
 | `apps/editor/e2e/debug.spec.ts` | 6 本（machine 4 件 + 壊れた JSONL + モード共有） |
 | `delivery/.../phase6-mutations/mutate_p6.py` | 変異 19 件 |
 
@@ -2328,7 +2328,18 @@ same-origin 制限の無い口なので（`docs/spec/ops.md` §5.1）、ファ�
 **ユーザーが選んだ 1 本**だけで、サーバの口は広がらない。Playwright の
 `setInputFiles` でそのまま駆動できるので検査も落ちる。
 
-**残存**: エディタは `.jin` の隣にあるトレースを自動で拾わない。ユーザーが毎回選ぶ。
+**残存 3 つ**:
+
+1. エディタは `.jin` の隣にあるトレースを自動で拾わない（毎回ユーザーが選ぶ）
+2. **スクラブのたびにトレース配列を丸ごと ws で送り直す。** サーバがトレースを保持する経路は
+   (a) を採った帰結として無い。`jin render` は 1 行ずつ読んで常駐させない（F-S-P3-011）が、
+   エディタは `upto` を動かすたびに全行を送る。v1 の想定（fake で 11 行）では問題にならないが、
+   モデル出力の大きい長いセッションでは 1 回のスクラブが MB 単位の送信になる
+3. `<input type="file">` は**同じファイルを選び直しても `change` を出さない**（ブラウザの仕様）。
+   「行番号を見て直す → 同じファイルを選び直す」が行番号を出す意味そのものの動線なので、
+   `onChange` で `event.target.value = ""` に戻して次の選択が必ず発火するようにした。
+   **Playwright の `setInputFiles` は常に `change` を発火させる**ので、この挙動は
+   自動検査で守られていない（人手で確認した）
 
 ## P6-3. どこまでを TS 側で検証するか
 
