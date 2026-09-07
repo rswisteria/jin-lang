@@ -1840,7 +1840,7 @@ R3.3 の「plan の変更は `DP-REVIEW-JIN-P3-001` の追加だけ」は**私�
 |---|---|
 | `uv run pytest` | **1197 passed → 1369 passed**（+172。ほかに環境差の 2 failed / 3 skipped は着手前と同じ） |
 | 変異ハーネス | **22/22 caught**（SKIP 0・実ツリー不変・`/tmp` 残骸 0） |
-| CI と同じ 8 ゲート + 2 | 全緑（§P4-5 に実測値。プラグイン validate と reference 同期を追加） |
+| CI と同じ 8 ゲート + 2 | 全緑（§P4-5 に実測値。プラグイン validate と reference 同期を追加）。実機 CI も両 job pass（§P4-5.1） |
 | HANDOFF | 3 件（すべて non-blocking・推奨案で実装済み。§P4-6） |
 | 人間確定 | 3 件（§P4-3） |
 
@@ -1976,6 +1976,28 @@ PR 本文に明記する。
   テストが用意しようとしたファイルを作れない
 
 どちらも CI（ubuntu-latest）では緑である（Phase 3 の PR #16 で実機確認済み）。
+
+### P4-5.1 実機 CI（PR #17・run 34079223651・head `78dc11c`・2026-09-07）
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test`（ubuntu-latest） | **pass** 2m38s | `1373 passed, 1 skipped` / pytest 本体 141.38s / 6 snapshots passed |
+| `plugin`（ubuntu-latest） | **pass** 8s | `claude --version` = **2.1.263 (Claude Code)** / `✔ Validation passed` |
+
+手元（macOS）の `1369 passed / 2 failed / 3 skipped` と足して 1374 で一致する。内訳:
+
+- 手元の 3 skip はすべて `/dev/full` が無いこと（macOS）で、Linux では走って通る（+3）
+- 上に挙げた macOS 固有の 2 失敗は Linux では通る（+2）。**PR 本文の「CI では緑」の主張はこれで裏取りできた**
+- CI の 1 skip は `tests/contract/test_plugin_contract.py::test_claude_plugin_validate_passes`。
+  `test` job には `claude` CLI が無いためで、**CI で validate を実際に走らせているのは `plugin` job のほう**である
+  （同テストの docstring にもこの実態を書いた）
+
+`test_diagnostics_for_a_thousand_lines_arrive_within_a_second`（1 秒予算）は共有 runner でも
+通った。手元より遅い環境で予算が破れないことを実機で確認できたので、値は据え置く。
+
+`@anthropic-ai/claude-code` は `npm install -g` で版が浮く。**2026-09-07 に PASS したのは 2.1.263** である。
+`plugin` job が将来赤くなったときに「プラグイン側が壊れた」のか「CLI の版が上がって検査が厳しくなった」のかを
+切り分けるために記録しておく。
 
 ## P4-6. HANDOFF（human-decision-request・いずれも non-blocking・推奨案で実装済み）
 

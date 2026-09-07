@@ -103,10 +103,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # DP-REVIEW-JIN-003 の 2 本目: **pnpm / Node の受け皿**。
-      # Phase 5 の `apps/editor` はここに `pnpm install` / `pnpm test` を足す。
-      # 受け皿を先に置くのは、Phase 5 で赤くなったテストを「テストを差し替える」
-      # だけで消せる動線を塞ぐためである（Issue #9 の起票理由）。
+      # DP-REVIEW-JIN-003 の 2 本目: **Node の受け皿**。
+      # Phase 5 の `apps/editor` はこの job に `pnpm/action-setup` と
+      # `pnpm install` / `pnpm test` を足す。受け皿を先に置くのは、Phase 5 で
+      # 赤くなったテストを「テストを差し替える」だけで消せる動線を塞ぐためである
+      # （Issue #9 の起票理由）。
+      # **pnpm 自体はまだ入れていない。** 入れる対象（`apps/editor`）が存在しない状態で
+      # `pnpm install` を書くと、その行が何も検証しないまま緑になり、
+      # 塞ごうとしている動線をこの job 自身が作ることになる。
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

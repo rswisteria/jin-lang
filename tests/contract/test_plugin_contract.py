@@ -163,13 +163,16 @@ def test_the_skill_tells_the_model_to_read_the_reference_first() -> None:
 CLAUDE_CLI = shutil.which("claude")
 
 
-@pytest.mark.skipif(CLAUDE_CLI is None, reason="claude CLI が無い環境（CI では入れる）")
+@pytest.mark.skipif(CLAUDE_CLI is None, reason="claude CLI が無い環境（CI の test job を含む）")
 def test_claude_plugin_validate_passes() -> None:
     """machine: `claude plugin validate` が PASS すること。
 
-    CI では専用の job が同じコマンドを走らせる（`.github/workflows/ci.yml`）。
-    手元に `claude` が無い場合はスキップするが、**CI ではスキップさせない**
-    （`test_ci_contract.py` が job の存在を固定する）。
+    **このテスト自体は CI の `test` job では skip される**（ubuntu-latest の Python 環境に
+    `claude` CLI を入れていないため。2026-09-07 の実機 CI で 1 skipped として実測）。
+    CI で validate を実際に走らせるのは専用の `plugin` job のほうであり
+    （`.github/workflows/ci.yml`・Node + `@anthropic-ai/claude-code`）、
+    その job が存在し続けることは `test_ci_contract.py` が固定する。
+    ここは `claude` を持っている手元で同じ検査を回すための入口である。
     """
     assert CLAUDE_CLI is not None
     completed = subprocess.run(
