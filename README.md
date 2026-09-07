@@ -55,3 +55,5 @@ uv run jin editor examples/pipeline/pipeline.jin
 ブラウザが自動で開かない場合は、ターミナルに表示されたURLを開いてください。終了するときは、ターミナルで `Ctrl+C` を押します。次回からは起動コマンドだけで使えます。
 
 CLIの各コマンドやデバッグの使い方、利用上の注意は[詳細ガイド](docs/usage.md)を参照してください。
+
+`jin check --resolve` は任意コードを実行するため、中身を確認した `.jin` ファイルにだけ使ってください。
