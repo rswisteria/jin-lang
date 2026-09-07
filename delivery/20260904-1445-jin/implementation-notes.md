@@ -2080,3 +2080,205 @@ PLUGIN-stale-reference                    reference/ が正典のコピーであ
    変わる（良くなる）が、既存 fixture の期待を壊していないか（テストは全緑）
 5. **`decision-conformance.md` §2.25** — 確定値 6 件の根拠が「要件値ではない」と読めるか
 6. **要件書 §6.2 からの逸脱**（hover の docstring）— この判断が妥当か。§P4-6 の 3 件目
+
+---
+
+# Phase 5（`apps/editor` 編集モード + `jin editor`）— 2026-09-07
+
+| 項目 | 値 |
+|---|---|
+| Issue | #6（Phase 5: エディタ 編集モード） |
+| 完了条件 | design.yaml `implementation_phases.items[5].verification`（machine 7 / human_only 1） |
+| machine | 7 件すべて満たす（§P5-7） |
+| human_only | **not_run**（UI/UX の妥当性・ADR-002 によりデザイナー参加後に差し替える前提） |
+| CI と同じゲート | 全緑（§P5-5） |
+| 変異 | **30/30 caught**・SKIP 0（§P5-6） |
+| HANDOFF | 4 件（すべて non-blocking・推奨案で実装済み。§P5-8） |
+
+新規ファイル:
+
+```
+apps/editor/{package.json,pnpm-lock.yaml,tsconfig.json,vite.config.ts,eslint.config.js,playwright.config.ts,index.html,.gitignore}
+apps/editor/src/{main.tsx,App.tsx,style.css}
+apps/editor/src/rpc/{protocol.ts,jsonrpc.ts,jin.ts}
+apps/editor/src/state/{viewState.ts,selection.ts,history.ts}
+apps/editor/src/form/{schemaForm.ts,dispatch.ts,PropertyPanel.tsx}
+apps/editor/src/svg/{hitTest.ts,SvgCanvas.tsx}
+apps/editor/src/ui/{StatusBar.tsx,DiagnosticList.tsx}
+apps/editor/test/{setup.ts,viewState.test.ts,selection.test.ts,history.test.ts,schemaForm.test.ts,dependencyDirection.test.ts,exhaustiveness.fixture.ts}
+apps/editor/e2e/{editor.ts,smoke.spec.ts}
+packages/jin-cli/src/jin_cli/editor.py
+packages/jin-cli/tests/test_editor.py
+tests/contract/test_editor_contract.py
+delivery/20260904-1445-jin/editor-api-probe.md
+delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py
+```
+
+変更ファイル:
+
+```
+packages/jin-cli/src/jin_cli/main.py         editor サブコマンド
+packages/jin-lsp/src/jin_lsp/server.py       serve_ws（切断でサーバが落ちない ws）・main が使う
+packages/jin-lsp/tests/test_ws_roundtrip.py  再接続テスト
+packages/jin-cli/tests/test_cli.py           トリップワイヤを「v1 の集合と一致」側へ反転
+tests/contract/test_dependency_direction.py  トリップワイヤを「pnpm 側で落ちる」側へ反転 + 二層目
+tests/contract/test_ci_contract.py           editor job / pnpm / e2e の検査
+.github/workflows/ci.yml                     editor job（pnpm install --frozen-lockfile / lint / build / test / e2e）
+docs/spec/ops.md                             §5.1 に jin editor の口・§7 をエディタ実装済みに
+CLAUDE.md / README.md                        Phase 5 の要点・jin editor の危険性・開発コマンド・構成
+```
+
+## P5-1. 「エディタは独自のモデル状態を持たない」をどう守ったか
+
+要件書 §10 #10 の禁止は「モデルの写しを持たない」であって、
+「サーバの応答を画面に出すために保持しない」ではない（それでは何も描けない）。
+実装では次の線を引いた:
+
+- 持つ: 直近の応答（`model` / `pointers` / `svg` / `diagnostics`）と、
+  モデルから**導出できない UI 意図**（選択の 3 つ組 / focus の circle 名 / undo・redo の
+  オペレーション列 / パネルの開閉）
+- 持たない: モデルを局所的に書き換える経路。**`ViewState` の `model` は
+  `jin/applyOps` の応答で丸ごと置き換わるだけ**で、部分更新するコードが 1 行も無い
+
+undo / redo に積むのも**オペレーション列だけ**である（`test/history.test.ts` が
+エントリのキーが `forward` / `inverse` の 2 つだけであることを等号で見る）。
+
+## P5-2. `jin/applyOps` の後に `didChange` を送らなくてよいことの確認
+
+`jin_lsp.server` の `jin/applyOps` ハンドラは、応答を返す**前に**
+`ls.analyze_now(uri, text, state.version)` で自分の記憶を新テキストへ更新する。
+したがってエディタは `didChange` を送り返す必要がなく、
+**`didChange` を送らない = 150 ms デバウンスの影響を受けない**。
+「編集 → すぐ再取得」でステイルが返る競合は原理的に起きない（Playwright のフレークを避けられた）。
+
+`workspace/applyEdit` は**宣言しない**。宣言しなければサーバは `applied: false` と
+`text` を返してこちらへ要求を送らない（`_client_applies_edits` を実測）。
+ブラウザにファイルシステムは無いので、テキストを当てる先も無い。
+
+## P5-3. 実測で踏んだ 2 つの罠（`editor-api-probe.md` §2 / §3）
+
+1. **pygls の ws は binary フレームで JSON を送る。** ブラウザ既定の `binaryType = "blob"` の
+   ままだと `JSON.parse(Blob)` が `"[object Blob]"` を食って失敗し、**エラーが握り潰されて
+   Promise が永久に pending** になる（コンソールにも何も出ず、画面が白いまま）。
+   `arraybuffer` にして `TextDecoder` で復号し、握手に 15 秒のタイムアウトを付けた。
+2. **pygls の `start_ws` は 1 接続で終わる**（接続が閉じた直後に `shutdown()`）。
+   ブラウザのエディタでは「ページを再読み込みしたら死ぬ」ことになる。
+   `JinLanguageServer.serve_ws` を足して `shutdown()` を呼ばない形にし、
+   `stop_event` も接続ごとに作り直した（使い回すと 2 本目が受信ループに入らない）。
+   **これは Phase 4 から潜んでいた欠陥**であり、`jin lsp --ws` も同時に直った。
+
+## P5-4. 「検査が落ちる」ことの機械化（Phase 0+1 の規律）
+
+| 主張 | 落ちることの証拠 |
+|---|---|
+| フォームは schema から生成している | `test/schemaForm.test.ts`: schema に `zzz_probe` を足すと欄が **1 つ増える**（欄の一覧を持っていたら増えない） |
+| 5 状態の分岐漏れは tsc が落とす | `test/exhaustiveness.fixture.ts`: 分岐を 1 つ欠いた関数に `@ts-expect-error` を付ける。**分岐を足すと「未使用のディレクティブ」で tsc が赤**になり、網羅性を緩めても赤になる（両方向を実測） |
+| `apps/editor` は Python を import しない | `test/dependencyDirection.test.ts`: 禁止 import 4 種を `ESLint.lintText` に食わせて落ちることを見る。`schemas/jin.schema.json` は通ることも見る |
+| 静的配信は dist に閉じている | `test_the_static_server_only_serves_the_dist`: dist の外のファイルと `..` 系 3 種が **404** になることを実 HTTP で見る |
+| ws は再接続できる | `test_the_server_survives_a_client_reconnect`: 生の `websockets` で 3 回張り直す（`shutdown` / `exit` は送らない） |
+
+## P5-5. CI と同じゲート（2026-09-07・`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1` で実測）
+
+| ゲート | 結果 |
+|---|---|
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 全ファイル整形済み |
+| `uv run pytest` | **1396 passed / 2 failed / 3 skipped**（2 failed は macOS 固有の環境差で `main` の HEAD でも落ちる。§P4-5 と同じ 2 件） |
+| `uv run lint-imports` | 3 contracts kept / 0 broken |
+| `uv run jin schema \| diff -u schemas/jin.schema.json -` | 差分なし |
+| `uv run jin check examples` / `jin fmt --check examples` | error 0 / 差分なし |
+| `uv run python scripts/sync_plugin_reference.py --check` | 同期済み |
+| `pnpm lint`（**新規**） | 指摘なし |
+| `pnpm build`（**新規**・tsc + vite） | 0 errors / built |
+| `pnpm test`（**新規**・vitest） | **38 passed** |
+| `pnpm e2e`（**新規**・Playwright） | **3 passed** |
+
+### P5-5.1 実機 CI（PR #19・run 34090280409・head `6319986`・2026-09-07）
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test`（ubuntu-latest） | **pass** 2m59s | `1400 passed, 1 skipped`（pytest 本体 147.24s / 6 snapshots passed） |
+| `editor`（ubuntu-latest・**新規**） | **pass** 1m11s | `pnpm lint` / `pnpm build` / `pnpm test` **39 passed** / `pnpm e2e` **3 passed**（11.7s） |
+| `plugin`（ubuntu-latest） | **pass** 15s | `claude plugin validate --strict` |
+
+手元（macOS）の `1396 passed / 2 failed / 3 skipped` と足して 1401 で一致する。内訳は §P4-5.1 と同じで、
+手元の 3 skip（`/dev/full` 不在）は Linux で走って通り（+3）、macOS 固有の 2 失敗も Linux では通る（+2）。
+CI の 1 skip は `test_claude_plugin_validate_passes`（`test` job に `claude` CLI が無い）。
+
+Playwright のブラウザは CI が自前で取得する（`chromium_headless_shell-1234` を 4 秒で取得）。
+手元で 1.62.0 に固定した理由（この環境で 1.63.0 のブラウザを DL できなかった）は
+**CI には掛からない**ことが実機で確認できた。
+
+## P5-6. 変異（`phase5-mutations/mutate_p5.py`）
+
+**30/30 caught・SKIP 0・実ツリー不変。** Phase 4 までと違い、**検査が 2 系統**ある
+（pytest と pnpm）ので、変異ごとにどちらを回すかを表に持たせた。
+`node_modules` は実ツリーへの symlink にする（数万ファイルを複製しない。
+変異するのは `src/` `test/` `eslint.config.js` `package.json` だけなので実ツリーは書き換わらない）。
+
+**変異が偽緑を 2 件見つけた**:
+
+1. `test_the_exhaustiveness_tripwire_is_present` が `"@ts-expect-error" in fixture` で
+   判定しており、**docstring にも同じ語が出る**ので、ディレクティブ行を消しても緑だった。
+   行頭が `// @ts-expect-error` の行を**ちょうど 1 本**数える形に直した
+2. 静的配信の根の固定を `guard:` の主張だけで見ており、`_handler_for` から
+   `directory=` を落としても（主張の対象が別関数なので）緑だった。
+   dist の外が 404 になることを実 HTTP で見るテストを足した
+
+もう 1 つ、`EDITOR-missing-dist-ignored`（index.html の検査を外す）は
+**変異するとテストがハングした**（`serve` が検証を抜けてそのまま待ち受けに入る）。
+検証だけを `prepare()` に切り出し、テストは `serve` を呼ばずに `prepare` を呼ぶ形に直した。
+入口の拒否を `serve` 経由で試すと、拒否が壊れた瞬間に「失敗」ではなく「無反応」になる。
+
+## P5-7. 完了条件（design.yaml `implementation_phases.items[5].verification`）
+
+### machine — 7 件すべて満たす
+
+| # | 条件 | 証拠 |
+|---|---|---|
+| 1 | Playwright スモーク: 開く → 紋を追加 → 保存 → 期待の正準形とバイト一致 | `apps/editor/e2e/smoke.spec.ts`（実際の `jin editor` プロセスに繋ぐ。1 テスト 1 プロセス） |
+| 2 | 往復無損失（成功条件 5） | 同スモークの undo 側（`jin/applyOps` の `inverses` を当てるとファイルがバイト単位で元に戻る）+ 既存の `packages/jin-core/tests/test_ops.py`（19 件） |
+| 3 | エディタ保存の出力が `jin fmt` とバイト一致 | 同スモーク: 保存後のファイルの写しに `jin fmt` を当てて元と比較 + `jin fmt --check` の 2 段 |
+| 4 | `pnpm test` / `pnpm build` が通る | CI の editor job。`pnpm build` は `tsc --noEmit && vite build` |
+| 5 | `apps/editor` が Python パッケージを参照しない | `apps/editor/eslint.config.js` + `test/dependencyDirection.test.ts`（規則が落ちることを注入で確認）+ `tests/contract/test_dependency_direction.py` の 2 本 |
+| 6 | フォームが JSON Schema から生成され、手書きのフォーム定義が無い | `test/schemaForm.test.ts::schema にキーを足すと欄が増える` + `tests/contract/test_editor_contract.py`（`apps/editor` に schema のコピーが無いことも見る） |
+| 7 | 表示状態を判別共用体として網羅し、分岐漏れがコンパイルエラーになる（3 に固定しない） | `test/exhaustiveness.fixture.ts`（両方向を実測）+ `test/viewState.test.ts`（5 件の等号）+ `tests/contract/test_editor_contract.py`（Python 側からも等号） |
+
+### human_only — **not_run**
+
+「UI/UX の妥当性」は ADR-002 / DP-JIN-EDITOR-UX-01 により**デザイナー参加後に差し替える前提**で、
+本ランでは判定しない。実装したのは機能要件（§7.1）を満たす最小 UI である。
+実施済みと報告してはならない。
+
+## P5-8. HANDOFF（human-decision-request・いずれも non-blocking・推奨案で実装済み）
+
+| ID | 論点 | 推奨（実装した案） | 根拠 |
+|---|---|---|---|
+| `DP-IMPL-JIN-P5-RENAME-FOLLOW-01` | `rename` 直後の選択追随（DP-COMMON-16 の cons が「別途決める必要がある」と名指ししていた） | **当てたオペレーションが選択中の要素の rename なら、選択の名前を新名へ差し替える** | サーバの `rename` は参照を全て追随させる（ops.md §3）ので、名前だけ差し替えれば新モデル上で同じ要素を指す。`selection.ts::followRename` 1 本に閉じた |
+| `DP-IMPL-JIN-P5-TOKEN-CHANNEL-01` | 起動トークンをブラウザにどう渡すか | **URL のフラグメント（`#token=`）** | クエリに置くとリクエストラインに載り、`jin editor` 自身の静的サーバのログにも、遷移先の `Referer` にも出る。フラグメントはどちらにも載らない。残存（履歴・同一ページの JS）を README と ops.md §5.1 に明記した |
+| `DP-IMPL-JIN-P5-HITAREA-01` | 線画（`fill="none"`）の当たり判定 | **CSS で `[data-jin] { pointer-events: all; }`** | 既定の `visiblePainted` では 1 px の線の上しか当たらず、環をクリックしても `<svg>` に抜ける（実測）。塗りは足していないので**描画は変わらない**。重なりは SVG の規則どおり後から描かれた要素が勝ち、紋は環より優先される |
+| `DP-IMPL-JIN-P5-ADD-DEFAULTS-01` | 「環の空き位置をクリック → addTool / addState / addDelegate」で作る要素の初期値 | **スキーマ上必須の欄だけを埋め、参照は空にする**（`{name: "tool1", kind: "tool", ref: ""}` / delegate は `""`） | `ref` や委譲先に架空の名前を入れると、ユーザーが書いていない参照を捏造することになる。空なら `jin check` が未解決参照として診断を出し、次に何をすべきかが図に出る。**delegate も空文字で作る**（当初は `circle1` という架空の circle 名を入れていて、この判断の根拠と矛盾していた）。空のまま放置できないよう、delegate はプロパティパネルで書ける（欄の定義は `Circle.delegate.items` から取る） |
+| `DP-IMPL-JIN-P5-CODEACTION-UI-01` | 要件書 §7.1「codeAction を実行できる」を Phase 5 で実装するか | **実装しない**（要件書からの意図的な逸脱） | `textDocument/codeAction` の往復は Phase 4 で通っており、足りないのはエディタ側の UI だけである。候補の列挙 UI は ADR-002 が「後で差し替える」と定めたデザインそのもの。**PR 本文に明記する**（Phase 4 の `DP-IMPL-JIN-P4-HOVER-DOCSTRING-01` と同じ扱い） |
+
+## P5-8.1 残存（Phase 6 以降で拾う）
+
+- **guard の選択鍵は `on` である。** `Guard` は `on` / `ref` の 2 欄しか持たず、circle 内で
+  要素を一意に指せる鍵が `on` しかない。同じ `on`（例: `before_model`）の guard を 2 本置くと、
+  **2 本目を図から選べない**（`resolveSelection` が 1 本目の添字を返す）。
+  `docs/spec/model.md` は同じ `on` を複数許すので、これは実在しうる形である。
+  DP-COMMON-16 の 3 つ組は「名前が ID」（要件書 §10 #11）という前提に立っているが、
+  guard だけはその前提が成り立たない
+- **summon の紋がエディタから作れない**（P5-9 の表）
+- **codeAction の実行導線が無い**（同上・HANDOFF 起票済み）
+
+## P5-9. 要件書 §7.1 のうち、実装で形を変えたもの
+
+| 要件書の文言 | 実装 | 理由 |
+|---|---|---|
+| 「ドラッグで紋を環上で並べ替える → `moveTool`」 | 紋を掴んで**別の紋の上で離す**と、その紋の添字へ移す | 角度から添字を求めるにはレイアウト規則の再実装が要る（要件書 §0「レンダラは Python 1 本」に反する）。落とす先の紋の `data-jin` から添字を読む形にした |
+| 「環の空き位置をクリック → `addTool` / `addState`」 | 陣（核・環・紋のどれか）を選んでから**ツールバーのボタン**で足す | SVG に「空き位置」を表す要素が無い（`data-jin` を持たない描画要素を置かない・layout.md §3.1）。ADR-002 の最小 UI の範囲で機能は満たす |
+| 「circle 同士を結ぶ → `addDelegate` または `summon` ツール追加」 | 陣を選んで**ツールバーの「委譲を追加」** | 同上。線を引く UI はデザイナー参加後（ADR-002） |
+| 「診断は SVG 上の該当要素にバッジで表示し、クリックで hint を出す」 | 実装済み。位置は描かれた要素の `getBBox()` から取る | レイアウトを再計算しない |
+| 「入れ子の小陣をダブルクリックで `focus` を切り替える」 | 実装済み（`jin/renderSvg` に `focus` を渡し直す） | |
+| 「codeAction を実行できる」 | **未実装**（HANDOFF `DP-IMPL-JIN-P5-CODEACTION-UI-01`） | `textDocument/codeAction` の往復は Phase 4 で通っているが、エディタ側の導線は診断一覧のクリック（選択と hint の表示）までに留めた。ADR-002 の最小 UI の範囲。**PR 本文に「落とした」と明記する** |
+| 「circle 同士を結ぶ → `addDelegate` または `summon` ツール追加」 | `addDelegate` だけ実装。**`summon` の紋はエディタから作れない** | 「紋を追加」は常に `kind: "tool"` で作り、フォームの `kind` は schema の `const` なので読み取り専用になる。kind を変える導線（種別を選ぶ UI）は ADR-002 の差し替え対象。`.jin` を直接書くか Claude Code から足せば図には出る。**PR 本文に「落とした」と明記する** |

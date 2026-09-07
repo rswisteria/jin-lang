@@ -1,0 +1,92 @@
+/* ADR-002 / DP-JIN-EDITOR-UX-01: 機能要件だけを満たす最小の見た目。
+   デザインはデザイナー参加後に差し替える前提であり、本ランでは UI/UX の妥当性を判定しない。 */
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+body {
+  margin: 0;
+}
+.jin-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.jin-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid #d4d4d8;
+}
+.jin-sep {
+  width: 1px;
+  height: 1.5rem;
+  background: #d4d4d8;
+}
+.jin-status {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid #e4e4e7;
+}
+.jin-status-stale {
+  background: #fef3c7;
+}
+.jin-status-unavailable,
+.jin-status-disconnected {
+  background: #fee2e2;
+}
+.jin-notice {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  background: #eff6ff;
+}
+.jin-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.jin-canvas {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+.jin-canvas svg {
+  max-width: 100%;
+  height: auto;
+}
+/* レンダラの SVG は **すべて `fill="none"` の線画**である（`docs/spec/layout.md`）。
+   既定の `pointer-events: visiblePainted` では 1 px の線の上しか当たらず、
+   環をクリックしても `<svg>` に抜ける（実測）。`all` にして図形の内側も当たるようにする。
+   **これは描画の変更ではない**（塗りは足していない。当たり判定だけを広げている）。
+   重なりは SVG の規則どおり後から描かれた要素が勝つので、紋は環より優先される。 */
+.jin-canvas svg [data-jin] {
+  pointer-events: all;
+}
+.jin-side {
+  width: 22rem;
+  overflow: auto;
+  padding: 0.5rem;
+  border-left: 1px solid #d4d4d8;
+}
+.jin-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.5rem;
+}
+.jin-desc,
+.jin-hint,
+.jin-pointer {
+  color: #52525b;
+  font-size: 0.85em;
+}
+.jin-diagnostics {
+  padding-left: 1rem;
+}
+.jin-severity-error {
+  color: #dc2626;
+}
+.jin-severity-warning {
+  color: #d97706;
+}

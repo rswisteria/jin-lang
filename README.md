@@ -21,6 +21,7 @@ uv run jin build examples/pipeline/pipeline.jin --out /tmp/out   # ADK プロジ
 uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl   # FakeLlm で実行・トレース（0600）
 uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg    # 魔法陣 SVG（-o 無しは標準出力）
 uv run jin lsp                     # LSP サーバ（stdio）
+uv run jin editor examples/researcher/researcher.jin   # 視覚エディタ（要 apps/editor の pnpm build）
 ```
 
 ### `jin render` — 魔法陣 SVG
@@ -93,6 +94,32 @@ WebSocket にはブラウザの same-origin 制限が無い。**開いている�
 **hover は `ref` の docstring を出さない。** 出すには `ref` のモジュールを import する必要があり、
 hover のたびに任意コード実行になるためである（要件書 §6.2 からの意図的な逸脱）。
 
+### `jin editor` — 視覚エディタ（編集モード）
+
+```bash
+cd apps/editor && pnpm install && pnpm build   # 初回だけ。jin editor が配る dist を作る
+uv run jin editor path/to/a.jin                # ブラウザが開く
+uv run jin editor path/to/a.jin --no-browser   # URL を stderr に出すだけ
+```
+
+魔法陣をクリックして要素を選び、プロパティパネルで編集する。**エディタは 1 本の線も描かない** —
+SVG は `jin/renderSvg` から受け取り、`data-jin` でヒットテストするだけである。
+**ファイルが唯一の状態**で、エディタは独自のモデルを持たない: 編集はすべて `jin/applyOps` を
+往復し、保存は正準形（`jin fmt` の出力とバイト一致）を書く。
+プロパティパネルの欄は `schemas/jin.schema.json` から生成する（手書きのフォーム定義を持たない）。
+
+構文エラー中は**「直前の正常な版を表示しています」と画面に明示する**（黙って古い図を出さない）。
+デバッグモード（トレースリプレイ）は Phase 6。
+
+### `jin editor` も `jin lsp --ws --root` と同じ口を開ける
+
+`jin editor` は `--root` を書かせずに ws の待ち受けを開く。root は**対象ファイルの親
+ディレクトリだけ**で、防御は下の 4 段と同じ。起動トークンは URL の**フラグメント**
+（`#token=`）で渡す — フラグメントは HTTP 要求にも `Referer` にも載らないので、
+静的配信のアクセスログにも出ない（残存: ブラウザの履歴には残り、同じページの JS からは読める）。
+
+**信頼しないディレクトリの `.jin` を `jin editor` で開かないこと。**
+
 ### Claude Code プラグイン
 
 `plugins/claude-code/jin/` を入れると `.jin` の診断・定義ジャンプが Claude Code で効く（要件書 §8）。
@@ -140,6 +167,9 @@ examples/                 researcher.jin と pipeline.jin（正準形）
 packages/jin-core/        意味モデル・位置付きパーサ・意味検査・診断・正準形・意味オペレーション
 packages/jin-adk/         ADK コード生成（Jinja2）/ 書き出し / 実行 / トレース / FakeLlm
 packages/jin-render/      決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay
-packages/jin-cli/         CLI（check / fmt / schema / dump / build / run / render）
+packages/jin-lsp/         LSP サーバ（stdio + WebSocket）/ 標準機能 / 独自リクエスト
+packages/jin-cli/         CLI（check / fmt / schema / dump / build / run / render / lsp / editor）
+apps/editor/              視覚エディタ（Vite + React + TS）。Python パッケージを import しない
+plugins/claude-code/jin/  Claude Code プラグイン（.lsp.json / skills / hooks）
 tests/                    spec 突合 / 横断契約 / 診断コードの fixture
 ```

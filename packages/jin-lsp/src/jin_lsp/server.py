@@ -23,12 +23,14 @@ import argparse
 import asyncio
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
 from jin_core import canonical
 from jin_core.diagnostics import CANONICAL_CODES
 from lsprotocol import types
+from pygls.io_ import run_websocket
 from pygls.lsp.server import LanguageServer
 
 from jin_lsp import SERVER_NAME, SERVER_VERSION, fileio, logs, positions, protocol, requests
@@ -128,6 +130,45 @@ class JinLanguageServer(LanguageServer):
 
     def state_of(self, uri: str) -> DocumentState | None:
         return self.documents.get(uri)
+
+    # ---- ws トランスポート -----------------------------------------------------
+
+    def serve_ws(self, host: str, port: int) -> None:
+        """WebSocket で待ち受ける。**クライアントが切れてもサーバは終わらない**。
+
+        pygls 2.1.1 の `LanguageServer.start_ws` は、1 本目の接続が閉じた直後に
+        `self.shutdown()` を呼ぶ（`pygls.server` を実測）。ブラウザのエディタでは
+        **ページを再読み込みしただけでサーバが落ちる**ことになり、`jin editor` が
+        使い物にならない（Playwright の 2 本目のテストが `ERR_CONNECTION_RESET` に
+        なって発覚した）。ここでは `pygls.io_.run_websocket` を接続ごとに回し、
+        `shutdown()` を呼ばない形にする。
+
+        `stop_event` は**接続ごとに新しく作る**。使い回すと 1 本目の切断で set された
+        まま残り、2 本目が受信ループに入らず即座に抜ける。
+
+        同時に複数の接続を張ることは想定していない（`protocol` の writer が
+        1 本しかないので、後から繋いだ側に応答が寄る）。ローカルの 1 ブラウザが
+        相手という前提は `jin lsp --ws` と同じである。
+        """
+        from websockets.asyncio.server import serve
+
+        async def handle(websocket: object) -> None:
+            await run_websocket(
+                stop_event=threading.Event(),
+                websocket=websocket,  # type: ignore[arg-type]
+                protocol=self.protocol,
+                logger=logging.getLogger(__name__),
+                error_handler=self.report_server_error,
+            )
+
+        async def run() -> None:
+            async with await serve(handle, host, port) as server:  # type: ignore[arg-type]
+                await server.serve_forever()
+
+        try:
+            asyncio.run(run())
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            return
 
 
 def create_server(
@@ -431,7 +472,7 @@ def main(argv: list[str] | None = None) -> None:
             # 契約テストで固定しているためである（stdio の通信路を守る一番単純な網）。
             sys.stderr.write(f"{TOKEN_PREFIX}{files.token}\n")
             sys.stderr.flush()
-        server.start_ws(args.host, args.ws)
+        server.serve_ws(args.host, args.ws)
     else:
         server.start_io()
 

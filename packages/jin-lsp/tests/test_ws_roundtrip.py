@@ -402,3 +402,47 @@ async def test_save_refuses_a_symlink_and_leaves_the_target_untouched(tmp_path: 
         )
     finally:
         server.stop()
+
+
+@pytest.mark.asyncio
+async def test_the_server_survives_a_client_reconnect(tmp_path: Path) -> None:
+    """**クライアントが切れてもサーバは終わらない**（Phase 5 で直した欠陥の再発検知）。
+
+    pygls 2.1.1 の `LanguageServer.start_ws` は、1 本目の接続が閉じた直後に
+    `self.shutdown()` を呼ぶ（`pygls.server` を実測）。それをそのまま使っていると
+    **ブラウザのエディタはページを 1 回再読み込みしただけで死ぬ**。
+    `JinLanguageServer.serve_ws` は接続ごとに `run_websocket` を回し、
+    `stop_event` も接続ごとに作り直す（使い回すと 2 本目が受信ループに入らない）。
+
+    ここでは **LSP の `shutdown` / `exit` を送らずに**ソケットだけ閉じる。
+    ブラウザはページを離れるときに閉じるだけで、終了要求は出さないからである
+    （`disconnect()` ヘルパは `shutdown_session()` を呼ぶので、この場面には使えない
+    — `exit` を受けたサーバが終了するのは**正しい**挙動であって、直したい欠陥ではない）。
+
+    3 回張るのは、2 本目だけ通って 3 本目で落ちる形（`stop_event` の共有）も
+    同時に捕まえるためである。
+    """
+    import websockets
+
+    target = tmp_path / "a.jin"
+    target.write_text(minimal("Main"), encoding="utf-8")
+    server = WsServer(root=tmp_path)
+    try:
+        await server.wait_until_ready()
+        for attempt in range(3):
+            async with websockets.connect(f"ws://127.0.0.1:{server.port}") as socket:
+                await socket.send(
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "initialize",
+                            "params": {"processId": None, "rootUri": None, "capabilities": {}},
+                        }
+                    )
+                )
+                raw = await asyncio.wait_for(socket.recv(), timeout=STARTUP_TIMEOUT)
+                answer = json.loads(raw)
+                assert "result" in answer, f"{attempt + 1} 本目の initialize が失敗: {answer}"
+    finally:
+        server.stop()
