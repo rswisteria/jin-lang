@@ -22,13 +22,16 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import sys
+from pathlib import Path
 from typing import Any
 
+from jin_core import canonical
 from jin_core.diagnostics import CANONICAL_CODES
 from lsprotocol import types
 from pygls.lsp.server import LanguageServer
 
-from jin_lsp import SERVER_NAME, SERVER_VERSION, logs, positions, protocol, requests
+from jin_lsp import SERVER_NAME, SERVER_VERSION, fileio, logs, positions, protocol, requests
 from jin_lsp.features import completion, edits, navigation
 from jin_lsp.session import DocumentState, DocumentStore
 
@@ -41,6 +44,9 @@ logger = logging.getLogger(__name__)
 #: `didOpen` には**掛けない**（開いた瞬間の診断を遅らせる理由が無く、
 #: NFR-PERF-001 の計測にデバウンス値が混ざる）。
 DEBOUNCE_SECONDS = 0.15
+
+#: 起動トークンを stderr に出すときの前置き。`jin editor`（Phase 5）はこの行を読む。
+TOKEN_PREFIX = "jin-lsp token: "
 
 #: `codeAction` が名乗る種別。`quickfix` は「診断を直す」、`refactor` は §6.3 の
 #: オペレーション露出（要件書 §6.2 の codeAction 行「加えて §6.3 の全オペレーションを
@@ -55,13 +61,20 @@ class JinLanguageServer(LanguageServer):
     pointer→range 対応表・last-good）はこちらが持つ（`jin_lsp.session`）。
     """
 
-    def __init__(self, *, debounce: float = DEBOUNCE_SECONDS) -> None:
+    def __init__(
+        self,
+        *,
+        debounce: float = DEBOUNCE_SECONDS,
+        files: fileio.FileAccess | None = None,
+    ) -> None:
         # `converter_factory` を差し替えて、独自リクエストの params を**素の JSON**で受ける。
         # 既定のままだと `await` / `$schema` のようなキーが黙って `_0` に化ける
         # （`jin_lsp.protocol` の docstring に実測を書いた）。
         super().__init__(SERVER_NAME, SERVER_VERSION, converter_factory=protocol.jin_converter)
         self.documents = DocumentStore()
         self.debounce = debounce
+        #: `jin/open` / `jin/save` の許可（ws モードで `--root` を渡したときだけ有効）。
+        self.files = files if files is not None else fileio.FileAccess(root=None, token="")
         #: URI ごとの「これから走る診断」。**新しい打鍵が来たら古いものを捨てる**
         #: （check-text-benchmark.md の constraint「デバウンスし、古い要求をキャンセルする」）。
         self._pending: dict[str, asyncio.Task[None]] = {}
@@ -117,13 +130,15 @@ class JinLanguageServer(LanguageServer):
         return self.documents.get(uri)
 
 
-def create_server(*, debounce: float = DEBOUNCE_SECONDS) -> JinLanguageServer:
+def create_server(
+    *, debounce: float = DEBOUNCE_SECONDS, files: fileio.FileAccess | None = None
+) -> JinLanguageServer:
     """ハンドラを登録した サーバを作る。
 
     ファクトリにしてあるのは、テストが `debounce=0` の実体を直接組み立てられるように
     するためである（`start_io` / `start_ws` を経由せずにハンドラ関数を呼べる）。
     """
-    server = JinLanguageServer(debounce=debounce)
+    server = JinLanguageServer(debounce=debounce, files=files)
 
     # ---- テキスト同期 ---------------------------------------------------------
 
@@ -284,6 +299,64 @@ def create_server(*, debounce: float = DEBOUNCE_SECONDS) -> JinLanguageServer:
         result["diagnostics"] = [diagnostic.to_json_dict() for diagnostic in new_state.diagnostics]
         return result
 
+    # ---- ws モードのエディタ専用（ADR-011 / DP-JIN-EDITOR-PROTOCOL-01）------------
+
+    @server.feature("jin/open")
+    def jin_open(ls: JinLanguageServer, params: Any) -> dict[str, Any]:
+        """ブラウザのエディタが `.jin` を読む。**stdio では常に拒否**される。
+
+        ブラウザにはファイルシステムが無いので、`didOpen` に載せるテキストを
+        クライアントが用意できない（ADR-011 が案 B を退けた理由）。ここで読んで
+        返し、同時にサーバ側の記憶にも載せて診断を publish する。
+        """
+        uri = _uri_of(params)
+        ls.files.authorize(_field(params, "token"))
+        text = ls.files.read(uri)
+        state = ls.analyze_now(uri, text)
+        return {
+            "uri": uri,
+            "text": text,
+            "diagnostics": [d.to_json_dict() for d in state.diagnostics],
+        }
+
+    @server.feature("jin/save")
+    def jin_save(ls: JinLanguageServer, params: Any) -> dict[str, Any]:
+        """ブラウザのエディタが `.jin` を書く。**stdio では常に拒否**される。
+
+        書くのは**正準形**である（`docs/spec/ops.md` §1「テキストへの反映は正準形を
+        通す」/ 要件書 成功条件 5「エディタ保存と `jin fmt` の出力がバイト一致」）。
+        `text` を渡さなければサーバが持っているモデルの正準形を書く。
+        構文エラーのあるテキストは書かない（壊れたファイルを残さない）。
+        """
+        uri = _uri_of(params)
+        ls.files.authorize(_field(params, "token"))
+        given = _field(params, "text")
+        if isinstance(given, str):
+            state = ls.analyze_now(uri, given)
+        else:
+            state = ls.state_of(uri)
+            if state is None:
+                raise requests.RequestError(
+                    "JIN002",
+                    f"開かれていないドキュメントです: {uri}",
+                    "先に jin/open するか、params に text を渡してください",
+                )
+        if state.model is None:
+            raise requests.RequestError(
+                "JIN001",
+                "構文エラーのあるテキストは保存しません",
+                "診断 JIN001 の位置を直してから保存してください",
+            )
+        text = canonical.dumps(state.model)
+        path = ls.files.write(uri, text)
+        ls.analyze_now(uri, text, state.version)
+        return {
+            "uri": uri,
+            "path": str(path),
+            "text": text,
+            "diagnostics": [d.to_json_dict() for d in ls.documents.update(uri, text).diagnostics],
+        }
+
     return server
 
 
@@ -334,12 +407,30 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--host", default="127.0.0.1", help="--ws のときの待ち受けアドレス（既定: 127.0.0.1）"
     )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="--ws のとき jin/open と jin/save が触れてよいディレクトリ（省略時は両者を拒む）",
+    )
     parser.add_argument("--verbose", action="store_true", help="ログを詳細にする（stderr）")
     args = parser.parse_args(argv)
 
     logs.configure(logging.DEBUG if args.verbose else logging.WARNING)
-    server = create_server()
+    # stdio では `jin/open` / `jin/save` を有効にしない（ADR-011: ws モードの
+    # エディタだけが使う）。stdio のクライアントは自分でファイルを読み書きする。
+    root = args.root if args.ws is not None else None
+    files = fileio.FileAccess.create(root)
+    server = create_server(files=files)
     if args.ws is not None:
+        if files.enabled:
+            # **stdout ではなく stderr**（DP-COMMON-14）。ws モードでは stdout は
+            # 通信路ではないが、出力先を分けている理由はそこだけではない。
+            # トークンはログとして扱い、通信内容と混ぜない。
+            # `print` を使わないのは、`jin_lsp` に `print(` が 1 つも無いことを
+            # 契約テストで固定しているためである（stdio の通信路を守る一番単純な網）。
+            sys.stderr.write(f"{TOKEN_PREFIX}{files.token}\n")
+            sys.stderr.flush()
         server.start_ws(args.host, args.ws)
     else:
         server.start_io()
@@ -352,6 +443,7 @@ __all__ = [
     "CODE_ACTION_KINDS",
     "DEBOUNCE_SECONDS",
     "KNOWN_CODES",
+    "TOKEN_PREFIX",
     "JinLanguageServer",
     "create_server",
     "main",

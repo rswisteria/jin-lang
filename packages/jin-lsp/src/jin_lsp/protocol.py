@@ -28,22 +28,37 @@ from __future__ import annotations
 from typing import Any
 
 from cattrs import Converter
-from pygls.protocol import JsonRPCNotification, JsonRPCRequestMessage, default_converter
+from pygls.protocol import (
+    JsonRPCNotification,
+    JsonRPCRequestMessage,
+    JsonRPCResponseMessage,
+    default_converter,
+)
 
 
 def keep_params_plain(obj: dict[str, Any], cls: type) -> Any:
-    """`params` を触らずにメッセージを組み立てる（`_params_field_structure_hook` の代わり）。"""
+    """`params` / `result` を触らずにメッセージを組み立てる。
+
+    pygls の `_params_field_structure_hook` / `_result_field_structure_hook` の代わり。
+    """
     return cls(**obj)
 
 
 def jin_converter() -> Converter:
-    """`default_converter()` から「未知メソッドの params を Object にする」フックだけ外す。
+    """`default_converter()` から「未知メソッドの params / result を Object にする」フックを外す。
 
     guard: jin_converter -> converter.register_structure_hook
+
+    サーバ（受け取る `params`）とクライアント（受け取る `result`）の**両方**で使う。
+    クライアント側を素のままにすると、`jin/model` の応答に含まれる `$schema` や
+    `boundary.await` が `_0` に化けて届く（Phase 4 のテストで実際に踏んだ）。
+    ブラウザのエディタは素の JSON を読むのでこの問題を持たないが、
+    pygls を使う Python のクライアントはこの converter を使う必要がある。
     """
     converter = default_converter()
     converter.register_structure_hook(JsonRPCRequestMessage, keep_params_plain)
     converter.register_structure_hook(JsonRPCNotification, keep_params_plain)
+    converter.register_structure_hook(JsonRPCResponseMessage, keep_params_plain)
     return converter
 
 

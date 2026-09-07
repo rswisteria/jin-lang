@@ -140,7 +140,7 @@ def complete(state: DocumentState | None, position: types.Position) -> types.Com
 
     # ---- 2. enum 値 ------------------------------------------------------------
     key = tokens[-1] if tokens else ""
-    enum = _enum_values(models_at(parent, document), key)
+    enum = _enum_values(_enum_models(parent, document), key)
     if enum:
         items.extend(_item(value, types.CompletionItemKind.EnumMember, key) for value in enum)
         return types.CompletionList(is_incomplete=False, items=items)
@@ -153,6 +153,26 @@ def complete(state: DocumentState | None, position: types.Position) -> types.Com
             items.extend(_item(name, types.CompletionItemKind.Property, "key") for name in names)
             break
     return types.CompletionList(is_incomplete=False, items=_dedupe(items))
+
+
+def _enum_models(parent: str, document: Any) -> list[type[BaseModel]]:
+    """enum の候補を集めるモデル一覧。
+
+    `tools[]` は `kind` による**判別共用体**なので、`models_at("/circles/0/tools/0")` は
+    ソースに書かれている `kind` を見て 1 つに絞ってしまう（`jin_core.check._model_at`）。
+    それでは「今 `"tool"` と書いてあるところに `builtin` / `summon` も置ける」という
+    補完が出せない。要素の pointer が配列の添字で終わるときは、**配列そのもの**の
+    pointer で引き直して候補を全部得る。
+    """
+    models = models_at(parent, document)
+    tokens = split_pointer(parent)
+    if tokens and tokens[-1].isdigit():
+        container = parent_of(parent)
+        if container is not None:
+            for model in models_at(container, document):
+                if model not in models:
+                    models.append(model)
+    return models
 
 
 def _is_circle_reference(tokens: list[str]) -> bool:

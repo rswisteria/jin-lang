@@ -51,6 +51,22 @@ SEMANTIC_ERROR = minimal().replace('"root": "A"', '"root": "Nope"', 1)
 __all__ = ["BROKEN", "SCHEMA_ERROR", "SCHEMA_URL", "SEMANTIC_ERROR", "minimal"]
 
 
+def make_client():
+    """`jin_lsp.protocol.jin_converter` を使うテストクライアント。
+
+    pytest-lsp の `make_test_lsp_client()` は pygls の既定 converter を使うため、
+    未知メソッド（`jin/*`）の**応答**が `namedtuple(rename=True)` に変換され、
+    `$schema` や `await` のような識別子にできないキーが `_0` へ黙って置き換わる。
+    サーバ側と同じ converter を渡して素の JSON で受け取る。
+    """
+    from jin_lsp.protocol import jin_converter
+    from pytest_lsp.client import LanguageClient, register_lsp_features
+
+    client = LanguageClient(converter_factory=jin_converter)
+    register_lsp_features(client)
+    return client
+
+
 def as_plain(value: object) -> object:
     """pygls の `Object`（未知メソッドの応答を包む namedtuple 風）を素の JSON 値へ戻す。
 
@@ -66,3 +82,73 @@ def as_plain(value: object) -> object:
     if isinstance(value, dict):
         return {key: as_plain(item) for key, item in value.items()}
     return value
+
+
+#: 19 オペレーションを全部当てられる構造を持つモデル（`jin_core` の `test_ops.py` の
+#: sample() と同じ形）。LSP 経由の往復（design.yaml machine 4）で使う。
+RICH_MODEL: dict = {
+    "$schema": SCHEMA_URL,
+    "version": 1,
+    "root": "A",
+    "circles": [
+        {
+            "name": "A",
+            "core": "gemini-2.5-flash",
+            "description": "説明",
+            "instruction": {"rune": "{q} を調べる"},
+            "tools": [
+                {"name": "search", "kind": "tool", "ref": "m:search"},
+                {"name": "summarize", "kind": "summon", "circle": "B"},
+            ],
+            "delegate": ["B"],
+            "state": [{"name": "q", "type": "str"}],
+            "boundary": {
+                "guards": [{"on": "before_model", "ref": "m:guard"}],
+                "await": ["search"],
+            },
+        },
+        {"name": "B", "core": "gemini-2.5-flash"},
+    ],
+}
+
+#: `jin/applyOps` に流す 19 種。**`jin_core.ops.OPERATIONS` の 19 件と過不足なく
+#: 一致すること**をテストが等号で確認する（1 つ書き忘れても気づけるように）。
+OPERATION_CASES: list[dict] = [
+    {"op": "addCircle", "pointer": "/circles", "index": 1, "value": {"name": "C", "core": "m"}},
+    {"op": "removeCircle", "pointer": "/circles/1"},
+    {"op": "setCore", "pointer": "/circles/0", "value": "gemini-2.5-pro"},
+    {"op": "setDescription", "pointer": "/circles/0", "value": "別の説明"},
+    {"op": "setRune", "pointer": "/circles/0", "value": "{q} を要約する"},
+    {
+        "op": "addTool",
+        "pointer": "/circles/0/tools",
+        "index": 0,
+        "value": {"name": "fetch", "kind": "tool", "ref": "m:fetch"},
+    },
+    {"op": "removeTool", "pointer": "/circles/0/tools/1"},
+    {"op": "moveTool", "pointer": "/circles/0/tools/0", "index": 1},
+    {
+        "op": "addState",
+        "pointer": "/circles/0/state",
+        "index": 0,
+        "value": {"name": "answer", "type": "str"},
+    },
+    {"op": "removeState", "pointer": "/circles/0/state/0"},
+    {"op": "setState", "pointer": "/circles/0/state/0", "value": {"type": "int"}},
+    {
+        "op": "setFlow",
+        "pointer": "/circles/1",
+        "value": {"kind": "sequence", "steps": ["A"]},
+    },
+    {"op": "addDelegate", "pointer": "/circles/0/delegate", "index": 0, "value": "B"},
+    {"op": "removeDelegate", "pointer": "/circles/0/delegate/0"},
+    {
+        "op": "setGuard",
+        "pointer": "/circles/0/boundary/guards/0",
+        "value": {"on": "after_model", "ref": "m:guard2"},
+    },
+    {"op": "removeGuard", "pointer": "/circles/0/boundary/guards/0"},
+    {"op": "toggleAwait", "pointer": "/circles/0", "value": "search"},
+    {"op": "setRoot", "pointer": "", "value": "B"},
+    {"op": "rename", "pointer": "/circles/1", "value": "Bee"},
+]

@@ -16,13 +16,15 @@ from jin_core.model import JinFile
 from lsprotocol import types
 from pytest_lsp import ClientServerConfig, LanguageClient
 
-from .conftest import BROKEN, SCHEMA_ERROR, SEMANTIC_ERROR, as_plain, minimal
+from .conftest import BROKEN, SCHEMA_ERROR, SEMANTIC_ERROR, as_plain, make_client, minimal
 
 URI = "file:///workspace/a.jin"
 
 
 @pytest_lsp.fixture(
-    config=ClientServerConfig(server_command=[sys.executable, "-m", "jin_lsp"]),
+    config=ClientServerConfig(
+        server_command=[sys.executable, "-m", "jin_lsp"], client_factory=make_client
+    ),
 )
 async def client(lsp_client: LanguageClient):
     # pytest-lsp の既定クライアントは `workspace/applyEdit` に応答しない（実測:

@@ -363,8 +363,10 @@ def _extract_subcircle(
     codeAction には「どの紋を選んだか」が届かない（診断は circle 全体を指す）ので、
     どれを移すかを規則で決める必要がある。実装判断（DP-IMPL-JIN-P4-EXTRACT-01）:
 
-    - 移すのは **13 個目以降**（`MAX_ELEMENTS` を超えた分）。末尾から溢れた分だけを
-      動かすので、元の環の並び（= 角度）が保たれる
+    - 移すのは **`MAX_ELEMENTS` 個目以降**（12 個目以降）。「12 を超えた分」ではなく
+      1 個手前から移すのは、**元の陣に `summon` の紋を 1 つ足す**からである
+      （13 個目以降を移すと 12 + summon = 13 個になり JIN020 が解消しない。
+      実測で踏んだ）。末尾から溢れた分だけを動かすので環の並び（= 角度）は保たれる
     - 新しい陣の名前は `<元の名前>Extracted`。衝突したら末尾に 2, 3 … を付ける
     - 新しい陣の `core` は**元の陣の core をそのまま**使う。要件書に無いモデル名を
       ここで捏造しない
@@ -390,7 +392,9 @@ def _extract_subcircle(
         new_name = f"{circle.name}Extracted{suffix}"
         suffix += 1
 
-    moved = [tool.model_dump(by_alias=True, mode="json") for tool in circle.tools[MAX_ELEMENTS:]]
+    #: 元の陣に残す紋の数。`summon` を 1 つ足すので `MAX_ELEMENTS - 1` まで。
+    keep = MAX_ELEMENTS - 1
+    moved = [tool.model_dump(by_alias=True, mode="json") for tool in circle.tools[keep:]]
     op_list: list[dict[str, Any]] = [
         {
             "op": "addCircle",
@@ -400,13 +404,13 @@ def _extract_subcircle(
         }
     ]
     # 末尾から消す（前から消すと以降の添字がずれる）。
-    for position in range(len(circle.tools) - 1, MAX_ELEMENTS - 1, -1):
+    for position in range(len(circle.tools) - 1, keep - 1, -1):
         op_list.append({"op": "removeTool", "pointer": f"/circles/{index}/tools/{position}"})
     op_list.append(
         {
             "op": "addTool",
             "pointer": f"/circles/{index}/tools",
-            "index": MAX_ELEMENTS,
+            "index": keep,
             "value": {"name": new_name, "kind": "summon", "circle": new_name},
         }
     )
