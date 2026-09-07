@@ -2439,3 +2439,24 @@ Python 側に弱い網（`test_the_pointer_filter_agrees_with_the_overlay_rule` 
 macOS 固有の 2 失敗（`test_over_long_root_name_is_refused_not_a_traceback` /
 `test_unsafe_file_names_are_rejected_at_the_entry[bad\udcff.jin-\\udcff]`）は
 **変更前の作業ツリーでも同じく落ちる**ことを `git stash` で確認済み。Linux の CI では緑。
+
+### P6-8.1 実機 CI（PR #21・run 34096877462・head `a313671`・2026-09-07）
+
+`pull_request` の GitHub Actions が **3 job とも success**。
+
+| job | 結果 | 実測 |
+|---|---|---|
+| `test` | success（2m09s） | **1407 passed, 1 skipped**（1011 warnings・113.17s）/ `Contracts: 3 kept, 0 broken.` |
+| `editor` | success（1m08s） | `pnpm test` **62 passed**（6 files）/ `pnpm e2e` **9 passed**（19.9s） |
+| `plugin` | success（11s） | `claude plugin validate --strict` |
+
+手元（macOS）の計 1408 = **1403 passed / 2 failed / 3 skipped** と、CI（Linux）の
+**1407 passed / 1 skipped** は合計 1408 で一致する。差の内訳は
+(a) macOS 固有の 2 失敗が Linux では緑（`test_over_long_root_name_is_refused_not_a_traceback` /
+`test_unsafe_file_names_are_rejected_at_the_entry[bad\udcff.jin-\\udcff]`）、
+(b) 手元でスキップされる 3 件のうち 2 件が CI では実行される。
+**Phase 6 の変更が macOS 固有の 2 失敗を作ったのではない**ことは
+`git stash` でも確認済み（P6-8）。
+
+`editor` job の e2e が **3 → 9 本**になった（デバッグモードの 6 本が加わった）。
+`upto` を動かすたびに `jin/renderSvg` が往復する経路が、CI の実行環境でも 19.9 秒で通っている。
