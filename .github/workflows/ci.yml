@@ -147,7 +147,12 @@ jobs:
         run: uv sync
 
       # pnpm は `packageManager` の版で入れる（package.json が正本・二重管理にしない）。
+      # **`package_json_file` が要る。** `defaults.run.working-directory` は `run:` にしか
+      # 効かず `uses:` には効かないので、指定しないとリポジトリ直下の package.json を探して
+      # 「No pnpm version is specified」で落ちる（直下に package.json は無い）。
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/editor/package.json
 
       - uses: actions/setup-node@v4
         with:

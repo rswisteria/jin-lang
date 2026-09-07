@@ -2241,7 +2241,19 @@ undo / redo に積むのも**オペレーション列だけ**である（`test/h
 | `DP-IMPL-JIN-P5-RENAME-FOLLOW-01` | `rename` 直後の選択追随（DP-COMMON-16 の cons が「別途決める必要がある」と名指ししていた） | **当てたオペレーションが選択中の要素の rename なら、選択の名前を新名へ差し替える** | サーバの `rename` は参照を全て追随させる（ops.md §3）ので、名前だけ差し替えれば新モデル上で同じ要素を指す。`selection.ts::followRename` 1 本に閉じた |
 | `DP-IMPL-JIN-P5-TOKEN-CHANNEL-01` | 起動トークンをブラウザにどう渡すか | **URL のフラグメント（`#token=`）** | クエリに置くとリクエストラインに載り、`jin editor` 自身の静的サーバのログにも、遷移先の `Referer` にも出る。フラグメントはどちらにも載らない。残存（履歴・同一ページの JS）を README と ops.md §5.1 に明記した |
 | `DP-IMPL-JIN-P5-HITAREA-01` | 線画（`fill="none"`）の当たり判定 | **CSS で `[data-jin] { pointer-events: all; }`** | 既定の `visiblePainted` では 1 px の線の上しか当たらず、環をクリックしても `<svg>` に抜ける（実測）。塗りは足していないので**描画は変わらない**。重なりは SVG の規則どおり後から描かれた要素が勝ち、紋は環より優先される |
-| `DP-IMPL-JIN-P5-ADD-DEFAULTS-01` | 「環の空き位置をクリック → addTool / addState」で作る要素の初期値 | **スキーマ上必須の欄だけを埋め、値は空にする**（`{name: "tool1", kind: "tool", ref: ""}`） | `ref` に架空のモジュール名を入れると、ユーザーが書いていない参照を捏造することになる。空なら `jin check` が未解決参照として診断を出し、次に何をすべきかが図に出る |
+| `DP-IMPL-JIN-P5-ADD-DEFAULTS-01` | 「環の空き位置をクリック → addTool / addState / addDelegate」で作る要素の初期値 | **スキーマ上必須の欄だけを埋め、参照は空にする**（`{name: "tool1", kind: "tool", ref: ""}` / delegate は `""`） | `ref` や委譲先に架空の名前を入れると、ユーザーが書いていない参照を捏造することになる。空なら `jin check` が未解決参照として診断を出し、次に何をすべきかが図に出る。**delegate も空文字で作る**（当初は `circle1` という架空の circle 名を入れていて、この判断の根拠と矛盾していた）。空のまま放置できないよう、delegate はプロパティパネルで書ける（欄の定義は `Circle.delegate.items` から取る） |
+| `DP-IMPL-JIN-P5-CODEACTION-UI-01` | 要件書 §7.1「codeAction を実行できる」を Phase 5 で実装するか | **実装しない**（要件書からの意図的な逸脱） | `textDocument/codeAction` の往復は Phase 4 で通っており、足りないのはエディタ側の UI だけである。候補の列挙 UI は ADR-002 が「後で差し替える」と定めたデザインそのもの。**PR 本文に明記する**（Phase 4 の `DP-IMPL-JIN-P4-HOVER-DOCSTRING-01` と同じ扱い） |
+
+## P5-8.1 残存（Phase 6 以降で拾う）
+
+- **guard の選択鍵は `on` である。** `Guard` は `on` / `ref` の 2 欄しか持たず、circle 内で
+  要素を一意に指せる鍵が `on` しかない。同じ `on`（例: `before_model`）の guard を 2 本置くと、
+  **2 本目を図から選べない**（`resolveSelection` が 1 本目の添字を返す）。
+  `docs/spec/model.md` は同じ `on` を複数許すので、これは実在しうる形である。
+  DP-COMMON-16 の 3 つ組は「名前が ID」（要件書 §10 #11）という前提に立っているが、
+  guard だけはその前提が成り立たない
+- **summon の紋がエディタから作れない**（P5-9 の表）
+- **codeAction の実行導線が無い**（同上・HANDOFF 起票済み）
 
 ## P5-9. 要件書 §7.1 のうち、実装で形を変えたもの
 
@@ -2252,4 +2264,5 @@ undo / redo に積むのも**オペレーション列だけ**である（`test/h
 | 「circle 同士を結ぶ → `addDelegate` または `summon` ツール追加」 | 陣を選んで**ツールバーの「委譲を追加」** | 同上。線を引く UI はデザイナー参加後（ADR-002） |
 | 「診断は SVG 上の該当要素にバッジで表示し、クリックで hint を出す」 | 実装済み。位置は描かれた要素の `getBBox()` から取る | レイアウトを再計算しない |
 | 「入れ子の小陣をダブルクリックで `focus` を切り替える」 | 実装済み（`jin/renderSvg` に `focus` を渡し直す） | |
-| 「codeAction を実行できる」 | **未実装** | `textDocument/codeAction` の往復は Phase 4 で通っているが、エディタ側の導線は診断一覧のクリック（選択と hint の表示）までに留めた。ADR-002 の最小 UI の範囲。**PR 本文に「落とした」と明記する** |
+| 「codeAction を実行できる」 | **未実装**（HANDOFF `DP-IMPL-JIN-P5-CODEACTION-UI-01`） | `textDocument/codeAction` の往復は Phase 4 で通っているが、エディタ側の導線は診断一覧のクリック（選択と hint の表示）までに留めた。ADR-002 の最小 UI の範囲。**PR 本文に「落とした」と明記する** |
+| 「circle 同士を結ぶ → `addDelegate` または `summon` ツール追加」 | `addDelegate` だけ実装。**`summon` の紋はエディタから作れない** | 「紋を追加」は常に `kind: "tool"` で作り、フォームの `kind` は schema の `const` なので読み取り専用になる。kind を変える導線（種別を選ぶ UI）は ADR-002 の差し替え対象。`.jin` を直接書くか Claude Code から足せば図には出る。**PR 本文に「落とした」と明記する** |

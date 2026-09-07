@@ -314,9 +314,12 @@ function addToList(
         )
       : [],
   );
-  const name = freshName(field === "state" ? "state" : field === "tools" ? "tool" : "circle", used);
+  // **参照先を捏造しない**（DP-IMPL-JIN-P5-ADD-DEFAULTS-01）。tool の `ref` と同じく
+  // delegate も空で作り、プロパティパネルで書いてもらう。`jin check` が未解決参照として
+  // 診断を出すので、次に何をすべきかが図の上に出る。
+  const name = freshName(field === "state" ? "state" : "tool", used);
   const value =
-    field === "delegate" ? name : field === "state" ? { name, type: "" } : { name, kind: "tool", ref: "" };
+    field === "delegate" ? "" : field === "state" ? { name, type: "" } : { name, kind: "tool", ref: "" };
   return [{ op: field === "state" ? "addState" : field === "tools" ? "addTool" : "addDelegate", pointer: `${pointer}/${field}`, index, value }];
 }
 

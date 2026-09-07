@@ -1,7 +1,7 @@
 import { describe as group, expect, test } from "vitest";
 
 import schema from "../../../schemas/jin.schema.json";
-import { fieldsForSelection, opsForChange, schemaFor } from "../src/form/dispatch";
+import { fieldsForSelection, opsForChange } from "../src/form/dispatch";
 import { fieldsOf, resolveRef, type JsonSchema } from "../src/form/schemaForm";
 
 const ROOT = schema as JsonSchema;
@@ -80,7 +80,12 @@ group("フォームは JSON Schema から生成される（要件書 §7.1）", 
   test("core / rune は 1 欄だけの足場を schema から作る", () => {
     expect(fieldsForSelection(ROOT, { circle: "Main", kind: "core" }, null).map((f) => f.key)).toEqual(["core"]);
     expect(fieldsForSelection(ROOT, { circle: "Main", kind: "rune" }, null).map((f) => f.key)).toEqual(["rune"]);
-    expect(schemaFor(ROOT, { circle: "Main", kind: "delegate", name: "Sub" }, null)).toBeNull();
+    // delegate は circle 名の文字列。欄の定義は `Circle.delegate.items` から取る。
+    expect(
+      fieldsForSelection(ROOT, { circle: "Main", kind: "delegate", name: "Sub" }, null).map(
+        (f) => f.key,
+      ),
+    ).toEqual(["delegate"]);
   });
 });
 
@@ -128,8 +133,20 @@ group("欄の変更 → オペレーション（20 個目を作らない）", ()
     ]);
   });
 
+  test("**delegate も removeDelegate + addDelegate の合成**（専用オペレーションを増やさない）", () => {
+    const model = {
+      ...MODEL,
+      circles: [{ ...MODEL.circles[0], delegate: ["Sub", "Other"] }],
+    };
+    expect(
+      opsForChange(model, { circle: "Main", kind: "delegate", name: "Other" }, { key: "delegate", value: "Third" }),
+    ).toEqual([
+      { op: "removeDelegate", pointer: "/circles/0/delegate/1" },
+      { op: "addDelegate", pointer: "/circles/0/delegate", index: 1, value: "Third" },
+    ]);
+  });
+
   test("書けない欄は空配列（黙って握り潰さない）", () => {
-    expect(opsForChange(MODEL, { circle: "Main", kind: "delegate", name: "Sub" }, { key: "x", value: "y" })).toEqual([]);
     expect(opsForChange(MODEL, { circle: "None", kind: "circle" }, { key: "name", value: "y" })).toEqual([]);
   });
 });

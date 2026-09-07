@@ -44,9 +44,14 @@ export function schemaFor(
       return resolveRef(root, "#/$defs/State");
     case "guard":
       return resolveRef(root, "#/$defs/Guard");
-    case "delegate":
-      // delegate は circle 名の**文字列**の配列であって、オブジェクトの欄を持たない。
-      return null;
+    case "delegate": {
+      // delegate は circle 名の**文字列**の配列である。欄の定義（型・最大長）は
+      // `Circle.delegate.items` から取る（ここで書き写すと手書きのフォーム定義になる）。
+      const items = circle.properties?.["delegate"]?.items;
+      return items === undefined
+        ? null
+        : { type: "object", properties: { delegate: items }, required: [] };
+    }
   }
 }
 
@@ -115,7 +120,18 @@ export function opsForChange(
       ];
     }
     case "delegate":
-      return [];
+      // 参照先を書き換えるオペレーションは v1 に無い。**20 個目を作らず**、
+      // 削除と再追加の合成で書く（tool の `ref` と同じ扱い）。
+      if (typeof change.value !== "string") return [];
+      return [
+        { op: "removeDelegate", pointer },
+        {
+          op: "addDelegate",
+          pointer: pointer.split("/").slice(0, -1).join("/"),
+          index: Number(pointer.split("/").at(-1)),
+          value: change.value,
+        },
+      ];
   }
 }
 
