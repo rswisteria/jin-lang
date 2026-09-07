@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import DELIVERY_RUN
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REQUIREMENTS = REPO_ROOT / "jin-requirements.md"
 SPEC_COPY = REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-09-04-jin-overview.md"
@@ -510,7 +512,7 @@ def test_rune_escape_claim_is_backed_by_the_probe() -> None:
     Phase 0+1 では「実測が無い間は未確認と明記する」テストだった。Phase 2 で probe に
     `{{lit}}` の実測を追記し、§3.1 を実測（ADK は `{{` をエスケープとして扱わない）へ置き換えた。
     """
-    probe = read(REPO_ROOT / "delivery" / "20260904-1445-jin" / "adk-api-probe.md")
+    probe = read(DELIVERY_RUN / "adk-api-probe.md")
     assert re.search(r"\{\{lit\}\}", probe), "probe に `{{lit}}` の実測が無い"
     block = section(spec_text("model.md"), "### 3.1 Instruction", r"^### 3\.2")
     assert "未確認" not in block, "実測があるのに §3.1 が「未確認」のまま"
@@ -630,7 +632,8 @@ def test_upstream_rule_matches_the_implementation() -> None:
 
 
 # ---- CONV C-1 / S14: 成果物の記述が実装と一致する ----------------------------------------
-DELIVERY = REPO_ROOT / "delivery" / "20260904-1445-jin"
+# ランディレクトリは直書きしない（DP-REVIEW-JIN-005）。
+DELIVERY = DELIVERY_RUN
 
 
 def test_version_matrix_points_at_the_real_grammar_location() -> None:

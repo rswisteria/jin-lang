@@ -219,6 +219,7 @@ uv run python delivery/20260904-1445-jin/phase3-mutations/mutate_p3.py   # 同�
 uv run python delivery/20260904-1445-jin/phase4-mutations/mutate_p4.py   # 同上（Phase 4・jin-lsp）
 uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同上（Phase 5・apps/editor。pytest と pnpm の両方を回す）
 uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同上（Phase 6・デバッグモード）
+uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 ```
@@ -228,6 +229,9 @@ uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視�
 - `packages/<pkg>/tests/` — そのパッケージ単体
 - `tests/spec/` — 要件書と `docs/spec/*.md` の突合
 - `tests/contract/` — パッケージ横断契約（依存方向 / 正準形の往復無損失 / pointer 空間の一致）
+- **`delivery/<ラン>/` を直書きしない**（DP-REVIEW-JIN-005）。`tests.conftest.delivery_run()` が
+  `delivery/` から辞書順最新の `*-jin` を解決する。直書きが戻らないことは
+  `tests/contract/test_packaging_contract.py::test_no_test_hardcodes_a_delivery_run_directory` が走査で固定する
 - `tests/fixtures/errors/JINxxx_*.jin` — 各診断コードの fixture（**対応コードをちょうど 1 つだけ出す**）
 - `tests/fixtures/build-errors/*.jin` — `jin check` は通るが `jin build` が落とす構造（NFR-FAIL-001）
 - `tests/fixtures/stubs/` — examples の `ref` が指す `research.*` と、異常系テスト用の `exits_tool`（`sys.exit` を呼ぶツール）のスタブ
@@ -274,6 +278,12 @@ import し、その生成コードが `ref` のモジュールを import する�
 - ツール関数の `sys.exit()` は asyncio が `SystemExit` を**ループの外へ再送出**する（コルーチン側の
   `except BaseException` には `CancelledError` しか届かない）。`asyncio.run` を呼ぶ側（CLI の `run`・同期 `run_model`・
   Phase 4 の pygls）が `except SystemExit` で包んで失敗扱いにする（F-S-P2-102。`sys.exit(0)` を exit 0 にしない）
+- **ディレクトリを渡したときの走査は symlink を対象にしない**（DP-REVIEW-JIN-001）。`Path.rglob` は
+  ディレクトリ symlink こそ辿らないが**ファイル symlink は拾って読む**ので、`jin check <dir>` が
+  対象ディレクトリの外にあるファイルを読み、その存在・パース可否・JSON のキー名を診断に載せていた。
+  **名指しされた symlink は従来どおり読む**（走査が範囲を越えるのが問題であって、ユーザーが指したものではない）。
+  飛ばしたことは 1 行出す。**残存**: 判定と読み取りの間には窓がある（TOCTOU）。`fmt` の書き込みは
+  下位の `O_NOFOLLOW` / `os.replace` が競合なしで拒むが、読み取りにはその段が無い
 - 既定（`--resolve` なし）では import は一切行わない。JIN040 が出ないだけで、他の診断は全部出る
 - `--resolve` の import は **`ref` 1 件ごとに子プロセス**（`python -P -m jin_cli.resolver <ref>`）で行い、
   **30 秒**でタイムアウトする（ADR-018 / DP-JIN-RESOLVE-ISOLATION-01・値の根拠は `docs/spec/diagnostics.md` §2.1）。

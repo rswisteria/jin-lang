@@ -1,7 +1,8 @@
 """パッケージ横断契約: 生成コードが前提にする google-adk の版と、実際に入っている版の一致（NFR-VER-001）。
 
 テンプレートの引数名（`max_iterations` / `session_service` 必須 / `EventActions.escalate` …）は
-`delivery/20260904-1445-jin/adk-api-probe.md` の **2.8.0 実測**に固定してある。
+`delivery/<最新ラン>-jin/adk-api-probe.md` の **2.8.0 実測**に固定してある
+（ランディレクトリは `tests.conftest.delivery_run()` が解決する・DP-REVIEW-JIN-005）。
 `uv.lock` が別の版を解決するようになった瞬間にここが赤くなり、「probe を取り直してテンプレートを
 見直し、`jin_adk.TARGET_ADK_VERSION` を更新する」手順へ誘導する。
 """
@@ -13,6 +14,8 @@ from importlib.metadata import version
 from pathlib import Path
 
 from jin_adk import TARGET_ADK_VERSION
+
+from tests.conftest import DELIVERY_RUN
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ADK_SRC = REPO_ROOT / "packages" / "jin-adk" / "src" / "jin_adk"
@@ -26,9 +29,7 @@ def test_installed_google_adk_matches_the_version_the_templates_were_probed_agai
 
 
 def test_probe_document_records_the_same_version() -> None:
-    probe = (REPO_ROOT / "delivery" / "20260904-1445-jin" / "adk-api-probe.md").read_text(
-        encoding="utf-8"
-    )
+    probe = (DELIVERY_RUN / "adk-api-probe.md").read_text(encoding="utf-8")
     # PyPI 表の行に絞る（`"2.8.0" in probe` は文書のどこにでも当たって空虚になる）
     assert f"| google-adk | {TARGET_ADK_VERSION} |" in probe
 

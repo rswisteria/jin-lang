@@ -179,11 +179,35 @@ def _collect(paths: list[Path]) -> list[Path]:
     見ないと `jin check README.md` が Markdown を JSON として解析して JIN001 を出し、
     「Jin のファイルとして壊れている」という嘘の診断になる。
     ディレクトリ探索側は元から `*.jin` しか拾わない。
+
+    **ディレクトリ走査は symlink を対象にしない**（DP-REVIEW-JIN-001）。
+    `Path.rglob` はディレクトリ symlink こそ辿らないが（Python 3.14 実測）、
+    **ファイル symlink は拾って読む**。ユーザーは「このディレクトリを見て」と言ったのに
+    範囲外のファイルが読まれ、その存在・パース可否・JSON のキー名が診断に載る。
+    `jin fmt` は書き込み側を既に拒んでいたが、読み取り側は `check` / `fmt` の
+    どちらも素通りだった。
+
+    **名指しされた symlink は従来どおり対象にする。** 問題は「走査が範囲外へ出ること」で
+    あって、ユーザーが指したものではない。`fmt` の書き込みは別途 `is_symlink()` と
+    `O_NOFOLLOW` / `os.replace` が拒む。
+
+    飛ばしたことは**必ず 1 行出す**（NFR-FAIL-001）。黙って減らすと、
+    ファイルが検査されなかったことに気づけない。
+
+    guard: _collect -> entry.is_symlink
     """
     found: list[Path] = []
     for path in paths:
         if path.is_dir():
-            found.extend(sorted(path.rglob("*.jin")))
+            for entry in sorted(path.rglob("*.jin")):
+                if entry.is_symlink():
+                    typer.echo(
+                        f"シンボリックリンクなので対象にしません: {_safe(str(entry))}"
+                        "（走査は対象ディレクトリの外へ出ません。読みたいときは直接指定してください）",
+                        err=True,
+                    )
+                    continue
+                found.append(entry)
         elif path.exists():
             if path.suffix != ".jin":
                 typer.echo(

@@ -155,22 +155,55 @@ def test_uv_version_is_pinned(ci_text: str) -> None:
     assert re.fullmatch(r"\d+\.\d+\.\d+", match.group(1)), match.group(1)
 
 
-#: 走査で見つかるべき `uv ...` コマンドの最小件数（2026-09-04 実測は 9 件）。
-#: 走査が壊れて件数が落ちると、打ち消しフラグを見ていないのに全テストが緑になる。
-MINIMUM_UV_COMMANDS = 9
+#: CI が必ず走らせる `uv ...` コマンドの**明示集合**（DP-REVIEW-JIN-006・2026-09-07 toyota 確定）。
+#:
+#: もとは件数の下限（`MINIMUM_UV_COMMANDS = 9`）だけだった。件数は走査関数の破損を拾うが、
+#: **定数を下げる行為そのものは検出されない**（可視化の門が無い）。名前の集合にすると、
+#: 消えたコマンドが失敗メッセージに**名前で**出るので「下げて黙らせる」経路が消える。
+#: ステップを本当に減らすときは、この集合を編集する時点で何を検査しなくなるかが目に入る。
+EXPECTED_UV_COMMANDS = frozenset(
+    {
+        "uv sync",
+        "uv run lint-imports",
+        "uv run ruff check .",
+        "uv run ruff format --check .",
+        "uv run pytest",
+        "uv run jin schema",
+        "uv run jin check examples",
+        "uv run jin fmt --check examples",
+        "uv run python scripts/sync_plugin_reference.py --check",
+    }
+)
+
+#: 走査で見つかるべき `uv ...` コマンドの最小**件数**（2026-09-07 実測は 11 件）。
+#: 上の集合が主で、これは補助である（集合に載っていないステップ — `editor` job の
+#: `uv sync` など — が丸ごと消えたときに気づくため）。
+MINIMUM_UV_COMMANDS = 11
 
 
 def test_the_uv_command_scanner_does_not_silently_shrink(ci_lines: list[str]) -> None:
     """N-01: 走査関数自体が壊れると、上の 3 本が「何も検査しないまま緑」になる。
 
-    ステップを減らしたなら、この定数も一緒に下げること（そのとき何を検査しなくなったかを
-    考える機会になる）。
+    **主の検査は名前の集合**（DP-REVIEW-JIN-006）。件数の下限は補助で、
+    集合に載っていないステップが消えたときに拾う。
     """
     commands = uv_commands(ci_lines)
+    missing = sorted(EXPECTED_UV_COMMANDS - set(commands))
+    assert missing == [], f"CI から消えた uv コマンド: {missing}（見つかったもの: {commands}）"
     assert len(commands) >= MINIMUM_UV_COMMANDS, (
         f"uv コマンドの検出が {len(commands)} 件に減っている"
         f"（下限 {MINIMUM_UV_COMMANDS}）: {commands}"
     )
+
+
+def test_the_expected_uv_commands_are_actually_found(ci_lines: list[str]) -> None:
+    """allowlist が**空振りしていない**ことを見る（DP-REVIEW-JIN-006）。
+
+    集合の要素を綴り間違えると `missing` に出て赤くなるが、集合を**空にする**と
+    上の検査は無条件に通る。要素数の下限をここで固定して、その経路を塞ぐ。
+    """
+    assert len(EXPECTED_UV_COMMANDS) >= 9, EXPECTED_UV_COMMANDS
+    assert EXPECTED_UV_COMMANDS <= set(uv_commands(ci_lines))
 
 
 def test_the_uv_command_scanner_reads_multiline_run_blocks() -> None:

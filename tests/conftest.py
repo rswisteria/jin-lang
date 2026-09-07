@@ -37,6 +37,41 @@ UNFORMATTABLE_CODES = frozenset({"JIN001", "JIN002"})
 STUBS = REPO_ROOT / "tests" / "fixtures" / "stubs"
 
 
+def delivery_run(slug: str = "jin", root: Path | None = None) -> Path:
+    """`delivery/` から**辞書順で最新**のランディレクトリを返す（DP-REVIEW-JIN-005）。
+
+    ランディレクトリは `<YYYYMMDD-HHmm>-<slug>` という名前で、次のランが走ると
+    別のタイムスタンプで切られる。契約テストがこれを直書きしていると、
+    **次のランでテストが壊れる**（Issue #9 / DP-REVIEW-JIN-005・2026-09-07 toyota 確定）。
+    Issue の指定は「パスをハードコードし直すのではなく、ランディレクトリを解決する形に変える」。
+
+    名前が `YYYYMMDD-HHmm` で始まるので**辞書順 = 時系列順**であり、日付を解釈する必要はない
+    （解釈するとタイムゾーンや桁揃えの話が入り込む）。タイムスタンプの無い
+    旧形式（`delivery/<slug>/`）は後方互換として、タイムスタンプ付きが 1 つも無いときだけ使う
+    （`record.py --slug` の解決規則と同じ扱い）。
+
+    見つからなければ `FileNotFoundError`。**黙って別の場所を指さない**（NFR-FAIL-001）。
+
+    `root` は探索の起点（既定は `delivery/`）。テストが新しいランを置いて
+    解決先が切り替わることを確かめるために外から差せるようにしてある。
+    """
+    root = root if root is not None else REPO_ROOT / "delivery"
+    runs = sorted(
+        (p for p in root.glob(f"*-{slug}") if p.is_dir() and p.name != slug),
+        key=lambda p: p.name,
+    )
+    if runs:
+        return runs[-1]
+    flat = root / slug
+    if flat.is_dir():
+        return flat
+    raise FileNotFoundError(f"delivery/ に *-{slug} のランディレクトリがありません: {root}")
+
+
+#: 現在のラン（`delivery/<最新>-jin/`）。契約テストはこれを起点にする。
+DELIVERY_RUN = delivery_run()
+
+
 def child_env(extra: dict[str, str] | None = None) -> dict[str, str]:
     """子プロセス用の環境。`extra["PYTHONPATH"]` は既存の値を**捨てずに前置**する。
 

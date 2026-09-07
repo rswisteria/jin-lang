@@ -19,6 +19,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import DELIVERY_RUN
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGES_DIR = REPO_ROOT / "packages"
 
@@ -433,7 +435,9 @@ def test_the_tripwire_points_at_the_checklist() -> None:
 # --------------------------------------------------------------------------------------
 # W-05 残件: 兄弟パッケージの同居（design.yaml の契約を正本として読む）
 # --------------------------------------------------------------------------------------
-DESIGN_YAML = REPO_ROOT / "delivery" / "20260904-1445-jin" / "design.yaml"
+# ランディレクトリは直書きしない（DP-REVIEW-JIN-005）。次のランで別タイムスタンプが
+# 切られると壊れるので、`tests.conftest.delivery_run()` が解決した最新ランを起点にする。
+DESIGN_YAML = DELIVERY_RUN / "design.yaml"
 
 #: design.yaml の 1 行ルールから拾う Python パッケージ名。
 _PACKAGE_TOKEN = re.compile(r"jin-[a-z]+")
@@ -561,3 +565,86 @@ def test_forbidden_edges_ignore_the_wildcard_rule() -> None:
     """W-05: `jin-core は他の jin-* パッケージに依存しない` の `jin-*` を具体名と誤読しないこと。"""
     edges = forbidden_edges(["jin-core は他の jin-* パッケージに依存しない（最下層）"])
     assert edges == set(), edges
+
+
+# ======================================================================================
+# DP-REVIEW-JIN-005: ランディレクトリを直書きしない
+# ======================================================================================
+def test_no_test_hardcodes_a_delivery_run_directory() -> None:
+    """契約テストが `delivery/<タイムスタンプ>-jin/` を直書きしていないこと。
+
+    次のランで別タイムスタンプのディレクトリが切られると壊れる（Issue #9 /
+    DP-REVIEW-JIN-005・2026-09-07 toyota 確定）。解決は `tests.conftest.delivery_run()`
+    の 1 本だけが行う。**ここが緩むと直書きが静かに戻る。**
+    """
+    offenders: list[str] = []
+    for path in sorted((REPO_ROOT / "tests").rglob("*.py")):
+        if path.name == "conftest.py":
+            continue  # 解決関数の docstring は例を書いてよい
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if re.search(r"\d{8}-\d{4}-jin", line):
+                offenders.append(f"{path.relative_to(REPO_ROOT)}:{number}: {line.strip()}")
+    assert offenders == [], offenders
+
+
+def _make_run(root: Path, stamp: str, slug: str = "jin") -> Path:
+    """合成のランディレクトリを作る。
+
+    **名前をリテラルで書かない**のは、上の
+    `test_no_test_hardcodes_a_delivery_run_directory` に自分で引っかからないためである
+    （タイムスタンプと slug を組み立てるので、走査が探す「8 桁-4 桁-jin」の形がソースに現れない）。
+    """
+    made = root / f"{stamp}-{slug}"
+    made.mkdir(parents=True, exist_ok=True)
+    return made
+
+
+def test_delivery_run_picks_the_newest_run(tmp_path: Path) -> None:
+    """**新しいランを置くと解決先が切り替わる。**
+
+    「解決する形にした」ことの証拠はこれである。切り替わらない実装
+    （最初に見つけたものを返す・辞書順の逆を取る）はここで赤くなる。
+    期待値もタイムスタンプから組み立てる（上の走査に自分で引っかからないため）。
+    """
+    from tests.conftest import delivery_run
+
+    root = tmp_path / "delivery"
+    old, newer, newest = "20260904-1445", "20261231-0900", "20261231-0901"
+
+    _make_run(root, old)
+    assert delivery_run(root=root).name == f"{old}-jin"
+
+    _make_run(root, newer)
+    assert delivery_run(root=root).name == f"{newer}-jin", "新しいランへ切り替わらない"
+
+    # 同じ日でも時刻が後ろのものが勝つ（辞書順 = 時系列順であること）。
+    _make_run(root, newest)
+    assert delivery_run(root=root).name == f"{newest}-jin"
+
+    # 別 slug は混ざらない（より新しい日付でも選ばれない）。
+    _make_run(root, "20271231-0900", slug="other")
+    assert delivery_run(root=root).name == f"{newest}-jin"
+
+
+def test_delivery_run_falls_back_to_the_flat_layout(tmp_path: Path) -> None:
+    """タイムスタンプ付きが 1 つも無いときだけ旧形式 `delivery/<slug>/` を使う。"""
+    from tests.conftest import delivery_run
+
+    root = tmp_path / "delivery"
+    stamp = "20260904-1445"
+    (root / "jin").mkdir(parents=True)
+    assert delivery_run(root=root).name == "jin"
+
+    _make_run(root, stamp)
+    assert delivery_run(root=root).name == f"{stamp}-jin", "旧形式が新形式より優先されている"
+
+
+def test_delivery_run_refuses_to_guess(tmp_path: Path) -> None:
+    """見つからなければ**黙って別の場所を指さない**（NFR-FAIL-001）。"""
+    import pytest as _pytest
+
+    from tests.conftest import delivery_run
+
+    (tmp_path / "delivery").mkdir()
+    with _pytest.raises(FileNotFoundError):
+        delivery_run(root=tmp_path / "delivery")

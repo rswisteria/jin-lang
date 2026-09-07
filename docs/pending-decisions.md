@@ -21,13 +21,6 @@ warn_and_document（T-002）の出力先。`pending-decisions-generator` が sch
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-RENAME-FOLLOW-01 |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P5-TOKEN-CHANNEL-01 |
 | 20260904-1445-jin/implementation-plan.json | DP-IMPL-JIN-P6-TRACE-SOURCE-01 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-001 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-002 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-004 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-005 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-006 |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-007 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-001 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P2-002 |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-P3-001 |
@@ -103,7 +96,13 @@ auto mode（DP-AUTOMODE-01）の AI 仮判断。人間確定ではない。`/dec
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-JIN050-LOOP-SCOPE-01 | toyota | 2026-09-04T21:20:07+09:00 | AI 仮判断（confidence: medium）を承認。 | docs/adr/ADR-014-DP-JIN-JIN050-LOOP-SCOPE-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-RENAME-SCOPE-01 | toyota | 2026-09-04T21:12:47+09:00 | AI 仮判断（confidence: high）を承認。 | docs/adr/ADR-013-DP-JIN-RENAME-SCOPE-01.md |
 | 20260904-1445-jin/implementation-plan.json | DP-JIN-RESOLVE-ISOLATION-01 | toyota | 2026-09-06T01:20:41+09:00 | Issue #8 の人間判断（2026-09-06 toyota）。決め手は要件書 §6.2 の hover が「Python 参照の docstring（--resolve 相当）」を要求している点で、Phase 4 の長寿命 LSP プロセスは必ず参照解決を行う。(b) は LSP の問題に答えず、(c) は README / CLAUDE.md / --help に既にある警告の再掲で汚染… | docs/adr/ADR-018-DP-JIN-RESOLVE-ISOLATION-01.md |
-| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 | toyota | 2026-09-07T10:20:00+09:00 | Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。「claude plugin validate の job だけ足す」と「pnpm / Node job も今回足す」を提示し、後者を採った。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-001 | toyota | 2026-09-07T17:10:00+09:00 | 実測（2026-09-07・Python 3.14.6）: `Path.rglob` はディレクトリ symlink を辿らないが、ファイル symlink は拾って読む。ダミーの機密ファイルへ symlink を張って `jin check <dir>` を掛けると、対象ディレクトリ外のファイルが読まれ、JIN001 のトークンや JIN002 のキー名（例 `/note`）が診断に載った。値… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-002 | toyota | 2026-09-07T17:10:00+09:00 | 実測（2026-09-07・ruff 0.16.6）: `select` を書いていない状態で有効なルールは 413 件 / 38 prefix（I・B・UP・S・ISC・PTH・RUF などを含む）。空のディレクトリに `[tool.ruff]` だけの pyproject.toml を置いても同じ 413 件なので、これは ruff 0.16 系の既定であってローカル設定の混入ではない。実際… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-003 | toyota | 2026-09-07T10:20:00+09:00 | Issue #9 の fix-later 7 件のうち Phase 4 着手時の必須参照。要件書 §9 が求める claude plugin validate の受け皿（plugin job・Node + claude CLI）に加えて、Phase 5 の apps/editor が pnpm を足す先を先に用意する。受け皿を先に置くのは、Phase 5 で赤くなったテストを『テストを差し替える… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-004 | toyota | 2026-09-07T17:10:00+09:00 | サプライチェーン厳格化の方針判断。現在の `uses:` は `actions/checkout@v4` / `astral-sh/setup-uv@v5` / `actions/setup-node@v4` / `pnpm/action-setup@v4` / `actions/upload-artifact@v4` の 5 本で、GitHub 公式と広く使われている action のみ。SH… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-005 | toyota | 2026-09-07T17:10:00+09:00 | 実測（2026-09-07）: `delivery/20260904-1445-jin` を直書きしているテストは 5 ファイル（`tests/contract/test_packaging_contract.py` / `test_adk_version_contract.py` / `tests/spec/test_spec_consistency.py` ほか）。src 側 7 ファイルの… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-006 | toyota | 2026-09-07T17:10:00+09:00 | 現状の `MINIMUM_UV_COMMANDS = 9` は走査関数の破損を件数の下限で検出するが、定数を下げる行為そのものは検出されない（可視化の門が無い）というのが指摘。期待する uv コマンドを名前の集合として書き、`EXPECTED <= set(commands)` で見る形に変えると、消えたコマンドが名前で失敗メッセージに出るので『定数を下げて黙らせる』経路が消える。件数の下限は走… |  |
+| 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-007 | toyota | 2026-09-07T17:10:00+09:00 | 実測（2026-09-07）: Issue が名指しした `test_rule1_detects_a_wider_indent_unit` は既に存在しない。Phase 3 の correctness review R2-2 で `test_rule1_indent_is_two_spaces` へ改名済みで、`tests/contract/test_canonical_contract.py`… |  |
 | 20260904-1445-jin/implementation-plan.json | DP-REVIEW-JIN-008 | toyota | 2026-09-06T01:20:41+09:00 | Issue #8 の人間判断（2026-09-06 toyota）。Issue の指示「まず 1000 行の実ファイルで実測し、満たしていれば『実測して満たした』と記録して閉じてよい（過剰最適化しない）」に従う。実測は delivery/20260904-1445-jin/check-text-benchmark.md（スクリプト: 同 bench/bench_check_text.py・Pyt… |  |
 
 <!-- AUTO-GENERATED END: pending-decisions-generator -->
