@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { REPO_ROOT, type RunningEditor, startEditor } from "./editor";
+import { expectServerGone, REPO_ROOT, type RunningEditor, startEditor } from "./editor";
 
 /**
  * デバッグモード（要件書 §7.2 / design.yaml `implementation_phases.items[6]`）の machine 4 件。
@@ -22,8 +22,17 @@ test.beforeEach(async () => {
   editor = await startEditor(SOURCE);
 });
 
-test.afterEach(() => {
-  editor?.stop();
+// **取り残しをここで赤くする**（Issue #32）。`stop()` は SIGTERM を送って終了を待ち、
+// 時間内に終わらなければ false を返す。ポートが閉じたことは `stop()` の外で見る
+// （`await` を落とす変更も赤くなるように）。
+test.afterEach(async () => {
+  // `?.` は beforeEach が落ちた回に備えた既存の書き方。その回は undefined が来て
+  // ここも赤くなるが、テスト本体が先に赤いので新しい失敗にはならない。
+  const stopped = await editor?.stop();
+  // **ポートの解放を先に見る。** `uv` だけが終わって孫（Python）が残る形は
+  // `stop()` の戻り値には出ない（`uv` の exit は観測できてしまう）。
+  await expectServerGone(editor.url);
+  expect(stopped).toBe(true);
 });
 
 // eslint-disable-next-line no-empty-pattern

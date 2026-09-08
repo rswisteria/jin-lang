@@ -334,3 +334,84 @@ def test_the_trace_is_not_folded_into_the_view_state() -> None:
     source = (SRC / "state" / "viewState.ts").read_text(encoding="utf-8")
     for word in ("Replay", "trace", "upto"):
         assert word not in source, f"{word} が ViewState に入り込んでいる"
+
+
+# --------------------------------------------------------------------------------------
+# e2e が `jin editor` のプロセスを取り残さないこと（Issue #32）
+# --------------------------------------------------------------------------------------
+def e2e_harness() -> str:
+    return (EDITOR / "e2e" / "editor.ts").read_text(encoding="utf-8")
+
+
+def brace_block(source: str, opener: str) -> str:
+    """`opener` の正規表現に続く `{ ... }` の中身を、括弧の対応で切り出す。
+
+    行頭の字下げで切ると formatter の設定（タブ / 空白）に依存して静かに空振りする。
+    """
+    match = re.search(opener, source)
+    assert match is not None, f"{opener} が見つからない"
+    begin = source.index("{", match.end() - 1)
+    depth = 0
+    for index in range(begin, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[begin + 1 : index]
+    raise AssertionError(f"{opener} の閉じ括弧が見つからない")
+
+
+def test_the_e2e_harness_does_not_signal_the_editor_with_sigint() -> None:
+    """SIGINT は `uv` の**孫**（Python の `jin editor`）へ伝わらない（Issue #32・実測）。
+
+    `spawn` の直接の子は `uv` である。SIGINT を送ると `uv` 自身も終わらず、
+    `uv run` と Python の 2 プロセスがポートを掴んだまま残る。2026-09-08 の実測では
+    前日の `pnpm e2e` が 90 個を取り残していた。SIGTERM は `uv` が孫へ中継する。
+
+    見るのは**文字列リテラルとしての SIGINT** と、`kill()` にシグナル名を渡していないこと。
+    散文の「SIGINT ではない」という説明で緑にならないよう、素の `in` では数えない。
+    """
+    source = e2e_harness()
+    assert '"SIGINT"' not in source and "'SIGINT'" not in source, (
+        "e2e のハーネスが SIGINT を送っている。uv の孫まで届かないので取り残す（Issue #32）"
+    )
+    assert re.search(r"\.kill\(\s*['\"]", source) is None, (
+        "kill() にシグナル名を渡している。既定（SIGTERM）以外は uv が孫へ中継しない"
+    )
+
+
+def test_the_e2e_harness_kills_the_child_when_the_url_cannot_be_read() -> None:
+    """URL を読めずに reject する経路でも子を落とすこと（Issue #32 の 2 つ目の経路）。
+
+    `startEditor` が例外を投げると呼び出し元は `RunningEditor` を受け取れないので、
+    **`stop()` を呼ぶ手段そのものが無い**。この経路（60 秒のタイムアウト / 子の早期 exit）で
+    殺し忘れると確実に取り残す。`afterEach` の検査では届かないのでここで固定する。
+
+    `catch` の**中**に `child.kill(` があることを見る。ファイル全体で
+    `"child.kill(" in source` を数えると `stop()` 側の 1 本で緑になってしまう。
+    """
+    body = brace_block(e2e_harness(), r"\}\s*catch\s*\([^)]*\)\s*")
+    assert "child.kill(" in body, (
+        "URL を読めなかった経路で子を落としていない（呼び出し元は stop() を呼べない）"
+    )
+
+
+def test_both_e2e_specs_assert_the_editor_actually_stopped() -> None:
+    """取り残しを**テストの赤**にすること。
+
+    `stop()` の戻り値を捨てると、時間内に終わらなかった回が静かに素通りする。
+    ポートが閉じたことは `stop()` の外（`afterEach`）で見る決まりで、
+    `stop()` の中へ移すと「`await` を落とす」変更が赤くならない。
+    """
+    for name in ("smoke.spec.ts", "debug.spec.ts"):
+        spec = (EDITOR / "e2e" / name).read_text(encoding="utf-8")
+        stopped = re.search(r"expect\(\s*stopped\s*\)\.toBe\(true\)", spec)
+        assert stopped is not None, f"{name} が stop() の戻り値を見ていない"
+        port = spec.find("await expectServerGone(editor.url)")
+        assert port != -1, f"{name} がポートの解放を見ていない"
+        assert port < stopped.start(), (
+            f"{name} はポートの解放を先に見ること。"
+            "戻り値を先に見ると、uv だけが終わって孫が残る形（Linux で SIGTERM が"
+            "中継されない場合）に到達しない"
+        )

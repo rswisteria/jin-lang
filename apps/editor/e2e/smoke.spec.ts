@@ -3,7 +3,7 @@ import { copyFileSync, readFileSync } from "node:fs";
 
 import { expect, test } from "@playwright/test";
 
-import { REPO_ROOT, type RunningEditor, startEditor } from "./editor";
+import { expectServerGone, REPO_ROOT, type RunningEditor, startEditor } from "./editor";
 
 /** 正準形の `.jin`（`uv run jin fmt` の出力とバイト一致する形で置く）。 */
 const SOURCE = `{
@@ -41,8 +41,17 @@ test.beforeEach(async () => {
   editor = await startEditor(SOURCE);
 });
 
-test.afterEach(() => {
-  editor?.stop();
+// **取り残しをここで赤くする**（Issue #32）。`stop()` は SIGTERM を送って終了を待ち、
+// 時間内に終わらなければ false を返す。ポートが閉じたことは `stop()` の外で見る
+// （`await` を落とす変更も赤くなるように）。
+test.afterEach(async () => {
+  // `?.` は beforeEach が落ちた回に備えた既存の書き方。その回は undefined が来て
+  // ここも赤くなるが、テスト本体が先に赤いので新しい失敗にはならない。
+  const stopped = await editor?.stop();
+  // **ポートの解放を先に見る。** `uv` だけが終わって孫（Python）が残る形は
+  // `stop()` の戻り値には出ない（`uv` の exit は観測できてしまう）。
+  await expectServerGone(editor.url);
+  expect(stopped).toBe(true);
 });
 
 // Playwright はフックの第 1 引数に**オブジェクトの分割代入**を要求する（実測: それ以外は
