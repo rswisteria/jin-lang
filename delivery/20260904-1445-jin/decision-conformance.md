@@ -1036,3 +1036,57 @@ Phase 3 の `DP-IMPL-JIN-P3-LOOP-STAR-ORDER-01` と同じ扱いだが、DP-REVIE
 走査するので、**合成のランディレクトリを作るテスト自身が引っかかる**。名前も期待値も
 タイムスタンプから組み立てることで、`8 桁-4 桁-jin` の形をソースに現さないようにした。
 `tests/conftest.py` は解決関数の説明のために例を書いてよいので走査から外している。
+
+## 2.29 Issue #34 — エディタからの実行（要件書 §7.2 からの逸脱 2 点）
+
+設計の正本は `docs/superpowers/specs/2026-09-08-editor-run-design.md`、
+実装計画は `docs/superpowers/plans/2026-09-08-editor-run.md`。
+
+### 2.29.1 v1.1 と書かれたものを v1 で実装した
+
+要件書 §7.2 の最終行は「ライブ実行(WebSocket で `jin run` からストリーム)は v1.1」であり、
+§11 の Phase 7 も「v1.1 候補: ライブ実行、`import`、MCP による ops 露出、VS Code 拡張」を
+**任意**（`scope.wont`）としている。
+
+それでも v1 に入れたのは、**エディタから実行できないと `jin run --trace` を CLI で回して
+JSONL を読み込ませる往復が要り、デバッグモードが「作ったトレースを眺める面」に留まる**ためである。
+Issue #34 として起票し、人間が着手を判断した。要件書の本文は変更していない。
+
+### 2.29.2 機構が WebSocket ではなく HTTP である
+
+要件書は「WebSocket で `jin run` からストリーム」と書くが、実装は `jin editor` が配る
+静的サーバの `POST /run`（同一オリジンの HTTP・SSE）である。
+
+理由は 2 つある。
+
+1. **防御が一段強い。** WebSocket には same-origin 制限が無く、開いている任意のページが
+   `ws://127.0.0.1:PORT` へ繋いでリクエストを打てる（`docs/spec/ops.md` §5.1）。防御は
+   トークン一致だけになる。HTTP なら**トークンをカスタムヘッダ（`X-Jin-Token`）で要求すると
+   CORS の preflight が必須になり**、こちらが CORS ヘッダを 1 つも返さない限り他オリジンの
+   ページは本要求を送れない。`jin run` は `ref` の import で任意コード実行なので、
+   `jin/open` / `jin/save` より危険度が一段上であり、そこに一段強い防御を当てた
+2. **`jin/…` を増やさずに済む。** `tests/contract/test_editor_contract.py::test_the_debug_mode_does_not_add_a_new_lsp_request`
+   が 6 種で等号固定しており、増やすなら要件書 §6.3 と `docs/spec/ops.md` の変更が要る。
+   ストリームには通知メソッドも要る。HTTP に置いたのでこの契約は**無傷のまま**である
+
+**副作用**: 実行の口は `jin editor` にだけ生え、`jin lsp --ws` には無い。ライブラリとして
+`jin lsp --ws` を立てている利用者に実行の口が開かないのは、防御としてはむしろ望ましい。
+
+**CLAUDE.md の「`apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接
+import しない」との関係**: import の禁止は変わらない（`apps/editor` が読む Python 由来の
+ファイルは `schemas/jin.schema.json` ただ 1 つのまま）。通信路として同一オリジンの HTTP を
+1 本使うのが増分であり、`apps/editor/eslint.config.js` の `no-restricted-imports` も
+`test/dependencyDirection.test.ts` もそのまま通る。
+
+### 2.29.3 決めた未決事項
+
+| DP | 決定 | 理由 |
+|---|---|---|
+| 配送方式 | 一時ファイルを tail して SSE で流す | `jin run` の CLI 表面を変えない。`--trace -` は v1 の表面変更になる |
+| キャンセル | 持たない | v1 のスコープ外。ただし終了時の後始末（Issue #32 と同じ規律）は必須 |
+| 実行状態の置き場 | `ViewState` の外 | 5 状態を増やさない（DP-COMMON-19）。実行の有無は「LSP との関係」と直交する |
+| 有効化 | `jin editor` なら常に有効 | `.jin` を `jin editor` に渡す時点でそのディレクトリを信頼しているという前提（人間確定） |
+
+**実装で足した防御以外の変更**: `_LazyTruncateSink.write` が 1 行ごとに `flush()` する。
+既定のブロックバッファのままだと `close()` までトレースが外から 1 バイトも見えず、
+tail が「ストリーム」にならない。CLI の表面もトレースの内容も変わらない。

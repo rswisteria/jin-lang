@@ -43,6 +43,11 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
   例外は `schemas/jin.schema.json` ただ 1 つ（プロパティパネルのフォームを手書きしないために読む。
   コピーを置かず直接読む）。Python 側は import-linter、**TS 側は eslint の
   `no-restricted-imports`**（`apps/editor/eslint.config.js`）が落とす。
+  **通信路の例外が 1 本ある**: 実行（Issue #34）だけは LSP を通らず、`jin editor` が配る
+  静的サーバと**同一オリジンの `POST /run`**（SSE）へ投げる。ws には same-origin 制限が無く
+  防御がトークン一致だけになるのに対し、HTTP ならカスタムヘッダが CORS の preflight を
+  強制するためで（`docs/spec/ops.md` §5.2）、`jin/…` は 6 種のまま増えない。
+  import の禁止はこれで変わらない。
   規則が**実際に落ちる**ことは `apps/editor/test/dependencyDirection.test.ts` が
   禁止 import を食わせて確かめる
 
@@ -93,7 +98,8 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 | 3 | `jin-render`（render / focus / trace overlay） | 実装済み |
 | 4 | `jin-lsp`（stdio + ws）+ Claude Code プラグイン | 実装済み |
 | 5 | `apps/editor` 編集モード + `jin editor` | 実装済み |
-| 6 | `apps/editor` デバッグモード（トレースリプレイ） | 未着手 |
+| 6 | `apps/editor` デバッグモード（トレースリプレイ） | 実装済み |
+| — | エディタからの実行（Issue #34・要件書 §7.2 の「v1.1」を前倒し） | 実装済み |
 
 v1 のサブコマンドは 9 つで揃った（`check` / `fmt` / `schema` / `dump` / `build` / `run` /
 `render` / `lsp` / `editor`）。空実装を先に置くと `jin --help` が嘘をつくので、
@@ -316,6 +322,16 @@ import し、その生成コードが `ref` のモジュールを import する�
   `Referer` にも載らないので静的サーバのログにも出ない。残存: 履歴に残り、同一ページの JS は読める）。
   静的配信の根は `dist` に固定する（`directory=` を渡さないと cwd を配る）。
   **信頼しないディレクトリの `.jin` を `jin editor` で開かないこと**
+- **`jin editor` は実行の口も開く**（Issue #34）。同じ静的サーバの `POST /run` が
+  `python -P -m jin_cli.main run` を**子プロセス**で起こし、`--trace` の JSONL を tail して
+  SSE で返す。`jin lsp --ws` にこの口は無い。防御は 5 段（`Origin` 検査 / カスタムヘッダ
+  `X-Jin-Token` のトークン一致 / 対象ファイルの固定 / 同時 1 本 / 終了時に子を残さない）で、
+  正本は `docs/spec/ops.md` §5.2。**トークンを body や query に置いてはいけない**
+  （`Content-Type` 次第で simple request になり、preflight 無しで他オリジンから撃たれる。
+  カスタムヘッダが preflight を強制することが防御の核心）。子に `-P` を付けるのは
+  cwd を子の `sys.path[0]` に居座らせないため（F-S-P2-101 の経路を作らない）。
+  **残存**: 子は同じ権限で走るので S1（任意コード実行）は残り、トークンを握った攻撃者は
+  `jin/save` と組み合わせて連鎖を自力で完結できる
 - **`jin lsp --ws PORT` はローカルに WebSocket の待ち受けを開く。** WebSocket には
   ブラウザの same-origin 制限が無いので、開いている任意のページが `ws://127.0.0.1:PORT` へ
   繋いでリクエストを打てる。ファイルを読み書きする `jin/open` / `jin/save`（ADR-011）は
