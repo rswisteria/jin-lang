@@ -75,6 +75,14 @@ body {
   flex-direction: column;
   margin-bottom: 0.5rem;
 }
+/* 実行（Issue #34）。入力とボタンを縦に並べるだけ。 */
+.jin-run {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
 .jin-desc,
 .jin-hint,
 .jin-pointer {

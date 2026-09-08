@@ -21,18 +21,23 @@
 
 from __future__ import annotations
 
+import secrets
 import socket
 import threading
 import webbrowser
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
+from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote
 
 from jin_lsp import fileio
 from jin_lsp.server import TOKEN_PREFIX, create_server
+
+from jin_cli import runserver
+from jin_cli.runserver import RunRejected, RunSlot
 
 #: `--no-browser` のときに URL を stderr へ出す前置き。Playwright はこれを目印に読む。
 URL_PREFIX = "jin editor url: "
@@ -50,6 +55,41 @@ class EditorAddress:
     http_port: int
     ws_port: int
     url: str
+
+
+#: `POST /run` の body の上限（バイト）。prompt しか入らないので十分に小さくてよい。
+MAX_RUN_BODY = 64 * 1024
+
+
+class RunEndpoint:
+    """`POST /run` が知っておくこと（Issue #34・spec §4）。
+
+    **対象ファイルはここに固定する。** クライアントは実行するパスを指定できない。
+    `origin` は待ち受けポートが決まってから `serve` が設定する（起動前は `None`）。
+    """
+
+    def __init__(self, target: Path, token: str) -> None:
+        self.target = target
+        self.token = token
+        self.origin: str | None = None
+        self.slot = RunSlot()
+
+    def authorize(self, origin: str | None, token: str | None) -> bool:
+        """`Origin` とトークンを見る。**どちらも合わなければ実行しない。**
+
+        `Origin` が無い要求（curl など）は**通す**。ブラウザからの他オリジンの
+        `fetch` には必ず `Origin` が付くので、ここで見るのは「別のページからの
+        なりすまし」だけであり、端末から自分で叩く道を塞ぐ意味は無い。
+        なりすましの本命の防御はカスタムヘッダ（トークン）が強制する preflight であり、
+        `Origin` 検査はその上乗せである（spec §3.2）。
+
+        guard: authorize -> secrets.compare_digest
+        """
+        if origin is not None and origin != self.origin:
+            return False
+        if token is None:
+            return False
+        return secrets.compare_digest(token.encode("utf-8"), self.token.encode("utf-8"))
 
 
 def default_dist(start: Path | None = None) -> Path | None:
@@ -137,8 +177,13 @@ def serve(
     files = fileio.FileAccess.create(editor_root(target))
     server = create_server(files=files)
 
-    httpd = _static_server(host, root)
+    # 実行の口（Issue #34）。**トークンは `jin/open` / `jin/save` と同じものを使う。**
+    # 別に発行しても守るものは変わらず、URL のフラグメントに 2 つ載せる分だけ漏れ口が増える。
+    endpoint = RunEndpoint(target=target, token=files.token)
+    httpd = _static_server(host, root, endpoint)
     http_port = int(httpd.server_address[1])
+    # `Origin` の期待値はポートが決まってからでないと書けない。
+    endpoint.origin = f"http://{host}:{http_port}"
     ws_port = free_port(host)
     address = EditorAddress(
         http_port=http_port,
@@ -160,6 +205,10 @@ def serve(
         # `shutdown()` を呼ぶので、**ページを再読み込みしただけでエディタが死ぬ**。
         server.serve_ws(host, address.ws_port)
     finally:
+        # **走っている実行を残さない**（Issue #32 と同じ規律）。静的サーバを止める前に
+        # 子を終わらせる。順序が逆だと、SSE を書いているスレッドが閉じた socket へ
+        # 書き込んで例外を出す。
+        endpoint.slot.terminate()
         httpd.shutdown()
         httpd.server_close()
 
@@ -175,6 +224,14 @@ class _StaticHandler(SimpleHTTPRequestHandler):
 
     protocol_version = "HTTP/1.1"
 
+    def __init__(
+        self, *args: object, endpoint: RunEndpoint | None = None, **kwargs: object
+    ) -> None:
+        # **`super().__init__` の前に設定する。** `BaseHTTPRequestHandler.__init__` は
+        # その場でリクエストを処理する（`handle()` を呼ぶ）ので、あとから代入しても間に合わない。
+        self._endpoint = endpoint
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+
     def log_message(self, format: str, *args: object) -> None:
         """アクセスログを**捨てる**。
 
@@ -182,8 +239,74 @@ class _StaticHandler(SimpleHTTPRequestHandler):
         載せる連絡路なので、そこにブラウザの要求ログを流し込まない。
         """
 
+    def do_OPTIONS(self) -> None:
+        """preflight を**通さない**。
 
-def _handler_for(root: Path) -> Callable[..., SimpleHTTPRequestHandler]:
+        CORS ヘッダを 1 つも返さないので、他オリジンのページは本要求へ進めない。
+        トークンをカスタムヘッダで要求しているのはこのためである（spec §3.2）。
+        body や query に置くと `Content-Type` 次第で **simple request** になり、
+        preflight 無しで他オリジンから実行を起こされる。
+        """
+        self.send_error(HTTPStatus.FORBIDDEN, "CORS preflight is not allowed")
+
+    def do_POST(self) -> None:
+        """`POST /run` だけを受ける（spec §4）。
+
+        guard: do_POST -> endpoint.authorize
+        """
+        endpoint = self._endpoint
+        if endpoint is None or self.path != "/run":
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        if not endpoint.authorize(self.headers.get("Origin"), self.headers.get("X-Jin-Token")):
+            self.send_error(HTTPStatus.FORBIDDEN, "token or origin mismatch")
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self.send_error(HTTPStatus.BAD_REQUEST, "bad Content-Length")
+            return
+        if length > MAX_RUN_BODY:
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            return
+        try:
+            request = runserver.parse_request(self.rfile.read(length))
+        except RunRejected as exc:
+            # **理由は第 3 引数（body）へ。** 第 2 引数はステータス行に載り、
+            # `send_response_only` が **latin-1** で符号化するので日本語だと
+            # `UnicodeEncodeError` で接続が切れる（応答が返らない）。
+            self.send_error(HTTPStatus.BAD_REQUEST, "bad request body", str(exc))
+            return
+        # **同時に走ってよいのは 1 本だけ。** 枠を取れなかったら 409 で断る。
+        if not endpoint.slot.try_acquire():
+            self.send_error(HTTPStatus.CONFLICT, "a run is already going")
+            return
+        try:
+            self._stream_run(endpoint, request)
+        finally:
+            endpoint.slot.release()
+
+    def _stream_run(self, endpoint: RunEndpoint, request: runserver.RunRequest) -> None:
+        """SSE で流す。`Content-Length` を持てないので接続を閉じて区切る。"""
+        self.close_connection = True
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        try:
+            for frame in runserver.stream(endpoint.target, request, slot=endpoint.slot):
+                self.wfile.write(frame)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            # ブラウザが離れた。走っている子は道連れにする（残すと孤児になる）。
+            endpoint.slot.terminate()
+
+
+def _handler_for(
+    root: Path, endpoint: RunEndpoint | None = None
+) -> Callable[..., SimpleHTTPRequestHandler]:
     """配信の根を `root` に固定したハンドラ。
 
     `directory=` を渡さないと `SimpleHTTPRequestHandler` は **cwd を配る**。
@@ -192,21 +315,28 @@ def _handler_for(root: Path) -> Callable[..., SimpleHTTPRequestHandler]:
     `guard:` でここを名指ししている（`directory=` そのものは式ではないので
     トークンにできない。固定の所在をこの 1 関数に閉じることで代える）。
     """
-    return partial(_StaticHandler, directory=str(root))
+    return partial(_StaticHandler, directory=str(root), endpoint=endpoint)
 
 
-def _static_server(host: str, root: Path) -> ThreadingHTTPServer:
+def _static_server(
+    host: str, root: Path, endpoint: RunEndpoint | None = None
+) -> ThreadingHTTPServer:
     """`root` の中だけを配る HTTP サーバ。ポートは OS に選ばせて実値を読む。
 
-    guard: _static_server -> _handler_for(root)
+    guard: _static_server -> _handler_for(root,endpoint)
     """
-    return ThreadingHTTPServer((host, 0), _handler_for(root))
+    # ↑ トークンに**空白を入れない**。`test_guard_claims.py` の `CLAIM` は `->\s*(\S+)` で
+    # 拾うので、`_handler_for(root, endpoint)` と書くと `_handler_for(root,` で切れて
+    # `ast.parse` が SyntaxError になる。AST は空白を無視するので実コードとは一致する。
+    return ThreadingHTTPServer((host, 0), _handler_for(root, endpoint))
 
 
 __all__ = [
+    "MAX_RUN_BODY",
     "URL_PREFIX",
     "EditorAddress",
     "EditorError",
+    "RunEndpoint",
     "build_url",
     "default_dist",
     "editor_root",

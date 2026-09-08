@@ -34,21 +34,34 @@ if (container === null) throw new Error("#root がありません");
 const root = createRoot(container);
 
 if (uri === "") {
-  root.render(<p className="jin-hint">開くファイルが指定されていません（?uri=file:///... ）。</p>);
+	root.render(
+		<p className="jin-hint">
+			開くファイルが指定されていません（?uri=file:///... ）。
+		</p>,
+	);
 } else {
-  connect(wsUrl)
-    .then((client) => {
-      root.render(
-        <StrictMode>
-          <App api={createJinApi(client, token)} uri={uri} schema={schema as JsonSchema} />
-        </StrictMode>,
-      );
-    })
-    .catch((error: unknown) => {
-      root.render(
-        <p className="jin-hint">
-          LSP に接続できません（{wsUrl}）: {error instanceof Error ? error.message : String(error)}
-        </p>,
-      );
-    });
+	connect(wsUrl)
+		.then((client) => {
+			root.render(
+				<StrictMode>
+					<App
+						api={createJinApi(client, token)}
+						uri={uri}
+						schema={schema as JsonSchema}
+						// 実行エンドポイント（Issue #34）は**このページを配っているのと同じ origin**
+						// にある（`jin editor` の静的サーバ）。別の場所を指せるようにしない。
+						runOrigin={window.location.origin}
+						token={token}
+					/>
+				</StrictMode>,
+			);
+		})
+		.catch((error: unknown) => {
+			root.render(
+				<p className="jin-hint">
+					LSP に接続できません（{wsUrl}）:{" "}
+					{error instanceof Error ? error.message : String(error)}
+				</p>,
+			);
+		});
 }
