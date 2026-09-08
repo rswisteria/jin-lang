@@ -2770,3 +2770,104 @@ PR 本文と報告に「README への追記はこのコミットに入ってい�
 **教訓**（既存の申し送りと同じ）: 共有ツリーでは `git add -A` を使わず、
 `git add <自分が触ったファイル>` で列挙する。`git status` に身に覚えのない変更が出たら、
 まず**それが自分のものかを確かめる**（`git diff` の中身を読む）。
+
+---
+
+## I32-1. 症状と原因（Issue #32）
+
+`pnpm e2e` のあと `jin editor` が生きたまま残る。2026-09-08 の実測で **90 個**
+（`uv run jin editor …` と Python の対 45 組）が残っており、すべて前日 9/7 の実行だった。
+作業ディレクトリ（`/var/folders/…/T/jin-editor-e2e-*/`）も 78 個残っていた。
+各プロセスが静的配信と ws の**ポートを 2 つ掴んだまま**なので、放置すると増え続ける。
+
+原因は `apps/editor/e2e/editor.ts` の `stop()` が **SIGINT を `uv` のプロセスにだけ**
+送っていたこと。`spawn` の直接の子は `uv` で、実体の `jin editor`（Python）は**孫**である。
+
+```
+$ uv run jin editor <tmp>/smoke.jin --no-browser &   # pid 89066
+$ pgrep -f smoke.jin
+89066 89068          # uv と Python
+$ kill -INT 89066    # child.kill("SIGINT") と同じ
+$ pgrep -f smoke.jin
+89066 89068          # ← どちらも生きている
+```
+
+**SIGTERM なら両方落ちる**（2 回とも `起動時 2 個 → 停止後 0 個`）。
+
+**取り残し経路は 2 つある。** もう 1 つは `startEditor` が URL を読めずに reject する経路
+（60 秒のタイムアウト / 子の早期 exit）で、ここでは **`child` が呼び出し元へ返らないので
+`stop()` を呼ぶ手段そのものが無い**。取り残しが毎回ではなかったのは、テストが通った回は
+`afterEach` の `stop()` が走る（がシグナルが届かない）ため。
+
+## I32-2. 直し方 — 待って、報告して、SIGKILL に落とさない
+
+| 変更 | 理由 |
+|---|---|
+| `stop()` が**既定のシグナル**（SIGTERM）を送る | `uv` が孫へ中継する（実測） |
+| `stop(): Promise<boolean>` にして**終了を待つ** | 待たないと Playwright の終了と競争になる |
+| 時間内に終わらなければ **`false` を返す**（SIGKILL に落とさない） | SIGKILL は `uv` を即死させるだけで孫へ伝わらない。**静かな取り残しに戻る**うえ、`stop()` は「終わった」と言えてしまう（偽緑）。取り残しは**赤くする**ほうがよい |
+| reject する経路（`catch`）でも `child.kill()` | 呼び出し元は `stop()` を呼べない |
+| 既に終わっている子は `once("exit")` を張らずに `true` | 張ると誰も解決せずタイムアウトまで待つ |
+
+**`detached: true` + プロセスグループへの kill は採らなかった。** `uv` を新しいセッションへ
+出すと、Playwright を Ctrl+C で止めたときに**フォアグラウンドのグループから外れる**ので
+Python へ何も届かなくなる。今は届いているので（だから 90 個で済んでいる）、
+取り残しの経路を 1 つ減らして 1 つ増やす取引になる。Linux の CI で `uv` が SIGTERM を
+中継しないことが分かったときの控えとして残す。
+
+`EXIT_TIMEOUT_MS = 10_000` の根拠は実測（推測で置かない・CLAUDE.md）:
+SIGTERM から `uv` の `exit` まで **4 / 4 / 5 ms**、孫まで含めて全プロセスが消えるまで
+**35 / 37 / 42 ms**（macOS・各 3 回）。CI の遅さを見込んで 2 桁以上の余裕を取った。
+
+**`jin_cli/editor.py` は触っていない。** プロセス側の振る舞いは正しく、誤っているのは
+テストのハーネスである。
+
+## I32-3. 機械で固定したもの
+
+| 何を固定したか | どこ |
+|---|---|
+| `stop()` が実際に終了させたこと | e2e の `afterEach`: `expect(stopped).toBe(true)` |
+| **ポートが解放されたこと** | 同 `await expectServerGone(editor.url)` |
+| ハーネスが割り込みシグナルを送らないこと | `test_the_e2e_harness_does_not_signal_the_editor_with_sigint` |
+| reject 経路でも子を落とすこと | `test_the_e2e_harness_kills_the_child_when_the_url_cannot_be_read` |
+| 2 本の spec が上の 2 つを**この順で**見ること | `test_both_e2e_specs_assert_the_editor_actually_stopped` |
+
+**ポートで見るのは意図的**である。(1) `pgrep` に依存せず macOS でも Linux CI でも同じことを
+見られる、(2) ポートを握っているのは `uv` ではなく**孫**なので、`uv` だけが終わって孫が残る形
+（Linux で SIGTERM が中継されない場合）は**戻り値には出ずポートにだけ出る**。
+そのため `afterEach` では**ポートを先に**見て、`stopped` の判定を後に置く。順序は
+契約テストが `port < stopped` の位置関係で固定する。
+
+契約テストの書き方: 散文の「SIGINT ではない」という説明で緑にならないよう、
+**文字列リテラルとしての `"SIGINT"`** と `kill(` にシグナル名を渡していないことを見る。
+`catch` の中の `child.kill(` はファイル全体の `in` では数えない（`stop()` 側の 1 本で緑になる）。
+**括弧の対応で `catch` の中身を切り出す**（行頭の字下げで切ると formatter の設定に依存する）。
+
+## I32-4. 変異（`git checkout` で復元・staging 済み）
+
+| 変異 | 結果 |
+|---|---|
+| `stop()` の `child.kill()` を `child.kill("SIGINT")` に戻す | **RED**。契約テスト 1 件 + **e2e 3 件すべて**（`http://127.0.0.1:60019 がまだ応答する（jin editor のプロセスが残っている）`）。この回は実際に 12 個のプロセスが残り、手で片付けた |
+| `catch` の `child.kill()` を消す | **RED**（契約テスト） |
+| `expectServerGone` の呼び出しを消す / 順序を入れ替える | **RED**（契約テスト。順序は `port < stopped` で見る） |
+| `stop()` が待たずに `true` を返す | **赤にならない**（下記） |
+| 終了待ちのタイムアウトを外す（素の `once("exit")`） | 未実施。ハングするので変異として回せない（Phase 5 の `serve` と同型） |
+
+**「待たずに `true` を返す」変異が e2e で赤くならないことを実測した**（3 passed）。
+理由も測ってある: SIGTERM から `uv` の `exit` までが 4〜5 ms で、その時点で
+**すでにポートは閉じている**（3 回とも `fetch` が拒否された）。`fetch` 自身の往復のほうが
+長いので、待たないことによる観測可能な窓が無い。`tsc` が `EXIT_TIMEOUT_MS` の
+未使用を落とすので `pnpm build` では赤くなるが、これは**偶然の検出**であって
+「待っていること」を見ているわけではない。**待つことの意味は、時間内に終わらなかったときに
+`false` を返して赤くできる点**にあり、そちらは変異 A（SIGINT）で実測できている。
+
+### I32-4.1 ゲートの実測（2026-09-08）
+
+| ゲート | 結果 |
+|---|---|
+| `uv run ruff check .` / `format --check .` | 緑 |
+| `uv run pytest` | 計 **1429**: 1424 passed / 2 failed（macOS 固有の既知）/ 3 skipped。+3（新規の契約テスト 3 本） |
+| `uv run lint-imports` | 3 kept, 0 broken |
+| `pnpm build` / `pnpm lint` | 緑 |
+| `pnpm test` | 62 passed |
+| `pnpm e2e` | **9 passed**・実行後の取り残し **0 個** |
