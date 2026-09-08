@@ -135,6 +135,15 @@ def command_for(target: Path, request: RunRequest, trace: Path) -> list[str]:
     （security review F-S-P2-101。「この経路を再び作らない」）。`--resolve` の子も
     同じ理由で `python -P -m jin_cli.resolver` である。`-P` を付けても `jin run` 自身の
     `extra_sys_path` の窓は効くので、`ref` は従来どおり cwd から解決される。
+
+    **prompt は `--` の後ろに置く。** prompt は利用者が打つ文字列で `-` で始まりうる。
+    区切りが無いと typer がそれをオプションとして食う。いまの `jin run` では
+    positional が足りなくなって exit 2 で落ちるだけだが（実測）、それは
+    「たまたま `run` の引数の形がそうだから」であって防御ではない。オプションが
+    1 つ増えれば、`.jin` を開いている相手が子の挙動を外から動かせるようになる。
+
+    **`-` 始まりの prompt を拒みはしない。** `--` で無害化できるので拒む必要が無く、
+    拒むと「-1 と入力したら?」のような正当な問いかけが打てなくなる。
     """
     command = [
         sys.executable,
@@ -142,13 +151,13 @@ def command_for(target: Path, request: RunRequest, trace: Path) -> list[str]:
         "-m",
         "jin_cli.main",
         "run",
-        str(target),
-        request.prompt,
         "--trace",
         str(trace),
     ]
     if request.model is not None:
         command += ["--model", request.model]
+    # ここから先はすべて位置引数（typer が `--` を解釈することは実測で確かめてある）。
+    command += ["--", str(target), request.prompt]
     return command
 
 

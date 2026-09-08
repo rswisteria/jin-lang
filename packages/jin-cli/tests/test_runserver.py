@@ -131,6 +131,38 @@ def test_the_child_does_not_get_cwd_on_its_path() -> None:
     assert command.index("-P") < command.index("-m")
 
 
+def test_the_prompt_cannot_smuggle_a_flag_into_the_child() -> None:
+    """prompt は `--` の**後ろ**に置く（argv のフラグ密輸を断つ）。
+
+    prompt は利用者が打つ文字列で、`-` で始まりうる。`--` が無いと typer が
+    それをオプションとして食い、`jin run` に将来オプションが増えたときに
+    子の挙動を外から動かせるようになる。
+    """
+    command = command_for(
+        Path("x.jin"), RunRequest(prompt="--trace=/etc/evil", model="fake"), Path("t.jsonl")
+    )
+    assert "--" in command, command
+    separator = command.index("--")
+    # 対象ファイルと prompt は区切りの後ろ。オプションは前。
+    assert command.index("x.jin") > separator, command
+    assert command.index("--trace=/etc/evil") > separator, command
+    assert command.index("--trace") < separator, command
+    assert command.index("--model") < separator, command
+    # 出力先は**こちらが決めた一時ファイル**のまま（prompt に引っ張られない）。
+    assert command[command.index("--trace") + 1] == "t.jsonl"
+
+
+def test_a_prompt_that_looks_like_a_flag_is_still_a_prompt() -> None:
+    """`-` 始まりの prompt を**拒まない**。
+
+    `--` で無害化できるので拒む必要が無く、拒むと「-1 と入力したら?」のような
+    正当な問いかけが打てなくなる。
+    """
+    assert parse_request(b'{"prompt": "--help"}').prompt == "--help"
+    japanese = json.dumps({"prompt": "-1 と入力したら?"}).encode("utf-8")
+    assert parse_request(japanese).prompt == "-1 と入力したら?"
+
+
 def test_run_slot_admits_one_at_a_time() -> None:
     slot = RunSlot()
     assert slot.try_acquire() is True
