@@ -172,7 +172,10 @@ def test_the_cli_and_the_library_produce_the_same_svg() -> None:
     assert result.stdout.decode("utf-8") == render(_model(path))
 
 
-@pytest.mark.parametrize("name", ["researcher/researcher.jin", "pipeline/pipeline.jin"])
+@pytest.mark.parametrize(
+    "name",
+    ["researcher/researcher.jin", "pipeline/pipeline.jin", "showcase/showcase.jin"],
+)
 def test_every_rendered_pointer_is_in_the_model_pointer_space(name: str) -> None:
     """描画側 → モデル。`data-jin` と `data-jin-ref` がモデルに解決できること。"""
     model = _model(EXAMPLES / name)
@@ -316,3 +319,40 @@ def test_stdout_is_utf8_even_when_the_locale_cannot_encode_the_rune(tmp_path: Pa
     assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
     assert b"Traceback" not in result.stderr
     assert result.stdout == written.read_bytes()
+
+
+# --------------------------------------------------------------------------------------
+# examples/showcase が 9 種すべてを描くこと（Issue #5〜#7 の人手判定用の素材）
+# --------------------------------------------------------------------------------------
+def test_the_showcase_example_draws_all_nine_kinds() -> None:
+    """`examples/showcase` は既定 focus で `data-jin-kind` 9 種すべてを描く唯一のファイル。
+
+    researcher と pipeline を合わせても `delegate` が出ない（researcher は `summon`、
+    pipeline は `flow`）ため、エディタの 9 種のヒットテストとオーバーレイを**実物の
+    example** で人が確かめる手立てが無かった。showcase はそのために足したので、
+    9 種が揃わなくなったら（種を減らしても、showcase から要素が落ちても）ここで気づく。
+
+    `docs/spec/layout.md` §3 の「`data-jin-kind` は 9 種のみ」と同じ集合で突き合わせるので、
+    10 種目を足したときもこのテストが赤くなる。
+    """
+    model = _model(EXAMPLES / "showcase" / "showcase.jin")
+    drawn = {attributes["data-jin-kind"] for attributes in _elements(render(model))}
+    assert drawn == set(DATA_JIN_KINDS), sorted(set(DATA_JIN_KINDS) - drawn)
+
+
+def test_the_other_two_examples_lack_exactly_the_delegate_kind() -> None:
+    """showcase を足した理由が消えていないこと（空虚にならない側）。
+
+    researcher と pipeline を**合わせて**も出ないのは `delegate` ちょうど 1 種である
+    （researcher は `summon`、pipeline は `flow`）。どちらかに `delegate` が入ったら
+    ここが赤くなるので、そのとき showcase の存在理由を書き直すか showcase をやめるかを決める。
+    ファイルごとに「9 種に満たない」と書くと、tools を持たない pipeline が常に満たさないので
+    空虚に緑になる（`delegate` を足しても気づけない）。
+    """
+    drawn: set[str] = set()
+    for name in ("researcher/researcher.jin", "pipeline/pipeline.jin"):
+        model = _model(EXAMPLES / name)
+        for circle in model.circles:
+            for attributes in _elements(render(model, focus=circle.name)):
+                drawn.add(attributes["data-jin-kind"])
+    assert set(DATA_JIN_KINDS) - drawn == {"delegate"}, sorted(drawn)

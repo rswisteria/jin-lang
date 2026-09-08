@@ -2624,3 +2624,116 @@ JSON のキー名**（例 `/note`）が診断に出る。値の生テキスト 4
 
 **`test` job が実際にこのラウンドの変更を通っている**ことは、`uv run lint-imports` の
 `Contracts: 3 kept` と件数の増（Phase 6 の 1407 → 1415、+8 = 001 の 3 本 + 005 の 4 本 + 006 の 1 本）で見える。
+
+---
+
+## EX-1. `examples/showcase` を足した理由（Issue #5〜#7 の人手判定の素材）
+
+Issue #5 / #6 / #7 の完了条件はいずれも **human_only**（Claude Code セッションでの診断・定義ジャンプ /
+UI/UX の妥当性 / オーバーレイの視認性）で、人が実物を触らないと閉じられない。触る素材として
+既存の examples が足りるかを**先に測った**:
+
+| ファイル | 行 | 陣 | 既定 focus で出る `data-jin-kind` |
+|---|---|---|---|
+| `researcher/researcher.jin` | 77 | 2 | await / circle / core / guard / rune / state / tool |
+| `pipeline/pipeline.jin` | 89 | 6 | circle / core / flow-edge / rune / state |
+| **2 本の合併** | | | **8 種**（`delegate` だけが出ない） |
+
+`delegate` が 1 度も描かれないので、エディタの 9 種のヒットテストと「委譲を追加」ボタンを
+**実物の example** で判定する手立てが無かった（`jin-render` のパッケージテストは合成モデルを
+1 本足してこれを埋めていた・`test_the_nine_kinds_are_all_drawn`）。そこで
+**9 種すべてが既定 focus で出る最小形**として `examples/showcase/showcase.jin`（131 行 / 5 陣）を足した。
+
+**要件書 §2.2 の 2 本とは別枠である。** §2.2 掲載の researcher / pipeline は本文の JSON と
+一致することを `tests/spec/test_spec_consistency.py::test_examples_match_requirements_section_2_2` が
+固定しており、増減させるには要件書を直すことになる。showcase はそこに入らない 3 本目なので、
+**design.yaml の machine 条件が言う「examples 2 本」（スナップショットの安定 /
+`jin run --model fake` の完走）は引き続き 2 本を指す**。スナップショット（`jin-render` /
+`jin-adk`）と machine 条件 5 の parametrize に showcase を足していない。
+
+## EX-2. 形の決め方 — 途中で当たった 3 つの制約
+
+```
+Showcase（核なし・loop flow: [Desk, Archivist] / max 3 / exit {approved: true}）  → flow-edge
+  Desk（核あり）  rune / tools 5（tool・tool・summon・builtin・tool）/ state 2 /
+                  delegate ["Helper"] / boundary: guards 2 + await 1              → 残り 8 種
+  Summarizer（summon の参照先）/ Helper（delegate の参照先）/ Archivist（flow の 2 段目）
+```
+
+1. **核あり（`core`）と核なし（`flow`）は排他**なので、1 つの陣に 9 種は載らない。
+   root を flow の陣にして**全体で** 9 種にする
+2. **JIN013**（同じ親から 2 度参照できない）: `delegate` と `flow.steps` に同じ陣を書けない。
+   `Helper`（委譲先）と `Archivist`（flow の段）を別の陣に分けているのはこのため
+3. **`builtin` に何を書くかで走るかどうかが変わる**（実測）。当初 `google_search` にしていたが
+   `jin run --model fake` が 2 通りに落ちた:
+   - 委譲と同じ陣に置くと `Gemini API does not allow built-in search tools to be combined with
+     function calling (agent delegation)`
+   - 委譲の無い陣へ移しても `ValueError: Google search tool is not supported for model fake`
+     （`google_search` は Gemini 以外のモデルを拒む）
+
+   `google.adk.tools` の公開名のうち**関数**であるもの（`exit_loop` / `load_memory` /
+   `get_user_choice` …）は fake でも構築できるので、loop の陣という文脈にも合う `exit_loop` を選んだ。
+   この選択が黙って戻らないように `test_the_showcase_example_runs_with_the_fake_model` で固定する。
+
+## EX-3. `--model fake` で光るのは 3 要素だけ（Issue #7 を判定する人への申し送り）
+
+`FakeLlm` は**関数呼び出しを 1 度も出さない**ので、トレースに `tool` / `transfer` の行が現れない。
+showcase を `--model fake` で走らせた実測（`flow.max: 16` に上げた版・48 行）:
+
+| | 内訳 |
+|---|---|
+| イベントの kind | `model` 32 / `escalate` 16 のみ |
+| 光る要素 | **3 / 99**（Desk の核・Archivist の核・Showcase の `flow/exit`） |
+| 光らないもの | 紋（tool）・護符（guard）・保留（await）・委譲（delegate）・`data-jin-ref`（`summon` の紋が参照先の発火で光る規則） |
+
+同じことは `researcher` を fake で走らせると**イベントが 1 行（`final`）しか出ない**ことでも見える。
+**紋・護符・summon のオーバーレイの視認性を判定するには実モデルの実行が要る。**
+
+点の密度は `flow.max` で変えられる（点は総行数ぶん境界環に並ぶ・`docs/spec/layout.md` §7.4）:
+
+| `Showcase.flow.max` | イベント | 点 |
+|---|---|---|
+| 3（コミットした値） | 9 | 9 |
+| 16 | 48 | 48 |
+| 30 | 90 | 90 |
+
+**トレースと `.jin` は対である。** `tests/fixtures/traces/pipeline-fake.jsonl` を showcase に
+読ませると点は出るが pointer が一致せず何も光らない（壊れているように見えるので README に書いた）。
+
+## EX-4. 機械で固定したもの と 変異の実測
+
+| 何を固定したか | どこ |
+|---|---|
+| showcase が既定 focus で **9 種すべて**を描く | `tests/contract/test_render_contract.py::test_the_showcase_example_draws_all_nine_kinds` |
+| showcase を足した**理由が消えていない**（他の 2 本を合わせて出ないのは `delegate` ちょうど 1 種） | 同 `::test_the_other_two_examples_lack_exactly_the_delegate_kind` |
+| showcase の `data-jin` / `data-jin-ref` がモデルの pointer 空間に解決する | 同 `::test_every_rendered_pointer_is_in_the_model_pointer_space`（parametrize に追加） |
+| showcase が `--model fake` で exit 0（`builtin` の選択が戻らない） | `tests/contract/test_cli_contract.py::test_the_showcase_example_runs_with_the_fake_model` |
+| examples が 3 本であること | `tests/contract/test_lsp_contract.py::test_there_are_examples_to_compare` |
+
+`glob("*/*.jin")` で拾う既存の検査（parse / 正準形バイト一致 / 診断 0 件 / Pydantic 検証 /
+`dump` の pointer 解決 / LSP との突合）には showcase が**自動で入る**。
+
+変異の実測（`__pycache__` 削除 + `PYTHONDONTWRITEBYTECODE=1`・隔離ではなく `git checkout` で復元）:
+
+| 変異 | 結果 |
+|---|---|
+| showcase から `delegate` を外す | **RED**（`test_the_showcase_example_draws_all_nine_kinds`） |
+| `pipeline` に `delegate` を足す | **RED**（`test_the_other_two_examples_lack_exactly_the_delegate_kind`） |
+| `DATA_JIN_KINDS` から `delegate` を抜く | **RED**（上の 2 本とも） |
+| showcase の `builtin` を `google_search` に戻す | **RED**（`test_the_showcase_example_runs_with_the_fake_model`） |
+| `examples/` を 3 本にする（本ランの変更そのもの） | **RED**（`test_there_are_examples_to_compare` が `== 2` のままだと落ちる・実測済み） |
+
+**偽緑を 1 件見つけた。** `test_the_other_two_examples_lack_exactly_the_delegate_kind` は最初
+「researcher と pipeline の**それぞれ**が 9 種に満たない」と書いていたが、pipeline は tools も
+guards も持たないので `delegate` を足しても常に満たさず**変異が緑のまま**だった。
+「**合わせて**出ないのは `delegate` ちょうど 1 種」という等号に直して RED を確認した。
+
+### EX-4.1 ゲートの実測（2026-09-07）
+
+| ゲート | 結果 |
+|---|---|
+| `uv run ruff check .` / `format --check .` | 緑 |
+| `uv run pytest` | 計 **1426**: 1421 passed / 2 failed / 3 skipped（2 failed は macOS 固有の既知）。Issue #9 の 1416 から **+10**（新規 4 本 + glob で自動的に増えた 6 本〔parser / canonical / check 2 / LSP 突合 2〕） |
+| `uv run lint-imports` | 3 kept, 0 broken |
+| `jin check examples` / `jin fmt --check examples` | 緑（3 ファイル / error 0 / warning 0） |
+| `sync_plugin_reference.py --check` | 無ドリフト（exit 0） |

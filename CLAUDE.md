@@ -222,6 +222,7 @@ uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同�
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
+uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）
 ```
 
 テスト配置は ADR-003（パッケージ単位の垂直分割 + 横断契約テスト）:
@@ -235,6 +236,17 @@ uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視�
 - `tests/fixtures/errors/JINxxx_*.jin` — 各診断コードの fixture（**対応コードをちょうど 1 つだけ出す**）
 - `tests/fixtures/build-errors/*.jin` — `jin check` は通るが `jin build` が落とす構造（NFR-FAIL-001）
 - `tests/fixtures/stubs/` — examples の `ref` が指す `research.*` と、異常系テスト用の `exits_tool`（`sys.exit` を呼ぶツール）のスタブ
+- `examples/` は **3 本**。`researcher` / `pipeline` は**要件書 §2.2 掲載**で、本文の JSON との一致を
+  `tests/spec/test_spec_consistency.py::test_examples_match_requirements_section_2_2` が固定する
+  （この 2 本は §2.2 を直さない限り増減しない）。`showcase` は Issue #5〜#7 の人手判定用に足した
+  3 本目で、**`data-jin-kind` 9 種すべてを既定 focus で描く唯一のファイル**である
+  （`tests/contract/test_render_contract.py::test_the_showcase_example_draws_all_nine_kinds`。
+  9 種が揃う理由が消えていないことは `test_the_other_two_examples_lack_exactly_the_delegate_kind` が見る）。
+  **design.yaml の machine 条件が言う「examples 2 本」は引き続き researcher / pipeline を指す**ので、
+  スナップショット（`jin-render` / `jin-adk`）と machine 条件 5 の parametrize に showcase を足さない。
+  showcase の `builtin` は `exit_loop` である（`google_search` は Gemini 以外のモデルを拒み、
+  `--model fake` が `ValueError` で落ちる。委譲と同じ陣にも置けない・
+  `tests/contract/test_cli_contract.py::test_the_showcase_example_runs_with_the_fake_model`）
 - `tests/fixtures/traces/pipeline-fake.jsonl` — `jin run --model fake` の出力（11 行）。`jin-render` の
   テストは `jin_adk` を import できないのでこれを読む（実行結果との突合は `tests/contract/test_render_contract.py`）
 

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Showcase",
+  "circles": [
+    {
+      "name": "Showcase",
+      "description": "核なし（flow）の陣。環・弦・矢印・脱出の菱形が出る",
+      "state": [
+        {
+          "name": "approved",
+          "type": "bool"
+        }
+      ],
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Desk",
+          "Archivist"
+        ],
+        "max": 3,
+        "exit": {
+          "key": "approved",
+          "equals": true
+        }
+      }
+    },
+    {
+      "name": "Desk",
+      "core": "gemini-2.5-flash",
+      "description": "核ありの陣。紋（tool / builtin / summon）・記憶・護符・保留・委譲がすべて出る",
+      "instruction": {
+        "rune": "受付を担当する。これまでの知見: {findings}"
+      },
+      "tools": [
+        {
+          "name": "search",
+          "kind": "tool",
+          "ref": "research.tools:web_search"
+        },
+        {
+          "name": "fetch",
+          "kind": "tool",
+          "ref": "research.tools:fetch_page"
+        },
+        {
+          "name": "summarize",
+          "kind": "summon",
+          "circle": "Summarizer"
+        },
+        {
+          "name": "finish",
+          "kind": "builtin",
+          "builtin": "exit_loop"
+        },
+        {
+          "name": "publish",
+          "kind": "tool",
+          "ref": "research.tools:publish"
+        }
+      ],
+      "delegate": [
+        "Helper"
+      ],
+      "state": [
+        {
+          "name": "query",
+          "type": "str"
+        },
+        {
+          "name": "findings",
+          "type": "str",
+          "out": true
+        }
+      ],
+      "boundary": {
+        "guards": [
+          {
+            "on": "before_model",
+            "ref": "research.guards:pii_filter"
+          },
+          {
+            "on": "before_tool",
+            "ref": "research.guards:audit_log"
+          }
+        ],
+        "await": [
+          "publish"
+        ]
+      }
+    },
+    {
+      "name": "Summarizer",
+      "core": "gemini-2.5-flash",
+      "description": "summon の参照先。呼ばれた側の陣として描かれる",
+      "instruction": {
+        "rune": "渡された文章を 200 字で要約する"
+      },
+      "state": [
+        {
+          "name": "summary",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Helper",
+      "core": "gemini-2.5-flash",
+      "description": "delegate の参照先。委譲の点線が向く陣",
+      "instruction": {
+        "rune": "Desk から委ねられた仕事を引き取る"
+      }
+    },
+    {
+      "name": "Archivist",
+      "core": "gemini-2.5-flash",
+      "description": "flow の 2 段目。脱出条件 approved を書き出す",
+      "instruction": {
+        "rune": "結果を保管し、承認できるなら approved を true にする"
+      },
+      "state": [
+        {
+          "name": "approved",
+          "type": "bool",
+          "out": true
+        }
+      ]
+    }
+  ]
+}
