@@ -201,18 +201,40 @@ def test_adk_isolation_contract_covers_every_package_but_jin_adk_and_jin_cli() -
 #: `__import__('os')` だけを注入すると行頭一致の検査は素通りした）。
 DYNAMIC_IMPORT_CALLS = frozenset({"__import__", "exec", "eval"})
 
+#: **`importlib` の下にあるが動的 import の入口ではない**モジュール（Issue #36）。
+#:
+#: `importlib.metadata` が読むのは `.dist-info` の **METADATA ファイル**であって、
+#: モジュールを import しない（＝任意のコードを実行しない）。このテストが守っているのは
+#: 下の docstring のとおり「`ref` を解決するために**任意モジュールを import する**実装の所在」
+#: であり、`importlib` という名前の使用箇所ではない。`jin --version` が版を
+#: パッケージのメタデータから引くのにこれを使う（版を焼き込むと `pyproject.toml` とずれる）。
+#:
+#: **`importlib.util` / `importlib.machinery` / `importlib.resources` をここに足さないこと。**
+#: 前二者は動的 import そのものの入口である（`jin_adk.runtime` が使っている）。
+#: 緩和がここから広がっていないことは
+#: `test_the_scan_still_catches_real_dynamic_imports` が両側から固定する。
+INERT_IMPORTLIB_SUBMODULES = frozenset({"importlib.metadata"})
+
+
+def _is_dynamic(module: str) -> bool:
+    """`module` が動的 import の入口か。空文字（相対 import）は対象外。"""
+    if module in INERT_IMPORTLIB_SUBMODULES:
+        return False
+    return module.split(".")[0] in ("importlib", "runpy")
+
 
 def dynamic_import_sites(path: Path) -> list[str]:
-    """`importlib*` の import、`__import__` / `exec` / `eval` の呼び出し、`runpy.*` の参照を集める。"""
+    """`importlib*` の import、`__import__` / `exec` / `eval` の呼び出し、`runpy.*` の参照を集める。
+
+    `INERT_IMPORTLIB_SUBMODULES` に挙げたものは除く（動的 import ではないため）。
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            found.extend(
-                a.name for a in node.names if a.name.split(".")[0] in ("importlib", "runpy")
-            )
+            found.extend(a.name for a in node.names if _is_dynamic(a.name))
         elif isinstance(node, ast.ImportFrom):
-            if (node.module or "").split(".")[0] in ("importlib", "runpy"):
+            if _is_dynamic(node.module or ""):
                 found.append(node.module or "")
         elif isinstance(node, ast.Call):
             func = node.func
@@ -279,6 +301,47 @@ def test_dynamic_import_detector_sees_each_form(tmp_path: Path, snippet: str) ->
     assert dynamic_import_sites(path), snippet
     path.write_text("import os\nx = os.getcwd()\n", encoding="utf-8")
     assert dynamic_import_sites(path) == []
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        "from importlib.metadata import version\n",
+        "import importlib.metadata\n",
+        "from importlib.metadata import version as v\nx = v('jin-cli')\n",
+    ],
+)
+def test_the_scan_lets_importlib_metadata_through(tmp_path: Path, snippet: str) -> None:
+    """`importlib.metadata` は動的 import ではないので拾わない（Issue #36）。
+
+    読むのは `.dist-info` の METADATA ファイルであって、モジュールを import しない。
+    `jin --version` が版をここから引く（焼き込むと `pyproject.toml` とずれる）。
+    """
+    path = tmp_path / "m.py"
+    path.write_text(snippet, encoding="utf-8")
+    assert dynamic_import_sites(path) == [], snippet
+
+
+@pytest.mark.parametrize(
+    "snippet",
+    [
+        "import importlib.util\n",
+        "from importlib.util import spec_from_file_location\n",
+        "import importlib.machinery\n",
+        "from importlib import metadata\n",
+    ],
+)
+def test_the_scan_still_catches_real_dynamic_imports(tmp_path: Path, snippet: str) -> None:
+    """**緩和が広がっていないこと。** `importlib.metadata` を許しても隣は素通りさせない。
+
+    `importlib.util` / `importlib.machinery` は動的 import そのものの入口である
+    （`jin_adk.runtime` が `spec_from_file_location` で生成コードを読む）。
+    `from importlib import metadata` も拾う: 除外は**完全名で書いたときだけ**に限る
+    （`from importlib import ...` の形を許すと `import_module` も同じ形で通ってしまう）。
+    """
+    path = tmp_path / "m.py"
+    path.write_text(snippet, encoding="utf-8")
+    assert dynamic_import_sites(path), snippet
 
 
 def _jin_imports(src_root: Path) -> set[str]:

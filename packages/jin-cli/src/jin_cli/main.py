@@ -1,15 +1,15 @@
 """Jin CLI。
 
-**実装済みは check / fmt / schema / dump（Phase 1）・build / run（Phase 2）・render（Phase 3）の 7 つ。**
-要件書 §5 の残り 2 コマンドは後続 Phase の担当であり、**あえて未定義のままにしてある**:
-
-| コマンド | 実装 Phase | 担当パッケージ |
-|---|---|---|
-| `jin lsp` | Phase 4 | jin-lsp |
-| `jin editor` | Phase 5 | apps/editor |
+**v1 の 9 コマンドが揃っている**: check / fmt / schema / dump（Phase 1）・build / run（Phase 2）・
+render（Phase 3）・lsp（Phase 4）・editor（Phase 5）。
 
 空実装のサブコマンドを先に置くと「あるのに動かない」状態になり、`jin --help` が嘘をつく。
 未定義なら typer が "No such command" で落ちるので、未実装であることが利用者に正しく伝わる。
+**10 個目を足さない**ことは `test_no_command_is_defined_beyond_the_v1_set` が等号で固定する。
+
+グローバルオプションは `--version` だけ（要件書 §8・Issue #36）。版は
+`importlib.metadata` から引く（焼き込むと `pyproject.toml` とずれる）。これはサブコマンドでは
+ないので上の等号には入らない。
 
 ## `jin run` は任意コードを実行する（`--resolve` と同じ危険性）
 
@@ -86,6 +86,7 @@ import os
 import shutil
 import sys
 import tempfile
+from importlib.metadata import version as metadata_version
 from pathlib import Path
 from typing import Annotated
 
@@ -116,13 +117,49 @@ app = typer.Typer(
     name="jin",
     help=(
         "Jin(陣) — 魔法陣型エージェント記述言語のツールチェーン"
-        "（check / fmt / schema / dump / build / run / render / lsp）"
+        "（check / fmt / schema / dump / build / run / render / lsp / editor）"
     ),
     no_args_is_help=True,
     add_completion=False,
     # 例外のトレースバックにローカル変数（環境変数・パスなど）を載せない（security review S5）。
     pretty_exceptions_show_locals=False,
 )
+
+
+def _version_callback(value: bool) -> None:
+    """`--version` で版を出して終わる（要件書 §8・Issue #36）。
+
+    版は**パッケージのメタデータから引く**。文字列を焼き込むと `pyproject.toml` を
+    上げたときに黙ってずれる。要件書 §8 は `SessionStart` で `jin --version` を確認すると
+    書いており、プラグインの README と `hooks/check_install.sh` のメッセージも
+    `uv run jin --version` を案内する（フックの判定自体は `command -v jin` なので
+    このオプションには依存しない）。
+    """
+    if not value:
+        return
+    typer.echo(f"jin {metadata_version('jin-cli')}")
+    raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="版を出して終わる",
+        ),
+    ] = False,
+) -> None:
+    """サブコマンドの前に置くグローバルオプション。
+
+    **ここにサブコマンドを増やさない。** v1 の 9 つは
+    `packages/jin-cli/tests/test_cli.py::test_no_command_is_defined_beyond_the_v1_set` が
+    等号で固定している（`--version` はオプションなのでその集合に入らない）。
+    """
+
 
 #: 端末表示を偽装しうる文字（C0 / DEL / C1）。診断のメッセージ・hint に混ざると、
 #: ANSI エスケープで既存の行を消したり、改行で偽の診断行を差し込んだりできる（S6）。
