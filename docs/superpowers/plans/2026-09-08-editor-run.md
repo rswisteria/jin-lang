@@ -120,17 +120,17 @@ HTTP を通さない純粋なロジックを 1 モジュールに閉じる。`ed
   - `RunSlot` — `try_acquire() -> bool` / `attach(process) -> None` / `release() -> None` / `terminate() -> None`
   - `POLL_SECONDS: float` / `GRACE_SECONDS: float`
 
-- [ ] **Step 1: 既存の stubs の載せ方を確かめる**
+- [ ] **Step 1: Write the failing test**
 
-`examples/pipeline` の `ref` はリポジトリに実体が無く、`tests/fixtures/stubs` を `sys.path` / `PYTHONPATH` に載せる必要がある（CLAUDE.md）。**新しい方法を発明せず既存に揃える。**
+`packages/jin-cli/tests/test_runserver.py` を新規に作る。
 
-Run: `grep -rn "stubs" packages/jin-cli/tests/ tests/conftest.py packages/jin-adk/tests/`
+**`examples/pipeline` を使わない。** あの陣の `ref`（`research.tools` など）は実体がリポジトリに
+無く、`tests/fixtures/stubs` を載せる必要がある。ところが実行は**子プロセス**で起きるので、
+`conftest.py` が `sys.path` に何をしようと子には届かない（届くのは `PYTHONPATH` 環境変数だけ）。
+テストに env の細工を持ち込まないため、**`ref` も `builtin` も持たない陣**を `tmp_path` に書いて使う。
 
-読んだ方法を Step 2 のテストで使う。
-
-- [ ] **Step 2: Write the failing test**
-
-`packages/jin-cli/tests/test_runserver.py` を新規に作る。`PIPELINE` を使うテストには Step 1 で確かめた stubs の載せ方を適用すること。
+（`--model fake` での実測: この陣は 1 イベント（`/circles/0/core` の `final`）を出し、
+`jin render --trace` は `data-jin-fired="1"` を 1 つ描く。）
 
 ```python
 """`jin editor` の実行エンドポイントの中身（Issue #34）。"""
@@ -147,13 +147,36 @@ from jin_cli.runserver import (
     RunRejected,
     RunRequest,
     RunSlot,
+    command_for,
     parse_request,
     sse,
     sse_row,
     stream,
 )
 
-PIPELINE = Path(__file__).resolve().parents[3] / "examples" / "pipeline" / "pipeline.jin"
+#: `ref` も `builtin` も持たない最小の陣。子プロセスで実行するので PYTHONPATH を要らなくする。
+SOLO = """{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Main",
+  "circles": [
+    {
+      "name": "Main",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "\u3053\u3093\u306b\u3061\u306f"
+      }
+    }
+  ]
+}
+"""
+
+
+@pytest.fixture()
+def solo(tmp_path: Path) -> Path:
+    target = tmp_path / "solo.jin"
+    target.write_text(SOLO, encoding="utf-8")
+    return target
 
 
 def test_parse_request_reads_prompt_and_model() -> None:
@@ -200,17 +223,17 @@ def test_sse_row_sends_the_jsonl_line_verbatim() -> None:
     assert sse_row(line).decode("utf-8") == f"event: row\ndata: {line}\n\n"
 
 
-def test_stream_runs_the_file_and_emits_rows_then_done() -> None:
-    text = b"".join(stream(PIPELINE, RunRequest(prompt="go", model="fake"))).decode("utf-8")
+def test_stream_runs_the_file_and_emits_rows_then_done(solo: Path) -> None:
+    text = b"".join(stream(solo, RunRequest(prompt="go", model="fake"))).decode("utf-8")
     assert text.count("event: row\n") >= 1, text
     assert text.count("event: done\n") == 1, text
     done = json.loads(text.rsplit("event: done\ndata: ", 1)[1].strip())
     assert done["exit"] == 0, done
 
 
-def test_stream_reports_a_failure_without_hiding_it() -> None:
+def test_stream_reports_a_failure_without_hiding_it(solo: Path) -> None:
     """落ちても `done` は来る（ブラウザ側が図を消さないため）。理由は stderr に載る。"""
-    missing = PIPELINE.parent / "does-not-exist.jin"
+    missing = solo.parent / "does-not-exist.jin"
     text = b"".join(stream(missing, RunRequest(prompt="go", model="fake"))).decode("utf-8")
     assert "event: done\n" in text
     done = json.loads(text.rsplit("event: done\ndata: ", 1)[1].strip())
@@ -218,12 +241,12 @@ def test_stream_reports_a_failure_without_hiding_it() -> None:
     assert done["stderr"] != ""
 
 
-def test_stream_emits_an_error_when_the_child_cannot_start() -> None:
+def test_stream_emits_an_error_when_the_child_cannot_start(solo: Path) -> None:
     def refuse(*args: object, **kwargs: object) -> subprocess.Popen[bytes]:
         raise OSError("no exec")
 
     text = b"".join(
-        stream(PIPELINE, RunRequest(prompt="go", model="fake"), popen=refuse)
+        stream(solo, RunRequest(prompt="go", model="fake"), popen=refuse)
     ).decode("utf-8")
     assert "event: error\n" in text
     assert "event: done\n" not in text
@@ -236,6 +259,18 @@ def test_run_slot_admits_one_at_a_time() -> None:
     slot.release()
     assert slot.try_acquire() is True
     slot.release()
+
+
+def test_the_child_does_not_get_cwd_on_its_path() -> None:
+    """`-P` を落とさない（F-S-P2-101 の再発防止）。
+
+    `python -m` は既定で cwd を `sys.path[0]` に置き、それが**子の一生の間**続く。
+    CLAUDE.md の「Runner 実行中は cwd が `sys.path` に無い」が崩れ、ADK が遅延 import する
+    未インストールの任意依存を cwd から解決させる経路が復活する。
+    """
+    command = command_for(Path("x.jin"), RunRequest(prompt="go", model="fake"), Path("t.jsonl"))
+    assert "-P" in command
+    assert command.index("-P") < command.index("-m")
 
 
 def test_run_slot_terminates_the_child_it_holds() -> None:
@@ -254,13 +289,13 @@ def test_run_slot_terminates_the_child_it_holds() -> None:
 
 テストの import に `import sys` を足すこと。
 
-- [ ] **Step 3: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest packages/jin-cli/tests/test_runserver.py -v`
 
 Expected: FAIL — `ModuleNotFoundError: No module named 'jin_cli.runserver'`
 
-- [ ] **Step 4: Write minimal implementation**
+- [ ] **Step 3: Write minimal implementation**
 
 `packages/jin-cli/src/jin_cli/runserver.py` を新規に作る。
 
@@ -394,9 +429,18 @@ def command_for(target: Path, request: RunRequest, trace: Path) -> list[str]:
 
     `jin_cli` に `__main__.py` は無いが `main.py` に `if __name__ == "__main__": app()` がある。
     `sys.executable` を使うのは `jin` コンソールスクリプトが PATH にあるとは限らないため。
+
+    **`-P` を必ず付ける。** これが無いと `python -m` は cwd を `sys.path[0]` に置き、
+    それが**子の一生の間**続く。CLAUDE.md が明示している「Runner 実行中は cwd が
+    `sys.path` に無い」が崩れ、ADK が LLM 要求のたびに遅延 import する未インストールの
+    任意依存（`anthropic` / `openai` / `a2a` …）を cwd から解決させる経路が復活する
+    （security review F-S-P2-101。「この経路を再び作らない」）。`--resolve` の子も
+    同じ理由で `python -P -m jin_cli.resolver` である。`-P` を付けても `jin run` 自身の
+    `extra_sys_path` の窓は効くので、`ref` は従来どおり cwd から解決される。
     """
     command = [
         sys.executable,
+        "-P",
         "-m",
         "jin_cli.main",
         "run",
@@ -497,13 +541,13 @@ __all__ = [
 ]
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest packages/jin-cli/tests/test_runserver.py -v`
 
-Expected: PASS（9 件）
+Expected: PASS（10 件）
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```
 git add packages/jin-cli/src/jin_cli/runserver.py packages/jin-cli/tests/test_runserver.py
@@ -547,14 +591,33 @@ import pytest
 
 from jin_cli.editor import RunEndpoint, _static_server
 
-EXAMPLE = Path(__file__).resolve().parents[3] / "examples" / "pipeline" / "pipeline.jin"
+#: `ref` も `builtin` も持たない最小の陣。**子プロセスで実行する**ので、
+#: `conftest.py` の `sys.path` 細工は届かない（届くのは `PYTHONPATH` だけ）。
+#: `examples/pipeline` を使うとその env の細工がテストに要る。
+SOLO = """{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Main",
+  "circles": [
+    {
+      "name": "Main",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "\u3053\u3093\u306b\u3061\u306f"
+      }
+    }
+  ]
+}
+"""
 
 
 @pytest.fixture()
 def endpoint_server(tmp_path: Path):
     """静的サーバを 1 本立てて、URL と endpoint を返す。"""
     (tmp_path / "index.html").write_text("<p>dist</p>", encoding="utf-8")
-    endpoint = RunEndpoint(target=EXAMPLE, token="secret-token")
+    target = tmp_path / "solo.jin"
+    target.write_text(SOLO, encoding="utf-8")
+    endpoint = RunEndpoint(target=target, token="secret-token")
     httpd = _static_server("127.0.0.1", tmp_path, endpoint)
     port = int(httpd.server_address[1])
     endpoint.origin = f"http://127.0.0.1:{port}"
@@ -826,7 +889,7 @@ def _static_server(host: str, root: Path, endpoint: RunEndpoint | None = None) -
 
 Run: `uv run pytest packages/jin-cli/tests/test_editor.py -v`
 
-Expected: PASS（9 件）
+Expected: PASS（10 件）
 
 - [ ] **Step 5: Commit**
 
@@ -1370,6 +1433,12 @@ function lastLine(text: string): string {
 
 `messageOf` は既に App.tsx にある（無ければ `replay.ts` と同じものを足す）。
 
+**既知のコスト（勝手に「最適化」しないこと）**: この書き方は行が 1 つ届くたびに
+`refresh` を `await` する。つまり `jin/renderSvg` の往復がトレースの行数だけ起きる。
+`--model fake` の実行は数行〜十数行なので実用上問題にならない。デバウンスを入れると
+「同じ `upto` なら同じ SVG」（machine 2）の検査と、どの行まで描いたかの見え方が変わるので、
+**入れるなら判断ポイントとして起票してから**にする。
+
 - [ ] **Step 7: main.tsx で origin とトークンを渡す**
 
 ```tsx
@@ -1505,10 +1574,13 @@ test("エディタから実行するとオーバーレイが出る", async ({ pa
 
   // **オーバーレイが実際に出ていること。** `data-jin-fired` を書くのは `jin_render` 1 本で、
   // エディタは 1 つも書かない（`tests/contract/test_editor_contract.py`）。
-  await expect(page.locator("[data-jin-fired]").first()).toBeVisible();
+  // 見方は `debug.spec.ts` と同じ形に揃える（`toHaveCount` で数える）。
+  // この陣は `--model fake` で 1 イベント（`/circles/0/core` の `final`）を出し、
+  // `jin render --trace` は `data-jin-fired="1"` を 1 つ描く（実測）。
+  await expect(page.getByTestId("jin-canvas").locator('[data-jin-fired="1"]')).toHaveCount(1);
 
   // 行の一覧にも届いていること。
-  await expect(page.getByTestId("jin-trace-row").first()).toBeVisible();
+  await expect(page.getByTestId("jin-trace-row")).toHaveCount(1);
 });
 
 test("実行中は二度押しできない", async ({ page }) => {

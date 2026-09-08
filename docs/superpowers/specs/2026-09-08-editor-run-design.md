@@ -77,8 +77,15 @@ SSE のフレーム（`event:` / `data:` / 空行）を自前で読む。
 asyncio によってループの外へ再送出されること（F-S-P2-102）が、サーバごと巻き込む。
 `--resolve` が子プロセス隔離で閉じた危険を、ここで作り直さない。
 
-子プロセスは `[sys.executable, "-m", "jin_cli.main", "run", ...]` で起こす
+子プロセスは `[sys.executable, "-P", "-m", "jin_cli.main", "run", ...]` で起こす
 （`jin_cli` に `__main__.py` は無いが `main.py` に `if __name__ == "__main__": app()` がある）。
+
+**`-P` は必須である。** これが無いと `python -m` は cwd を `sys.path[0]` に置き、それが
+**子の一生の間**続く。CLAUDE.md が明示している「Runner 実行中は cwd が `sys.path` に無い」が
+崩れ、ADK が LLM 要求のたびに遅延 import する未インストールの任意依存（`anthropic` /
+`openai` / `a2a` …）を cwd から解決させる経路が復活する（security review F-S-P2-101。
+「この経路を再び作らない」）。`--resolve` の子も同じ理由で `python -P -m jin_cli.resolver` である。
+`-P` を付けても `jin run` 自身の `extra_sys_path` の窓は効くので、`ref` は従来どおり cwd から解決される。
 **cwd と env は親から継承する。** `jin editor` を起動した人自身の `jin run` と
 `ref` の解決を一致させるためで、cwd を対象ファイルの親へ移すと解決先が CLI と変わる。
 
