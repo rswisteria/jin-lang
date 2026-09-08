@@ -7,6 +7,7 @@ import errno
 import importlib
 import json
 import os
+import re
 import stat
 import sys
 import time
@@ -1257,3 +1258,41 @@ def test_trace_sink_makes_each_line_visible_before_close(tmp_path: Path) -> None
         assert target.read_text(encoding="utf-8").count("\n") == 2
     finally:
         sink.close()
+
+
+# --------------------------------------------------------------------------------------
+# `--version`（Issue #36）
+# --------------------------------------------------------------------------------------
+def test_version_prints_the_installed_version() -> None:
+    """`jin --version` が版を出して exit 0（要件書 §8）。
+
+    要件書 §8 は「`SessionStart` で `jin --version` を確認し、無ければインストール手順を出す」と
+    書いており、プラグインの README と `hooks/check_install.sh` のメッセージも
+    `uv run jin --version` を案内する。**そのとおり打つと動くこと**をここで固定する。
+    """
+    result = run("--version")
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() != ""
+
+
+def test_version_matches_the_package_metadata() -> None:
+    """出す版は**パッケージのメタデータから引く**（文字列を焼き込まない）。
+
+    焼き込むと `pyproject.toml` を上げたときに黙ってずれる。
+    """
+    from importlib.metadata import version as metadata_version
+
+    expected = metadata_version("jin-cli")
+    assert expected in run("--version").output
+
+
+def test_help_mentions_the_version_option() -> None:
+    """`jin --help` に `--version` が出る（`jin --help` が嘘をつかない）。
+
+    **ANSI を剥がしてから見る。** typer は `-` と `-version` を別々に装飾するので、
+    生の出力に `--version` という連続した文字列は現れない（実測）。
+    """
+    result = run("--help")
+    assert result.exit_code == 0
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "--version" in plain

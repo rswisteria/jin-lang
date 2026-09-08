@@ -62,6 +62,10 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 動的 import（`importlib` / `__import__` / `exec` / `eval` / `runpy`）を使うモジュールは `jin_cli/resolver.py` と
 `jin_adk/runtime.py`（`jin run`）の 2 つだけで、`tests/contract/test_packaging_contract.py`
 （`test_dynamic_imports_are_confined_to_the_cli_resolver_and_jin_run`）が厳密一致で固定する。
+**例外は `importlib.metadata` ただ 1 つ**（Issue #36）。読むのは `.dist-info` の METADATA ファイルで
+モジュールを import しないので、走査の `INERT_IMPORTLIB_SUBMODULES` で除いてある
+（`jin --version` が版をここから引く）。**`importlib.util` / `importlib.machinery` をここに足さない。**
+緩和が広がっていないことは `test_the_scan_still_catches_real_dynamic_imports` が固定する。
 
 ### パッケージを足すときのチェックリスト
 
