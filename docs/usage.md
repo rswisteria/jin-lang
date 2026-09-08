@@ -221,7 +221,8 @@ uv run jin build examples/pipeline/pipeline.jin --out /tmp/out
 `<out>/<root の陣名>/agent.py` と `__init__.py`、それに `<out>/.env.example` が出ます。
 `.env.example` には ADK が読む環境変数の名前（Gemini API なら `GOOGLE_API_KEY` と
 `GOOGLE_GENAI_USE_ENTERPRISE`、Vertex AI なら `GOOGLE_CLOUD_PROJECT` 系）が書かれているので、
-これを `.env` にコピーして値を入れれば `adk run <out>/<陣名>` や `adk web <out>` が使えます。
+これを `.env` にコピーして値を入れれば `adk run <out>/<陣名>` や `adk web <out>` で起動できる想定です
+（実モデルでの起動はこのリポジトリでは未検証です。`jin run --model fake` での完走までを確認しています）。
 
 **生成コードは編集しないでください。** `.jin` を直して再生成するのが正しい直し方です。
 
@@ -325,7 +326,7 @@ LLM が生成したファイルには使わないでください。
 `schemas/jin.schema.json` から生成していて、欄の名前はどこにも手書きされていません。
 
 エディタは独自のモデルを持ちません。**ファイルが唯一の状態で**、編集はすべてサーバへ往復します。
-undo / redo もサーバが返した逆操作を積んでいるだけです。だから手で `.jin` を編集しても食い違いません。
+undo / redo もサーバが返した逆操作を積んでいるだけです。
 
 構文エラーの間は、図を消さずに**「直前の正常な版を表示しています」と画面に明示します**。
 黙って古い図を出すことはしません。
@@ -445,4 +446,5 @@ tests/                    spec 突合 / 横断契約 / 診断コードの fixtur
 このガイドで解決しない疑問や、手順が古くなっている箇所は
 [GitHub Issues](https://github.com/rswisteria/jin-lang/issues) へ寄せてください。
 
-Phase 7（ライブ実行 / `import` / MCP / VS Code 拡張）は要件書で「任意」とされており、未実装です。
+`import` / MCP による ops 露出 / VS Code 拡張は、要件書で「任意」とされており未実装です。
+ライブ実行は同じ扱いでしたが、エディタからの fake 実行だけが 4 章のとおり先行して実装されています。
