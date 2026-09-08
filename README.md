@@ -16,6 +16,7 @@ Jinは、AIエージェントの構成と処理の流れを「魔法陣」で表
 
 - [Researcher](examples/researcher/researcher.jin)：ツールや記憶を持ち、別のエージェントを呼び出す構成。
 - [Pipeline](examples/pipeline/pipeline.jin)：順次・並列・繰り返しの処理を組み合わせた構成。
+- [Showcase](examples/showcase/showcase.jin)：描かれる要素 9 種がすべて出る構成。エディタを一通り触るときに。
 
 ## エディタの実行方法
 

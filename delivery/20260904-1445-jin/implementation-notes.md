@@ -2737,3 +2737,36 @@ guards も持たないので `delegate` を足しても常に満たさず**変�
 | `uv run lint-imports` | 3 kept, 0 broken |
 | `jin check examples` / `jin fmt --check examples` | 緑（3 ファイル / error 0 / warning 0） |
 | `sync_plugin_reference.py --check` | 無ドリフト（exit 0） |
+
+### EX-4.2 実機 CI（PR #26・2026-09-07 / マージ後 main・2026-09-08）
+
+| いつ | run | head | 結果 |
+|---|---|---|---|
+| PR（pull_request） | 34116030700 | `52fe6c0` | `test` / `editor` / `plugin` の **3 job success**。`test` は **1425 passed, 1 skipped**・`Contracts: 3 kept, 0 broken.` |
+| マージ後（push/main） | 34175442781 | `e4a312d` | 同じく **3 job success**。`test` は **1425 passed, 1 skipped** |
+
+手元（macOS）の計 1426 = **1421 passed / 2 failed / 3 skipped** と、CI（Linux）の
+**1425 passed / 1 skipped** は合計 1426 で一致する。差の内訳は Phase 6 以降と同じで、
+(a) macOS 固有の 2 失敗が Linux では緑、(b) 手元でスキップされる 3 件のうち 2 件が CI では実行される。
+
+### EX-5. 共有ワーキングツリーでの衝突（記録）
+
+本ランの途中で `README.md` が**別プロセスから全面的に書き換わった**（PR #25 `docs/readme-ux`。
+概要だけを README に残し、詳細を新設の `docs/usage.md` へ分割する変更）。共有ツリーなので
+`git add -A` が相手の書き換えを巻き込み、`git status` では自分の変更と区別が付かなかった。
+
+対応: **相手のファイルには触れず** `git restore --staged README.md` で staging から外し、
+`docs/usage.md` は untracked のまま残して、自分の 8 ファイルだけをコミットした。
+PR 本文と報告に「README への追記はこのコミットに入っていない」と明記した。
+作業のために切り替えていたブランチも、push 後に `main` へ戻して相手の期待する状態に復した。
+
+結果は良い方に転んだ: 相手が分割元にした README は**本ランの追記を含んでいた**ので、
+`docs/usage.md` §「`examples/` の 3 本」には showcase の節（3 本の表 / `--model fake` で
+光るものと光らないもの / `flow.max` と点の密度）が**そのまま入っている**。
+当時「上書きされて消えた」と報告したのは `README.md` 時点の観測で、最終的なマージ結果では
+失われていない。新しい `README.md` の「言語の例」の箇条書きにだけ showcase が無かったので、
+本記録のラウンドで 1 行足した。
+
+**教訓**（既存の申し送りと同じ）: 共有ツリーでは `git add -A` を使わず、
+`git add <自分が触ったファイル>` で列挙する。`git status` に身に覚えのない変更が出たら、
+まず**それが自分のものかを確かめる**（`git diff` の中身を読む）。
