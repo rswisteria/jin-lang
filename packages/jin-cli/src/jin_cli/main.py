@@ -769,7 +769,14 @@ class _LazyTruncateSink:
 
     def write(self, text: str) -> int:
         self._truncate()
-        return self._handle.write(text)
+        written = self._handle.write(text)
+        # **1 行ごとに OS へ渡す。** 既定のブロックバッファのままだと `close()` するまで
+        # トレースが外から 1 バイトも見えない。`jin editor` の実行エンドポイントは
+        # このファイルを tail して SSE に流すので、溜まると「ストリーム」にならない
+        # （`docs/superpowers/specs/2026-09-08-editor-run-design.md` §3.5）。
+        # 代償は書き込みのたびの syscall だけで、トレースの**内容は変わらない**。
+        self._handle.flush()
+        return written
 
     def finish(self) -> None:
         self._truncate()

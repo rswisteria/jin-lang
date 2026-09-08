@@ -1237,3 +1237,23 @@ def test_a_diagnostic_failure_still_says_to_fix_the_diagnostics(tmp_path: Path) 
     assert result.exit_code == 1, result.output
     assert "診断を先に直してください" in result.output, result.output
     assert "失われ" not in result.output, result.output
+
+
+def test_trace_sink_makes_each_line_visible_before_close(tmp_path: Path) -> None:
+    """書いた行が `close()` の前に**外から**読めること。
+
+    `jin editor` の実行エンドポイントはこのファイルを tail して SSE に流す
+    （`docs/superpowers/specs/2026-09-08-editor-run-design.md` §3.5）。
+    バッファに溜まったままだと実行が終わるまで 1 行も出ず「ストリーム」にならない。
+    """
+    from jin_cli.main import _LazyTruncateSink, _open_trace
+
+    target = tmp_path / "t.jsonl"
+    sink = _LazyTruncateSink(_open_trace(target))
+    try:
+        sink.write('{"seq": 1, "kind": "text"}\n')
+        assert target.read_text(encoding="utf-8") == '{"seq": 1, "kind": "text"}\n'
+        sink.write('{"seq": 2, "kind": "text"}\n')
+        assert target.read_text(encoding="utf-8").count("\n") == 2
+    finally:
+        sink.close()
