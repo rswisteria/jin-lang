@@ -1,0 +1,177 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "DocReview",
+  "circles": [
+    {
+      "name": "DocReview",
+      "description": "文章レビュー。基準抽出 → 6 観点の並列チェック → 指摘の検証 → 決定的な OK/NG 判定",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "Profiler",
+          "Checks",
+          "Verifier",
+          "Judge"
+        ]
+      }
+    },
+    {
+      "name": "Profiler",
+      "core": "gemini-3.8-flash",
+      "description": "レビューの基準を先に固定する（superpowers の PLAN_OR_REQUIREMENTS に相当）",
+      "instruction": {
+        "rune": "あなたは文章レビューの前段で、レビュー基準を抽出する担当です。\nユーザーが渡した文章を読み、次を書き出してください。推測した項目には「推定」と明記します。\n1. 想定読者（誰が読むのか）\n2. 読む理由（なぜ読む必要があるのか）\n3. 掲示場所・媒体（どこで読ませるのか）\n4. 読むタイミング（いつ読むのか）\n5. 主題（何について書いてあるのか）\n6. 読者に求めるアクション（具体的な行動が書いてあるか）\n7. 文章全体の文体の傾向（敬体か常体か、文の長さ、見出しの粒度、箇条書きの使い方、表記の癖）\n8. 本文で使われている主要な用語と、その表記のゆれ候補の一覧\n本文の批評はここでは行いません。基準の抽出だけを行ってください。"
+      },
+      "state": [
+        {
+          "name": "profile",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Checks",
+      "description": "6 観点を並列に検査する。互いの結果は見ない（同じ本文と同じ基準だけを見る）",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "FiveW1H",
+          "Volume",
+          "Terminology",
+          "Typos",
+          "Grammar",
+          "Consistency"
+        ]
+      }
+    },
+    {
+      "name": "FiveW1H",
+      "core": "gemini-3.8-flash",
+      "description": "5W1H がブレずに明確か",
+      "instruction": {
+        "rune": "あなたは文章レビューアです。観点は 5W1H の明確さと一貫性だけです。\n基準:\n{profile}\n\nユーザーが渡した本文について、誰が・なぜ・どこで・いつ・何を・どう行動するか、の 6 項目それぞれが本文から一意に読み取れるか、本文の途中で前提が入れ替わっていないかを検査してください。\n指摘は 1 件ずつ、次の項目を持つ JSON オブジェクトとして書き、全体を JSON 配列にまとめて出力してください。\n項目は id（w5h1- を接頭辞にした連番）, axis（固定で w5h1）, severity（Critical / Major / Minor / Suggest のいずれか）, location（該当箇所の引用。20 字以内）, problem（何が問題か）, fix（どう直すか）, evidence（本文中の根拠）です。\n配列の後に、この観点の点数を score: に続けて 0 から 100 の整数で 1 行書いてください。\n指摘が無ければ空の配列と点数だけを出力します。JSON 配列の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "w5h1_findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Volume",
+      "core": "gemini-3.8-flash",
+      "description": "分量が内容に対して冗長・不足でないか",
+      "instruction": {
+        "rune": "あなたは文章レビューアです。観点は分量の適切さだけです。\n基準:\n{profile}\n\n想定読者と掲示場所に照らして、冗長な箇所（同じ内容の繰り返し、読者に不要な前置き）と不足している箇所（アクションに必要な情報の欠落、根拠の欠落）を検査してください。\n指摘は 1 件ずつ、次の項目を持つ JSON オブジェクトとして書き、全体を JSON 配列にまとめて出力してください。\n項目は id（volume- を接頭辞にした連番）, axis（固定で volume）, severity（Critical / Major / Minor / Suggest のいずれか）, location（該当箇所の引用。20 字以内）, problem, fix, evidence です。\n配列の後に、この観点の点数を score: に続けて 0 から 100 の整数で 1 行書いてください。\nJSON 配列の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "volume_findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Terminology",
+      "core": "gemini-3.8-flash",
+      "description": "用語のブレがないか",
+      "instruction": {
+        "rune": "あなたは文章レビューアです。観点は用語の一貫性だけです。\n基準:\n{profile}\n\n基準の用語一覧を手がかりに、同じものを指す語が本文の中で別の表記になっていないか（漢字とかな、略語と正式名、英語表記のゆれ、送り仮名）を検査してください。\n指摘は 1 件ずつ、次の項目を持つ JSON オブジェクトとして書き、全体を JSON 配列にまとめて出力してください。\n項目は id（terminology- を接頭辞にした連番）, axis（固定で terminology）, severity（Critical / Major / Minor / Suggest のいずれか）, location, problem, fix, evidence です。\n配列の後に、この観点の点数を score: に続けて 0 から 100 の整数で 1 行書いてください。\nJSON 配列の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "term_findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Typos",
+      "core": "gemini-3.8-flash",
+      "description": "誤字脱字",
+      "instruction": {
+        "rune": "あなたは文章レビューアです。観点は誤字脱字だけです。文法や文体には触れません。\n基準:\n{profile}\n\n誤変換、脱字、衍字、固有名詞の誤り、数字や日付の転記ミスを検査してください。\n指摘は 1 件ずつ、次の項目を持つ JSON オブジェクトとして書き、全体を JSON 配列にまとめて出力してください。\n項目は id（typo- を接頭辞にした連番）, axis（固定で typo）, severity（Critical / Major / Minor / Suggest のいずれか）, location, problem, fix, evidence です。\n配列の後に、この観点の点数を score: に続けて 0 から 100 の整数で 1 行書いてください。\nJSON 配列の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "typo_findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Grammar",
+      "core": "gemini-3.8-flash",
+      "description": "文法と句読点",
+      "instruction": {
+        "rune": "あなたは文章レビューアです。観点は文法の誤りと句読点の不自然さだけです。誤字脱字には触れません。\n基準:\n{profile}\n\n主語と述語のねじれ、助詞の誤り、修飾関係の曖昧さ、読点の過不足、句点の欠落、敬体と常体の混在を検査してください。\n指摘は 1 件ずつ、次の項目を持つ JSON オブジェクトとして書き、全体を JSON 配列にまとめて出力してください。\n項目は id（grammar- を接頭辞にした連番）, axis（固定で grammar）, severity（Critical / Major / Minor / Suggest のいずれか）, location, problem, fix, evidence です。\n配列の後に、この観点の点数を score: に続けて 0 から 100 の整数で 1 行書いてください。\nJSON 配列の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "grammar_findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Consistency",
+      "core": "gemini-3.8-flash",
+      "description": "文章全体の癖・傾向から外れている箇所",
+      "instruction": {
+        "rune": "あなたは文章レビューアです。観点は文体の一貫性だけです。\n基準:\n{profile}\n\n基準に書かれた文体の傾向（文の長さ、見出しの粒度、箇条書きの使い方、表記の癖）を全体の基準線とみなし、部分的にそこから外れている箇所を検査してください。外れていること自体ではなく、読者の理解を妨げるかどうかで重さを決めてください。\n指摘は 1 件ずつ、次の項目を持つ JSON オブジェクトとして書き、全体を JSON 配列にまとめて出力してください。\n項目は id（consistency- を接頭辞にした連番）, axis（固定で consistency）, severity（Critical / Major / Minor / Suggest のいずれか）, location, problem, fix, evidence です。\n配列の後に、この観点の点数を score: に続けて 0 から 100 の整数で 1 行書いてください。\nJSON 配列の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "style_findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Verifier",
+      "core": "gemini-3.8-flash",
+      "description": "指摘を本文と照合して検証する（superpowers の receiving-code-review に相当）",
+      "instruction": {
+        "rune": "あなたは 6 人のレビューアの指摘を検証する担当です。指摘を鵜呑みにせず、1 件ずつユーザーが渡した本文と照合してください。\n\n5W1H: {w5h1_findings}\n分量: {volume_findings}\n用語: {term_findings}\n誤字脱字: {typo_findings}\n文法: {grammar_findings}\n文体: {style_findings}\n\n手順:\n1. evidence が本文に実在しない指摘、location が本文と一致しない指摘は落とし、落とした理由を dropped に残す\n2. 同じ箇所への重複した指摘は 1 件に統合し、より具体的な fix を採用する\n3. severity を次の定義で付け直す。Critical は読者が誤った行動を取る、または必要なアクションが取れない。Major は読者の理解を妨げるが行動には至れる。Minor は理解は妨げないが品質を下げる。Suggest は任意の改善提案\n4. 各観点の点数を、残った指摘の重さに照らして 0 から 100 に付け直す\n出力は JSON オブジェクト 1 つだけとし、項目は findings（検証を通った指摘の配列。各要素は id, axis, severity, location, problem, fix, evidence を持つ）, dropped（落とした指摘の id と理由の配列）, scores（w5h1, volume, terminology, typo, grammar, consistency の 6 項目を持ち、各値は 0 から 100 の整数）です。\nJSON の前後に説明文を付けないでください。"
+      },
+      "state": [
+        {
+          "name": "findings",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Judge",
+      "core": "gemini-3.8-flash",
+      "description": "OK/NG は LLM が決めない。決定的なルール（Python）に委ね、戻り値をそのまま出す",
+      "instruction": {
+        "rune": "あなたは判定担当です。判定はあなたが行わず、ツール judge に委ねます。\njudge ツールは引数を取りません。検証済みの指摘はツール側がセッション状態から直接読みます。\njudge ツールを 1 回だけ呼び、その戻り値を、一字も変えず、前後に説明文を付けずに、そのまま出力してください。"
+      },
+      "tools": [
+        {
+          "name": "judge",
+          "kind": "tool",
+          "ref": "review.rules:judge"
+        }
+      ],
+      "state": [
+        {
+          "name": "verdict",
+          "type": "str",
+          "out": true
+        }
+      ]
+    }
+  ]
+}
