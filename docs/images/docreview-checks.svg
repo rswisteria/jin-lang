@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+  <defs>
+    <path id="jin-rune-0" d="M 500.000 248.076 C 517.631 248.076 531.924 262.369 531.924 280.000 C 531.924 297.631 517.631 311.924 500.000 311.924 C 482.369 311.924 468.076 297.631 468.076 280.000 C 468.076 262.369 482.369 248.076 500.000 248.076"/>
+    <path id="jin-rune-1" d="M 690.526 358.076 C 708.157 358.076 722.450 372.369 722.450 390.000 C 722.450 407.631 708.157 421.924 690.526 421.924 C 672.894 421.924 658.601 407.631 658.601 390.000 C 658.601 372.369 672.894 358.076 690.526 358.076"/>
+    <path id="jin-rune-2" d="M 690.526 578.076 C 708.157 578.076 722.450 592.369 722.450 610.000 C 722.450 627.631 708.157 641.924 690.526 641.924 C 672.894 641.924 658.601 627.631 658.601 610.000 C 658.601 592.369 672.894 578.076 690.526 578.076"/>
+    <path id="jin-rune-3" d="M 500.000 688.076 C 517.631 688.076 531.924 702.369 531.924 720.000 C 531.924 737.631 517.631 751.924 500.000 751.924 C 482.369 751.924 468.076 737.631 468.076 720.000 C 468.076 702.369 482.369 688.076 500.000 688.076"/>
+    <path id="jin-rune-4" d="M 309.474 578.076 C 327.106 578.076 341.399 592.369 341.399 610.000 C 341.399 627.631 327.106 641.924 309.474 641.924 C 291.843 641.924 277.550 627.631 277.550 610.000 C 277.550 592.369 291.843 578.076 309.474 578.076"/>
+    <path id="jin-rune-5" d="M 309.474 358.076 C 327.106 358.076 341.399 372.369 341.399 390.000 C 341.399 407.631 327.106 421.924 309.474 421.924 C 291.843 421.924 277.550 407.631 277.550 390.000 C 277.550 372.369 291.843 358.076 309.474 358.076"/>
+  </defs>
+  <g data-jin="/circles/2" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <g data-jin="/circles/2/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/3">
+      <circle data-jin="/circles/2/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/3" cx="500.000" cy="280.000" r="86.000"/>
+      <g data-jin="/circles/3" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+        <circle data-jin="/circles/3" data-jin-kind="circle" cx="500.000" cy="280.000" r="31.924"/>
+        <circle data-jin="/circles/3" data-jin-kind="circle" cx="500.000" cy="280.000" r="68.409"/>
+        <circle data-jin="/circles/3/core" data-jin-kind="core" cx="500.000" cy="280.000" r="10.945"/>
+        <path data-jin="/circles/3/state/0" data-jin-kind="state" d="M 504.561 207.030 L 504.561 216.152 L 495.439 216.152 L 495.439 207.030 Z" stroke-width="2.000"/>
+        <text data-jin="/circles/3/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.561">
+          <textPath data-jin="/circles/3/instruction/rune" data-jin-kind="rune" href="#jin-rune-0">あなたは文章レビューアです。観点は 5W1H の明確さと一貫性だけです。 基準: {…</textPath>
+        </text>
+        <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="523.665" cy="277.081" r="1.281" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="521.421" cy="273.502" r="1.205" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="503.312" cy="296.650" r="0.937" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/3/instruction/rune" data-jin-kind="rune" cx="482.566" cy="291.649" r="0.798" stroke="none" fill="#000000"/>
+      </g>
+    </g>
+    <g data-jin="/circles/2/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/4">
+      <circle data-jin="/circles/2/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/4" cx="690.526" cy="390.000" r="86.000"/>
+      <g data-jin="/circles/4" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+        <circle data-jin="/circles/4" data-jin-kind="circle" cx="690.526" cy="390.000" r="31.924"/>
+        <circle data-jin="/circles/4" data-jin-kind="circle" cx="690.526" cy="390.000" r="68.409"/>
+        <circle data-jin="/circles/4/core" data-jin-kind="core" cx="690.526" cy="390.000" r="10.945"/>
+        <path data-jin="/circles/4/state/0" data-jin-kind="state" d="M 695.086 317.030 L 695.086 326.152 L 685.965 326.152 L 685.965 317.030 Z" stroke-width="2.000"/>
+        <text data-jin="/circles/4/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.561">
+          <textPath data-jin="/circles/4/instruction/rune" data-jin-kind="rune" href="#jin-rune-1">あなたは文章レビューアです。観点は分量の適切さだけです。 基準: {profile}…</textPath>
+        </text>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="705.126" cy="406.109" r="1.152" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="681.977" cy="374.006" r="1.556" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="669.434" cy="399.349" r="0.751" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="667.736" cy="392.245" r="0.755" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="695.133" cy="406.651" r="1.277" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="711.446" cy="407.169" r="0.812" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="694.367" cy="412.140" r="1.595" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/4/instruction/rune" data-jin-kind="rune" cx="700.891" cy="403.282" r="1.170" stroke="none" fill="#000000"/>
+      </g>
+    </g>
+    <g data-jin="/circles/2/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/5">
+      <circle data-jin="/circles/2/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/5" cx="690.526" cy="610.000" r="86.000"/>
+      <g data-jin="/circles/5" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+        <circle data-jin="/circles/5" data-jin-kind="circle" cx="690.526" cy="610.000" r="31.924"/>
+        <circle data-jin="/circles/5" data-jin-kind="circle" cx="690.526" cy="610.000" r="68.409"/>
+        <circle data-jin="/circles/5/core" data-jin-kind="core" cx="690.526" cy="610.000" r="10.945"/>
+        <path data-jin="/circles/5/state/0" data-jin-kind="state" d="M 695.086 537.030 L 695.086 546.152 L 685.965 546.152 L 685.965 537.030 Z" stroke-width="2.000"/>
+        <text data-jin="/circles/5/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.561">
+          <textPath data-jin="/circles/5/instruction/rune" data-jin-kind="rune" href="#jin-rune-2">あなたは文章レビューアです。観点は用語の一貫性だけです。 基準: {profile}…</textPath>
+        </text>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="676.970" cy="594.285" r="1.434" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="682.863" cy="627.286" r="0.740" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="667.001" cy="599.572" r="1.531" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="687.272" cy="626.355" r="1.148" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="699.803" cy="593.623" r="1.563" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="672.268" cy="608.653" r="0.801" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/5/instruction/rune" data-jin-kind="rune" cx="708.464" cy="607.339" r="1.427" stroke="none" fill="#000000"/>
+      </g>
+    </g>
+    <g data-jin="/circles/2/flow/steps/3" data-jin-kind="flow-edge" data-jin-ref="/circles/6">
+      <circle data-jin="/circles/2/flow/steps/3" data-jin-kind="flow-edge" data-jin-ref="/circles/6" cx="500.000" cy="720.000" r="86.000"/>
+      <g data-jin="/circles/6" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+        <circle data-jin="/circles/6" data-jin-kind="circle" cx="500.000" cy="720.000" r="31.924"/>
+        <circle data-jin="/circles/6" data-jin-kind="circle" cx="500.000" cy="720.000" r="68.409"/>
+        <circle data-jin="/circles/6/core" data-jin-kind="core" cx="500.000" cy="720.000" r="10.945"/>
+        <path data-jin="/circles/6/state/0" data-jin-kind="state" d="M 504.561 647.030 L 504.561 656.152 L 495.439 656.152 L 495.439 647.030 Z" stroke-width="2.000"/>
+        <text data-jin="/circles/6/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.561">
+          <textPath data-jin="/circles/6/instruction/rune" data-jin-kind="rune" href="#jin-rune-3">あなたは文章レビューアです。観点は誤字脱字だけです。文法や文体には触れません。 基準…</textPath>
+        </text>
+        <circle data-jin="/circles/6/instruction/rune" data-jin-kind="rune" cx="515.644" cy="713.520" r="1.442" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/6/instruction/rune" data-jin-kind="rune" cx="482.116" cy="706.043" r="1.188" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/6/instruction/rune" data-jin-kind="rune" cx="523.187" cy="726.417" r="1.284" stroke="none" fill="#000000"/>
+      </g>
+    </g>
+    <g data-jin="/circles/2/flow/steps/4" data-jin-kind="flow-edge" data-jin-ref="/circles/7">
+      <circle data-jin="/circles/2/flow/steps/4" data-jin-kind="flow-edge" data-jin-ref="/circles/7" cx="309.474" cy="610.000" r="86.000"/>
+      <g data-jin="/circles/7" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+        <circle data-jin="/circles/7" data-jin-kind="circle" cx="309.474" cy="610.000" r="31.924"/>
+        <circle data-jin="/circles/7" data-jin-kind="circle" cx="309.474" cy="610.000" r="68.409"/>
+        <circle data-jin="/circles/7/core" data-jin-kind="core" cx="309.474" cy="610.000" r="10.945"/>
+        <path data-jin="/circles/7/state/0" data-jin-kind="state" d="M 314.035 537.030 L 314.035 546.152 L 304.914 546.152 L 304.914 537.030 Z" stroke-width="2.000"/>
+        <text data-jin="/circles/7/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.561">
+          <textPath data-jin="/circles/7/instruction/rune" data-jin-kind="rune" href="#jin-rune-4">あなたは文章レビューアです。観点は文法の誤りと句読点の不自然さだけです。誤字脱字には…</textPath>
+        </text>
+        <circle data-jin="/circles/7/instruction/rune" data-jin-kind="rune" cx="285.457" cy="614.777" r="1.527" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/7/instruction/rune" data-jin-kind="rune" cx="323.950" cy="620.195" r="1.263" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/7/instruction/rune" data-jin-kind="rune" cx="304.821" cy="626.816" r="0.991" stroke="none" fill="#000000"/>
+      </g>
+    </g>
+    <g data-jin="/circles/2/flow/steps/5" data-jin-kind="flow-edge" data-jin-ref="/circles/8">
+      <circle data-jin="/circles/2/flow/steps/5" data-jin-kind="flow-edge" data-jin-ref="/circles/8" cx="309.474" cy="390.000" r="86.000"/>
+      <g data-jin="/circles/8" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+        <circle data-jin="/circles/8" data-jin-kind="circle" cx="309.474" cy="390.000" r="31.924"/>
+        <circle data-jin="/circles/8" data-jin-kind="circle" cx="309.474" cy="390.000" r="68.409"/>
+        <circle data-jin="/circles/8/core" data-jin-kind="core" cx="309.474" cy="390.000" r="10.945"/>
+        <path data-jin="/circles/8/state/0" data-jin-kind="state" d="M 314.035 317.030 L 314.035 326.152 L 304.914 326.152 L 304.914 317.030 Z" stroke-width="2.000"/>
+        <text data-jin="/circles/8/instruction/rune" data-jin-kind="rune" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.561">
+          <textPath data-jin="/circles/8/instruction/rune" data-jin-kind="rune" href="#jin-rune-5">あなたは文章レビューアです。観点は文体の一貫性だけです。 基準: {profile}…</textPath>
+        </text>
+        <circle data-jin="/circles/8/instruction/rune" data-jin-kind="rune" cx="286.388" cy="388.866" r="1.105" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/8/instruction/rune" data-jin-kind="rune" cx="318.145" cy="409.562" r="1.037" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/8/instruction/rune" data-jin-kind="rune" cx="308.988" cy="370.197" r="1.234" stroke="none" fill="#000000"/>
+        <circle data-jin="/circles/8/instruction/rune" data-jin-kind="rune" cx="292.816" cy="381.615" r="1.520" stroke="none" fill="#000000"/>
+      </g>
+    </g>
+  </g>
+</svg>
