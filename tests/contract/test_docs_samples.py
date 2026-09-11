@@ -16,7 +16,7 @@ from pathlib import Path
 from tests.conftest import child_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-JIN = REPO_ROOT / ".venv" / "bin" / "jin"
+JIN = Path(sys.executable).parent / "jin"  # test_cli_contract と同じ引き方
 GUIDE = REPO_ROOT / "docs" / "document-review-agent.md"
 SAMPLE = REPO_ROOT / "docs" / "samples" / "docreview"
 JIN_FILE = SAMPLE / "docreview.jin"
