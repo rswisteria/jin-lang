@@ -1,450 +1,527 @@
-# Jin 詳細ガイド
+# Jin ガイド：魔法陣で作るビジュアル AI エージェント
 
 [README に戻る](../README.md)
 
-## このガイドについて
+Jin（陣）は、AI エージェントの構成と連携フローを**「魔法陣」という幾何学的な図**で設計・実行できるビジュアルプログラミング言語です。
 
-README のセットアップ（`uv sync` とエディタのビルド）を終えた人が、サンプルを動かし、自分の陣を書き、
-プロダクトへ組み込むまでを扱います。読者に想定しているのは、JSON と Python のコマンドラインに
-抵抗がない Web エンジニアです。Google ADK の知識は前提にしません。
-
-**1〜6 章は最初に順に読んでください。** 7 章以降は、必要になったときに引く参照部です。
-コマンドとパスは、特記がない限りリポジトリのルートを基準にしています。
-
-| | 章 | 読むタイミング |
-|---|---|---|
-| 通読 | 1. サンプルを動かす | 最初 |
-| 通読 | 2. 自分の陣を書く | 最初 |
-| 通読 | 3. 魔法陣の語彙 | 最初 |
-| 通読 | 4. 実行を追いかける | 最初 |
-| 通読 | 5. プロダクトへ組み込む | 最初 |
-| 通読 | 6. 安全上の注意 | **最初（読み飛ばさない）** |
-| 参照 | 7. コマンド逆引き | 手が止まったとき |
-| 参照 | 8. エディタと言語サーバの詳細 | 開発環境を整えるとき |
-| 参照 | 9. サンプル 3 本 | 書き方に迷ったとき |
-| 参照 | 10. 用語集 / 11. リポジトリの構成 / 12. さらに詳しく | 随時 |
+複数のエージェントが協調するパイプラインやループ処理は、コードだけでは依存関係やデータの流れが見えにくくなりがちです。Jin では、プロンプト、ツール、状態（State）、そして制御フローをグラフィカルに可視化し、ブラウザ上で直感的に編集・デバッグできます。
 
 ---
 
-## 1. サンプルを動かす — API キーなしで魔法陣が出る
+## このガイドのゴールと進め方
 
-まずは動くものを見ます。ここで使う 3 つのコマンドは、どれもモデルを呼ばないので API キーが要りません。
+このガイドのゴールは、**「エディタを立ち上げて魔法陣に触れ、自分だけのマルチエージェントパイプラインを作って動かせるようになること」** です。
 
-### 1-1. 魔法陣を SVG に描く
+Web 制作の基礎（JSON / HTML / CLI 操作）や、計算機科学の初歩（グラフ構造 / 状態遷移 / 関数呼び出し）があれば、AI エージェントフレームワーク（Google ADK など）の事前知識は不要です。
 
-```bash
-uv run jin render examples/pipeline/pipeline.jin -o /tmp/pipeline.svg
+必要な情報が段階的に手に入るよう（**Progressive Disclosure**）、以下のステップで進めます。
+
+```mermaid
+flowchart LR
+    Step1["1. 触ってみる<br>(3分クイックスタート)"] --> Step2["2. 仕組みを知る<br>(図とコードの対応)"]
+    Step2 --> Step3["3. 作ってみる<br>(自作パイプライン)"]
+    Step3 --> Step4["4. 追いかける<br>(ビジュアルデバッグ)"]
+    Step4 --> Step5["5. 組み込む<br>(ADK・実運用)"]
+    Step5 --> Step6["6. 安全ガイド<br>(コード実行リスク)"]
 ```
 
-`.jin` を読んで SVG を 1 枚書き出します。ブラウザで開くと、陣（同心円）が並んだ図が出ます。
-`-o` を省くと標準出力へ流れます。
+| セクション | 内容 | 対象 |
+|---|---|---|
+| [1. まずは触ってみよう](#1-まずは触ってみよう--3分クイックスタート) | サンプルをブラウザで開き、画面上で動かす（API キー不要） | まず体験したいとき |
+| [2. 魔法陣の仕組みを理解する](#2-魔法陣の仕組みを理解する--図とコードの対応関係) | 図の各パーツがプログラムの何に相当するかを整理する | 概念を掴みたいとき |
+| [3. 作ってみよう：自作パイプライン](#3-作ってみよう--自作パイプラインのハンズオン) | 2 つのエージェントをつなぐパイプラインを自作・実行する | **実際に作りたいとき** |
+| [4. 実行を追いかける：ビジュアルデバッグ](#4-実行を追いかける--トレースとビジュアルデバッグ) | 実行履歴（トレース）を魔法陣に重ねてステップ再生する | 動作確認・デバッグ |
+| [5. プロダクトへ組み込む](#5-プロダクトへ組み込む--python-コード生成と実モデル実行) | Python / Google ADK プロジェクトとして書き出す | 実サービスへ載せるとき |
+| [6. 安全上の注意](#6-安全上の注意--任意コード実行のリスクを避ける) | `ref` 解決と任意コード実行のリスク管理 | 必須の安全知識 |
+| [7〜12. リファレンス・詳細](#7-コマンド逆引き) | コマンド逆引き、LSP 仕様、付属サンプル、用語集 | 辞書・深掘り用 |
 
-同じ `.jin` からは、いつ・どの環境で実行しても**バイト単位で同じ SVG** が出ます。
-乱数も時刻も使わないので、生成した SVG をリポジトリに置いて差分をレビューできます。
+---
 
-### 1-2. ブラウザで開いて触る
+## 1. まずは触ってみよう — 3分クイックスタート
+
+まずは動くものを見てみましょう。**LLM の API キーは不要**です。
+
+### 1-1. エディタを起動する
+
+ターミナルで次のコマンドを実行します（初回は [README](../README.md) のセットアップが完了している必要があります）。
 
 ```bash
 uv run jin editor examples/pipeline/pipeline.jin
 ```
 
-ブラウザが開き、魔法陣が表示されます。要素をクリックして選ぶと右のプロパティパネルに値が出て、
-編集して「保存」を押すと `.jin` に書き戻ります。終了は `Ctrl+C` です。
+ブラウザが自動的に開き、同心円が並んだ「魔法陣」が表示されます。
 
-初回は `apps/editor` のビルドが要ります（README の手順）。ビルドしていないとエディタは起動しません。
-ブラウザが自動で開かない場合は `--no-browser` を付け、ターミナルに出た URL を自分で開いてください。
+> [!TIP]
+> ブラウザが自動で開かない場合は、ターミナルに表示された URL（例: `http://localhost:...`）を手動で開いてください。終了するときはターミナルで `Ctrl + C` を押します。
 
-### 1-3. エージェントとして実行する
+#### 画面の見方
+
+![エディタの編集画面（Pipeline サンプル）](images/editor-pipeline-edit.png)
+
+- **上部ツールバー**: モード切替（編集／デバッグ）、保存、元に戻す（Undo）、要素の追加などの操作を行います。
+- **中央キャンバス**: 魔法陣（エージェントと制御フローの有向グラフ）。拡大・縮小やドラッグ移動が可能です。
+- **右側プロパティパネル**: キャンバス上の要素（円や核）をクリックすると、プロンプト、モデル名、入出力状態（State）が表示され、その場で直接編集できます。
+
+### 1-2. エディタ上で fake 実行してみる
+
+画面上部のツールバーにあるモードを**「編集」から「デバッグ（トレースリプレイ）」**に切り替えてみましょう。
+
+1. 入力欄に任意のメッセージ（例: `go` や `記事を書いて`）を入力します。
+2. **「fake モデルで実行」** ボタンを押します。
+3. 魔法陣の各ノードが順に**朱色（赤色）に光り**、処理が進む様子がアニメーション表示されます。
+4. 下部のスライダ（スクラバ）を動かすと、各ステップでどのエージェントが何を出力したかを振り返ることができます。
+
+![エディタのデバッグ画面（fake 実行結果のリプレイ）](images/editor-pipeline-run.png)
+
+### 1-3. 魔法陣を SVG 画像として書き出してみる
+
+エディタだけでなく、CLI から静的な画像（SVG）としても書き出せます。
 
 ```bash
-uv run jin run examples/pipeline/pipeline.jin "go" --model fake
+uv run jin render examples/pipeline/pipeline.jin -o pipeline.svg
 ```
 
-`--model fake` は、モデル呼び出しを固定応答（`fake-response`）に差し替えるオプションです。
-ネットワークにも API キーにも触れずに、陣のつながり方だけを確かめられます。
-上のコマンドは 11 個のイベントを出して終わります。
-
-> **`jin run` は `.jin` に書かれた Python モジュールを import します。**
-> import はそのモジュールを実行することなので、中身を確認していない `.jin` には使わないでください。
-> `--model fake` でもこれは変わりません。詳しくは [6 章](#6-安全上の注意--任意コードを実行するコマンドがある)。
+書き出された `pipeline.svg` をブラウザで開いてみてください。
+Jin のレンダラは、乱数や現在時刻を一切使わない**決定的（Deterministic）**な設計になっています。そのため、同じ `.jin` ファイルからは**環境を問わずバイト単位で完全一致する SVG** が生成され、Git で図の差分を正確にコードレビューできます。
 
 ---
 
-## 2. 自分の陣を書く — `jin check` が通れば動く
+## 2. 魔法陣の仕組みを理解する — 図とコードの対応関係
 
-`.jin` は JSON です。エディタで組み立てても、テキストエディタで直接書いても構いません。
-ここではいちばん小さい陣を手で書いて、動くまでの一巡を確認します。
+「魔法陣」というファンタジーな見た目をしていますが、その実態は**エージェントの有向グラフ（DAG / 状態遷移機械）を幾何学的に表現した明確な構文体系**です。
 
-### 2-1. 1 つの陣を書く
+`.jin` ファイルの実体はシンプルな **JSON** です。エディタでの視覚的編集と、テキストエディタでの JSON 直接編集は完全に相互同期します。
 
-`hello.jin` として保存します。
+### 2-1. 概念の対応表
+
+Web 開発のコンポーネントや計算機科学の概念と、Jin の魔法陣の語彙は以下のように 1 対 1 で対応しています。
+
+| 魔法陣の語彙 | 図での見た目 | プログラミングの概念 | JSON のキー | Google ADK クラス |
+|---|---|---|---|---|
+| **陣（Circle）** | 同心円 | エージェント / ワークフロー単位 | `circles[]` | `LlmAgent` / ワークフロー |
+| **核（Core）** | 円の中心核 | 使用する LLM モデル（Gemini 等） | `core` | `LlmAgent.model` |
+| **指示（Rune）** | 指示環の文字列 | システムプロンプト / 指示文 | `instruction.rune` | `LlmAgent.instruction` |
+| **紋（Tool）** | 道具環のアイコン | ツール（関数 / 外部 API 呼び出し） | `tools[]` | `FunctionTool` 等 |
+| **記憶（State）** | 記憶環の四角 | 共有ステート / 入出力コンテキスト | `state[]` | `session.state` |
+| **弦（Flow）** | 円同士を結ぶ線 | 制御フロー（順次・並列・ループ） | `flow` | `SequentialAgent` 等 |
+| **委譲（Delegate）** | 内側の破線矢印 | 他エージェントへの自律ルーティング | `delegate[]` | `LlmAgent.sub_agents` |
+| **境界環（Boundary）**| 円の外周 | ライフサイクルガード / 承認待ち | `boundary` | `before_/after_*_callback` |
+| **最外の陣（Root）** | 全体を包む陣 | プログラムのエントリポイント | `root` | `root_agent` |
+
+### 2-2. 陣の 2 つの役割（核あり / 核なし）
+
+Jin の陣には、用途に応じて明確な 2 種類が存在します。
+
+```mermaid
+classDiagram
+    class 陣_Circle {
+        +String name
+    }
+    class 核あり陣_エージェント {
+        +String core "モデル名 (例: gemini-2.5-flash)"
+        +Instruction instruction "システムプロンプト"
+        +List tools "関数呼び出し"
+        +List state "入出力ステート"
+    }
+    class 核なし陣_フロー制御 {
+        +Flow flow "kind: sequence | parallel | loop"
+        +List steps "実行する子陣のリスト"
+    }
+    陣_Circle <|-- 核あり陣_エージェント : いずれか一方のみ
+    陣_Circle <|-- 核なし陣_フロー制御 : いずれか一方のみ
+```
+
+1. **核あり陣（LLM エージェント）**:
+   `core`（モデル名）と `instruction`（プロンプト）を持ちます。入力を受け取り、思考してツールを呼び出したりテキストを出力します。
+2. **核なし陣（制御フロー）**:
+   `core` を持たず、代わりに `flow`（制御構造）を持ちます。子エージェントたちを「順番に動かす（`sequence`）」「並列に動かす（`parallel`）」「条件を満たすまで繰り返す（`loop`）」といったオーケストレーションを担当します。
+
+> [!NOTE]
+> 1 つの陣が `core` と `flow` を両方持つことや、どちらも持たないことは文法違反（診断エラー）になります。エージェント（実行者）とフロー（指揮者）の関心は明確に分離されます。
+
+---
+
+## 3. 作ってみよう — 自作パイプラインのハンズオン
+
+ここからは実際に、自分でマルチエージェントパイプラインを作ってみましょう。
+作るものは**「記事作成パイプライン」**です。
+
+1. **Drafter（執筆者）**: お題を受け取り、初稿（`draft`）を書く。
+2. **Polisher（校正者）**: 初稿（`draft`）を読み、洗練された記事（`article`）に仕上げる。
+3. **ArticlePipeline（親フロー）**: 上記 2 つを順番（`sequence`）に実行する。
+
+```mermaid
+flowchart LR
+    User["利用者入力<br>(お題)"] --> Drafter
+    subgraph ArticlePipeline ["ArticlePipeline (sequence)"]
+        Drafter["Drafter<br>初稿を作成"] -- State: draft --> Polisher["Polisher<br>記事を推敲"]
+    end
+    Polisher --> Result["State: article<br>(完成記事)"]
+```
+
+### ステップ 3-1: `.jin` ファイルを作成する
+
+プロジェクトルートに `article_pipeline.jin` を新規作成し、以下の JSON を貼り付けます。
 
 ```json
 {
   "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
   "version": 1,
-  "root": "Greeter",
+  "root": "ArticlePipeline",
   "circles": [
     {
-      "name": "Greeter",
+      "name": "ArticlePipeline",
+      "flow": {
+        "kind": "sequence",
+        "steps": [
+          "Drafter",
+          "Polisher"
+        ]
+      }
+    },
+    {
+      "name": "Drafter",
       "core": "gemini-2.5-flash",
-      "description": "あいさつを返す陣",
-      "instruction": { "rune": "利用者にあいさつを返す。" },
-      "state": [{ "name": "greeting", "type": "string", "out": true }]
+      "description": "お題から初稿を書くエージェント",
+      "instruction": {
+        "rune": "与えられたお題について、構成案と初稿を作成してください。"
+      },
+      "state": [
+        {
+          "name": "draft",
+          "type": "str",
+          "out": true
+        }
+      ]
+    },
+    {
+      "name": "Polisher",
+      "core": "gemini-2.5-flash",
+      "description": "初稿を推敲して完成させるエージェント",
+      "instruction": {
+        "rune": "以下の初稿を校正し、魅力的なWeb記事として完成させてください。\n\n初稿:\n{draft}"
+      },
+      "state": [
+        {
+          "name": "article",
+          "type": "str",
+          "out": true
+        }
+      ]
     }
   ]
 }
 ```
 
-`circles` が陣の配列、`root` がエントリポイントの陣の名前です。`core` にモデル名を書くと
-その陣は LLM エージェントになり、`instruction.rune` がそのままシステム指示になります。
+#### ポイント：State によるデータのバトンパス
+- `Drafter` の `state` に `"name": "draft", "out": true` が宣言されています。これは「このエージェントの出力が `draft` というキーに書き込まれる」という意味です。
+- `Polisher` の `instruction.rune` の中で `{draft}` と書くことで、前段のエージェントが出力した内容をプロンプトに変数値として注入できます。
 
-### 2-2. 診断で直す
+### ステップ 3-2: 構文と型をチェックする（`jin check`）
 
-```bash
-uv run jin check hello.jin
-```
-
-`.jin` を JSON 構文 → スキーマ → 意味の順に検査します。error が 1 件でもあれば exit 1 なので、
-CI にそのまま置けます。指摘は行と列と診断コードつきで出ます。
-
-```
-hello.jin:4:11: error JIN060: root が指す circle 'Greetr' は定義されていません
-  hint: 近い名前: Greeter
-  pointer: /root
-```
-
-`--json` を付けると、エディタや LSP が受け取るのと同じ形の JSON で出ます。
-
-### 2-3. 正準形に整える
+作成したファイルが正しいか、CLI の診断ツールで静的チェックします。
 
 ```bash
-uv run jin fmt hello.jin
+uv run jin check article_pipeline.jin
 ```
 
-キーの並び順とインデントを正準形（このプロジェクトで唯一正しい書式）に揃えます。
-`--check` を付けると書き換えずに差分の有無だけを見て、ずれていれば exit 1 になります。
-エディタの「保存」も同じ正準形を書くので、手書きとエディタが交互でも差分が暴れません。
+何もエラーが出ずに終了すれば合格です！
 
-### 2-4. 動かす
+もしタイポや未定義の参照があると、コンパイラのように親切なエラーと修正ヒントが出ます。
+（例: `steps` の名前に打ち間違いがある場合）:
+```text
+article_pipeline.jin:11:11: error JIN031: flow 'ArticlePipeline' の step 'Draftr' は定義されていません
+  hint: 近い名前: Drafter
+  pointer: /circles/0/flow/steps/0
+```
+
+### ステップ 3-3: 正準形に整形する（`jin fmt`）
+
+コードのインデントやキーの並び順を、プロジェクト標準の「正準形（Canonical Format）」に整えます。
 
 ```bash
-uv run jin run hello.jin "こんにちは" --model fake
+uv run jin fmt article_pipeline.jin
 ```
 
-1 イベント出て終われば通っています。実際のモデルで動かすときは `--model` を外し、
-`core` に書いたモデルの API キーを環境変数で渡してください。
+> [!TIP]
+> `jin fmt` はチーム開発でフォーマット差分を出さないための公式フォーマッタです。エディタで「保存」ボタンを押した際にも自動的にこの正準形でファイルへ書き戻されます。
+
+### ステップ 3-4: エディタで開いてビジュアルに編集してみる
+
+作成したファイルをビジュアルエディタで開いてみましょう。
+
+```bash
+uv run jin editor article_pipeline.jin
+```
+
+ブラウザにあなたの作った魔法陣が表示されます！
+
+![自作パイプライン（ArticlePipeline）のエディタ画面](images/editor-article-pipeline.png)
+
+- 外側の円が親の `ArticlePipeline`（順次実行フロー）、内部の `Drafter` と `Polisher` が矢印で直線的につながっていることが視覚的に確認できます。
+- `Polisher` をクリックし、右パネルの「プロンプト（Rune）」を「**Web制作の初学者に向けてわかりやすく解説してください。**」などと書き換えて「保存」を押してみてください。
+- 手元の `article_pipeline.jin` をテキストエディタで見ると、GUI で行った変更がそのまま JSON に反映されていることがわかります。
+
+### ステップ 3-5: 実行してみる（fake モデル）
+
+作成したパイプラインを手元で動かしてみましょう。まずは API キー不要の `--model fake` で全体の配線を検証します。
+
+```bash
+uv run jin run article_pipeline.jin "Webアクセシビリティの重要性" --model fake
+```
+
+ターミナルに各エージェントのイベントが順番に出力され、`Drafter` → `Polisher` と処理がリレーされて終了すれば成功です！
 
 ---
 
-## 3. 魔法陣の語彙 — JSON のキーと図と ADK は 1 対 1 で対応する
+## 4. 実行を追いかける — トレースとビジュアルデバッグ
 
-Jin の用語（陣・核・紋…）は飾りではなく、JSON のキーと ADK のクラスに機械的に対応しています。
-図の中で見えているものが、そのまま JSON のどこで、実行時に何になるかは次の表で引けます。
+AI エージェントの実行は非同期で分岐も多く、「いまどのエージェントが、どのようなデータを受け取って動いているのか」を追うのが困難になりがちです。
+Jin では、**実行履歴（トレース）を魔法陣の上に重ねて可視化**できます。
 
-| JSON のキー | 図に出るもの | 意味 | ADK 対応 |
-|---|---|---|---|
-| `circles[]` | 陣（同心円） | エージェント 1 個、またはその入れ物 | `LlmAgent` / workflow agent |
-| `core` | 核（中心） | 使うモデル | `LlmAgent.model` |
-| `instruction.rune` | 指示環の文字列 | 指示テキスト | `LlmAgent.instruction` |
-| `tools[]` | 道具環の紋 | ツール（`tool` / `builtin` / `summon`） | `FunctionTool` / 組み込み / `AgentTool` |
-| `delegate[]` | 境界環内側の小円と破線 | 他の陣への委譲 | `LlmAgent.sub_agents` |
-| `state[]` | 記憶環の四角 | セッション状態の宣言 | `session.state` / `output_key` |
-| `flow.kind = sequence` | 開いた弦列 | 順番に実行 | `SequentialAgent` |
-| `flow.kind = parallel` | 弦なしの対称配置 | 並列に実行 | `ParallelAgent` |
-| `flow.kind = loop` | 閉じた多角形 | 繰り返す | `LoopAgent` |
-| `boundary.guards[]` | 境界環の刻印 | 前後に挟むコールバック | `before_/after_*_callback` |
-| `boundary.await[]` | 境界環の欠け | 人の介入を待つ点 | `LongRunningFunctionTool` |
-| `root` | 最外の陣 | エントリポイント | `root_agent` |
+### 4-1. トレースログを記録する
 
-陣は 2 種類あります。`core` を持つ陣（**核あり**）は LLM エージェントで、`flow` だけを持つ陣（**核なし**）は
-他の陣を順次・並列・繰り返しで束ねる制御構造です。両方持つ、あるいは両方持たないのは診断エラーです。
+`jin run` に `--trace` オプションを渡すと、実行時のイベントが JSONL 形式で記録されます。
 
-キーの全一覧と細かい規則は [`docs/spec/model.md`](spec/model.md)、ADK 側の引数まで含む対応は
-[`docs/spec/adk-mapping.md`](spec/adk-mapping.md) にあります。
-`uv run jin schema` で JSON Schema を取り出せば、手元のエディタで補完も効きます。
+```bash
+uv run jin run article_pipeline.jin "Webアクセシビリティの重要性" \
+  --model fake \
+  --trace /tmp/article_trace.jsonl
+```
+
+生成されたトレースファイル（1 行 1 イベント）には、発火した要素の **JSON Pointer**（例: `/circles/1`）が記録されています。これが図上のノードとイベントを紐付けるキーになります。
+
+### 4-2. エディタ上でタイムトラベル再生する
+
+`jin editor` を起動し、ツールバーの**「デバッグ（トレースリプレイ）」**を開きます。
+
+1. 「トレース（JSONL）」ファイル選択で、先ほど保存した `/tmp/article_trace.jsonl` を選びます。
+2. 画面下部にタイムラインスクラバが現れます。
+3. スライダを動かすと、**そのステップまでに発火した陣や接続線が朱色に点灯**します。
+4. イベントリストから特定のイベントをクリックすると、その瞬間の入出力データやプロンプトの展開結果が右パネルに表示されます。
+
+```text
+[タイムライン] ───●───────────────────▶ (Step 2: Drafter 完了)
+                      ↓
+              [魔法陣キャンバス]
+              ・Drafter が朱色に光る
+              ・右パネルに入力と出力 state (draft) が表示される
+```
+
+### 4-3. fake モデルで確認できること・できないこと
+
+| 検証できること（API キー不要） | 実モデルが必要なこと |
+|---|---|
+| 陣の順序やフロー（順次・並列・ループ）の遷移 | LLM による自然言語の生成クオリティ |
+| State の受け渡しキーが整合しているか | LLM の判断による動的なツール呼び出し（紋の発火） |
+| ループの終了条件（`exit`）が正しく評価されるか | LLM による動的な委譲（Delegate）の判断 |
+
+> [!TIP]
+> 開発時はまず `--model fake` でパイプラインの結合テストを済ませ、構造のバグを潰してから実モデルへ進むのが最も効率的でお金もかからないアプローチです。
 
 ---
 
-## 4. 実行を追いかける — トレースを図に重ねる
+## 5. プロダクトへ組み込む — Python コード生成と実モデル実行
 
-どの陣がどの順で動いたかは、実行の記録（トレース）を魔法陣に重ねて確認します。
+完成した魔法陣は、実際の Python アプリケーションやバックエンドサービスに組み込むことができます。
 
-### 4-1. トレースを取る
+### 5-1. 実モデル（Gemini 等）で動かす
 
-```bash
-uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl
-```
-
-`--trace` を付けると、1 イベント 1 行の JSONL が書かれます（パーミッション 0600）。
-各行には発火した要素の JSON Pointer が入っていて、これが図と結びつく鍵になります。
-
-### 4-2. エディタで再生する
-
-`jin editor` を開き、ツールバーの「デバッグ（トレースリプレイ）」に切り替えます。
-できることは 2 つです。
-
-- **その場で走らせる。** 「実行（最初の利用者メッセージ）」にメッセージを入れて「fake モデルで実行」を押すと、
-  イベントが流れてきます。走るのは**ディスク上のファイル**なので、編集した内容を反映するには
-  先に「保存」を押してください（実行が自動で保存することはありません）
-- **記録したファイルを読む。** 「トレース（`jin run --trace` の JSONL）」で手元の JSONL を選びます
-
-どちらの場合も、タイムラインのスクラバを動かすと、その位置までに発火した要素が図の上で朱色に光ります。
-イベントを選べば入出力がそのまま出ます。要素を選んで絞り込めば、その紋で発火した行だけを追えます。
-編集モードとは同じ図・同じ選択を共有していて、編集してもトレースは消えません。
-
-### 4-3. `--model fake` で光らないもの
-
-`FakeLlm` は固定文字列を返すだけで関数呼び出しを行いません。そのため**核と `flow.exit` しか光りません**。
-紋（ツール呼び出し）・護符・保留・委譲が発火する様子は、実際のモデルでないと確認できません。
-逆に言えば、陣の並びと制御構造の検証は API キーなしで最後まで通せます。
-
-CLI だけで重ねることもできます。
+本物の LLM で動かすには、モデルの API キーを環境変数にセットし、`--model fake` を外して実行します。
 
 ```bash
-uv run jin render examples/pipeline/pipeline.jin --trace /tmp/t.jsonl --upto 5 -o /tmp/at5.svg
+# Gemini API キーを設定
+export GOOGLE_API_KEY="your-gemini-api-key"
+
+# 実モデルでパイプラインを実行
+uv run jin run article_pipeline.jin "Webアクセシビリティの重要性"
 ```
 
-`--upto` を増やすと光る要素は増えるだけで、減ることはありません。
+### 5-2. Google ADK プロジェクトとしてコード生成する（`jin build`）
+
+Jin は単なるおもちゃのエディタではありません。`.jin` ファイルから **Google ADK（Agent Development Kit）に完全準拠した本番用 Python コード** をワンコマンドで書き出せます。
+
+```bash
+uv run jin build article_pipeline.jin --out ./dist
+```
+
+`./dist` ディレクトリに以下のファイルが生成されます：
+- `ArticlePipeline/agent.py`: ADK の `LlmAgent` や `SequentialAgent` を組み合わせた実行可能コード
+- `ArticlePipeline/__init__.py`: パッケージ定義
+- `.env.example`: 必要な環境変数の一覧
+
+これで、標準的な ADK の実行コマンド（`adk run ./dist/ArticlePipeline` や `adk web ./dist`）を使って、Web API やチャット UI のバックエンドとしてそのまま配備できます。
+
+> [!IMPORTANT]
+> **生成された Python コード（`agent.py`）は直接編集しないでください。**
+> 仕様の変更やプロンプトの調整は必ず元の `.jin` ファイル（またはビジュアルエディタ）で行い、再ビルドします。`.jin` を**唯一の信頼できる情報源（Single Source of Truth）**として保つためです。
 
 ---
 
-## 5. プロダクトへ組み込む — `jin build` が ADK プロジェクトを書き出す
+## 6. 安全上の注意 — 任意コード実行のリスクを避ける
 
-ここまでは `jin run` で動かしてきましたが、実際のプロダクトに載せるときは
-Python のプロジェクトとして書き出し、ADK の標準的な起動方法（`adk run` / `adk web`）に乗せます。
+Jin は強力なツール連携機能を備えており、`.jin` ファイル内に Python の関数を指定（`ref` キー: `module.path:callable`）してカスタムツールやガードを呼び出すことができます。
 
-```bash
-uv run jin build examples/pipeline/pipeline.jin --out /tmp/out
-```
+これに伴い、**セキュリティ上必ず守るべきルール**があります。
 
-`<out>/<root の陣名>/agent.py` と `__init__.py`、それに `<out>/.env.example` が出ます。
-`.env.example` には ADK が読む環境変数の名前（Gemini API なら `GOOGLE_API_KEY` と
-`GOOGLE_GENAI_USE_ENTERPRISE`、Vertex AI なら `GOOGLE_CLOUD_PROJECT` 系）が書かれているので、
-これを `.env` にコピーして値を入れれば `adk run <out>/<陣名>` や `adk web <out>` で起動できる想定です
-（実モデルでの起動はこのリポジトリでは未検証です。`jin run --model fake` での完走までを確認しています）。
+### 基本原則：信頼できない `.jin` ファイルは実行しない
 
-**生成コードは編集しないでください。** `.jin` を直して再生成するのが正しい直し方です。
+Python では、モジュールを `import` すると**そのモジュールのトップレベルにあるコードが即座に実行されます**。
+悪意を持って作成された `.jin` ファイルを不用意に実行すると、あなたのアカウントの権限で任意のコードが実行されてしまう危険性があります。
 
-つまずきやすい点を 2 つ。
+> [!CAUTION]
+> **人から受け取ったファイル、出所不明のファイル、LLM が自動生成した未確認の `.jin` ファイル**に対して、以下のコマンドを安易に実行しないでください。
 
-- **`ref` を持つ `.jin` の生成物は、`adk run` 単体では動かないことがあります。**
-  `examples/researcher` がそうで、理由は 2 つあります。`ref` が指す `research.tools` /
-  `research.guards` はこのリポジトリに実体がないこと（テストは `tests/fixtures/stubs/` の
-  スタブを `PYTHONPATH` で渡しています）。もう 1 つは、指示文が自分の出力 `{findings}` を
-  参照しているため、初回ターンで ADK が未設定の state 参照として `KeyError` を出すことです。
-  `jin run` は宣言済みの state を空で初期化してから実行するので通ります
-- **トレースの JSON Pointer を付けるのは `jin run` です。** 生成物を `adk run` で単体実行しても、
-  図と結びつく pointer は付きません
-
----
-
-## 6. 安全上の注意 — 任意コードを実行するコマンドがある
-
-Jin のいくつかのコマンドは、`.jin` に書かれた `ref`（`module.path:callable`）のモジュールを
-**実際に import します**。Python の import はそのモジュールのトップレベルを実行するので、これは
-`.jin` を書いた相手に、あなたの権限で任意のコードを実行させることと同じです。
-
-**原則: 中身を自分で確認した `.jin` にだけ使う。** 人から受け取ったファイル、CI が自動取得したファイル、
-LLM が生成したファイルには使わないでください。
-
-| コマンド | 何が起きるか | 守ること |
+| コマンド | コード実行のタイミングと内容 | 安全のためのルール |
 |---|---|---|
-| `jin check --resolve` | `ref` のモジュールを import して JIN040 を判定する | `--resolve` を付けなければ import は一切起きない。他の診断は全部出る |
-| `jin run` | 生成コードを一時ディレクトリに書いて import し、その生成コードが `ref` を import する | `--model fake` でも import は起きる。信頼しないディレクトリを作業ディレクトリにして実行しない |
-| `jin lsp --ws PORT` | ローカルに WebSocket を開く。同時に開いている任意の Web ページから接続できる | ファイル読み書き（`jin/open` / `jin/save`）は `--root` を明示したときだけ有効になる |
-| `jin editor <file>` | 上の ws に加えて、ブラウザから実行を起こす口（`POST /run`）も開く | 信頼しないディレクトリの `.jin` を開かない |
-
-### それぞれの防御と、残っているリスク
-
-`jin check --resolve` の import は `ref` 1 件ごとに子プロセスで行い、30 秒でタイムアウトします。
-1 つ目のファイルの `ref` が診断器を差し替えて 2 つ目の診断を消す、といったファイル間の汚染は
-親プロセスに及びません。ハングもタイムアウトも JIN040 として報告されます。ただし
-**子プロセスはあなたと同じ権限で走る**ので、任意コード実行そのものが消えるわけではありません。
-
-`jin run` は、作業ディレクトリを `sys.path` に足すのを**生成コードの import の間だけ**に限り、
-終わったら必ず外します。エージェントの実行中は作業ディレクトリを見ません。それでも import の窓の間は、
-作業ディレクトリのモジュールが実行されうる点は残ります。`ref` 先の関数が実行時に遅延 import する名前は
-作業ディレクトリからは解決できないので、`PYTHONPATH` で渡してください。
-
-`jin lsp --ws` の `jin/open` / `jin/save` は 4 段で閉じてあります。既定で無効（`--root` が要る）、
-起動トークンの一致、`--root` 配下の `.jin` に限定、書き先が symlink なら拒否。
-残っているのは Origin ヘッダを見ていない点です。
-
-`jin editor` は `--root` を書かせずに同じ ws を開きます（範囲は対象ファイルの親ディレクトリだけ）。
-起動トークンは URL のフラグメント（`#token=`）で渡すので、HTTP 要求にも `Referer` にも載らず、
-静的配信のアクセスログにも出ません（ブラウザの履歴には残ります）。実行の口は Origin 検査・
-カスタムヘッダ `X-Jin-Token` の一致・対象ファイルの固定・同時 1 本で閉じています。
-それでも**トークンを握った攻撃者は、悪意ある `ref` の書き込みから実行までを自力で完結できます**。
-
-根拠と設計の詳細は [`docs/spec/ops.md`](spec/ops.md) §5.1 / §5.2 にあります。
+| `jin check` (通常) | **コード実行なし**（AST 解析とスキーマ検証のみ） | 安全。CI や未検証ファイルにも自由に使えます。 |
+| `jin check --resolve` | 指定された `ref` のモジュールを実際に `import` して実在判定する | **信頼できるファイルにのみ使用する**（子プロセスで 30 秒タイムアウト制限あり）。 |
+| `jin run` | 一時コードを生成して `import` し、エージェントを実行する | **中身を確認したファイルのみ実行する**。`--model fake` を付けていても `import` は行われます。 |
+| `jin editor` | ローカルに WebSocket と実行エンドポイント（`POST /run`）を開く | 信頼できないディレクトリで起動しない。 |
+| `jin render` | **コード実行なし**（`.jin` とトレース JSONL のみ読む） | 安全。画像書き出しで任意コードが動くことはありません。 |
 
 ---
 
 ## 7. コマンド逆引き
 
-| したいこと | コマンド |
-|---|---|
-| 書いた `.jin` が正しいか見たい | `uv run jin check <file>` |
-| 診断を機械で読みたい | `uv run jin check --json <file>` |
-| `ref` の実在まで確かめたい（**任意コード実行**） | `uv run jin check --resolve <file>` |
-| 書式を揃えたい | `uv run jin fmt <file>` |
-| CI で書式のずれを落としたい | `uv run jin fmt --check <dir>` |
-| JSON Schema が欲しい | `uv run jin schema` |
-| パーサが読んだ中身を見たい | `uv run jin dump <file>` |
-| 魔法陣を画像にしたい | `uv run jin render <file> -o out.svg` |
-| 別の陣を展開して描きたい | `uv run jin render <file> --focus <陣名>` |
-| 動かしてみたい（モデルなし） | `uv run jin run <file> "<最初のメッセージ>" --model fake` |
-| 実行の記録を残したい | `uv run jin run <file> "<msg>" --trace t.jsonl` |
-| ADK プロジェクトを書き出したい | `uv run jin build <file> --out <dir>` |
-| ブラウザで編集したい | `uv run jin editor <file>` |
-| 言語サーバを起動したい | `uv run jin lsp` |
-
-`check` と `fmt` はディレクトリも受け取ります（`uv run jin check examples`）。
-ディレクトリを渡したときの走査は symlink を対象にしません。名指しで渡したファイルは symlink でも読みます。
-各コマンドのオプション全体は `uv run jin <コマンド> --help` で出ます。
-
-### `jin render` の細かい挙動
-
-- 入れ子の陣の展開は**深さ 1 まで**。それより深いものと、解決できない参照は点になります
-- `-o` の親ディレクトリは**作りません**。存在しないパスを渡すと拒みます（打ち間違いでディレクトリを生やさないため）
-- `-o` の先に既存ファイルがあれば `--force` なしでは上書きしません
-- `jin check` に error が出るファイルは描きません
-- `ref` を import しません。入力は `.jin` とトレース JSONL だけです
-
----
-
-## 8. エディタと言語サーバの詳細
-
-1 章と 4 章で使ったエディタが裏で何をしているかを説明します。
-自分のエディタに Jin を組み込みたい場合も、ここが入口になります。
-
-### 8-1. エディタが薄い理由
-
-エディタは**1 本の線も描きません**。SVG は言語サーバの `jin/renderSvg` から受け取り、要素に付いている
-`data-jin` 属性（JSON Pointer）でクリック位置を判定するだけです。プロパティパネルの入力欄も
-`schemas/jin.schema.json` から生成していて、欄の名前はどこにも手書きされていません。
-
-エディタは独自のモデルを持ちません。**ファイルが唯一の状態で**、編集はすべてサーバへ往復します。
-undo / redo もサーバが返した逆操作を積んでいるだけです。
-
-構文エラーの間は、図を消さずに**「直前の正常な版を表示しています」と画面に明示します**。
-黙って古い図を出すことはしません。
-
-### 8-2. `jin lsp` が提供するもの
+「〜したいとき」に引けるコマンドの一覧です。
 
 ```bash
-uv run jin lsp                              # stdio（Claude Code / VS Code 向け・既定）
-uv run jin lsp --ws 8765                    # WebSocket（ブラウザのエディタ向け）
-uv run jin lsp --ws 8765 --root ./workspace # ファイル読み書きを ./workspace 配下に限って許す
+# 【検証】構文や参照のミスがないかチェックしたい
+uv run jin check <file.jin>
+
+# 【整形】インデントやキーの順序を公式スタイルに揃えたい
+uv run jin fmt <file.jin>
+
+# 【画像】魔法陣を SVG ベクター画像として出力したい
+uv run jin render <file.jin> -o output.svg
+
+# 【GUI】ブラウザで視覚的に編集・デバッグしたい
+uv run jin editor <file.jin>
+
+# 【実行】モデルを呼ばずに配線だけテスト実行したい
+uv run jin run <file.jin> "最初のメッセージ" --model fake
+
+# 【デバッグ】実行イベントをトレースファイルに保存したい
+uv run jin run <file.jin> "最初のメッセージ" --model fake --trace trace.jsonl
+
+# 【実運用】実際の LLM で実行したい（要 API キー）
+uv run jin run <file.jin> "最初のメッセージ"
+
+# 【出力】本番用の Python (Google ADK) プロジェクトを書き出したい
+uv run jin build <file.jin> --out <出力先ディレクトリ>
+
+# 【補完】VS Code 等で補完を効かせるための JSON Schema が欲しい
+uv run jin schema
+
+# 【言語サーバ】LSP サーバを起動したい（VS Code や Claude Code 連携用）
+uv run jin lsp
 ```
-
-stdio と WebSocket でサーバの実装は同一です。
-
-| 種類 | 内容 |
-|---|---|
-| 標準 | diagnostics / completion / definition / references / hover / documentSymbol / formatting / rename / codeAction |
-| 独自 | `jin/model` / `jin/renderSvg` / `jin/applyOps` / `jin/ops` |
-| ws 専用 | `jin/open` / `jin/save`（ブラウザにはファイルシステムがないため） |
-
-- formatting の出力は `jin fmt` と、`jin/renderSvg` の出力は `jin render` と**バイト一致します**。
-  どちらも同じ関数を呼んでいて、LSP 側は位置の変換とプロトコルの露出しか持ちません
-- 診断は JSON 構文 → スキーマ → 意味の順に段階的に出ます。前段が通らなければ後段は出ません
-- 構文エラーの最中でも、hover と `jin/renderSvg` は直前の正常なモデルで答えます（応答に `stale` が立ちます）
-- 打鍵は 150 ms デバウンスして古い要求をキャンセルします。ファイルを開いた瞬間の診断は待ちません
-- **hover は `ref` の docstring を出しません。** 出すには `ref` を import する必要があり、
-  カーソルを合わせるたびに任意コード実行になるためです
-
-### 8-3. Claude Code プラグイン
-
-`plugins/claude-code/jin/` を導入すると、Claude Code で `.jin` の診断と定義ジャンプが効きます。
-`jin` コマンドが PATH にあることが前提です（`uv run jin` は PATH に入らないので、プラグインから
-使うには別途通してください）。導入手順はプラグインの
-[README](../plugins/claude-code/jin/README.md) にあります。
-
-同梱の `skills/jin-lang/reference/` は `docs/spec/model.md` と `schemas/jin.schema.json` の**コピー**です。
-手で編集せず、`uv run python scripts/sync_plugin_reference.py` で同期してください。
 
 ---
 
-## 9. サンプル 3 本
+## 8. アーキテクチャ解説 — エディタと言語サーバ（LSP）
 
-| ファイル | 形 | 何が見えるか |
+Jin のエディタ（`apps/editor`）とバックエンドは、Web フロントエンドやコンパイラ設計の観点から非常に興味深い設計になっています。
+
+### なぜエディタは「1本の線も描かない」のか？
+
+通常、ビジュアルプログラミング環境を作ると、フロントエンド側に SVG のパス描画ロジックや状態管理が肥大化しがちです。しかし Jin のエディタは**自分自身では 1 本の線も描画していません**。
+
+```mermaid
+sequenceDiagram
+    participant Browser as ブラウザエディタ (React)
+    participant LSP as 言語サーバ (jin-lsp)
+    participant Disk as ファイル (.jin)
+
+    Browser->>LSP: jin/open (ファイル読み込み)
+    LSP->>Disk: 読み込み & 検証
+    LSP-->>Browser: jin/renderSvg (完成したSVG文字列)
+    Note over Browser: 受信した SVG をそのまま描画<br>クリック位置は data-jin 属性で判定
+    Browser->>LSP: プロパティ編集 (jin/applyOps)
+    LSP->>Disk: 正準形でファイル保存
+    LSP-->>Browser: 更新された SVG と診断結果
+```
+
+1. **完全な Single Source of Truth**:
+   エディタは独自の内部モデルを持ちません。常にディスク上の `.jin` ファイルが唯一の状態です。
+2. **決定論的レイアウトエンジン**:
+   Python 側の `jin-render` パッケージが幾何学的な計算を行い、完成した SVG 文字列を返します。エディタはそれを `dangerouslySetInnerHTML` 相当で表示しているだけです。
+3. **要素の特定は `data-jin` 属性**:
+   生成された SVG の各 `<g>` や `<path>` 要素には、`data-jin="/circles/0/instruction"` のように **JSON Pointer** が埋め込まれています。ブラウザでクリックされた要素の JSON Pointer を拾うだけで、どのプロパティを開けばいいかが即座に判別できます。
+4. **スキーマ駆動のフォーム生成**:
+   右パネルの入力フォームはハードコードされておらず、`schemas/jin.schema.json`（JSON Schema）から動的に自動生成されています。
+
+### Claude Code プラグインとの連携
+
+Claude Code を使っている場合、`plugins/claude-code/jin/` を導入することで、AI と対話しながら `.jin` の構文チェックや定義ジャンプを行うことができます。詳細なセットアップは [プラグインの README](../plugins/claude-code/jin/README.md) を参照してください。
+
+---
+
+## 9. 付属サンプル集
+
+リポジトリの `examples/` ディレクトリには、実践的な 3 本のサンプルが用意されています。
+
+| サンプル | 構成 | 見どころ・学習ポイント |
 |---|---|---|
-| `examples/researcher/researcher.jin` | 核あり 2 陣（77 行） | 紋・記憶・護符・保留・`summon` |
-| `examples/pipeline/pipeline.jin` | 核なし + 入れ子 flow 6 陣（89 行） | 弦・矢印・脱出の菱形 |
-| `examples/showcase/showcase.jin` | flow の陣 + 中身の濃い陣 5 陣（131 行） | 図に出る要素 9 種すべて |
-
-`researcher` と `pipeline` は要件書に掲載されているサンプルです。`showcase` は
-エディタを一通り触るために置いたもので、この 1 本だけが 9 種すべてを既定の表示で描きます
-（`researcher` は `summon`、`pipeline` は `flow` で、2 本合わせても `delegate` が出ないためです）。
+| **[Pipeline](file:///home/wisteria/jin-lang/examples/pipeline/pipeline.jin)** | 順次 + ループ（6 陣） | **最初におすすめ。** 下書き執筆 → レビュー → ループ推敲（Critic & Rewriter）という実践的な文書推敲パイプライン。 |
+| **[Researcher](file:///home/wisteria/jin-lang/examples/researcher/researcher.jin)** | 核あり 2 陣 | 外部検索ツールの利用、State による調査結果の蓄積、`summon`（別陣の直接呼び出し）のサンプル。 |
+| **[Showcase](file:///home/wisteria/jin-lang/examples/showcase/showcase.jin)** | 全要素入り 5 陣 | Jin で表現できる**全 9 種類の要素**（陣・核・紋・記憶・弦・境界環・護符・保留・委譲）がすべて登場するデモ。 |
 
 ```bash
-uv run jin editor examples/showcase/showcase.jin      # 9 種すべてをクリックできる
-PYTHONPATH=tests/fixtures/stubs uv run jin run examples/showcase/showcase.jin "go" \
-  --model fake --trace /tmp/sc.jsonl                  # 9 イベント
+# Showcase をエディタで開いて、すべての要素を触ってみる
+uv run jin editor examples/showcase/showcase.jin
 ```
-
-- **`jin run` にだけ `PYTHONPATH=tests/fixtures/stubs` が要ります。** `ref` が指す `research.*` は
-  スタブだからです。`check` / `render` / `editor` は `ref` を import しないので不要です
-- オーバーレイの点の密度は `flow.max` で変わります。`Showcase.flow.max` を 3 から 16 にすると
-  イベントは 9 から 48 に増え、点は総行数ぶん境界環に並びます
-- `builtin` の紋は `exit_loop` にしてあります。`google_search` は Gemini 以外のモデルを拒むので
-  `--model fake` では落ちますし、委譲と同じ陣にも置けません
 
 ---
 
 ## 10. 用語集
 
-| 語 | 対応する JSON | 意味 |
+| 用語 | 読み | 意味 |
 |---|---|---|
-| 陣 | `circles[]` の 1 要素 | エージェント 1 個、または他の陣を束ねる制御構造 |
-| 核 | `core` | その陣が使うモデル。核があれば LLM エージェント |
-| 紋 | `tools[]` の 1 要素 | ツール。関数（`tool`）・組み込み（`builtin`）・他の陣の呼び出し（`summon`）の 3 種 |
-| 記憶 | `state[]` | セッション状態の宣言。`out: true` のものが出力先になる |
-| 弦 | `flow.steps` の連結 | 順次・並列・繰り返しのつながり |
-| 境界環 | `boundary` | 陣の外周。護符と保留が置かれる |
-| 護符 | `boundary.guards[]` | 実行の前後に挟むコールバック |
-| 保留 | `boundary.await[]` | 人の介入を待つ点 |
-| 委譲 | `delegate[]` | 別の陣へ処理を渡すこと。判断するのは LLM |
-| 正準形 | — | `jin fmt` が出力する唯一正しい書式。エディタの保存もこの形 |
-| トレース | `--trace` の JSONL | 実行イベントの記録。1 行 1 イベント、JSON Pointer つき |
+| **陣** | じん（Circle） | エージェント単体、または複数のエージェントを束ねる制御構造の単位。 |
+| **核** | かく（Core） | 陣の中心にある LLM モデル名。これを持つ陣は自律思考エージェントになる。 |
+| **紋** | もん（Tool） | エージェントが使える道具。Python 関数、組み込みツール、他エージェント召喚の 3 種類。 |
+| **記憶** | きおく（State） | セッション内で共有される状態変数。`out: true` に指定した変数が出力先となる。 |
+| **弦** | げん（Flow） | 陣と陣を結ぶ制御線。順番（順次）、同時（並列）、繰り返し（ループ）を表す。 |
+| **境界環** | きょうかいかん（Boundary） | 陣の外周。処理の前後に挟むフック（護符）や、ユーザー入力待ち（保留）を配置する。 |
+| **護符** | ごふ（Guard） | エージェントの実行前後に自動実行されるコールバック関数。入力バリデーション等に使う。 |
+| **保留** | ほりゅう（Await） | 処理を一時停止し、人間の確認や承認（Human-in-the-Loop）を待つチェックポイント。 |
+| **委譲** | いじょう（Delegate） | どのエージェントに次の処理を渡すかを、LLM 自身が自律的に判断して切り替える仕組み。 |
+| **正準形** | せいじゅんけい（Canonical form） | `jin fmt` が出力する、キー順序やインデントが厳密に規格化された唯一の書式。 |
+| **トレース** | Trace | エージェントの実行記録。1 行 1 イベントの JSONL 形式で、各イベントに JSON Pointer が付与される。 |
 
 ---
 
 ## 11. リポジトリの構成
 
-```
-schemas/jin.schema.json   Pydantic から生成した JSON Schema（正典・コミットする）
-docs/spec/                モデル / ADK 対応 / レイアウト / 診断 / オペレーションの仕様
-examples/                 researcher.jin / pipeline.jin / showcase.jin（正準形）
-packages/jin-core/        意味モデル・位置付きパーサ・意味検査・診断・正準形・意味オペレーション
-packages/jin-adk/         ADK コード生成（Jinja2）/ 書き出し / 実行 / トレース / FakeLlm
-packages/jin-render/      決定的レイアウト / SVG 文字列生成 / 装飾 / trace overlay
-packages/jin-lsp/         LSP サーバ（stdio + WebSocket）/ 標準機能 / 独自リクエスト
-packages/jin-cli/         CLI（check / fmt / schema / dump / build / run / render / lsp / editor）
-apps/editor/              視覚エディタ（Vite + React + TS）。Python パッケージを import しない
-plugins/claude-code/jin/  Claude Code プラグイン（.lsp.json / skills / hooks）
-tests/                    spec 突合 / 横断契約 / 診断コードの fixture
+プロジェクト全体のディレクトリ構造です。
+
+```text
+schemas/jin.schema.json   JSON Schema 正典（Pydantic から自動生成）
+docs/spec/                詳細仕様書（モデル / ADK 対応 / レイアウト / 診断 / 操作）
+examples/                 実践サンプル (.jin)
+packages/jin-core/        コアロジック（パーサ、静的解析、診断、フォーマッタ）
+packages/jin-adk/         Google ADK コード生成（Jinja2 テンプレート）と実行エンジン
+packages/jin-render/      幾何学的レイアウト計算、SVG 生成、トレース重ね合わせ
+packages/jin-lsp/         LSP サーバ（stdio / WebSocket 対応）
+packages/jin-cli/         CLI コマンド群（check, fmt, editor, run, render 等）
+apps/editor/              ブラウザ版ビジュアルエディタ（Vite + React + TypeScript）
+plugins/claude-code/jin/  Claude Code 用プラグイン
+tests/                    ユニットテスト、仕様突合テスト、フィクスチャ
 ```
 
 ---
 
-## 12. さらに詳しく / 困ったとき
+## 12. さらに詳しく・困ったときは
 
-仕様の正典は次のとおりです。本ガイドと食い違った場合はこちらが優先します。
+Jin のより深い仕様や内部設計について知りたいときは、以下のドキュメントを参照してください。
 
-| 知りたいこと | 読むもの |
-|---|---|
-| `.jin` に書けるキーの全一覧 | [`docs/spec/model.md`](spec/model.md) |
-| ADK のどのクラスの何になるか | [`docs/spec/adk-mapping.md`](spec/adk-mapping.md) |
-| 診断コード（JINxxx）の一覧 | [`docs/spec/diagnostics.md`](spec/diagnostics.md) |
-| 図の座標と `data-jin` 属性の規則 | [`docs/spec/layout.md`](spec/layout.md) |
-| エディタの編集操作と ws の防御 | [`docs/spec/ops.md`](spec/ops.md) |
-| 上位要件と設計判断の背景 | [`jin-requirements.md`](../jin-requirements.md) / [`docs/adr/`](adr/) |
+- **モデルとキーの完全な仕様**: [`docs/spec/model.md`](spec/model.md)
+- **Google ADK とのマッピング詳細**: [`docs/spec/adk-mapping.md`](spec/adk-mapping.md)
+- **診断エラーコード（JINxxx）の一覧と解決策**: [`docs/spec/diagnostics.md`](spec/diagnostics.md)
+- **SVG レンダラのレイアウト計算アルゴリズム**: [`docs/spec/layout.md`](spec/layout.md)
+- **エディタ操作と WebSocket プロトコル仕様**: [`docs/spec/ops.md`](spec/ops.md)
+- **設計判断の背景と意思決定記録**: [`jin-requirements.md`](../jin-requirements.md) / [`docs/adr/`](adr/)
 
-このガイドで解決しない疑問や、手順が古くなっている箇所は
-[GitHub Issues](https://github.com/rswisteria/jin-lang/issues) へ寄せてください。
-
-`import` / MCP による ops 露出 / VS Code 拡張は、要件書で「任意」とされており未実装です。
-ライブ実行は同じ扱いでしたが、エディタからの fake 実行だけが 4 章のとおり先行して実装されています。
+バグ報告や機能提案は、[GitHub Issues](https://github.com/rswisteria/jin-lang/issues) までお気軽にお寄せください。
