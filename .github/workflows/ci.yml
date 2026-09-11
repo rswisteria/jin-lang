@@ -88,6 +88,12 @@ jobs:
       - name: Check canonical form of examples
         run: uv run jin fmt --check examples
 
+      # docs/document-review-agent.md の「動くサンプル」。examples/ の 3 本とは別枠
+      # （本数を固定する契約テストがあるので examples/ には足さない）。
+      # build / fake 実行 / 判定取り出しは tests/contract/test_docs_samples.py が見る。
+      - name: Check docs samples
+        run: uv run jin check docs/samples && uv run jin fmt --check docs/samples
+
       # 要件書 §8: プラグインの reference/ は docs/spec/ と schemas/ のコピーである。
       # ずれても `jin check` は通るので静かに効く（LLM が古い仕様で書こうとして失敗する）。
       # ツリーを書き換えずに比較する（W-04・schema drift と同じ規律）。
