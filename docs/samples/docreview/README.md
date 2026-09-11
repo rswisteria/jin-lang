@@ -5,9 +5,10 @@
 | ファイル | 役割 |
 |---|---|
 | `docreview.jin` | 陣の定義（11 circle。Profiler → 6 観点 parallel → Verifier → Judge） |
-| `review/rules.py` | OK/NG の決定的ルール。`Judge` 陣の `ref: review.rules:judge` |
+| `review/rules.py` | OK/NG の決定的ルール。`judge(tool_context)` が state の `findings` を読み、純関数 `decide` が判定する |
 | `sample-notice.md` | レビュー対象の例（意図的に誤字・用語ブレ・5W1H の欠けを入れてある） |
 | `verdict.py` | トレース JSONL から判定を取り出す。終了コードで OK/NG を返す |
+| `trace-gemini-3.8-flash.jsonl` | 上の本文を Gemini 3.8 Flash（Vertex AI `global`）で流した実トレース。判定は NG・63 点 |
 
 ```bash
 # 開発フロー（API キー不要）

@@ -13,6 +13,7 @@ Jin で 1 つのエージェントを「設計 → 検証 → 実モデルで実
 | [`docs/samples/docreview/review/rules.py`](samples/docreview/review/rules.py) | OK/NG の決定的ルール（`Judge` 陣の `ref`） |
 | [`docs/samples/docreview/sample-notice.md`](samples/docreview/sample-notice.md) | レビュー対象の例（意図的に欠陥を入れてある） |
 | [`docs/samples/docreview/verdict.py`](samples/docreview/verdict.py) | トレース JSONL から判定を取り出す |
+| [`docs/samples/docreview/trace-gemini-3.8-flash.jsonl`](samples/docreview/trace-gemini-3.8-flash.jsonl) | Gemini 3.8 Flash で実際に流したトレース（2026-09-11・Vertex AI `global`）。API キー無しで §3-4 を試せる |
 
 前提: [README](../README.md) のセットアップ（`uv sync`）が済んでいて、`uv run jin check examples` が通ること。
 §1〜§2 は API キー不要。§3 だけが実モデルを呼ぶ。
@@ -98,8 +99,12 @@ JSON として読めない入力は NG（0 点）にする。**壊れた入力�
 - **`Verifier` と `Judge` を分ける。** 1 circle に `out: true` の state は 1 つしか置けない（`LlmAgent.output_key` が単一値）
 - **rune に JSON の出力例を書かない。** `{key}` 以外の波括弧は ADK のテンプレート解釈と食い違い、`jin check` は通るのに
   `jin build` で `rune_adk_template_conflict` として落ちる（[`spec/adk-mapping.md`](spec/adk-mapping.md) §3.1）。出力形式は言葉で指示する
-- **判定はツールに委ねる。** `Judge` の rune は「`judge` を 1 回だけ呼び、戻り値を一字も変えずに出す」だけ。
+- **判定はツールに委ねる。** `Judge` の rune は「`judge` を引数なしで 1 回だけ呼び、戻り値を一字も変えずに出す」だけ。
   ただし `output_key` に入るのは LLM の応答文なので、**判定の正本はトレースの `judge` 応答行**にする（§3-4）
+- **ツールは LLM 経由でなく state から読む。** `judge(tool_context)` は ADK が注入する `tool_context.state["findings"]`
+  （`Verifier` の `output_key`）を直接読む。引数名 `tool_context` は ADK 2.8.0 が型注釈なしでも注入し、LLM 向けの
+  関数宣言からは隠す。最初は `{findings}` を rune に展開して LLM にツール引数へ転記させていたが、Gemini 3.8 Flash が
+  JSON を二重エスケープして渡し（`\\n` / `\\"`）、ツール側で読めなくなった（実測）。**LLM に JSON を転記させない**
 
 ---
 
@@ -176,17 +181,21 @@ fake モデルはツールを呼ばないので、`judge` のツール行はこ�
 
 ### 2-6. 判定ルールを単体で試す
 
-`rules.py` は素の Python 関数なので、モデル無しで確かめられる。
+`rules.py` は 2 段に分かれている。`decide(findings_json)` が純関数で、`judge(tool_context)` は state から
+`findings` を読んで `decide` に渡すだけ。純関数の側はモデル無しで確かめられる。
 
 ```bash
 cd docs/samples/docreview && uv run python -c '
 import json
-from review.rules import judge
+from review.rules import decide
 ok = {"findings": [], "dropped": [], "scores": {k: 90 for k in ("w5h1","volume","terminology","typo","grammar","consistency")}}
-print(judge(json.dumps(ok)))          # verdict: OK
-print(judge("not json"))              # verdict: NG（JSON として読めない）
+print(decide(json.dumps(ok)))          # verdict: OK
+print(decide("not json"))              # verdict: NG（JSON として読めない）
 '
 ```
+
+`decide` が剥がすのはコードフェンス（```` ```json ````）と、JSON 文字列として二重にエンコードされた形の 2 つだけ。
+それ以外は素の `json.loads` と同じで、読めなければ NG（fail-closed）。
 
 ### 2-7. トレースから判定を取り出す（`verdict.py`）
 
@@ -196,7 +205,12 @@ uv run python docs/samples/docreview/verdict.py /tmp/docreview-fake.jsonl
 ```
 
 fake 実行では `judge` が呼ばれないので exit 2 になる。これが「判定が無いのに OK にしない」挙動である。
-実モデルでの読み方は §3-4。
+実モデルのトレースを同梱してあるので、API キー無しでも判定の読み出しは試せる。
+
+```bash
+uv run python docs/samples/docreview/verdict.py docs/samples/docreview/trace-gemini-3.8-flash.jsonl
+# → {"verdict": "NG", "score": 63, ...} / exit 1
+```
 
 ### 2-8. 契約テストで固定する
 
@@ -214,9 +228,10 @@ uv run pytest tests/contract/test_docs_samples.py
 
 ### 3-1. モデル ID を決める
 
-`docreview.jin` の `core` は 9 箇所（Profiler・6 観点・Verifier・Judge）すべて `gemini-3.8-flash` と書いてあるが、**この文字列は仮置き**で、
-Gemini 3.8 Flash の正式なモデル ID として確認したものではない。実行前に利用する環境（Gemini API / Vertex AI）の
-モデル一覧で ID を確認し、置き換える。
+`docreview.jin` の `core` は 9 箇所（Profiler・6 観点・Verifier・Judge）すべて `gemini-3.8-flash`。
+この ID は **Vertex AI の `global` ロケーションに実在する**ことを 2026-09-11 に確認した（`asia-northeast1` には無く、
+そちらで列挙されるのは `gemini-2.5-flash` / `gemini-2.5-pro` だけ）。別のモデルや別の環境（Gemini API）で動かすときは
+モデル一覧で ID を確認して置き換える。
 
 ```bash
 sed -i 's/"gemini-3.8-flash"/"<確認した ID>"/g' docs/samples/docreview/docreview.jin
@@ -238,7 +253,7 @@ Vertex AI を使う場合はコード変更なしで環境変数 3 つを付け�
 ```bash
 export GOOGLE_GENAI_USE_ENTERPRISE=1
 export GOOGLE_CLOUD_PROJECT="<Vertex AI API が有効なプロジェクト>"
-export GOOGLE_CLOUD_LOCATION="asia-northeast1"
+export GOOGLE_CLOUD_LOCATION="global"      # gemini-3.8-flash は global にある（§3-1）
 ```
 
 ### 3-3. レビュー対象を渡して実行する
@@ -261,14 +276,26 @@ PYTHONPATH=docs/samples/docreview uv run jin run docs/samples/docreview/docrevie
 
 `--trace` の JSONL には 1 行 1 イベントで、`Judge` が `judge` を呼んだ行とその応答行が入る。
 
+同梱の `trace-gemini-3.8-flash.jsonl`（`sample-notice.md` を Gemini 3.8 Flash で流したもの）では次のようになる。
+
 ```
-[9]  Judge tool  judge /circles/10/tools/0 {"findings_json": "..."}     ← 呼び出し（input）
-[10] Judge tool  judge /circles/10/tools/0 {"result": "{\"verdict\": \"OK\", ...}"}  ← 応答（output）
-[11] Judge final gemini-3.8-flash /circles/10/core ...                      ← LLM の転記
+[1]  Profiler    model gemini-3.8-flash /circles/1/core  提示された文章から、レビュー基準を…
+[2]  Typos       model gemini-3.8-flash /circles/6/core  [ { "id": "typo-001", …
+ …  （6 観点は parallel なので順不同）
+[8]  Verifier    model gemini-3.8-flash /circles/9/core  { "findings": [ …
+[9]  Judge tool  judge /circles/10/tools/0 {}                                   ← 呼び出し（引数なし）
+[10] Judge tool  judge /circles/10/tools/0 {"result": "{\"verdict\": \"NG\", \"score\": 63, …"}  ← 応答（output）
+[11] Judge final gemini-3.8-flash /circles/10/core {"verdict": "NG", …          ← LLM の転記
 ```
 
 **判定の正本は [10] の応答行**である。ADK の `FunctionTool` は文字列の戻り値を `{"result": ...}` に包む。
 [11] は LLM が戻り値を転記した文字列で、前置きや改変が混ざりうるので使わない。
+
+このトレースの判定は NG（総合 63 点）で、`reasons` は Critical 1 件・Major 3 件・総合点が下限未満・5W1H が 40 点、の 4 つ。
+`sample-notice.md` に仕込んだ欠陥（`Slcak`・`打刻はを`・Slack / スラック・敬体と常体の混在・同じ文の繰り返し・
+「来週月曜」が何日か不明・「担当」が誰か不明）はすべて拾われ、仕込んでいなかった
+「旧システムは停止すると言いながら、月末の勤怠締めは従来どおり勤怠管理システムで行うと書いてある」矛盾が
+Critical として出た。`Verifier` は 6 観点からの重複 7 件を `dropped` に理由つきで落としている。
 
 `verdict.py` がこの行を取り出して整形し、終了コードで OK/NG を返す。
 
@@ -315,10 +342,11 @@ echo "exit=$?"    # 0 = OK / 1 = NG / 2 = 判定行が無い
 
 ## 6. 残存・未検証
 
-- `gemini-3.8-flash` は仮置きで、実モデルでの完走は未検証（§3-1）
-- `Judge` は `{findings}` を指示文に展開したうえで、LLM にそれを丸ごとツール引数へ再転記させる。
-  長い JSON では欠落・改変の余地がある。ツール側でセッション state から直接読む形（ADK の `tool_context` 注入）に
-  替えられる可能性があるが未検証
+- 実モデルでの完走は Vertex AI `global` の `gemini-3.8-flash` で 1 回確認した（§3-4・2026-09-11）。
+  Gemini API（`GOOGLE_API_KEY`）経由は未検証
+- 各レビューアの出力形式（JSON 配列 + `score:` 行）と `Verifier` の JSON は rune の言葉による指示だけで
+  縛っている。実測では 1 回とも守られたが、`output_schema` のような構造化出力は Jin v1 に無いので保証は無い。
+  崩れたときは `decide` が NG を返す（黙って OK にはならない）
 - 6 つのレビューアは独立に `id` を振る。rune で `axis-` の接頭辞を付けさせているが、衝突しても
   `Verifier` が統合時に付け直す前提
 - 本文に埋め込まれた指示文（prompt injection）で `Verifier` の出力が歪む経路は塞いでいない（§4）。

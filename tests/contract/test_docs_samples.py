@@ -89,20 +89,38 @@ def test_fake_run_visits_the_circles_in_the_documented_order(tmp_path: Path) -> 
 
 _RULES_PROBE = """
 import json
-from review.rules import judge
+from review.rules import decide, judge
 axes = ("w5h1", "volume", "terminology", "typo", "grammar", "consistency")
 ok = {"findings": [], "dropped": [], "scores": {a: 90 for a in axes}}
 ng = {"findings": [{"severity": "Critical"}], "dropped": [], "scores": {a: 90 for a in axes}}
-for payload in (json.dumps(ok), json.dumps(ng), "not json"):
-    print(json.loads(judge(payload))["verdict"])
+fenced = "```json\\n" + json.dumps(ok) + "\\n```"
+double_escaped = json.dumps(json.dumps(ok))[1:-1]  # LLM が JSON をツール引数へ転記したときの壊れ方
+for payload in (json.dumps(ok), json.dumps(ng), "not json", fenced, double_escaped):
+    print(json.loads(decide(payload))["verdict"])
+
+class Ctx:  # ADK の ToolContext のうち judge が使うのは state だけ
+    def __init__(self, state):
+        self.state = state
+print(json.loads(judge(Ctx({"findings": json.dumps(ok)})))["verdict"])
+print(json.loads(judge(Ctx({})))["reasons"][0].startswith("session state に findings"))
 """
 
 
 def test_the_rules_module_judges_ok_ng_and_broken_input() -> None:
-    """ガイド §1-4 / §2-6。Critical 1 件で NG、壊れた入力も NG（fail-closed）。"""
+    """ガイド §1-4 / §2-6。Critical 1 件で NG、壊れた入力は NG（fail-closed）。
+    コードフェンスと二重エスケープ（Gemini 3.8 Flash で実測した転記事故）だけは剥がして読む。
+    `judge` は state の `findings` を読み、無ければ NG。"""
     result = _python("-c", _RULES_PROBE, cwd=SAMPLE)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert result.stdout.split() == ["OK", "NG", "NG"]
+    assert result.stdout.splitlines() == [
+        "OK",
+        "NG",
+        "NG",
+        "OK",
+        "OK",
+        "OK",
+        "True",
+    ]
 
 
 _SCRIPTED_RUN = """
@@ -135,10 +153,11 @@ class ScriptedLlm(FakeLlm):
             for part in (content.parts or [])
         )
         if has_judge and not answered:
-            args = {"findings_json": json.dumps(FINDINGS, ensure_ascii=False)}
-            part = types.Part(function_call=types.FunctionCall(name="judge", args=args))
+            # 引数なし。judge は Verifier が output_key で書いた state["findings"] を読む
+            part = types.Part(function_call=types.FunctionCall(name="judge", args={}))
         else:
-            part = types.Part(text="fake-response")
+            # 全陣が同じ JSON を返す台本。Verifier の output_key に入るのはこれ
+            part = types.Part(text=json.dumps(FINDINGS, ensure_ascii=False))
         yield LlmResponse(content=types.Content(role="model", parts=[part]))
 
 
@@ -160,6 +179,7 @@ def test_the_judge_tool_row_carries_the_verdict(tmp_path: Path) -> None:
     rows = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines() if line]
     tool_rows = [row for row in rows if row["kind"] == "tool"]
     assert [row["pointer"] for row in tool_rows] == [JUDGE_TOOL_POINTER, JUDGE_TOOL_POINTER]
+    assert tool_rows[0]["input"] == {}, "judge は引数を取らない（state から読む）"
     response = tool_rows[1]["output"]
     assert set(response) == {"result"}, "FunctionTool は文字列の戻り値を {'result': ...} に包む"
     assert json.loads(response["result"])["verdict"] == "OK"
@@ -167,6 +187,17 @@ def test_the_judge_tool_row_carries_the_verdict(tmp_path: Path) -> None:
     verdict = _python(str(VERDICT), str(trace))
     assert verdict.returncode == 0, verdict.stdout + verdict.stderr
     assert json.loads(verdict.stdout)["verdict"] == "OK"
+
+
+def test_the_bundled_real_trace_yields_the_documented_verdict() -> None:
+    """ガイド §3-4。同梱の Gemini 3.8 Flash トレースから verdict.py が NG・63 点を読み出す。"""
+    result = _python(str(VERDICT), str(SAMPLE / "trace-gemini-3.8-flash.jsonl"))
+    assert result.returncode == 1, result.stdout + result.stderr
+    verdict = json.loads(result.stdout)
+    assert verdict["verdict"] == "NG"
+    assert verdict["score"] == 63
+    assert verdict["counts"] == {"Critical": 1, "Major": 3, "Minor": 7, "Suggest": 0}
+    assert len(verdict["dropped"]) == 7
 
 
 def test_verdict_script_returns_1_for_ng(tmp_path: Path) -> None:
