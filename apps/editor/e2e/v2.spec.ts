@@ -161,6 +161,56 @@ test("式エディタは LSP の completion を候補にする（設計書 §8�
 	await expect(page.getByTestId("jin-undo")).toBeEnabled();
 });
 
+test("式は確定すると正準形に揃い（a+(1) → a + 1）、保存は jin fmt とバイト一致（v2.1・expr.md §8）", async ({
+	page,
+}) => {
+	await open(page);
+	const canvas = page.getByTestId("jin-canvas");
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/0"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/begin");
+	// `begin` の 1 つ目の `set`（expr: `0`）。
+	await canvas
+		.locator('[data-jin="/circles/1/rites/0/steps/0"][data-jin-kind="step"]')
+		.first()
+		.click();
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/0/steps/0",
+	);
+	const expr = page.locator("#jin-field-expr");
+	await expect(expr).toHaveValue("0");
+
+	// 空白と冗長な括弧を含む式を **Enter** で確定 → `jin/applyOps` が正準形で返し、欄がそれに揃う
+	// （フォーカスは欄に残ったまま）。
+	await expr.fill("score+ (1)");
+	await expr.press("Enter");
+	await expect(expr).toHaveValue("score + 1");
+	await expect(expr).toBeFocused();
+	// 離れても同じ式をもう一度確定しない（undo は 1 段だけ: 1 回戻すと `0` に戻り、undo が空になる）。
+	await expr.press("Tab");
+	await expect(page.locator("#jin-field-expr")).toHaveValue("score + 1");
+	await page.getByTestId("jin-undo").click();
+	await expect(page.locator("#jin-field-expr")).toHaveValue("0");
+	await expect(page.getByTestId("jin-undo")).toBeDisabled();
+	await page.getByTestId("jin-redo").click();
+	await expect(page.locator("#jin-field-expr")).toHaveValue("score + 1");
+
+	// 保存 → `jin fmt` の出力とバイト一致し、ファイルには正準形の式が入る。
+	await page.getByTestId("jin-save").click();
+	await expect(page.getByTestId("jin-notice")).toContainText("保存しました");
+	const saved = readFileSync(editor.file);
+	execFileSync("uv", ["run", "jin", "fmt", "--check", editor.file], {
+		cwd: REPO_ROOT,
+	});
+	execFileSync("uv", ["run", "jin", "check", editor.file], { cwd: REPO_ROOT });
+	const model = JSON.parse(saved.toString("utf8")) as {
+		circles: { rites: { steps: { expr?: string }[] }[] }[];
+	};
+	expect(model.circles[1]!.rites[0]!.steps[0]!.expr).toBe("score + 1");
+});
+
 test("実行パネルで 10 tick 進めてスクラブ（§10 のスモーク）", async ({
 	page,
 }) => {
@@ -519,7 +569,10 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 	expect(ball).not.toBeNull();
 	const player = playerFrame(page);
 	const generation = await player.evaluate(
-		() => (window as unknown as { __jinPlayer?: { generation(): number } }).__jinPlayer?.generation() ?? -1,
+		() =>
+			(
+				window as unknown as { __jinPlayer?: { generation(): number } }
+			).__jinPlayer?.generation() ?? -1,
 	);
 	expect(generation).toBeGreaterThan(0);
 
@@ -562,7 +615,12 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 	await expect(page.getByTestId("jin-upto-value")).toHaveText(String(upto));
 	await expect(ballCell).toHaveText(ball ?? "");
 	expect(
-		await player.evaluate(() => (window as unknown as { __jinPlayer?: { generation(): number } }).__jinPlayer?.generation() ?? -1),
+		await player.evaluate(
+			() =>
+				(
+					window as unknown as { __jinPlayer?: { generation(): number } }
+				).__jinPlayer?.generation() ?? -1,
+		),
 	).toBe(generation);
 
 	// 1 tick 進めると tick N+1、行は続き（upto が増える）、ball が動く。復元の知らせは「続けた」。
@@ -577,7 +635,12 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 		.toBeGreaterThan(upto);
 	await expect(ballCell).not.toHaveText(ball ?? "");
 	expect(
-		await player.evaluate(() => (window as unknown as { __jinPlayer?: { lastResume(): unknown } }).__jinPlayer?.lastResume() ?? null),
+		await player.evaluate(
+			() =>
+				(
+					window as unknown as { __jinPlayer?: { lastResume(): unknown } }
+				).__jinPlayer?.lastResume() ?? null,
+		),
 	).toEqual({
 		mode: "resumed",
 		tick: tick - 1,
@@ -590,11 +653,23 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 	await page.getByTestId("jin-keep-state").uncheck();
 	await editExpr("max(0, paddle - 300 * dt)");
 	await expect
-		.poll(() => player.evaluate(() => (window as unknown as { __jinPlayer?: { generation(): number } }).__jinPlayer?.generation() ?? -1))
+		.poll(() =>
+			player.evaluate(
+				() =>
+					(
+						window as unknown as { __jinPlayer?: { generation(): number } }
+					).__jinPlayer?.generation() ?? -1,
+			),
+		)
 		.toBe(generation + 1);
 	await expect(page.getByTestId("jin-player-notice")).toHaveCount(0);
 	expect(
-		await player.evaluate(() => (window as unknown as { __jinPlayer?: { lastResume(): unknown } }).__jinPlayer?.lastResume() ?? null),
+		await player.evaluate(
+			() =>
+				(
+					window as unknown as { __jinPlayer?: { lastResume(): unknown } }
+				).__jinPlayer?.lastResume() ?? null,
+		),
 	).toBeNull();
 	await page.getByTestId("jin-play-pause").click();
 	await expect(page.getByTestId("jin-player-status")).toContainText("停止");

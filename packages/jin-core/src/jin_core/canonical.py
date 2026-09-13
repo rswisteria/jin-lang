@@ -22,6 +22,11 @@ ADR-005 / DP-JIN-CANONICAL-01（案 C）: `json.dumps` の引数調整や Pydant
 5. 非 ASCII はエスケープしない
 6. `$schema` と `version` は先頭固定（= `JinFile` のフィールド定義順がそうなっている）
 7. 省略可能なキーは値が既定値のとき出力しない
+8. Jin v2 の**式の欄**（schema の印 `x-jin-expr` を持つ欄。`jin_core.v2.model.expr_fields`）は
+   式を AST に読んで書き戻した正準形にする（docs/spec/v2/expr.md §8・v2.1）。読めない式
+   （構文エラー・溢れた数値）は**元のまま**（入力を失わない。JIN201 は `jin check` が出す）。
+   欄は名前でなく印で見分けるので、`Rite` 単体のような部分モデルを渡されても同じに効く
+   （`jin_render.v2.layout` の紋章のハッシュ）。v1 の `Text` に印は無いので v1 の出力は変わらない
 """
 
 from __future__ import annotations
@@ -31,6 +36,9 @@ from typing import Any
 
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
+
+from jin_core.v2.expr import canonical_expr
+from jin_core.v2.model import expr_fields
 
 INDENT = "  "
 
@@ -100,12 +108,25 @@ def _is_default(field: Any, value: Any) -> bool:
 def _members(model: BaseModel) -> list[tuple[str, Any]]:
     """出力すべき (JSON キー名, 値) を **フィールド定義順** で返す（規則 2 / 7）。"""
     out: list[tuple[str, Any]] = []
+    exprs = expr_fields(type(model))
     for name, field in type(model).model_fields.items():
         value = getattr(model, name)
         if _is_default(field, value):
             continue
-        out.append((field.alias or name, value))
+        key = field.alias or name
+        if key in exprs:
+            value = _canonical_exprs(value)  # 規則 8
+        out.append((key, value))
     return out
+
+
+def _canonical_exprs(value: Any) -> Any:
+    """規則 8: 式の欄の値（`str` / `list[str]`）を正準形にする。他の形はそのまま。"""
+    if isinstance(value, str):
+        return canonical_expr(value)
+    if isinstance(value, list):
+        return [canonical_expr(item) if isinstance(item, str) else item for item in value]
+    return value
 
 
 def _write(value: Any, depth: int, buf: list[str]) -> None:

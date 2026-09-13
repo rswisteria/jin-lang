@@ -116,6 +116,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2-6 | デバッグ（`.jinrec` の再生・スクラブで記憶環の値と画面・`assert` のバッジ・実行パネルの録画と書き出し） | 実装済み |
 | v2.1 | 状態を保ったライブリロード（`tick` 結果の `snapshot` → `boot` の `manifest.resume`・`jin.load` の `keep`・jil: 2） | 実装済み |
 | v2.1 | `storage`（`get` / `set`・`boot` の `manifest.storage` → `tick` 結果の `storage`・`localStorage`・録画ヘッダの `storage`・式の `num(str)`・jil: 3） | 実装済み |
+| v2.1 | 式の正準化（`canonical.dumps` が `x-jin-expr` の欄を AST から書き戻す・`jin_core.v2.expr.unparse`・読めない式は元のまま） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -384,6 +385,28 @@ Jin v2.1（`storage`）の要点（正典は `docs/spec/v2/abilities.md` §8、e
 - fixture は `tests/fixtures/v2-programs/storage.jin`（12 本目）。証拠は `packages/jin-wasm/tests/test_storage.py`
   （1 回目の記憶を 2 回目に渡すと続く）、`apps/player/e2e/storage.spec.ts`（`localStorage` に残り読み直しで続く →
   録画のヘッダの写しで `jin run --input` と全行一致 → 再生は上書きしない → 記憶を消す）、`apps/editor/e2e/v2.spec.ts`
+
+Jin v2.1（式の正準化）の要点（正典は `docs/spec/v2/expr.md` §8、model.md §9、設計書 §2.4 / §11 #15 / #48）:
+
+- **正準化は `jin_core.canonical.dumps` の 1 か所**（規則 8）。schema の印 `x-jin-expr` を持つ欄（`jin_core.v2.model.expr_fields`・
+  `functools.cache`）の式を `parse_expr` → `jin_core.v2.expr.unparse` で書き戻す。**欄を名前で書き写さない**（`jin_render.v2.layout` は
+  紋章のハッシュに `Rite` 単体を `dumps` に渡すので、印で見分けないとそこで効かない）。v1 の `Text` に印は無いので v1 の出力は不変
+- **読めない式は 1 文字も動かさない**（`canonical_expr` が `ExprSyntaxError` / 溢れた数値の `ValueError` を受けて元のまま）。
+  JIN201 は `jin check` が出す。整形が入力を壊す経路は無い
+- **括弧は優先順位と結合で要るときだけ**（`(a and b) or c` → `a and b or c`・`cmp` は連鎖しないので `(a < b) == c` は必須・
+  `-(-x)` は読みやすさのため）。空白は演算子の両側と `,` `:` の後ろに 1 つ。数値は runtime.md §6 の `str(x)` と同じ書式
+  （`format_number`。jin-core は jin-wasm を import できないので一致は `packages/jin-wasm/tests/test_prelude.py` が見る）。
+  文字列は `encode_string`（`expr.py` からは関数内 import。`canonical` → `v2.expr` の循環を避ける）
+- **`cast.target` も同じ規則**（`canvas . rect` → `canvas.rect`）。check は名前の形を要求するので整形前は JIN202、整形後は通る。
+  整形が消す診断はこれだけ（`tests/contract/test_canonical_contract_v2.py` が固定）
+- **エディタは式を解析しない**（設計書 §8 の原則のまま）。`ExprEditor` は Enter で確定した打ちかけを ref に覚え、打ち直していなければ
+  `jin/applyOps` が返した正準形で draft を差し替える（揃えないと blur で同じ式を二重に確定し undo に積まれる）。
+  `apps/editor/test/exprEditor.test.tsx` が `@testing-library/react` で固定する（初めてのコンポーネントテスト）
+- 証拠: `packages/jin-core/tests/test_v2_canonical.py`（字面の規則・ランダム AST 3000 本の往復と冪等）、
+  `tests/contract/test_canonical_contract_v2.py`（examples-v2 / v2-programs / errors/v2 の冪等と式の AST 保存・
+  `tests/fixtures/canonical/v2/messy.jin` → `messy.expected.jin` のバイト一致）、`apps/editor/e2e/v2.spec.ts`
+  （`score+ (1)` を Enter → `score + 1` → 保存が `jin fmt` と一致）。examples-v2 と fixture は元から正準だったので紋章のハッシュと
+  SVG スナップショットは動いていない（動いたら印字器が正準な式を書き換えた合図）
 
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 

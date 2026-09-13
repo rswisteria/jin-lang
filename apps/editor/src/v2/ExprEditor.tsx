@@ -62,11 +62,22 @@ export function ExprEditor(props: ExprEditorProps): React.JSX.Element {
 	const [active, setActive] = useState(0);
 	const input = useRef<HTMLInputElement>(null);
 	const fetched = useRef(false);
+	// 確定した打ちかけ。確定後にまだ打ち直していない間だけ非 null。
+	const committed = useRef<string | null>(null);
 
 	// undo / redo や別の欄の確定でサーバの値が変わったら draft を差し替える。
 	// 入力中（フォーカスあり）は打ちかけの式を守る（確定は blur / Enter で行う）。
+	// ただし **Enter で確定した直後**はフォーカスが残ったままサーバが正準形（`a+1` → `a + 1`・
+	// expr.md §8）を返してくるので、打ち直していなければ差し替える。差し替えないと欄は `a+1` の
+	// まま見え、blur でもう一度同じ式を確定してしまう（同値の `jin/applyOps` が undo に積まれる）。
 	useEffect(() => {
-		if (document.activeElement !== input.current) setDraft(props.value);
+		if (
+			document.activeElement !== input.current ||
+			committed.current !== null
+		) {
+			setDraft(props.value);
+		}
+		committed.current = null;
 	}, [props.value]);
 
 	const refresh = (
@@ -109,7 +120,10 @@ export function ExprEditor(props: ExprEditorProps): React.JSX.Element {
 
 	const commit = (): void => {
 		setShown([]);
-		if (draft !== props.value) props.onCommit(draft);
+		if (draft !== props.value) {
+			committed.current = draft;
+			props.onCommit(draft);
+		}
 	};
 
 	return (
@@ -127,6 +141,7 @@ export function ExprEditor(props: ExprEditorProps): React.JSX.Element {
 				onFocus={() => void load()}
 				onChange={(event) => {
 					const text = event.currentTarget.value;
+					committed.current = null;
 					setDraft(text);
 					refresh(
 						text,

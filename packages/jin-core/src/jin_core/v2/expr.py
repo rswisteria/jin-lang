@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -954,6 +955,124 @@ def place_root(node: Node) -> Name | None:
     return node if isinstance(node, Name) else None
 
 
+# ---------------------------------------------------------------- 正準形（expr.md §8）
+
+#: 演算子の優先順位（大きいほど強く結合する）。expr.md §1 の段と 1:1。
+#: or < and < not < cmp < add < mul < 単項 - < 後置 < 一次式。
+_BINARY_PRECEDENCE: dict[str, int] = {
+    "or": 1,
+    "and": 2,
+    "==": 4,
+    "!=": 4,
+    "<": 4,
+    "<=": 4,
+    ">": 4,
+    ">=": 4,
+    "+": 5,
+    "-": 5,
+    "++": 5,
+    "*": 6,
+    "/": 6,
+    "%": 6,
+}
+_PREC_NOT = 3
+_PREC_CMP = 4
+_PREC_NEG = 7
+_PREC_POSTFIX = 8
+_PREC_PRIMARY = 9
+
+#: 整数値を整数として書く上限（runtime.md §6。これ以上は `repr` の配置に委ねる）。
+_INTEGER_LIMIT = 2.0**53
+
+
+def format_number(value: float) -> str:
+    """数値リテラルの正準形（expr.md §8）。`str(x)`（runtime.md §6）と同じ書式。
+
+    整数値（`|x| < 2^53`）は整数として（`160`）、それ以外は Python の `repr(float)`
+    （最短の往復可能表現。`0.1` / `1e-05` / `1.5e+16`）。どれも文法の NUMBER に読み戻せる。
+    有限でない値（`1e999` のように溢れたリテラル）は書けないので ValueError。
+    """
+    if not math.isfinite(value):
+        raise ValueError(f"数値リテラルに書けない値です: {value!r}")
+    if value == int(value) and abs(value) < _INTEGER_LIMIT:
+        return str(int(value))
+    return repr(value)
+
+
+def _precedence(node: Node) -> int:
+    if isinstance(node, Binary):
+        return _BINARY_PRECEDENCE[node.op]
+    if isinstance(node, Unary):
+        return _PREC_NOT if node.op == "not" else _PREC_NEG
+    if isinstance(node, (FieldAccess, Index, Call)):
+        return _PREC_POSTFIX
+    return _PREC_PRIMARY
+
+
+def _wrap(text: str, needed: bool) -> str:
+    return f"({text})" if needed else text
+
+
+def unparse(node: Node) -> str:
+    """AST を正準形の式テキストにする（expr.md §8）。
+
+    同じ AST は同じ文字列になり、その文字列を `parse_expr` すると同じ AST（位置を除く）に戻る。
+    括弧は優先順位と結合で必要なときだけ置く（左結合の同順位は左に付けず右に付ける。`cmp` は
+    連鎖しないので両側に付ける。単項の被演算子が二項式なら付ける。`-(-x)` は読みやすさのため付ける）。
+    """
+    if isinstance(node, Number):
+        return format_number(node.value)
+    if isinstance(node, String):
+        from jin_core.canonical import encode_string
+
+        return encode_string(node.value)
+    if isinstance(node, Boolean):
+        return "true" if node.value else "false"
+    if isinstance(node, Name):
+        return node.name
+    if isinstance(node, Unary):
+        operand = unparse(node.operand)
+        if node.op == "not":
+            return "not " + _wrap(operand, _precedence(node.operand) < _PREC_NOT)
+        nested = isinstance(node.operand, Unary) and node.operand.op == "-"
+        return "-" + _wrap(operand, nested or _precedence(node.operand) < _PREC_NEG)
+    if isinstance(node, Binary):
+        prec = _BINARY_PRECEDENCE[node.op]
+        left_prec = _precedence(node.left)
+        left = _wrap(
+            unparse(node.left), left_prec < prec or (prec == _PREC_CMP and left_prec == prec)
+        )
+        right = _wrap(unparse(node.right), _precedence(node.right) <= prec)
+        return f"{left} {node.op} {right}"
+    if isinstance(node, FieldAccess):
+        obj = _wrap(unparse(node.obj), _precedence(node.obj) < _PREC_POSTFIX)
+        return f"{obj}.{node.name}"
+    if isinstance(node, Index):
+        obj = _wrap(unparse(node.obj), _precedence(node.obj) < _PREC_POSTFIX)
+        return f"{obj}[{unparse(node.index)}]"
+    if isinstance(node, Call):
+        callee = _wrap(unparse(node.callee), _precedence(node.callee) < _PREC_POSTFIX)
+        return f"{callee}({', '.join(unparse(arg) for arg in node.args)})"
+    if isinstance(node, Construct):
+        fields = ", ".join(f"{name}: {unparse(value)}" for name, _, value in node.fields)
+        return f"{node.form}{{{fields}}}"
+    if isinstance(node, ListLiteral):
+        return f"[{', '.join(unparse(item) for item in node.items)}]"
+    raise TypeError(f"未知のノード: {type(node).__name__}")  # pragma: no cover
+
+
+def canonical_expr(text: str) -> str:
+    """式テキストの正準形。読めない式（構文エラー・溢れた数値）は**元のまま**返す。
+
+    正準形 writer（`jin_core.canonical`）が式の欄にだけ使う。入力を失わないことが最優先で、
+    構文エラーは `jin check` の JIN201 が別に指摘する。
+    """
+    try:
+        return unparse(parse_expr(text))
+    except (ExprSyntaxError, ValueError):
+        return text
+
+
 def walk(node: Node):
     """AST を深さ優先で列挙する（rename の識別子追随・参照の走査に使う）。"""
     yield node
@@ -1004,7 +1123,9 @@ __all__ = [
     "TypeIssue",
     "Unary",
     "assignable",
+    "canonical_expr",
     "check_expr",
+    "format_number",
     "is_constant",
     "is_list",
     "is_place",
@@ -1012,5 +1133,6 @@ __all__ = [
     "list_of",
     "parse_expr",
     "place_root",
+    "unparse",
     "walk",
 ]

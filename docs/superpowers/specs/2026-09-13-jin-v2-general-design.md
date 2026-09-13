@@ -280,7 +280,7 @@ circle は v1 と同じ 2 種。**核あり**(`core` を持つ → 実行単位)
 
 v1 §2.3 と同じ規則。加えて:
 
-- 式(`expr` / `cond` / `init` / `assert` / `exit` / `args[]`)は**文字列のまま**保存し、整形しない(空白を含めて入力を保つ)。式の正準化は v2.1 で検討(diff の安定性と LLM の書きやすさのトレードオフ)
+- 式(`expr` / `cond` / `init` / `assert` / `exit` / `args[]` … schema の印 `x-jin-expr` を持つ欄)は v2 では文字列のまま保存していたが、**v2.1 で AST から書き戻した正準形にする**(expr.md §8・§11 #48)。空白は演算子の両側に 1 つ、括弧は必要なときだけ、数値は `str(x)` の書式、文字列は最小エスケープ。**構文エラーの式は変えない**(入力を失わない)
 - `params: []` / `else: []` / `args: []` は既定値なので書かない
 
 ### 2.5 汎用性の確認(純粋な計算)
@@ -567,6 +567,11 @@ v2.1(`storage`)で確定した実装(§11 #45〜#47・abilities.md §8):
 
 ---
 
+v2.1(式の正準化)で確定した実装(§11 #48・expr.md §8):
+
+- **正準化は `jin_core.canonical.dumps` の 1 か所**: 印 `x-jin-expr` を持つ欄の式を `jin_core.v2.expr.unparse` で書き戻す。`jin fmt` / `jin/save` / `jin/applyOps` の応答 / `jin dump` / 紋章のハッシュがすべて同じ経路を通る。読めない式は元のまま
+- **エディタは式を解析しない**(設計書 §8 の原則のまま): 確定した式を `jin/applyOps` に送り、返ってきたモデルの正準形で欄を置き換える。Enter で確定するとフォーカスが欄に残るので、打ち直していなければ返ってきた値に draft を揃える(揃えないと blur で同じ式を二重に確定する)
+
 ## 9. オペレーション(`docs/spec/v2/ops.md`)
 
 v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応答に含める。**合成で書けるものは足さない**(v1 の `_reference_replacement` と同じ方針)。
@@ -612,7 +617,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 12 | 診断の番号帯 | v2 固有は JIN2xx。意味が同じものは v1 の番号を共有 | |
 | 13 | `data-jin-kind` | v2 は 13 種の別集合 | |
 | 14 | エディタからの実行 | 同一オリジン iframe のプレイヤー。`POST /run` は使わない | |
-| 15 | 式の正準化 | v2 では**しない**(文字列のまま保存) | v2.1 で再検討 |
+| 15 | 式の正準化 | v2 では**しない**(文字列のまま保存) | v2.1 で**する**と決めた(#48) |
 | 16 | schema のファイル(Phase 1 で確定) | v2 は**別ファイル** `schemas/jin-v2.schema.json`。`jin.schema.json` は 1 バイトも変えない。`jin schema --version 2` で出す | `apps/editor` のフォーム生成がルートの `properties` を直接読むので、ルートを oneOf にすると Phase 5 の前にエディタが壊れる。§1.1 の「oneOf」はこれで置き換える |
 | 17 | `jin_core.v1` への物理移動(Phase 1 で確定) | **しない**。v1 のモジュールはそのまま、`jin_core/v2/` を足すだけ | 全パッケージが `jin_core.<mod>` をフルパスで import しており、移動は 4 パッケージ横断の変更で得るものが無い |
 | 18 | `examples-v2/` の置き場(Phase 1 で確定) | **恒久的に `examples/` の外**。CI は `examples-v2` にも `check` / `fmt --check` を掛ける | `examples/` は「3 本」を等号で数える契約が複数あり、`jin-adk` / `jin-render` のテストが v1 前提で glob している |
@@ -646,6 +651,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 45 | `storage` の経路(v2.1 で確定) | 入りは `boot(seed, manifest)` の `manifest.storage`(ホストが持つ記憶の写し。プレリュードは参照のまま読むだけで `pairs` しない)、出は `tick` の戻り値の `storage`(書き込みの一覧 `[[key, val], …]`・書き込みがあった tick だけ・release でも出る。`boot` の核で書いた分は最初の tick に載る)。`get` は自分の書き込み → 写し → `""`。JIL の版は 2 → 3 | ホストが呼ぶ Lua の関数を `boot` / `tick` の 2 つのままにし(#6)、Lua はホストを呼ばない。写しを Lua のテーブルに写すには `pairs` が要るので、写しは読むだけにして書き込みを重ねる 2 段にした。release にこそ保存が要る |
 | 46 | `num(str)` と決定性(v2.1 で確定) | 式に純関数 `num`(`str()` が出す形と JSON の数値の形だけを受け、それ以外は 0。`tonumber` は先にパターンで弾く)。記憶の写しは録画のヘッダ `storage`(任意欄・版は 1 のまま)に載り、`jin run --input` が同じ写しで boot する。他のタブの書き込みは次の boot まで見えない | `get` が `str` を返す以上、`num` 無しでは高得点の保存が書けない。受ける形を閉じないと `0x10` / 空白付きで lupa と Wasmoon が割れ得る。写しがヘッダに無いと同じ録画から違う列が出る |
 | 47 | プレイヤーの記憶と再生(v2.1 で確定) | `Player.store`(`Map`)が正で、すべての boot に写しを渡し、書き込みを反映して `localStorage`(`jin.storage:<file>`)に丸ごと書き戻す。再生はヘッダの写しから始まるスクラッチに書いて永続化しない。差し替えは前の写しを引き継ぐ。「記憶を消す」(`jin.control` の `forget`・`jin-forget`)は空にして boot し直す。語彙は 7 語のまま | 再生は履歴の再実行であって利用者の本物の記憶を上書きしてはいけない(録画の `boot` に渡した写しがヘッダにあるので再現には足りる)。`Map` なら `__proto__` も普通の鍵。空にする口が無いと開発中に記憶を捨てられない |
+| 48 | 式の正準化(v2.1 で確定) | `jin_core.canonical.dumps` が **schema の印 `x-jin-expr` を持つ欄**(`jin_core.v2.model.expr_fields`)の式を AST に読んで書き戻す(`jin_core.v2.expr.unparse`。expr.md §8)。括弧は優先順位と結合で要るときだけ(`(a and b) or c` → `a and b or c`。`cmp` は連鎖しないので `(a < b) == c` の括弧は必須)、空白は演算子の両側に 1 つ、数値は `str(x)` と同じ書式、文字列は最小エスケープ。**読めない式(構文エラー・溢れた数値)は元のまま**。`cast.target` も同じ規則(`canvas . rect` → `canvas.rect`。整形が消す診断は check がこの形に出す JIN202 だけ) | §2.4 が保留した「diff の安定性」と「LLM の書きやすさ」は同じ機構で両立する: 同じ AST が 1 つの字面に落ちるので打ち方の揺れが diff に出ず、雑に書いた式も保存で揃う。欄を名前でなく**印**で見分けるのは、`jin_render.v2.layout` が紋章のハッシュに `Rite` 単体を `dumps` に渡すため(部分モデルでも同じに効く)。読めない式を保つので整形が入力を壊さない。エディタは Enter で確定した後に返ってきた正準形へ欄を揃える(揃えないと blur で同じ式を二重に確定し undo に積まれる) |
 ---
 
 ## 12. 実装フェーズ(Claude Code への発注単位)
@@ -659,6 +665,6 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る(**実装済み**。パリティは `apps/player/e2e/parity.spec.ts`(録画 → `jin run --input` → トレース全行一致)、`--single` は `single.spec.ts`。`jin build` の同梱は `scripts/sync_player.py`。命令数の上限がコルーチンに届いていなかった残存は §11 #32 で閉じた) |
 | 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「開く → ステップを足す → 保存 → `jin fmt` とバイト一致」「式エディタの補完」「実行パネルで 10 tick 進めてスクラブ」を実ブラウザで通す。§11 #36〜#38) |
 | 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「`.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く」「偽になった `assert` のバッジと一覧」「録画 → 書き出し → `jin run --input` と同じ行数 → 読み直し」を、`apps/player/e2e/replay.spec.ts` が再生と `jin run --input` の全行一致を実ブラウザで通す。§11 #39〜#41) |
-| 7 | v2.1 候補: `--target wasm-gc`、`storage`(**実装済み**。§11 #45〜#47。`packages/jin-wasm/tests/test_storage.py` が「1 回目の記憶を 2 回目の boot に渡すと続く」を、`apps/player/e2e/storage.spec.ts` が「`localStorage` に残り読み直しで続く → 録画のヘッダの写しで `jin run --input` と全行一致 → 再生は上書きしない → 記憶を消す」を実ブラウザで通す)、テキスト入力欄、式の正準化、状態を保ったライブリロード(**実装済み**。§11 #42〜#44。`packages/jin-wasm/tests/test_resume.py` が「途切れずに走らせた列と一致」を、`apps/player/e2e/reload.spec.ts` と `apps/editor/e2e/v2.spec.ts` が実ブラウザで「式を直しても tick / 記憶環の値が続く」を通す)、v1 の陣(LLM エージェント)を v2 から `summon` する Python ホスト | 任意 |
+| 7 | v2.1 候補: `--target wasm-gc`、`storage`(**実装済み**。§11 #45〜#47。`packages/jin-wasm/tests/test_storage.py` が「1 回目の記憶を 2 回目の boot に渡すと続く」を、`apps/player/e2e/storage.spec.ts` が「`localStorage` に残り読み直しで続く → 録画のヘッダの写しで `jin run --input` と全行一致 → 再生は上書きしない → 記憶を消す」を実ブラウザで通す)、テキスト入力欄、式の正準化(**実装済み**。§11 #48・expr.md §8。`tests/contract/test_canonical_contract_v2.py` が examples-v2 と fixture の冪等と式の AST 保存、`tests/fixtures/canonical/v2/messy.jin` → `messy.expected.jin` のバイト一致を、`apps/editor/e2e/v2.spec.ts` が「`score+ (1)` を Enter で確定 → `score + 1` に揃う → 保存が `jin fmt` と一致」を実ブラウザで通す)、状態を保ったライブリロード(**実装済み**。§11 #42〜#44。`packages/jin-wasm/tests/test_resume.py` が「途切れずに走らせた列と一致」を、`apps/player/e2e/reload.spec.ts` と `apps/editor/e2e/v2.spec.ts` が実ブラウザで「式を直しても tick / 記憶環の値が続く」を通す)、v1 の陣(LLM エージェント)を v2 から `summon` する Python ホスト | 任意 |
 
 Phase 0 の仕様書を先に承認してから Phase 1 に入る(v1 と同じ運び)。
