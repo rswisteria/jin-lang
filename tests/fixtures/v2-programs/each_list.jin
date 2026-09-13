@@ -1,0 +1,135 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "main",
+      "state": [
+        {
+          "name": "items",
+          "type": "list<num>",
+          "init": "[3, 1, 2]"
+        },
+        {
+          "name": "total",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "label",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        },
+        {
+          "name": "count",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "has",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        },
+        {
+          "name": "second",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "push",
+              "args": [
+                "items",
+                "4"
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "each",
+              "name": "x",
+              "in": "items",
+              "steps": [
+                {
+                  "do": "set",
+                  "target": "total",
+                  "expr": "total + x"
+                }
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "3",
+              "steps": [
+                {
+                  "do": "set",
+                  "target": "total",
+                  "expr": "total + i"
+                }
+              ]
+            },
+            {
+              "do": "let",
+              "name": "s",
+              "expr": "str(len(items)) ++ \"/\" ++ sub(\"hello\", 1, 3)"
+            },
+            {
+              "do": "set",
+              "target": "label",
+              "expr": "s"
+            },
+            {
+              "do": "cast",
+              "target": "removeAt",
+              "args": [
+                "items",
+                "0"
+              ]
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "len(items)"
+            },
+            {
+              "do": "set",
+              "target": "second",
+              "expr": "items[1]"
+            },
+            {
+              "do": "if",
+              "cond": "contains(items, 4)",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "has",
+                  "expr": "true"
+                }
+              ]
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

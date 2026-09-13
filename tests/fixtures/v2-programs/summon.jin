@@ -1,0 +1,88 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "main",
+      "state": [
+        {
+          "name": "result",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "dbl",
+          "kind": "summon",
+          "circle": "Lib",
+          "rite": "double"
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "dbl",
+              "args": [
+                "21"
+              ],
+              "into": "result"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lib",
+      "core": "noop",
+      "state": [
+        {
+          "name": "calls",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "noop",
+          "steps": []
+        },
+        {
+          "name": "double",
+          "params": [
+            {
+              "name": "n",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "set",
+              "target": "calls",
+              "expr": "calls + 1"
+            },
+            {
+              "do": "return",
+              "expr": "n * 2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

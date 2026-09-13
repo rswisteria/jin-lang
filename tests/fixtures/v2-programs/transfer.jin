@@ -1,0 +1,105 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "start",
+      "state": [
+        {
+          "name": "n",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "n",
+              "expr": "n + 1"
+            },
+            {
+              "do": "if",
+              "cond": "n == 2",
+              "then": [
+                {
+                  "do": "transfer",
+                  "circle": "Sub"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      },
+      "delegate": [
+        "Sub"
+      ]
+    },
+    {
+      "name": "Sub",
+      "core": "start",
+      "state": [
+        {
+          "name": "m",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "m",
+              "expr": "m + 1"
+            },
+            {
+              "do": "if",
+              "cond": "m == 2",
+              "then": [
+                {
+                  "do": "finish"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    }
+  ]
+}

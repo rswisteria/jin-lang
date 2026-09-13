@@ -1,0 +1,166 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "start",
+      "state": [
+        {
+          "name": "keys",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "held",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "pressed",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "lastx",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "lastdown",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "input",
+          "kind": "host",
+          "host": "input"
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "onkey",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "down",
+              "type": "bool"
+            }
+          ],
+          "steps": [
+            {
+              "do": "if",
+              "cond": "down",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "keys",
+                  "expr": "keys + 1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "onptr",
+          "params": [
+            {
+              "name": "p",
+              "type": "Pointer"
+            }
+          ],
+          "steps": [
+            {
+              "do": "set",
+              "target": "lastx",
+              "expr": "p.x"
+            },
+            {
+              "do": "set",
+              "target": "lastdown",
+              "expr": "p.down"
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "input.key(\"ArrowLeft\")",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "held",
+                  "expr": "held + 1"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"Space\")",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "pressed",
+                  "expr": "pressed + 1"
+                }
+              ]
+            },
+            {
+              "do": "let",
+              "name": "q",
+              "expr": "input.pointer()"
+            },
+            {
+              "do": "if",
+              "cond": "q.down",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "lastdown",
+                  "expr": "true"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          },
+          {
+            "event": "key",
+            "rite": "onkey"
+          },
+          {
+            "event": "pointer",
+            "rite": "onptr"
+          }
+        ]
+      }
+    }
+  ]
+}

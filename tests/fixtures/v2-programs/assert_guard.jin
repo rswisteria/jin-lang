@@ -1,0 +1,53 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "start",
+      "state": [
+        {
+          "name": "n",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "n",
+              "expr": "n + 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ],
+        "guards": [
+          {
+            "assert": "n < 2",
+            "message": "n は 2 未満"
+          }
+        ]
+      }
+    }
+  ]
+}

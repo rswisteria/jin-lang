@@ -1,0 +1,40 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "main",
+      "state": [
+        {
+          "name": "y",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "let",
+              "name": "xs",
+              "expr": "[1, 2]"
+            },
+            {
+              "do": "set",
+              "target": "y",
+              "expr": "xs[5]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

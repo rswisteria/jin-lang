@@ -1,0 +1,127 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Both",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Both",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    {
+      "name": "A",
+      "core": "start",
+      "state": [
+        {
+          "name": "a",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "seenB",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": [
+            {
+              "do": "set",
+              "target": "a",
+              "expr": "0"
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "seenB",
+              "expr": "B.b"
+            },
+            {
+              "do": "set",
+              "target": "a",
+              "expr": "a + 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    },
+    {
+      "name": "B",
+      "core": "start",
+      "state": [
+        {
+          "name": "b",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "seenA",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": [
+            {
+              "do": "set",
+              "target": "b",
+              "expr": "0"
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "seenA",
+              "expr": "A.a"
+            },
+            {
+              "do": "set",
+              "target": "b",
+              "expr": "b + 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    }
+  ]
+}

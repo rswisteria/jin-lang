@@ -503,8 +503,10 @@ local function TRANSFER(i, j)
   st.pending = true
 end
 
-local function EMIT(to, name, args, row)
-  Q[#Q + 1] = { to = to, name = name, args = args, row = row }
+-- meta は DEBUG のときだけ（{ ci = 発信元, pointer = emit ステップ, args_json = 引数の JSON }）。
+-- emit 行は配達の tick に積む（runtime.md §5「次 tick の 1 で埋めた行を出す」）。
+local function EMIT(to, name, args, meta)
+  Q[#Q + 1] = { to = to, name = name, args = args, meta = meta }
 end
 
 ENTER = function(i)
@@ -601,10 +603,12 @@ local function deliver()
     if is_active(i) and c.on and c.on.message then
       delivered = true
     end
-    if msg.row then msg.row.output = JB(delivered) end
+    if DEBUG and msg.meta then
+      ROW("emit", msg.meta.ci, msg.name, msg.meta.pointer, msg.meta.args_json, JB(delivered))
+    end
     if delivered then
       if DEBUG then
-        local inner = msg.args_json or "[]"
+        local inner = (msg.meta and msg.meta.args_json) or "[]"
         local input = "[" .. JS(msg.name)
         if inner ~= "[]" then input = input .. "," .. string.sub(inner, 2, -2) end
         ROW("event", i, "message", c.on_ptr.message, input .. "]", nil)
@@ -673,10 +677,9 @@ local function dispatch_events()
   end
 end
 
+-- 4. 確定: 核あり陣すべて（idle の陣も。summon で書かれた state が読めるように）
 local function publish_all()
-  for i = 1, #CIRCLES do
-    if C[i].status ~= "idle" then publish(i) end
-  end
+  for i = 1, #CIRCLES do publish(i) end
 end
 
 local function check_guards()
@@ -756,14 +759,21 @@ function boot(seed, manifest)
   CUR_CI = nil
   for i = 1, #CIRCLES do
     C[i] = { status = "idle", paused = false, pending = false, cursor = 0, waits = {}, published = false }
-    S[i] = nil
     P[i] = {}
+    -- 未 entered の陣の state は init の値（model.md §3.2 の summon）。entered で評価し直す
+    if CIRCLES[i].init then
+      S[i] = CIRCLES[i].init()
+      publish(i)
+    else
+      S[i] = nil
+    end
   end
   rng_seed(math.tointeger(seed) or 0)
   protected(function()
     ENTER(ROOT)
     ADVANCE()
   end)
+  publish_all()
   OPS = {}
   AUDIO = {}
 end
