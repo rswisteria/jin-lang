@@ -114,6 +114,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2-4 | `apps/player`（Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画 / 最小 UI / postMessage）+ `jin build` の同梱と `--single` + パリティ e2e | 実装済み |
 | v2-5 | LSP の v2（hover / completion / `jin/applyOps` + 応答の JIL）+ エディタの v2（式エディタ / 13 種 / 32 ops）+ 実行パネル（`/play/` iframe・ライブリロード） | 実装済み |
 | v2-6 | デバッグ（`.jinrec` の再生・スクラブで記憶環の値と画面・`assert` のバッジ・実行パネルの録画と書き出し） | 実装済み |
+| v2.1 | 状態を保ったライブリロード（`tick` 結果の `snapshot` → `boot` の `manifest.resume`・`jin.load` の `keep`・jil: 2） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -154,7 +155,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   補う（設計書 §11 #30。paddle は §2.2 と突合されるので書き換えない）
 - **JIL は Lua 5.4 の静的サブセット**（`jin_wasm.jil.JIL_FORBIDDEN` は jil.md §2 と等号）。`game.lua` =
   ヘッダ + `prelude.lua`（そのまま連結）+ 生成部 + `return { boot = boot, tick = tick }`。生成部が定義するのは
-  `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` だけで、プレリュード先頭のコメントと 1:1。
+  `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` / `JR[k]`（型紙の読み手・debug だけ）だけで、
+  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **2**
+  （jil.md §1。v2.1 で `CIRCLES[i]` に `restore` / `prestore` / `pdump`、`tick` 結果に `snapshot` / `resume` が加わった。release の生成部は不変）。
   **名前を Lua の識別子に埋め込まない**（`S[i].k_j` / `R[i][j]` / `f_j` / `l_n`。添字は Lua の 1 始まり、pointer は 0 始まり）。
   `num` は常に float（`160.0`）。`tests/contract/test_jil_contract.py` がプレリュードと全生成物を走査する
 - **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
@@ -334,6 +337,32 @@ Jin v2 Phase 6（デバッグ: 録画の再生・記憶環の値・`assert` の�
   `jin.status` / `jin.recording` は親へ）。`tests/contract/test_editor_contract.py` が `RunPanel.tsx` と `main.ts` から
   抜いた集合の**等号**で固定する。語彙はこの 2 ファイルの外に書かない
 - 録画の書き出しは親のダウンロード（`<jin 名>-seed<seed>-<ticks>t.jinrec`）。埋め込みでは録画・再生とも asset は読めない
+
+Jin v2.1（状態を保ったライブリロード）の要点（正典は `docs/spec/v2/runtime.md` §1.3 / §10、jil.md §1 / §5、
+設計書 §8 / §11 #42〜#44）:
+
+- **経路はデバッグビルドの `tick` 結果の `snapshot` → 次の `boot` の `manifest.resume`**。ホストが呼ぶ Lua の関数は
+  `boot` / `tick` の 2 つのまま。プレリュード（`restore_from` / `repair_flows`）が**陣を名前で照合**して生存 / state /
+  公開 state の確定値 P / tick / seq / PCG32 を写す。root が照合できなければ通常の boot（`resume.mode = "fresh"`）。
+  `wait` 中の手順と未配達の `emit` は捨てる。復元の知らせは直後の tick 結果に 1 回だけ（`resume`）。
+  release には `snapshot` が無い。lupa 側の証拠は `packages/jin-wasm/tests/test_resume.py`
+  （「途切れずに走らせた列と、途中で差し替えて続けた列が行（seq 込み）も画面も乱数列も一致」）
+- **ホストの値の形を `type(v) == "table"` で見ない**（lupa は table、Wasmoon は proxy の userdata）。読み手
+  `RREC` / `RN` / `RB` / `RSTR` / `RL` / `JR[k]` は欄の読み取りと `ipairs` で形を見て、合わなければ nil（init のまま）。
+  数値は `+ 0.0` で float に揃える。PCG32 の 64 bit 状態は `"0x…"` の 16 進**文字列**で越える（jil.md §5 の唯一の例外）
+- **Wasmoon は JS の `null` を Lua に積めない**（proxy が欄を読んだ瞬間に PANIC でエンジンごと落ちる。probe §A.11 の実測）。
+  `apps/player/src/host.ts` の `boot` は `withoutNulls` で `null` を欄ごと落としてから渡す（核なし陣の `state` /
+  `delegate` が `null`）。JS → Lua に新しい JSON 由来の値を渡すときは同じ写しを通す
+- **プレイヤーは前のプレイヤーから引き継ぐ**（`Player.resumeFrom`）: tick / seed / reducer / 押下状態
+  （`InputCollector.adopt`）/ トレース / 直近の画面。録画は止める。`fresh` ならその tick を捨てて `reboot`。
+  `jin.status` の **`generation`**（boot し直すたびに増え、続けたときは変わらない）で親（`App.onStatus`）が走らせた行を
+  捨てるかを決める（seq が 0 に戻るので）。読み込みは直列（`loading` の promise 鎖）
+- **v2 の実行パネルはモードを切り替えても外さない**（`App.tsx` で `hidden={mode !== "debug"}`）。式の欄は編集モードにしか
+  無く、外すと iframe ごとプレイヤーが消える。「編集しても状態を保つ」（`jin-keep-state`・既定 on）は ref で読み、
+  切り替えただけでは `jin.load` を送り直さない
+- 語彙は 7 語のまま（`jin.load` に `keep`、`jin.status` に `generation` の**欄**が増えただけ）。e2e は
+  `apps/player/e2e/reload.spec.ts`（Wasmoon 経路で tick / 公開 state / 世代が続き seq が途切れない）と
+  `apps/editor/e2e/v2.spec.ts`（走らせて止める → 編集モードで式を直す → 戻ると続く → 外すと世代が進む）
 
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 

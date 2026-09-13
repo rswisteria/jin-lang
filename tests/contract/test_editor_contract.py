@@ -603,3 +603,32 @@ def test_the_v2_e2e_uses_the_committed_recording_fixture() -> None:
         "録画して書き出した .jinrec は jin run --input で同じ行数になり",
     ):
         assert phrase in spec, phrase
+
+
+def test_the_run_panel_keeps_state_across_edits_and_stays_mounted() -> None:
+    """設計書 §8 / §11 #42〜#44（v2.1）: 状態を保った差し替え。
+
+    - 「編集しても状態を保つ」（`jin-keep-state`・既定 on）は `jin.load` の `keep` に載る。切り替えただけでは
+      `jin.load` を送り直さない（effect の依存に入れず ref で読む）
+    - v2 の実行パネルはモードを切り替えても**外さない**（外すと iframe ごとプレイヤーが消える）。編集モードでは隠す
+    - 親は `jin.status` の世代（`generation`）が進んだら走らせた行を捨てる（seq が 0 に戻るので）。録画の再生の行は捨てない
+    """
+    panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
+    assert 'data-testid="jin-keep-state"' in panel
+    assert "const [keep, setKeep] = useState(true);" in panel
+    assert "keep: keepRef.current," in panel
+    assert "}, [loaded, jil, manifestKey]);" in panel  # keep は依存に無い
+    assert "readonly generation: number;" in panel
+    assert "hidden={props.hidden === true}" in panel
+    app = (SRC / "App.tsx").read_text(encoding="utf-8")
+    assert 'hidden={mode !== "debug"}' in app
+    assert app.count("<RunPanel") == 1
+    on_status = app[app.index("const onStatus = useCallback(") :]
+    on_status = on_status[: on_status.index("useEffect(")]
+    assert "status.generation !== lastGeneration.current" in on_status
+    assert 'if (traceSource.current.kind === "live") clearTrace();' in on_status
+    # e2e: 走らせて止める → 編集モードで式を直す → 戻ると tick / 記憶環の値 / upto がそのまま → 外すと世代が進む
+    spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
+    assert "状態を保って差し替えました（tick ${String(tick)} から続けます）" in spec
+    assert 'page.getByTestId("jin-keep-state").uncheck();' in spec
+    assert ".toBe(generation + 1);" in spec

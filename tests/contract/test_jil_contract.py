@@ -121,3 +121,11 @@ def test_header_names_the_source_and_the_jil_version(path: Path) -> None:
 
 def test_the_prelude_declares_its_jil_version() -> None:
     assert f"jil: {JIL_VERSION}" in prelude_source().split("\n", 1)[0]
+
+
+def test_the_jil_spec_names_the_current_version() -> None:
+    """jil.md §1 の `jil: N` はプレリュード / 生成部の版と同じ（v2.1 で 1 → 2。片方だけ変えない）。"""
+    spec = (REPO_ROOT / "docs" / "spec" / "v2" / "jil.md").read_text(encoding="utf-8")
+    assert f"-- jin: 2  jil: {JIL_VERSION}" in spec
+    assert f"`jil: {JIL_VERSION}` は JIL の契約の版" in spec
+    assert JIL_VERSION == 2
