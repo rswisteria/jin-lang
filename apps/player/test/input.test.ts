@@ -165,4 +165,23 @@ group("InputCollector", () => {
 		expect(c.drain()).toEqual([{ kind: "pointer", x: 0, y: 0, down: true }]);
 		c.detach();
 	});
+
+	test("adopt は押下中のキー / ポインタと溜まりを引き継ぐ（差し替えの間に押したままでも離しが出る）", () => {
+		const { canvas, c: before } = collector();
+		key("keydown", "ArrowLeft");
+		pointer(canvas, "pointerdown", 10 + 66, 20 + 36);
+		before.detach();
+		const { canvas: canvas2, c: after } = collector();
+		after.adopt(before);
+		// 溜まりはそのまま渡り、押したままのキーを離すと `down: false` が出る（reset していたら出ない）。
+		key("keyup", "ArrowLeft");
+		pointer(canvas2, "pointerup", 10 + 70, 20 + 40);
+		expect(after.drain()).toEqual([
+			{ kind: "key", name: "ArrowLeft", down: true },
+			{ kind: "pointer", x: 33, y: 18, down: true },
+			{ kind: "key", name: "ArrowLeft", down: false },
+			{ kind: "pointer", x: 35, y: 20, down: false },
+		]);
+		after.detach();
+	});
 });

@@ -8,6 +8,7 @@ import {
 	HostError,
 	JinHost,
 	SANDBOX_REMOVED,
+	withoutNulls,
 } from "../src/host";
 import type { Manifest } from "../src/types";
 
@@ -66,7 +67,51 @@ const INPUTS = {
 	pointer: { x: 5, y: 6, down: false },
 };
 
+/** `manifest.resume` の欄の型を tick の JSON に載せる（`null` が Lua に nil として見えることを見る）。 */
+const RESUME_PROBE = `
+local ARM = JIN_ARM
+local SEEN = "-"
+function boot(seed, manifest)
+  if ARM then ARM() end
+  local r = manifest.resume
+  if r ~= nil then
+    local c = r.circles[1]
+    SEEN = type(c.state) .. "/" .. tostring(c.name) .. "/" .. tostring(#r.circles)
+      .. "/" .. type(c.list[1]) .. "/" .. tostring(c.list[2]) .. "/" .. type(r.rng)
+  end
+end
+function tick(t, inputs)
+  if ARM then ARM() end
+  return '{"ops":[],"audio":[],"done":false,"error":null,"public":{"seen":"' .. SEEN .. '"}}'
+end
+`;
+
 group("JinHost（実際の Wasmoon）", () => {
+	test("manifest の null は Lua に nil として見え、配列は 1 始まりで読める（Wasmoon は null を積めない・probe §A.11）", async () => {
+		const host = await JinHost.create(RESUME_PROBE, WASM);
+		try {
+			const resume = {
+				tick: 1,
+				seed: 3,
+				seq: 0,
+				rng: "0x1",
+				circles: [{ name: "G", state: null, delegate: null, list: [null, 2] }],
+			};
+			host.boot(3, { ...MANIFEST, resume });
+			expect(host.tick(0, INPUTS).public).toEqual({
+				seen: "nil/G/1/nil/2/string",
+			});
+			// 写しなので渡した snapshot はそのまま（`null` が消えていない）。
+			expect(resume.circles[0]?.state).toBeNull();
+			expect(withoutNulls(resume).circles[0]).toEqual({
+				name: "G",
+				list: [undefined, 2],
+			});
+		} finally {
+			host.close();
+		}
+	});
+
 	test("boot / tick を通し、tick の JSON 文字列を parse して返す", async () => {
 		const host = await JinHost.create(game(false), WASM);
 		try {

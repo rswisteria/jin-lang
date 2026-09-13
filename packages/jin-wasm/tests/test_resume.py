@@ -296,3 +296,60 @@ def test_structural_edits_add_init_values_remove_silently_and_rename_starts_fres
     first = d.tick(0, InputState().apply([]))
     assert first["resume"]["mode"] == "fresh" and first["resume"]["dropped"] == ["Game"]
     assert first["trace"][0]["kind"] == "enter" and first["trace"][0]["tick"] == -1
+
+
+# ---------------------------------------------------------------- 生存の復元（fixture）
+
+PROGRAMS = REPO_ROOT / "tests" / "fixtures" / "v2-programs"
+
+
+def fixture_run(name: str, ticks: int):
+    path = PROGRAMS / f"{name}.jin"
+    game = generate(load(path), source_name=path.name, debug=True)
+    host = LuaHost(game.lua)
+    host.boot(7, game.manifest)
+    return game, run_ticks(host, 0, ticks - 1)
+
+
+def test_a_waiting_rite_is_dropped_but_the_events_keep_arriving() -> None:
+    """`wait` 中の手順は差し替えで捨てる（コルーチンは越えられない）。`on tick` は届き続ける。
+
+    wait_until の core は `wait until n >= 3` → `set flag` → `finish`。tick 1（n = 2）の snapshot から
+    続けると、待っていた手順は再開しない（`wait … resume` の行が出ない・flag は false のまま・done に
+    ならない）が、`step` は毎 tick 走って n は増え続ける。
+    """
+    game, a_results = fixture_run("wait_until", 10)
+    assert a_results[3]["done"]  # 途切れずに走らせれば tick 3 で終わる
+    snapshot = a_results[1]["snapshot"]
+    only = snapshot["circles"][0]
+    assert only["state"] == {"n": 2, "flag": False} and only["status"] == "active"
+
+    b = LuaHost(game.lua)
+    b.boot(7, {**game.manifest, "resume": snapshot})
+    b_results = run_ticks(b, 2, 9)
+    assert b_results[0]["resume"]["mode"] == "resumed"
+    assert [row["kind"] for row in rows_of(b_results) if row["kind"] == "wait"] == []
+    assert not any(result["done"] for result in b_results)
+    assert b_results[-1]["public"] == {"Only.n": 10, "Only.flag": False}
+
+
+def test_a_delegation_in_progress_is_restored() -> None:
+    """`transfer` 中（委譲元は paused・委譲先は active）の snapshot から続けると、委譲先が動き続け、
+    `done` で委譲元に戻る。行（seq 込み）と公開 state は途切れずに走らせた列と一致する。"""
+    game, a_results = fixture_run("transfer", 6)
+    snapshot = a_results[2]["snapshot"]
+    by_name = {c["name"]: c for c in snapshot["circles"]}
+    assert by_name["Main"]["paused"] and by_name["Main"]["delegate"] == "Sub"
+    assert by_name["Sub"]["status"] == "active"
+
+    b = LuaHost(game.lua)
+    b.boot(7, {**game.manifest, "resume": snapshot})
+    b_results = run_ticks(b, 3, 5)
+    assert b_results[0]["resume"] == {
+        "mode": "resumed",
+        "tick": 2,
+        "kept": ["Main", "Sub"],
+        "dropped": [],
+    }
+    assert rows_of(b_results) == rows_of(a_results[3:])
+    assert b_results[-1]["public"] == {"Main.n": 4, "Sub.m": 2}

@@ -25,6 +25,32 @@ export interface Manifest {
 	}[];
 	readonly debug: boolean;
 	readonly jil: string;
+	/**
+	 * 状態を保った差し替え（runtime.md §1）: 直前の `tick` 結果の `snapshot` をそのまま渡すと、`boot` は
+	 * 陣を名前で照合して状態を続ける。`game.manifest.json` には無く、プレイヤーが差し替えのときにだけ足す。
+	 */
+	readonly resume?: Snapshot;
+}
+
+/**
+ * DEBUG の `tick` 結果に載る、次の `boot` の `manifest.resume` へ**そのまま**渡す状態（runtime.md §1）。
+ * プレイヤーは中を解釈しない（読むのは `tick` と `seed` だけ。形の検査は Lua 側の読み手が行う）。
+ */
+export interface Snapshot {
+	readonly tick: number;
+	readonly seed: number;
+	readonly seq: number;
+	readonly rng: string;
+	readonly circles: readonly unknown[];
+}
+
+/** 差し替え直後の `tick` 結果に 1 回だけ載る、復元の知らせ（runtime.md §1）。 */
+export interface ResumeNote {
+	/** `resumed`: 名前で照合して続けた。`fresh`: root が照合できず通常の boot に落ちた。 */
+	readonly mode: "resumed" | "fresh";
+	readonly tick: number;
+	readonly kept: readonly string[];
+	readonly dropped: readonly string[];
 }
 
 /** 入力イベント（runtime.md §1.1 / §7。`.jinrec` の行から `tick` を除いたもの）。 */
@@ -68,6 +94,10 @@ export interface TickResult {
 	readonly done: boolean;
 	readonly error: string | null;
 	readonly public: Readonly<Record<string, unknown>>;
+	/** DEBUG だけ。次の `boot` に渡せば状態が続く（差し替え）。 */
+	readonly snapshot?: Snapshot;
+	/** DEBUG だけ。`manifest.resume` 付きで boot した直後の 1 回だけ。 */
+	readonly resume?: ResumeNote;
 }
 
 /** `--single` が `index.html` に埋める束（runtime.md §9）。 */

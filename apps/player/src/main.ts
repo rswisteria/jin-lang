@@ -5,7 +5,8 @@
  * - `--single`: `window.JIN_BUNDLE`（JIL / manifest / wasm の base64）から読む。wasm は `data:` URL で渡す
  * - 最小 UI: 実行 / 一時停止 / 1 tick / seed / 最初から / 録画 / 書き出し
  * - 埋め込み（iframe・Jin v2 のエディタの実行パネル）: **fetch せず**親からの
- *   `{ type: "jin.load", jil, manifest }` を待って読み込む（ライブリロード）。トレース行は親へ
+ *   `{ type: "jin.load", jil, manifest, keep }` を待って読み込む（ライブリロード。`keep` なら
+ *   直前の tick 結果の `snapshot` を `manifest.resume` に付けて boot し、状態と tick を続ける）。トレース行は親へ
  *   `postMessage({ type: "jin.trace", rows })`。`{ type: "jin.control", action }` で
  *   実行 / 一時停止 / 1 tick / 最初から（seed 付き）/ 録画 / 録画を止める を受ける。
  *   親以外からの message は無視する
@@ -22,7 +23,7 @@ import { JinHost } from "./host";
 import { InputCollector } from "./input";
 import { parseJinrec } from "./jinrec";
 import { Player, type Clock } from "./player";
-import type { Manifest, Op, SingleBundle, TraceRow } from "./types";
+import type { Manifest, Op, ResumeNote, SingleBundle, TraceRow } from "./types";
 
 /** `.jinrec` の再生の結果（`PlayerApi.replay`）。 */
 export interface ReplayOutcome {
@@ -42,7 +43,15 @@ export interface PlayerApi {
 	reboot(seed?: number): void;
 	startRecording(): void;
 	stopRecording(): string | null;
-	load(jil: string, manifest: Manifest): Promise<void>;
+	/**
+	 * JIL を差し替える。`keep` なら状態を保って続ける（tick が進んでいて `snapshot` があるときだけ。
+	 * 無ければ最初から）。
+	 */
+	load(jil: string, manifest: Manifest, keep?: boolean): Promise<void>;
+	/** 直近の差し替えの復元の知らせ（差し替え後の最初の tick で決まる。最初からなら null）。 */
+	lastResume(): ResumeNote | null;
+	/** boot し直すたびに増える世代（差し替えで続けたときは変わらない）。 */
+	generation(): number;
 	/** `.jinrec` のテキストを最初から再生する（止まったまま終わる）。 */
 	replay(text: string): ReplayOutcome;
 	/** 表示リストを描くだけ（走っている間は false）。 */
@@ -191,6 +200,8 @@ async function main(): Promise<void> {
 	const embedded = EMBEDDED;
 	/** 直近の再生 / 読み込みの一言（`jin.status` の `notice`）。 */
 	let notice: string | null = null;
+	/** 読み込みは直列にする（wasm の起動を待つ間に次の `jin.load` が来ても前の読み込みと重ねない）。 */
+	let loading: Promise<void> = Promise.resolve();
 
 	/** 親（エディタ）へ状態を知らせる。埋め込みでなければ何もしない。 */
 	const postStatus = (): void => {
@@ -206,6 +217,7 @@ async function main(): Promise<void> {
 				error: player?.error ?? null,
 				recording: player?.recording ?? false,
 				recordedEvents: player?.recordedEvents ?? 0,
+				generation: player?.generation ?? 0,
 				notice,
 			},
 			"*",
@@ -232,10 +244,27 @@ async function main(): Promise<void> {
 		errorBox.textContent = player.error ?? "";
 	};
 
-	const setUp = async (source: Source): Promise<void> => {
-		player?.pause();
+	/** 差し替え直後の tick が返した復元の知らせを一言に。 */
+	const resumeNotice = (note: ResumeNote): string => {
+		if (note.mode === "fresh")
+			return "root の陣が照合できないので最初から（状態は引き継げません）";
+		return note.dropped.length === 0
+			? `状態を保って差し替えました（tick ${String(note.tick + 1)} から続けます）`
+			: `状態を保って差し替えました（引き継げなかった陣: ${note.dropped.join(", ")}）`;
+	};
+
+	/**
+	 * JIL を読み込む。`keep` なら前のプレイヤーの状態（直近の `snapshot`・押下・トレース・走っていたか）を
+	 * 引き継いで続け、そうでなければ（初回 / 前が無い / まだ tick 0 / 終わっている）最初から走らせる。
+	 */
+	const setUp = async (source: Source, keep = false): Promise<void> => {
+		const previous = player;
+		const previousCollector = collector;
+		const wasRunning = previous?.running ?? false;
+		const wasRecording = previous?.recording ?? false;
+		previous?.pause();
 		collector?.detach();
-		host?.close();
+		const previousHost = host;
 		const { width, height } = source.manifest.stage;
 		canvas.width = width;
 		canvas.height = height;
@@ -266,11 +295,26 @@ async function main(): Promise<void> {
 				if (embedded)
 					window.parent.postMessage({ type: "jin.trace", rows }, "*");
 			},
+			onResume: (note) => {
+				notice = resumeNotice(note);
+			},
 		});
 		player = current;
+		// 前のホストは新しいプレイヤーが（差し替えなら snapshot を渡して）boot した後に閉じる。
+		const resumed = keep && previous !== null && current.resumeFrom(previous);
+		previousHost?.close();
+		if (resumed) {
+			if (previousCollector !== null) collector.adopt(previousCollector);
+			notice = wasRecording
+				? `状態を保って差し替えました（tick ${String(current.tick)} から続けます・録画は止めました）`
+				: `状態を保って差し替えました（tick ${String(current.tick)} から続けます）`;
+			if (wasRunning) current.start();
+		} else {
+			notice = null;
+			current.reboot();
+			current.start();
+		}
 		seedInput.value = String(current.seed);
-		current.reboot();
-		current.start();
 		render();
 	};
 
@@ -325,6 +369,7 @@ async function main(): Promise<void> {
 			type?: unknown;
 			jil?: unknown;
 			manifest?: unknown;
+			keep?: unknown;
 			action?: unknown;
 			seed?: unknown;
 			text?: unknown;
@@ -388,7 +433,9 @@ async function main(): Promise<void> {
 			data.manifest === null
 		)
 			return;
-		void api.load(data.jil, data.manifest as Manifest).catch(showError);
+		void api
+			.load(data.jil, data.manifest as Manifest, data.keep === true)
+			.catch(showError);
 	});
 
 	const showError = (error: unknown): void => {
@@ -405,10 +452,10 @@ async function main(): Promise<void> {
 		reboot: (seed) => player?.reboot(seed),
 		startRecording: () => player?.startRecording(),
 		stopRecording: () => player?.stopRecording() ?? null,
-		load: async (jil, manifest) => {
+		load: (jil, manifest, keep = false) => {
 			// **fetch しない。** wasm の場所はページから決まる。asset の実体は埋め込みでは
 			// 読めない（`.jin` の隣にあり、エディタのサーバは配らない）ので、絵と音は出ない。
-			await setUp({
+			const source: Source = {
 				jil,
 				manifest,
 				wasmUri: wasmUriOf(),
@@ -416,8 +463,16 @@ async function main(): Promise<void> {
 					embedded || window.JIN_BUNDLE !== undefined
 						? null
 						: (path) => new URL(path, document.baseURI).href,
-			});
+			};
+			const next = loading.then(
+				() => setUp(source, keep),
+				() => setUp(source, keep),
+			);
+			loading = next.catch(() => undefined);
+			return next;
 		},
+		lastResume: () => player?.lastResume ?? null,
+		generation: () => player?.generation ?? 0,
 		replay: (text) => {
 			if (player === null)
 				return { ok: false, ticks: 0, message: "まだ読み込んでいません" };

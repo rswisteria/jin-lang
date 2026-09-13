@@ -479,12 +479,23 @@ export function App({
 		},
 		[clearTrace],
 	);
-	/** プレイヤーが止まった（一時停止 / 1 tick / 最初から / 再生の終わり / done）ら即座に描き直す。 */
+	/**
+	 * プレイヤーの状態。世代（boot し直すたびに増える。状態を保った差し替えでは変わらない）が進んだら
+	 * 走らせた行を捨てる（seq が 0 に戻るので古い行と重なる。編集のたびの `jin.load` は親の操作を
+	 * 通らないのでここで見る）。録画の再生の行は再生の終わりに 1 回で届いてから世代の知らせが来るので、
+	 * 出どころが `replay` の間は捨てない。止まった（一時停止 / 1 tick / 最初から / 再生の終わり / done）
+	 * ら即座に描き直す。
+	 */
+	const lastGeneration = useRef(0);
 	const onStatus = useCallback(
 		(status: PlayerStatus): void => {
+			if (status.generation !== lastGeneration.current) {
+				lastGeneration.current = status.generation;
+				if (traceSource.current.kind === "live") clearTrace();
+			}
 			if (!status.running) flushLive();
 		},
-		[flushLive],
+		[flushLive, clearTrace],
 	);
 	useEffect(
 		() => () => {
@@ -644,21 +655,7 @@ export function App({
 										onChange={(ops) => void send(ops)}
 									/>
 								)
-							) : isV2 ? (
-								<RunPanel
-									generated={generated}
-									replay={replay}
-									selectedPointer={selectedPointer}
-									traceError={traceError}
-									fileName={decodeURIComponent(uri.split("/").at(-1) ?? "")}
-									onTrace={onTrace}
-									onControl={onControl}
-									onUpto={scrub}
-									onReplay={onReplay}
-									onLoadTrace={(file) => void openTrace(file)}
-									onStatus={onStatus}
-								/>
-							) : (
+							) : isV2 ? null : (
 								<DebugPanel
 									replay={replay}
 									selectedPointer={selectedPointer}
@@ -671,6 +668,24 @@ export function App({
 									onRun={(prompt, model) => void startRun(prompt, model)}
 								/>
 							)}
+							{/* v2 の実行パネルは**モードを切り替えても外さない**（外すと iframe ごとプレイヤーが消えて、
+							    編集モードで式を直して戻ったときに状態が続かない・v2.1）。編集モードでは隠すだけ。 */}
+							{isV2 ? (
+								<RunPanel
+									generated={generated}
+									replay={replay}
+									selectedPointer={selectedPointer}
+									traceError={traceError}
+									fileName={decodeURIComponent(uri.split("/").at(-1) ?? "")}
+									hidden={mode !== "debug"}
+									onTrace={onTrace}
+									onControl={onControl}
+									onUpto={scrub}
+									onReplay={onReplay}
+									onLoadTrace={(file) => void openTrace(file)}
+									onStatus={onStatus}
+								/>
+							) : null}
 							<DiagnosticList
 								diagnostics={state.diagnostics}
 								onPick={(diagnostic) =>

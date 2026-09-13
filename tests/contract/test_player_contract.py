@@ -268,9 +268,9 @@ def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
         assert word in main, word
     # 親以外からの message は無視する。
     assert "ev.source !== window.parent" in main
-    # `api.load` は fetch しない（wasm の場所はページから決まる）。
-    load = main[main.index("load: async (jil, manifest) =>") :]
-    load = load[: load.index("ticks:")]
+    # `api.load` は fetch しない（wasm の場所はページから決まる）。v2.1 で `keep`（状態を保つ）が付いた。
+    load = main[main.index("load: (jil, manifest, keep = false) =>") :]
+    load = load[: load.index("lastResume:")]
     assert "fetch(" not in load and "loadSource(" not in load
 
 

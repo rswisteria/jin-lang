@@ -477,3 +477,133 @@ test("実行パネルで録画して書き出した .jinrec は jin run --input 
 		`${String(header.ticks)} tick 再生しました`,
 	);
 });
+/** iframe の中のプレイヤー（`window.__jinPlayer`）を叩く（`generation` / `lastResume` は UI に出ないので）。 */
+function playerFrame(page: Page) {
+	const frame = page.frames().find((f) => f.url().includes("/play/"));
+	if (frame === undefined) throw new Error("プレイヤーの iframe がありません");
+	return frame;
+}
+
+function tickOf(statusText: string | null): number {
+	const m = /tick (\d+)/.exec(statusText ?? "");
+	if (m === null) throw new Error(`tick が読めません: ${String(statusText)}`);
+	return Number(m[1]);
+}
+
+test("式を編集しても状態を保って続き（tick / 記憶環の値 / トレースが続く）、外せば最初から（v2.1）", async ({
+	page,
+}) => {
+	await open(page);
+	await page.getByTestId("jin-mode-debug").click();
+	const frame = page.frameLocator('[data-testid="jin-player"]');
+	await expect(frame.locator("#status")).toContainText("tick", {
+		timeout: 30_000,
+	});
+	await expect(page.getByTestId("jin-keep-state")).toBeChecked();
+	// 少し走らせてから止める（tick が進んでいないと「保つ」は効かない）。
+	await expect
+		.poll(async () =>
+			tickOf(await page.getByTestId("jin-player-status").textContent()),
+		)
+		.toBeGreaterThanOrEqual(20);
+	await page.getByTestId("jin-play-pause").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("停止");
+	const status = await page.getByTestId("jin-player-status").textContent();
+	const tick = tickOf(status);
+	await expect(page.getByTestId("jin-trace-name")).toContainText("実行パネル");
+	const upto = Number(await page.getByTestId("jin-upto-value").textContent());
+	const ballCell = page.locator(
+		'[data-testid="jin-state-value"][data-name="ball"] td',
+	);
+	const ball = await ballCell.textContent();
+	expect(ball).not.toBeNull();
+	const player = playerFrame(page);
+	const generation = await player.evaluate(
+		() => (window as unknown as { __jinPlayer?: { generation(): number } }).__jinPlayer?.generation() ?? -1,
+	);
+	expect(generation).toBeGreaterThan(0);
+
+	// 式を書き換える（Play/step の ArrowLeft の枝）→ `jin/applyOps` → 新しい JIL が `jin.load`（keep）で届く。
+	// 式の欄は**編集モード**にしか無い。切り替えても実行パネル（iframe）は外れず、隠れているだけ。
+	const editExpr = async (expr: string): Promise<void> => {
+		await page.getByTestId("jin-mode-edit").click();
+		await expect(page.getByTestId("jin-run-panel")).toBeHidden();
+		const canvas = page.getByTestId("jin-canvas");
+		await canvas
+			.locator('text[data-jin="/circles/1/rites/2"]')
+			.first()
+			.dblclick();
+		await expect(page.getByTestId("jin-focus-clear")).toContainText(
+			"Play/step",
+		);
+		await canvas
+			.locator(
+				'[data-jin="/circles/1/rites/2/steps/0/then/0"][data-jin-kind="step"]',
+			)
+			.first()
+			.click();
+		const field = page.locator("#jin-field-expr");
+		await field.fill(expr);
+		await field.press("Tab");
+		await expect(page.locator("#jin-field-expr")).toHaveValue(expr);
+		await page.getByTestId("jin-focus-clear").click();
+		await page.getByTestId("jin-mode-debug").click();
+		await expect(page.getByTestId("jin-run-panel")).toBeVisible();
+	};
+	await editExpr("max(0, paddle - 360 * dt)");
+
+	// 止まったまま、tick / 記憶環の値 / トレース（upto）はそのまま。知らせが出る。
+	await expect(page.getByTestId("jin-player-notice")).toContainText(
+		`状態を保って差し替えました（tick ${String(tick)} から続けます）`,
+	);
+	await expect(page.getByTestId("jin-player-status")).toContainText(
+		`tick ${String(tick)} · seed 7 · 停止`,
+	);
+	await expect(page.getByTestId("jin-upto-value")).toHaveText(String(upto));
+	await expect(ballCell).toHaveText(ball ?? "");
+	expect(
+		await player.evaluate(() => (window as unknown as { __jinPlayer?: { generation(): number } }).__jinPlayer?.generation() ?? -1),
+	).toBe(generation);
+
+	// 1 tick 進めると tick N+1、行は続き（upto が増える）、ball が動く。復元の知らせは「続けた」。
+	await page.getByTestId("jin-play-step").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText(
+		`tick ${String(tick + 1)} · seed 7 · 停止`,
+	);
+	await expect
+		.poll(async () =>
+			Number(await page.getByTestId("jin-upto-value").textContent()),
+		)
+		.toBeGreaterThan(upto);
+	await expect(ballCell).not.toHaveText(ball ?? "");
+	expect(
+		await player.evaluate(() => (window as unknown as { __jinPlayer?: { lastResume(): unknown } }).__jinPlayer?.lastResume() ?? null),
+	).toEqual({
+		mode: "resumed",
+		tick: tick - 1,
+		kept: ["Game", "Play", "Result"],
+		dropped: [],
+	});
+	await expect(page.getByTestId("jin-trace-name")).toContainText("実行パネル");
+
+	// 「編集しても状態を保つ」を外して編集すると最初から（世代が進み、知らせは消え、トレースは捨てられる）。
+	await page.getByTestId("jin-keep-state").uncheck();
+	await editExpr("max(0, paddle - 300 * dt)");
+	await expect
+		.poll(() => player.evaluate(() => (window as unknown as { __jinPlayer?: { generation(): number } }).__jinPlayer?.generation() ?? -1))
+		.toBe(generation + 1);
+	await expect(page.getByTestId("jin-player-notice")).toHaveCount(0);
+	expect(
+		await player.evaluate(() => (window as unknown as { __jinPlayer?: { lastResume(): unknown } }).__jinPlayer?.lastResume() ?? null),
+	).toBeNull();
+	await page.getByTestId("jin-play-pause").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("停止");
+	// 捨てた後に届いた行だけなので、upto は「走った tick 数 × 1 tick の行数」に収まる（前の行が残っていれば超える）。
+	const afterTick = tickOf(
+		await page.getByTestId("jin-player-status").textContent(),
+	);
+	const afterUpto = Number(
+		await page.getByTestId("jin-upto-value").textContent(),
+	);
+	expect(afterUpto).toBeLessThan((afterTick + 1) * 30);
+});

@@ -25,8 +25,13 @@ import {
  * `postMessage({ type: "jin.load" })` で渡す。**保存しなくても動く**（ライブリロード）。
  * **`POST /run` は使わない**（それは v1 の ADK 実行の口・`docs/spec/ops.md` §5.2）。
  *
+ * 差し替えは既定で**状態を保つ**（`keep`・設計書 §11 #42）: プレイヤーが直前の tick 結果の `snapshot` を
+ * 新しい JIL の `boot` に渡し、陣を名前で照合して state / tick / 乱数列を続ける。root が照合できない
+ * （陣の改名など）ときはプレイヤーが最初からに落とし、`jin.status` の `notice` でそう言う。トレースは
+ * 続けたときは続き（seq が通し）、最初からになったときは親（`App`）が世代（`generation`）の変化で捨てる。
+ *
  * プレイヤーとの語彙（runtime.md §10）:
- * - 親 → プレイヤー: `jin.load`（JIL / manifest）、`jin.control`（実行 / 一時停止 / 1 tick /
+ * - 親 → プレイヤー: `jin.load`（JIL / manifest / keep）、`jin.control`（実行 / 一時停止 / 1 tick /
  *   最初から（seed）/ 録画 / 録画を止める）、`jin.replay`（`.jinrec` のテキストを最初から再生）、
  *   `jin.frame`（スクラブ中の画面 = トレースの `frame` 行の表示リスト）
  * - プレイヤー → 親: `jin.trace`（トレース行。tick ごと / 再生では 1 回）、`jin.status`
@@ -52,6 +57,11 @@ export interface RunPanelProps {
 	readonly traceError: string | null;
 	/** 開いている `.jin` のファイル名（録画の書き出し名に使う）。 */
 	readonly fileName: string;
+	/**
+	 * 編集モードでは隠す（外さない）。外すと iframe ごとプレイヤーが消えて、編集して戻ったときに
+	 * 状態が続かない。隠れている間も `jin.load` は送る（編集のたびに差し替わる）。
+	 */
+	readonly hidden?: boolean;
 	readonly onTrace: (rows: readonly TraceRow[]) => void;
 	readonly onControl: (action: PlayerControl) => void;
 	readonly onUpto: (upto: number) => void;
@@ -81,6 +91,8 @@ export interface PlayerStatus {
 	readonly error: string | null;
 	readonly recording: boolean;
 	readonly recordedEvents: number;
+	/** boot し直すたびに増える世代。状態を保った差し替えでは変わらない（親はこれでトレースを捨てる）。 */
+	readonly generation: number;
 	readonly notice: string | null;
 }
 
@@ -117,7 +129,8 @@ function isStatus(value: unknown): value is PlayerStatus {
 		value !== null &&
 		typeof value === "object" &&
 		typeof (value as { tick?: unknown }).tick === "number" &&
-		typeof (value as { running?: unknown }).running === "boolean"
+		typeof (value as { running?: unknown }).running === "boolean" &&
+		typeof (value as { generation?: unknown }).generation === "number"
 	);
 }
 
@@ -128,6 +141,11 @@ export function RunPanel(props: RunPanelProps): React.JSX.Element {
 	const [filtering, setFiltering] = useState(false);
 	const [status, setStatus] = useState<PlayerStatus | null>(null);
 	const [seedText, setSeedText] = useState("");
+	// 差し替えで状態を保つか（既定 on）。効くのは tick が進んでいるときだけで、判断はプレイヤーが行う。
+	// effect の依存に入れない（切り替えただけで `jin.load` を送り直さない）ので ref で読む。
+	const [keep, setKeep] = useState(true);
+	const keepRef = useRef(keep);
+	keepRef.current = keep;
 	const [lastRecording, setLastRecording] = useState<{
 		readonly name: string;
 		readonly text: string;
@@ -175,7 +193,12 @@ export function RunPanel(props: RunPanelProps): React.JSX.Element {
 		if (!loaded || target === null || target === undefined) return;
 		if (jil === null || manifest.current === null) return;
 		target.postMessage(
-			{ type: "jin.load", jil, manifest: manifest.current },
+			{
+				type: "jin.load",
+				jil,
+				manifest: manifest.current,
+				keep: keepRef.current,
+			},
 			window.location.origin,
 		);
 	}, [loaded, jil, manifestKey]);
@@ -267,7 +290,11 @@ export function RunPanel(props: RunPanelProps): React.JSX.Element {
 	const jilError = props.generated?.jilError ?? null;
 
 	return (
-		<section className="jin-run-panel" data-testid="jin-run-panel">
+		<section
+			className="jin-run-panel"
+			data-testid="jin-run-panel"
+			hidden={props.hidden === true}
+		>
 			<h2>実行（プレイヤー）</h2>
 			{missing === null ? null : (
 				<p className="jin-trace-error" data-testid="jin-player-missing">
@@ -344,6 +371,15 @@ export function RunPanel(props: RunPanelProps): React.JSX.Element {
 						この録画を再生
 					</button>
 				)}
+				<label className="jin-check">
+					<input
+						type="checkbox"
+						data-testid="jin-keep-state"
+						checked={keep}
+						onChange={(event) => setKeep(event.target.checked)}
+					/>
+					<span>編集しても状態を保つ</span>
+				</label>
 			</div>
 			<p className="jin-hint" data-testid="jin-player-status">
 				{status === null
