@@ -207,6 +207,13 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      # Jin v2 の実行パネル（設計書 §8）は `jin editor` が `/play/` として配るプレイヤー
+      # （`apps/player/dist`）を使う。`e2e/v2.spec.ts` がそれを開くので、ここで一度ビルドする
+      # （プレイヤー自身のゲートは player ジョブ）。
+      - name: Build the player for the run panel
+        working-directory: apps/player
+        run: pnpm install --frozen-lockfile && pnpm build
+
       # スモーク層（同 2 層目）。ブラウザの取得はセットアップであり、
       # テスト自体は localhost の ws しか使わない（NFR-TEST-001）。
       - name: Install Playwright browser

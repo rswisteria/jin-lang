@@ -415,3 +415,87 @@ def test_both_e2e_specs_assert_the_editor_actually_stopped() -> None:
             "戻り値を先に見ると、uv だけが終わって孫が残る形（Linux で SIGTERM が"
             "中継されない場合）に到達しない"
         )
+
+
+# ======================================================================================
+# Jin v2（Phase 5・設計書 §8）
+# ======================================================================================
+def test_the_v2_editor_uses_only_the_thirty_two_v2_operations() -> None:
+    """`src/v2/` が送るオペレーション名は `jin_core.v2.ops.OPERATIONS`（32 件）に閉じる。
+
+    v1 の 19 件（`form/dispatch.ts` / `App.tsx`）とは**別集合**で、v2 の op を v1 のファイルに
+    書けば上の `test_the_editor_does_not_add_a_twentieth_operation` が落ち、v1 の op を
+    ここに書けばこちらが落ちる（`setDescription` / `moveTool` は v2 に無い）。
+    """
+    from jin_core.v2.ops import OPERATIONS
+
+    known = set(OPERATIONS)
+    assert len(known) == 32, len(known)
+    used: set[str] = set()
+    for path in sorted((SRC / "v2").rglob("*.ts*")):
+        used |= set(re.findall(r'op: "([A-Za-z]+)"', path.read_text(encoding="utf-8")))
+    assert used <= known, sorted(used - known)
+    # 実際に使っていること（走査対象が消えて空で緑になっていない）。
+    assert {"addStep", "setStep", "moveStep", "wrapSteps", "extractRite", "rename"} <= used
+
+
+def test_the_v2_hit_test_lists_the_thirteen_kinds_of_the_renderer() -> None:
+    """`JIN_KINDS_V2` は `jin_render.DATA_JIN_KINDS_V2` と等号（v1 の 9 種は変えない）。"""
+    from jin_render import DATA_JIN_KINDS, DATA_JIN_KINDS_V2
+
+    source = (SRC / "svg" / "hitTest.ts").read_text(encoding="utf-8")
+    v1 = re.search(r"JIN_KINDS = \[(.*?)\] as const", source, re.DOTALL)
+    v2 = re.search(r"JIN_KINDS_V2 = \[(.*?)\] as const", source, re.DOTALL)
+    assert v1 is not None and v2 is not None
+    assert re.findall(r'"([a-z-]+)"', v1.group(1)) == list(DATA_JIN_KINDS)
+    assert re.findall(r'"([a-z-]+)"', v2.group(1)) == list(DATA_JIN_KINDS_V2)
+
+
+def test_the_v2_form_reads_the_v2_schema_without_a_copy() -> None:
+    """v2 のフォームも schema から生成する。`jin-v2.schema.json` の写しを `apps/editor` に置かない。"""
+    readers = [
+        path
+        for path in sorted(SRC.rglob("*.ts*"))
+        if "jin-v2.schema.json" in path.read_text(encoding="utf-8")
+    ]
+    assert readers, "schemas/jin-v2.schema.json を読んでいるファイルが無い"
+    copies = [
+        p
+        for name in ("jin-v2.schema.json", "abilities.json")
+        for p in EDITOR.rglob(name)
+        if "node_modules" not in p.parts
+    ]
+    assert copies == [], copies
+    # 式エディタを出す判定は schema の印だけ（欄の名前を書き写さない）。
+    form = (SRC / "form" / "schemaForm.ts").read_text(encoding="utf-8")
+    assert '"x-jin-expr"' in form
+    panel = (SRC / "v2" / "PropertyPanelV2.tsx").read_text(encoding="utf-8")
+    assert "field.expr" in panel
+
+
+def test_the_run_panel_does_not_use_the_run_endpoint() -> None:
+    """設計書 §8: v2 の実行パネルは同一オリジンの iframe `/play/` で、`POST /run` を使わない。"""
+    panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
+    assert '"/run"' not in panel and "'/run'" not in panel and "`/run`" not in panel
+    assert "runAgent" not in panel and "X-Jin-Token" not in panel
+    assert "src={PLAYER_PATH}" in panel and 'PLAYER_PATH = "./play/"' in panel
+    # プレイヤーの `jin.load` / `jin.trace` / `jin.control` と同じ語で話す。
+    for word in ('"jin.load"', '"jin.trace"', '"jin.control"'):
+        assert word in panel, word
+    # 受け取りは iframe の contentWindow からのものだけ。
+    assert "event.source !== frame.current?.contentWindow" in panel
+    # `jin editor` 側の前置きと同じ文字列。
+    editor_py = (REPO_ROOT / "packages" / "jin-cli" / "src" / "jin_cli" / "editor.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'PLAY_PREFIX = "/play/"' in editor_py
+
+
+def test_the_expression_editor_does_not_reimplement_the_expression_grammar() -> None:
+    """設計書 §8: 式エディタは `jin_core.v2.expr` を再実装しない。候補は LSP の completion。"""
+    editor = (SRC / "v2" / "ExprEditor.tsx").read_text(encoding="utf-8")
+    assert "textDocument/completion" in (SRC / "rpc" / "jin.ts").read_text(encoding="utf-8")
+    # 演算子や予約語の表を持たない（トークンは識別子と `.` だけ）。
+    for word in ("and", "or", "not", "++"):
+        assert f'"{word}"' not in editor, word
+    assert "parse" not in editor.lower().replace("parsefloat", "")

@@ -86,3 +86,11 @@
 - 範囲選択して「包む」→ `wrapSteps`、「抽出」→ `extractRite`
 - 記憶環の四角をダブルクリック → `setState`(`out` の切り替え)
 - 陣同士を結ぶ → `addDelegate` または `addSigil`(`summon`)
+
+Phase 5 の実装(`apps/editor/src/v2/actions.ts` / `dispatch.ts`)では次のとおり:
+
+- `addStep` は「空き位置をクリック」ではなく、ツールバーの「ステップを追加」(パレットで `do` を選ぶ。値は schema の判別共用体から引く)で、選択中のステップの**直後**か、選択 / focus 中の手順の**末尾**に入れる。既定値は参照先を捏造しない(式は空、`emit` / `transfer` の陣名は自陣)
+- 「包む」「抽出」は**選択中の 1 ステップ**(`from` = その添字、`count` = 1)。範囲選択は残存(v2.1)
+- ドラッグの並べ替えは**同じ列の中**だけ(`moveStep` / `moveSigil`)。列を跨ぐ移動と「陣同士を結ぶ」は残存
+- 直接のオペレーションが無い欄は合成で書く(**33 個目を作らない**): 陣の `description` は `removeCircle` + `addCircle`、sigil の `host` / `circle` / `rite` は `removeSigil` + `addSigil`、`on` の `event` は `removeOn` + `setOn`、ステップの `do` は `removeStep` + `addStep`、`delegate` は `removeDelegate` + `addDelegate`。`apply_ops` の原子性(§6)で 2 件が 1 回で当たる
+- `tests/contract/test_editor_contract.py` が `apps/editor/src/v2/` の op 名が §2 の 32 件に閉じることを固定する(v1 の 19 件とは別集合)
