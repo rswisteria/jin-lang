@@ -546,6 +546,14 @@ Phase 5 で確定した実装(§11 #36〜#38):
 - **実行パネル**(`apps/editor/src/run/RunPanel.tsx`): `jin editor` が `/play/` として配るプレイヤーを同一オリジンの iframe で開き、`jin.load`(JIL + manifest)/ `jin.control`(実行 / 一時停止 / 1 tick / 最初から)を送り、`jin.trace` を受ける。走っている間のオーバーレイの描き直しは 1 秒に 1 回、一時停止 / 1 tick / 最初から では即時。溜める行は 4000 で頭打ち(超えたら古い行を落として理由を出す)。**`POST /run` は使わない**
 - **エディタの図の操作**(ops.md §5): 手順の小陣のダブルクリック → focus `陣名/手順名`、パレット(`do` の値は schema の判別共用体から)で `addStep`(選択中のステップの直後 / 手順の末尾)、ステップ / 道具のドラッグで `moveStep` / `moveSigil`(同じ列の中だけ)、選択中の 1 ステップを「if で包む」(`wrapSteps`)/「手順に抽出」(`extractRite`)、記憶の四角のダブルクリックで `setState`(`out`)。範囲選択と陣同士を結ぶ操作は残存(v2.1)
 
+Phase 6 で確定した実装(§11 #39〜#41):
+
+- **録画の再生はプレイヤー(iframe)の中**: エディタは `.jinrec` を `<input type="file">` で読み、1 行目に `"jinrec"` があれば生のテキストを `jin.replay` で渡す(trace の JSONL ならそのまま載せる)。読み手は書き手と同じ `apps/player`(`src/jinrec.ts` = `jin_wasm.jinrec.read_jinrec` の写し。壊れ方は `tests/fixtures/jinrec/broken/` を Python と TS の両方が同じ行番号で検算)。プレイヤーはヘッダの seed で `boot` し直し、tick 0 からヘッダの `ticks` まで録画の行を**同じ reducer**に通し(`jin run --input` と同じ。`apps/player/e2e/replay.spec.ts` が全行一致を見る)、**止まったまま**終わる。トレースは 1 回にまとめて `jin.trace` で流す
+- **記憶環の値と `assert` のバッジはエディタが積算し、HTML で重ねる**(runtime.md §5「スクラバは `set` 行を積算する」): `enter` / `exit` の `output` で陣の state 全部、`set` で 1 つ、`assert` は guard ごとに最後のメッセージと回数(`apps/editor/src/debug/values.ts`)。ラベルは SVG の**外**の HTML 層で、位置は描かれた要素の矩形から取る(`<text>` を作らない。オーバーレイ = 発火の強調と点は引き続き `jin_render` だけ)。値は脇の表にも全部出す
+- **スクラブで画面も動く**: `upto` の位置の最後の `frame` 行の表示リストを `jin.frame` でプレイヤーに描かせる(止まっている間だけ。Lua は呼ばない)
+- **録画と書き出し**: 実行パネルの「録画」は seed を決めて `boot` し直し、「録画を止めて書き出す」で `jin.recording` の `.jinrec` を親がダウンロードとして渡す(`<jin 名>-seed<seed>-<ticks>t.jinrec`)。「この録画を再生」で読み直せる
+- **行数の上限は出どころで分ける**: 走らせている間は `MAX_LIVE_ROWS`(4000)で古い行を落とす(値の積算が最初からでなくなると断る)。録画の再生はヘッダの `ticks` で有界なので落とさず、`MAX_REPLAY_ROWS`(60000)を超えたら載せずに断る。描き直しはプレイヤーが止まった知らせ(`jin.status` の `running: false`)で行う
+
 ---
 
 ## 9. オペレーション(`docs/spec/v2/ops.md`)
@@ -568,9 +576,9 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | JIL | 生成物のスナップショット(syrupy)。**禁止語の走査**(§4.4)。`examples/*` を lupa で `--ticks 300` 回して例外が出ない |
 | 決定性 | 同じ `.jin` + seed + 入力ログで 2 回走らせてトレースと表示リストがバイト一致。`parallel` の子の順序を入れ替えても公開 state の系列が一致 |
 | 表示リスト | `examples/paddle` の 60 tick 分のゴールデン(JSONL スナップショット) |
-| パリティ | Playwright 1 本: `dist/index.html` を開き、録画済み `.jinrec` を再生させてトレースを取り出し、`jin run --input` の出力と一致 |
+| パリティ | Playwright 2 本(`apps/player/e2e/parity.spec.ts` = ブラウザで録画する側、`replay.spec.ts` = 録画済み `.jinrec` を再生する側・Phase 6): `dist/index.html` を開き、録画 / 再生してトレースを取り出し、`jin run --input` の出力と全行一致 |
 | レンダラ | SVG スナップショット。13 種の `data-jin-kind` が `examples/paddle` で全部出る。全 pointer がモデルに解決できる |
-| LSP / エディタ | v1 のスモークに「v2 ファイルを開く → ステップを足す → 保存 → 正準形一致」と「実行パネルで 10 tick 進めてスクラブ」を足す |
+| LSP / エディタ | v1 のスモークに「v2 ファイルを開く → ステップを足す → 保存 → 正準形一致」と「実行パネルで 10 tick 進めてスクラブ」を足す。Phase 6 で「`.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く」「偽になった `assert` のバッジと一覧」「録画 → 書き出し → `jin run --input` と同じ行数 → 読み直し」の 3 本を足す(`apps/editor/e2e/v2.spec.ts`) |
 | 契約 | `jin-wasm` が `jin-adk` / `jin-render` を import しない(import-linter)。`apps/player` が Python を import しない(eslint)。ホストが Lua を呼ぶ関数が `boot` / `tick` の 2 つだけ(TS 側を走査) |
 
 ---
@@ -618,6 +626,9 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 36 | LSP の v2(Phase 5 で確定) | hover(式の型 / ホスト能力のシグネチャ / state の公開・非公開 / 陣・手順・型紙・`on` の要約)と completion(スコープ順の識別子 / `.` 後のメンバ / `do` / 型名 / 参照名 / キー・enum)は `jin_core.v2.semantic.analyze_model`(式の AST / 型 / 位置ごとのスコープの写し)から引く。`jin/applyOps` は `jin_core.v2.ops` へ振り分け、`jin/model` と共に `jil` / `manifest` / `jilError` を載せる。definition / references / documentSymbol / rename / codeAction の v2 は §8 に無く、引き続き v1 だけ | 式を LSP 側で構文解析 / 型推論しない(§8 の「再実装しない」)。スコープは検査の副産物として記録するのが最も安い |
 | 37 | 式の欄の印と補完の位置(Phase 5 で確定) | `Expr = Annotated[Text, Field(json_schema_extra={"x-jin-expr": True})]`(v2 のモジュール内の別名。v1 の `Text` には付けない)。式エディタはリテラルの先頭位置で completion を求め、候補をクライアントで前方一致させる。`args`(`list[Expr]`)だけは配列でも欄にする(行ごとの式エディタ) | `jin.schema.json` を 1 バイトも変えずに印を付ける。カーソル位置ごとに位置換算(エスケープの逆写像)をしなくて済む |
 | 38 | 実行パネルの配信と間引き(Phase 5 で確定) | `jin editor` は `/play/` でプレイヤーを配る(`--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR`。`translate_path` の正規化を通すので `/play/../` で抜けない)。プレイヤーは iframe の中では fetch せず親の `jin.load` を待ち、`jin.control` を受ける。親は `jin.trace` を tick ごとの配列で積み(`appendRows`)、描き直しは 1 秒に 1 回 + 操作時、行数は 4000 で頭打ち。asset(絵と音)は埋め込みでは読めない(`.jin` の隣にあり、エディタのサーバは配らない・残存) | 60 tick/s × 十数行を毎回 `jin/renderSvg` に送ると ws のペイロードが万行になる。`/play/` を同一オリジンにするのは `postMessage` の相手を `contentWindow` / `window.parent` に限るため |
+| 39 | `.jinrec` の読み手と再生の場所(Phase 6 で確定) | 読み手は書き手と同じ `apps/player`(`src/jinrec.ts` = `read_jinrec` の写し。壊れ fixture を両側で同じ行番号で検算)。再生は iframe の中の `Player.replay`(ヘッダの seed で `boot`、tick 0 から同じ reducer、止まったまま終わる)。エディタは 1 行目の `"jinrec"` だけを見て生のテキストを `jin.replay` で渡す | `jin/` は 6 種のまま、`POST /run` は使わないので、再生できる場所はプレイヤーしか無い。エディタに読み手を置くと `apps/player` の TS を import するか写しを 3 つ目に増やすことになる |
+| 40 | 記憶環の値と `assert` のバッジ(Phase 6 で確定) | エディタが `set` 行を積算し(runtime.md §5 のとおり)、SVG の**外**の HTML 層に重ねる(位置は描かれた要素の矩形)。`jin_render` はオーバーレイ(発火の強調と点)だけを描き、値は描かない | SVG に `<text>` を足すのは「エディタが陣を描く」ことになり契約テストが落とす。レンダラに積算を持ち込むと `jin/renderSvg` の引数に「値」が増え、同じ `upto` なら同じ SVG という規律の外に状態が出る |
+| 41 | 再生の行数と描き直し(Phase 6 で確定) | 走らせている間の行は #38 のまま(4000 で古い行を落とす)。録画の再生は落とさず `MAX_REPLAY_ROWS`(60000)を超えたら載せずに断る。描き直しはプレイヤーの `jin.status`(`running: false`)で即座に、走っている間は 1 秒に 1 回 | 古い行を落とすと `enter` 行(init 値)が消え、以後 `set` されない state の値が黙って狂う。再生はヘッダの `ticks` で有界なので上限を別に置ける。paddle 600 tick は約 7,000 行 |
 ---
 
 ## 12. 実装フェーズ(Claude Code への発注単位)
@@ -630,7 +641,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ)+ `jin render` / `jin/renderSvg` の v2 | SVG スナップショットが安定。13 種が `paddle` で全部出る(**実装済み**。`delegate` だけは `transfer.jin` で補う・§11 #30) |
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る(**実装済み**。パリティは `apps/player/e2e/parity.spec.ts`(録画 → `jin run --input` → トレース全行一致)、`--single` は `single.spec.ts`。`jin build` の同梱は `scripts/sync_player.py`。命令数の上限がコルーチンに届いていなかった残存は §11 #32 で閉じた) |
 | 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「開く → ステップを足す → 保存 → `jin fmt` とバイト一致」「式エディタの補完」「実行パネルで 10 tick 進めてスクラブ」を実ブラウザで通す。§11 #36〜#38) |
-| 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く |
+| 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「`.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く」「偽になった `assert` のバッジと一覧」「録画 → 書き出し → `jin run --input` と同じ行数 → 読み直し」を、`apps/player/e2e/replay.spec.ts` が再生と `jin run --input` の全行一致を実ブラウザで通す。§11 #39〜#41) |
 | 7 | v2.1 候補: `--target wasm-gc`、`storage`、テキスト入力欄、式の正準化、状態を保った ライブリロード、v1 の陣(LLM エージェント)を v2 から `summon` する Python ホスト | 任意 |
 
 Phase 0 の仕様書を先に承認してから Phase 1 に入る(v1 と同じ運び)。

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -70,10 +70,7 @@ test("v2 ファイルを開く → ステップを足す → 保存 → 正準�
 	).toBeAttached();
 
 	// 手順環の小陣（`rite`）をクリック → 手順が選ばれ、フォームは jin-v2.schema.json から出る。
-	await canvas
-		.locator('text[data-jin="/circles/1/rites/0"]')
-		.first()
-		.click();
+	await canvas.locator('text[data-jin="/circles/1/rites/0"]').first().click();
 	await expect(page.getByTestId("jin-pointer")).toHaveText(
 		"/circles/1/rites/0",
 	);
@@ -212,4 +209,271 @@ test("実行パネルで 10 tick 進めてスクラブ（§10 のスモーク）
 	expect(await svg.evaluate((node) => node.outerHTML)).not.toBe(at3);
 	await scrub(3);
 	expect(await svg.evaluate((node) => node.outerHTML)).toBe(at3);
+});
+
+/** 録画の fixture（`apps/player/e2e/replay.spec.ts` と同じ。`jin run --input` と全行一致する）。 */
+const RECORDING = join(REPO_ROOT, "tests/fixtures/jinrec/paddle-120.jinrec");
+
+interface Row {
+	readonly seq: number;
+	readonly kind: string;
+	readonly output: unknown;
+}
+
+function headlessTrace(dir: string): readonly Row[] {
+	const tracePath = join(dir, "headless-trace.jsonl");
+	execFileSync(
+		"uv",
+		[
+			"run",
+			"jin",
+			"run",
+			join(REPO_ROOT, "examples-v2/paddle/paddle.jin"),
+			"--input",
+			RECORDING,
+			"--trace",
+			tracePath,
+		],
+		{ cwd: REPO_ROOT },
+	);
+	return readFileSync(tracePath, "utf8")
+		.split("\n")
+		.filter((line) => line.trim() !== "")
+		.map((line) => JSON.parse(line) as Row);
+}
+
+test(".jinrec を読んでスクラブするとオーバーレイと記憶環の値が動く（§12 行 6）", async ({
+	page,
+}) => {
+	await open(page);
+	await page.getByTestId("jin-mode-debug").click();
+	const frame = page.frameLocator('[data-testid="jin-player"]');
+	await expect(frame.locator("#status")).toContainText("tick", {
+		timeout: 30_000,
+	});
+	await page.getByTestId("jin-play-pause").click();
+
+	// 録画を読む → プレイヤーがヘッダの seed で tick 0 から再生し、止まったまま終わる。
+	await page.getByTestId("jin-run-file").setInputFiles(RECORDING);
+	await expect(page.getByTestId("jin-player-notice")).toContainText(
+		"120 tick 再生しました",
+	);
+	await expect(page.getByTestId("jin-player-status")).toContainText(
+		"tick 120 · seed 7 · 停止",
+	);
+	// 届いた行数はヘッドレス（`jin run --input`）と同じ。
+	const headless = headlessTrace(dirname(editor.file));
+	await expect(page.getByTestId("jin-trace-name")).toHaveText(
+		`録画: paddle-120.jinrec（${String(headless.length)} 件）`,
+	);
+	const last = headless.at(-1);
+	if (last === undefined) throw new Error("トレースが空");
+	await expect(page.getByTestId("jin-upto-value")).toHaveText(String(last.seq));
+
+	// 記憶環の値: 表と図のラベルが同じ値を出す。ArrowLeft を押した録画なので paddle は 140 から動いている。
+	const canvas = page.getByTestId("jin-canvas");
+	const paddleCell = page.locator(
+		'[data-testid="jin-state-value"][data-name="paddle"] td',
+	);
+	const paddleLabel = canvas.locator('[data-jin-label="/circles/1/state/1"]');
+	const atEnd = await paddleCell.textContent();
+	expect(atEnd).not.toBeNull();
+	expect(atEnd).not.toBe("140");
+	await expect(paddleLabel).toHaveText(atEnd ?? "");
+	await expect(paddleLabel).toHaveAttribute("data-tone", "value");
+	// 最後の set 行の値と一致する（積算の正しさをヘッドレスのトレースで裏取り）。
+	const lastPaddle = [...headless]
+		.reverse()
+		.find(
+			(row) =>
+				row.kind === "set" && (row as { name?: unknown }).name === "paddle",
+		);
+	expect(atEnd).toBe(JSON.stringify(lastPaddle?.output));
+	// 図のオーバーレイ（発火の強調）はレンダラが描く。
+	await expect(canvas.locator('[data-jin-fired="1"]').first()).toBeAttached();
+
+	// スクラブ: upto 0（enter 行だけ）→ 初期値 140 に戻り、点は 1 つ。
+	await page.getByTestId("jin-upto").fill("0");
+	await expect(page.getByTestId("jin-upto-value")).toHaveText("0");
+	await expect(paddleCell).toHaveText("140");
+	await expect(paddleLabel).toHaveText("140");
+	await expect(canvas.locator("[data-jin-seq]")).toHaveCount(1);
+
+	// スクラブ: 最初の frame 行 → プレイヤーの画面がその tick の表示リストになる（`jin.frame`）。
+	const firstFrame = headless.find((row) => row.kind === "frame");
+	if (firstFrame === undefined) throw new Error("frame 行が無い");
+	await page.getByTestId("jin-upto").fill(String(firstFrame.seq));
+	await expect(page.getByTestId("jin-upto-value")).toHaveText(
+		String(firstFrame.seq),
+	);
+	const playerFrame = page
+		.frames()
+		.find((candidate) => candidate.url().includes("/play/"));
+	if (playerFrame === undefined) throw new Error("プレイヤーの frame が無い");
+	await expect
+		.poll(() =>
+			playerFrame.evaluate(() =>
+				JSON.stringify(
+					(
+						window as unknown as {
+							__jinPlayer?: { lastOps(): unknown };
+						}
+					).__jinPlayer?.lastOps(),
+				),
+			),
+		)
+		.toBe(JSON.stringify((firstFrame.output as { ops: unknown }).ops));
+	// tick 10 あたり（ArrowLeft を押している最中）は 140 より小さい。
+	const midFrame = headless.filter((row) => row.kind === "frame")[10];
+	if (midFrame === undefined) throw new Error("frame 行が足りない");
+	await page.getByTestId("jin-upto").fill(String(midFrame.seq));
+	await expect(page.getByTestId("jin-upto-value")).toHaveText(
+		String(midFrame.seq),
+	);
+	await expect
+		.poll(async () => Number(await paddleCell.textContent()))
+		.toBeLessThan(140);
+
+	// focus を手順の図に変えると（state の四角が無い）値のラベルは消え、戻すと出る。
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/2"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/step");
+	await expect(canvas.locator("[data-jin-label]")).toHaveCount(0);
+	await page.getByTestId("jin-focus-clear").click();
+	await expect(paddleLabel).toBeVisible();
+});
+
+test("偽になった assert はバッジと一覧に出て、スクラブで消える", async ({
+	page,
+}) => {
+	// 台本を assert が偽になる fixture に差し替える（paddle の guard は偽にならない）。
+	await editor.stop();
+	editor = await startEditor(
+		readFileSync(
+			join(REPO_ROOT, "tests/fixtures/v2-programs/assert_guard.jin"),
+			"utf8",
+		),
+	);
+	await open(page);
+	await page.getByTestId("jin-mode-debug").click();
+	const frame = page.frameLocator('[data-testid="jin-player"]');
+	await expect(frame.locator("#status")).toContainText("tick", {
+		timeout: 30_000,
+	});
+	await page.getByTestId("jin-play-pause").click();
+	await page.getByTestId("jin-play-reboot").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("tick 0");
+	for (let i = 0; i < 3; i += 1) {
+		await page.getByTestId("jin-play-step").click();
+	}
+	await expect(page.getByTestId("jin-player-status")).toContainText("tick 3");
+
+	// `n < 2` は tick 1 と 2 で偽 → 一覧に 2 件、guard のバッジは「×2」。
+	await expect(page.getByTestId("jin-assert")).toHaveCount(2);
+	await expect(page.getByTestId("jin-assert").first()).toContainText(
+		"n は 2 未満",
+	);
+	const canvas = page.getByTestId("jin-canvas");
+	const badge = canvas.locator(
+		'[data-jin-label="/circles/0/boundary/guards/0"]',
+	);
+	await expect(badge).toHaveAttribute("data-tone", "assert");
+	await expect(badge).toHaveText("n は 2 未満 ×2");
+	// 記憶環の値も出る（n は 3）。
+	await expect(
+		page.locator('[data-testid="jin-state-value"][data-name="n"] td'),
+	).toHaveText("3");
+	await expect(
+		canvas.locator('[data-jin-label="/circles/0/state/0"]'),
+	).toHaveText("3");
+
+	// スクラブで最初の assert より前に戻すとバッジも一覧も消える。
+	const firstSeq = Number(
+		await page.getByTestId("jin-assert").first().getAttribute("data-seq"),
+	);
+	await page.getByTestId("jin-upto").fill(String(firstSeq - 1));
+	await expect(page.getByTestId("jin-upto-value")).toHaveText(
+		String(firstSeq - 1),
+	);
+	await expect(badge).toHaveCount(0);
+	await expect(page.getByTestId("jin-asserts")).toHaveCount(0);
+	await page.getByTestId("jin-upto").fill(String(firstSeq));
+	await expect(page.getByTestId("jin-assert")).toHaveCount(1);
+	await expect(badge).toHaveText("n は 2 未満");
+});
+
+test("実行パネルで録画して書き出した .jinrec は jin run --input で同じ行数になり、読み直せる", async ({
+	page,
+}) => {
+	await open(page);
+	await page.getByTestId("jin-mode-debug").click();
+	const frame = page.frameLocator('[data-testid="jin-player"]');
+	await expect(frame.locator("#status")).toContainText("tick", {
+		timeout: 30_000,
+	});
+	// seed を決めて録画（`boot` し直して tick 0 から走る）。キーを 1 つ入れる。
+	await page.getByTestId("jin-play-pause").click();
+	await page.getByTestId("jin-seed").fill("11");
+	await page.getByTestId("jin-play-record").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("録画中");
+	await frame.locator("#stage").click();
+	await page.keyboard.down("ArrowLeft");
+	await expect
+		.poll(async () => {
+			const text = await page.getByTestId("jin-player-status").textContent();
+			return Number(/tick (\d+)/.exec(text ?? "")?.[1] ?? 0);
+		})
+		.toBeGreaterThan(20);
+	await page.keyboard.up("ArrowLeft");
+	// 止めて書き出す → 親がダウンロードとして渡す。
+	const downloaded = page.waitForEvent("download");
+	await page.getByTestId("jin-play-stop").click();
+	const download = await downloaded;
+	expect(download.suggestedFilename()).toMatch(/^smoke-seed11-\d+t\.jinrec$/);
+	const recPath = join(dirname(editor.file), "recorded.jinrec");
+	await download.saveAs(recPath);
+	const lines = readFileSync(recPath, "utf8").trim().split("\n");
+	const header = JSON.parse(lines[0] ?? "{}") as {
+		seed: number;
+		ticks: number;
+	};
+	expect(header.seed).toBe(11);
+	expect(lines.slice(1).some((line) => line.includes('"ArrowLeft"'))).toBe(
+		true,
+	);
+	await expect(page.getByTestId("jin-player-status")).toContainText(
+		`tick ${String(header.ticks)} · seed 11 · 停止`,
+	);
+	// 走らせている間に溜めた行数 = ヘッドレスで同じ録画を再生した行数。
+	const tracePath = join(dirname(editor.file), "recorded-trace.jsonl");
+	execFileSync(
+		"uv",
+		[
+			"run",
+			"jin",
+			"run",
+			editor.file,
+			"--input",
+			recPath,
+			"--trace",
+			tracePath,
+		],
+		{ cwd: REPO_ROOT },
+	);
+	const rows = readFileSync(tracePath, "utf8")
+		.split("\n")
+		.filter((line) => line.trim() !== "").length;
+	await expect(page.getByTestId("jin-trace-name")).toHaveText(
+		`実行パネル（${String(rows)} 件）`,
+	);
+	// 「この録画を再生」で読み直すと、同じ行数が録画の名前で載る。
+	await page.getByTestId("jin-replay-last").click();
+	await expect(page.getByTestId("jin-trace-name")).toHaveText(
+		`録画: ${download.suggestedFilename()}（${String(rows)} 件）`,
+	);
+	await expect(page.getByTestId("jin-player-notice")).toContainText(
+		`${String(header.ticks)} tick 再生しました`,
+	);
 });

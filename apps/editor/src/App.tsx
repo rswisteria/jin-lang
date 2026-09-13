@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DebugPanel } from "./debug/DebugPanel";
 import { appendRow, appendRows, loadTrace, type Replay } from "./debug/replay";
+import {
+	assertLabels,
+	assertsAt,
+	stateLabels,
+	stateValuesAt,
+	type ValueLabel,
+} from "./debug/values";
 import { PropertyPanel } from "./form/PropertyPanel";
 import type { JsonSchema } from "./form/schemaForm";
 import { resolveRef } from "./form/schemaForm";
@@ -12,7 +19,11 @@ import type {
 	JinOp,
 	JinRenderSvgResult,
 } from "./rpc/protocol";
-import { type PlayerControl, RunPanel } from "./run/RunPanel";
+import {
+	type PlayerControl,
+	type PlayerStatus,
+	RunPanel,
+} from "./run/RunPanel";
 import { runAgent } from "./run/client";
 import {
 	EMPTY_HISTORY,
@@ -100,8 +111,14 @@ export interface AppProps {
 /** 実行パネルが走っている間、オーバーレイを描き直す間隔（ms）。 */
 export const LIVE_REFRESH_MS = 1000;
 
-/** 実行パネルから溜めるトレース行の上限。超えたら古い行を落とす（`jin/renderSvg` の送信量の上限）。 */
+/** 実行パネルが走っている間に溜めるトレース行の上限。超えたら古い行を落とす（`jin/renderSvg` の送信量の上限）。 */
 export const MAX_LIVE_ROWS = 4000;
+
+/**
+ * 録画（`.jinrec`）の再生で受け付けるトレース行の上限。再生はヘッダの `ticks` で有界なので
+ * **古い行を落とさない**（落とすと `enter` 行が消えて記憶環の値が黙って狂う）。超えたら載せずに断る。
+ */
+export const MAX_REPLAY_ROWS = 60000;
 
 export function App({
 	api,
@@ -220,6 +237,17 @@ export function App({
 					: resolveSelection(model, selection),
 		[model, selection],
 	);
+	/**
+	 * 図に重ねるラベル（Jin v2 Phase 6）: `upto` の位置の記憶環の値と、偽になった `assert`。
+	 * runtime.md §5 の積算（`debug/values.ts`）で、オーバーレイ（発火の強調）ではない。
+	 */
+	const labels = useMemo<readonly ValueLabel[]>(() => {
+		if (!isV2 || model === null || replay === null) return [];
+		return [
+			...stateLabels(model, stateValuesAt(replay.events, replay.upto)),
+			...assertLabels(assertsAt(replay.events, replay.upto)),
+		];
+	}, [isV2, model, replay]);
 	const selectionV2 =
 		selection !== null && isV2Selection(selection) ? selection : null;
 
@@ -300,6 +328,10 @@ export function App({
 	const openTrace = useCallback(
 		async (file: File): Promise<void> => {
 			const result = await loadTrace(file);
+			// v2 の実行パネルでも読めるので、走らせた行の入れ物（`liveReplay`）と出どころも合わせる。
+			// 合わせないと、読んだ直後の一時停止 / 1 tick で古い入れ物（null）で描き直してオーバーレイだけ消える。
+			liveReplay.current = result.ok ? result.replay : null;
+			traceSource.current = { kind: "replay", name: file.name };
 			if (!result.ok) {
 				setReplay(null);
 				setTraceError(result.message);
@@ -377,9 +409,38 @@ export function App({
 		}
 		void refresh(focus, diagnostics, liveReplay.current);
 	}, [refresh, focus, diagnostics]);
+	/**
+	 * 今の行の出どころ。走らせている間の行（`live`）は `MAX_LIVE_ROWS` で古い行を落とすが、
+	 * 録画の再生（`replay`）はヘッダの `ticks` で有界なので落とさず、`MAX_REPLAY_ROWS` を超えたら
+	 * 載せずに断る（古い行を落とすと `enter` 行が消えて記憶環の値が黙って狂う・Phase 6）。
+	 */
+	const traceSource = useRef<
+		| { readonly kind: "live" }
+		| { readonly kind: "replay"; readonly name: string }
+	>({ kind: "live" });
+	const clearTrace = useCallback((): void => {
+		liveReplay.current = null;
+		setReplay(null);
+		setTraceError(null);
+	}, []);
 	const onTrace = useCallback(
 		(rows: readonly TraceRow[]): void => {
-			const appended = appendRows(liveReplay.current, rows, "実行パネル");
+			const source = traceSource.current;
+			const name =
+				source.kind === "replay" ? `録画: ${source.name}` : "実行パネル";
+			const appended = appendRows(liveReplay.current, rows, name);
+			if (source.kind === "replay") {
+				if (appended.events.length > MAX_REPLAY_ROWS) {
+					setTraceError(
+						`録画のトレースが ${String(MAX_REPLAY_ROWS)} 行を超えるので載せません（短い録画にしてください）`,
+					);
+					return;
+				}
+				liveReplay.current = appended;
+				setReplay(appended);
+				// 再生は 1 回で全行が届く。描き直しは止まった知らせ（`onStatus`）で行う。
+				return;
+			}
 			const trimmed =
 				appended.events.length > MAX_LIVE_ROWS
 					? {
@@ -389,7 +450,7 @@ export function App({
 					: appended;
 			if (trimmed !== appended) {
 				setTraceError(
-					`トレースが ${String(MAX_LIVE_ROWS)} 行を超えたので古い行を落としています`,
+					`トレースが ${String(MAX_LIVE_ROWS)} 行を超えたので古い行を落としています（記憶環の値は最初からの積算ではなくなります）`,
 				);
 			}
 			liveReplay.current = trimmed;
@@ -402,12 +463,26 @@ export function App({
 	);
 	const onControl = useCallback(
 		(action: PlayerControl): void => {
-			if (action === "reboot") {
-				liveReplay.current = null;
-				setReplay(null);
-				setTraceError(null);
+			// 最初から / 録画 は `boot` し直すので、溜めた行を捨てて走らせた行を受ける。
+			if (action === "reboot" || action === "record") {
+				traceSource.current = { kind: "live" };
+				clearTrace();
 			}
-			if (action !== "start") flushLive();
+		},
+		[clearTrace],
+	);
+	/** 録画の再生を始めた: 次に届く行はその録画のもの。 */
+	const onReplay = useCallback(
+		(name: string): void => {
+			traceSource.current = { kind: "replay", name };
+			clearTrace();
+		},
+		[clearTrace],
+	);
+	/** プレイヤーが止まった（一時停止 / 1 tick / 最初から / 再生の終わり / done）ら即座に描き直す。 */
+	const onStatus = useCallback(
+		(status: PlayerStatus): void => {
+			if (!status.running) flushLive();
 		},
 		[flushLive],
 	);
@@ -503,6 +578,7 @@ export function App({
 							svg={state.svg}
 							selectedPointer={selectedPointer}
 							diagnostics={state.diagnostics}
+							labels={labels}
 							onPick={(target) => {
 								if (isV2) {
 									pickV2(target, state.model);
@@ -574,9 +650,13 @@ export function App({
 									replay={replay}
 									selectedPointer={selectedPointer}
 									traceError={traceError}
+									fileName={decodeURIComponent(uri.split("/").at(-1) ?? "")}
 									onTrace={onTrace}
 									onControl={onControl}
 									onUpto={scrub}
+									onReplay={onReplay}
+									onLoadTrace={(file) => void openTrace(file)}
+									onStatus={onStatus}
 								/>
 							) : (
 								<DebugPanel

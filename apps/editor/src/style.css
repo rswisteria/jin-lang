@@ -48,9 +48,38 @@ body {
   min-height: 0;
 }
 .jin-canvas {
+  position: relative; /* HTML のラベル層（記憶環の値 / assert）の基準 */
   flex: 1;
   overflow: auto;
   padding: 1rem;
+}
+/* 図に重ねるラベル（Jin v2 Phase 6）。**SVG の外の HTML**で、位置は描かれた要素の矩形から取る。
+   当たり判定を持たない（下の図をクリックできる）。 */
+.jin-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.jin-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  max-width: 14rem;
+  padding: 0 0.3rem;
+  border: 1px solid #c2410c;
+  border-radius: 2px;
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jin-label[data-tone="assert"] {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #7f1d1d;
 }
 .jin-canvas svg {
   max-width: 100%;
@@ -261,4 +290,36 @@ body {
   height: 22rem;
   border: 1px solid #d4d4d8;
   background: #16171a;
+}
+.jin-seed input {
+  width: 5rem;
+}
+/* 記憶環の値（runtime.md §5 の積算）と偽になった assert。 */
+.jin-state-values {
+  width: 100%;
+  margin: 0.4rem 0;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.jin-state-values th,
+.jin-state-values td {
+  padding: 0.15rem 0.3rem;
+  border-bottom: 1px solid #f3f4f6;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-all;
+}
+.jin-state-values th {
+  width: 9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.jin-asserts {
+  margin: 0.4rem 0;
+  padding: 0.25rem 0.5rem;
+  list-style: none;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 0.8rem;
 }

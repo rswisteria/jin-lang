@@ -113,6 +113,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2-3 | `jin_render.v2`（額縁 / 型紙 / 4 環 / 手順の図 / トレースオーバーレイ・13 種）+ `jin render` と `jin/renderSvg` の v2 | 実装済み |
 | v2-4 | `apps/player`（Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画 / 最小 UI / postMessage）+ `jin build` の同梱と `--single` + パリティ e2e | 実装済み |
 | v2-5 | LSP の v2（hover / completion / `jin/applyOps` + 応答の JIL）+ エディタの v2（式エディタ / 13 種 / 32 ops）+ 実行パネル（`/play/` iframe・ライブリロード） | 実装済み |
+| v2-6 | デバッグ（`.jinrec` の再生・スクラブで記憶環の値と画面・`assert` のバッジ・実行パネルの録画と書き出し） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -304,12 +305,35 @@ Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点�
   **33 個目を作らない**（description / sigil の host / on の event / do。ops.md §5）
 - **実行パネルは同一オリジンの iframe `/play/`**（`apps/editor/src/run/RunPanel.tsx`）。`jin editor` が
   `--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR` の順に探して配る（`translate_path` の正規化を
-  通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し、
+  通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し（Phase 6 で 7 語に増えた。下の Phase 6 の要点）、
   **`POST /run` は使わない**。プレイヤーは iframe の中では fetch せず `jin.load` を待つ。走っている間の描き直しは
   1 秒に 1 回（`LIVE_REFRESH_MS`）、行数は 4000 で頭打ち（`MAX_LIVE_ROWS`）。asset（絵と音）は埋め込みでは読めない
 - `apps/editor` が読む生成物は `jin.schema.json` / `jin-v2.schema.json` / `abilities.json` の 3 つ（いずれも Pydantic
   定義から生成してコミットした成果物。コピーを置かない）。eslint の禁止規則は変えていない
 - スモークは `apps/editor/e2e/v2.spec.ts`（要 `apps/player` の `pnpm build`。CI の editor ジョブが e2e の前にビルドする）
+
+Jin v2 Phase 6（デバッグ: 録画の再生・記憶環の値・`assert` のバッジ）の要点（正典は設計書 §8 / §11 #39〜#41、
+`docs/spec/v2/runtime.md` §5 / §7 / §10、`docs/spec/v2/layout.md` §6）:
+
+- **`.jinrec` の読み手はプレイヤー**（`apps/player/src/jinrec.ts` = `jin_wasm.jinrec.read_jinrec` の写し。書き手
+  `recorder.ts` と同じ app）。壊れ方は `tests/fixtures/jinrec/broken/`（`broken.expected.json`）を Python と TS の
+  両方が**同じ行番号**で検算する。エディタは 1 行目に `"jinrec"` があるかしか見ず（`RunPanel` の `looksLikeJinrec`）、
+  生のテキストを `jin.replay` で渡す。`apps/editor` から `apps/player` の TS は import しない
+- **再生は tick 0 からヘッダの seed で、同じ reducer を通す**（`Player.replay`）。終わったら止まったまま。
+  `apps/player/e2e/replay.spec.ts` が `tests/fixtures/jinrec/paddle-120.jinrec` で `jin run --input` と全行一致を見る
+- **記憶環の値と `assert` はエディタが積算する**（`apps/editor/src/debug/values.ts`。runtime.md §5 が「スクラバの
+  仕事」と書いた範囲だけ: `enter` / `exit` の output で陣の state 全部、`set` で 1 つ、`assert` は guard ごと、
+  `frame` は `upto` の位置の最後の 1 枚 → `jin.frame` でプレイヤーに描かせる）。**オーバーレイ（発火の強調と点）は
+  作らない**（`data-jin-fired` / `data-jin-seq` を書かない契約はそのまま）
+- **ラベルは SVG の外の HTML 層**（`SvgCanvas` の `labels`。位置は `getBoundingClientRect()`）。`createElementNS` で
+  `<text>` を作らない契約テストがあるので SVG の中に置かない。値は脇の表（`jin-state-values`）にも全部出す
+- **行数の上限は出どころで分ける**（`App.tsx`）: 走らせている間は `MAX_LIVE_ROWS`（4000・古い行を落とす）、
+  録画の再生は `MAX_REPLAY_ROWS`（60000・落とさず、超えたら載せない）。古い行を落とすと `enter` 行が消えて
+  値の積算が黙って狂うため。描き直しはプレイヤーが止まった知らせ（`jin.status` の `running: false`）で行う
+- **親とプレイヤーの語彙は 7 語**（`jin.load` / `jin.control` / `jin.replay` / `jin.frame` は親から、`jin.trace` /
+  `jin.status` / `jin.recording` は親へ）。`tests/contract/test_editor_contract.py` が `RunPanel.tsx` と `main.ts` から
+  抜いた集合の**等号**で固定する。語彙はこの 2 ファイルの外に書かない
+- 録画の書き出しは親のダウンロード（`<jin 名>-seed<seed>-<ticks>t.jinrec`）。埋め込みでは録画・再生とも asset は読めない
 
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 

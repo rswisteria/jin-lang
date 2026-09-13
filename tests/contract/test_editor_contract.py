@@ -499,3 +499,107 @@ def test_the_expression_editor_does_not_reimplement_the_expression_grammar() -> 
     for word in ("and", "or", "not", "++"):
         assert f'"{word}"' not in editor, word
     assert "parse" not in editor.lower().replace("parsefloat", "")
+
+
+# --------------------------------------------------------------------------------------
+# Jin v2 Phase 6（設計書 §8 / §11 #39〜#41・runtime.md §5 / §10）
+# --------------------------------------------------------------------------------------
+PLAYER_VOCABULARY = {
+    # 親 → プレイヤー
+    "jin.load",
+    "jin.control",
+    "jin.replay",
+    "jin.frame",
+    # プレイヤー → 親
+    "jin.trace",
+    "jin.status",
+    "jin.recording",
+}
+
+
+def test_the_parent_and_the_player_speak_the_same_vocabulary() -> None:
+    """runtime.md §10: 親（`RunPanel.tsx`）とプレイヤー（`main.ts`）の `"jin.xxx"` は**同じ集合**（等号）。
+
+    片方だけに語を足すと黙って届かない message になる。語彙はこの 2 ファイルの外に書かない
+    （`App` は `PlayerControl` / `PlayerStatus` の型を通してだけ関わる）。
+    """
+    words = re.compile(r'"(jin\.[a-z]+)"')
+    panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
+    main = (REPO_ROOT / "apps" / "player" / "src" / "main.ts").read_text(encoding="utf-8")
+    assert set(words.findall(panel)) == PLAYER_VOCABULARY, sorted(set(words.findall(panel)))
+    assert set(words.findall(main)) == PLAYER_VOCABULARY, sorted(set(words.findall(main)))
+    leaked = [
+        f"{path.relative_to(REPO_ROOT)}: {word}"
+        for path in sorted(SRC.rglob("*.ts*"))
+        if path.name != "RunPanel.tsx"
+        for word in words.findall(path.read_text(encoding="utf-8"))
+    ]
+    assert leaked == [], leaked
+
+
+def test_the_editor_does_not_read_the_recording_itself() -> None:
+    """設計書 §11 #39: `.jinrec` の読み手はプレイヤー（`apps/player/src/jinrec.ts`）。
+
+    エディタは 1 行目に `"jinrec"` があるかだけを見て、生のテキストを `jin.replay` で渡す。
+    読み手をここにも置くと `read_jinrec` の写しが 3 つ目になる（`apps/player` の TS は import できない）。
+    """
+    panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
+    assert "looksLikeJinrec" in panel
+    assert '"jin.replay", text' in panel
+    offenders = [
+        f"{path.relative_to(REPO_ROOT)}: {word}"
+        for path in sorted(SRC.rglob("*.ts*"))
+        for word in ("parseJinrec", "eventsByTick", 'from "../jinrec"', "JINREC_VERSION")
+        if word in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == [], offenders
+
+
+def test_the_state_values_are_accumulated_only_from_the_trace_rows_named_by_the_runtime_spec() -> (
+    None
+):
+    """runtime.md §5: 「エディタのスクラバは `set` 行を積算して記憶環の値を出し、`frame` 行で画面を出す」。
+
+    積算は `debug/values.ts` の 1 か所で、見る `kind` は `enter` / `exit` / `set` / `assert` / `frame` だけ。
+    ラベルは SVG の外の HTML 層（`SvgCanvas` の `jin-labels`）に置く（`<text>` を作らない契約は
+    `test_the_editor_never_draws_the_magic_circle_itself` が見る）。
+    """
+    values = (SRC / "debug" / "values.ts").read_text(encoding="utf-8")
+    # `kind === "enter"` と `stringOf(event, "kind") !== "assert"` の両方の形を拾う。
+    kinds = set(re.findall(r'\bkind\W{0,3}(?:!==|===) "([a-z]+)"', values))
+    assert kinds == {"enter", "exit", "set", "assert", "frame"}, sorted(kinds)
+    canvas = (SRC / "svg" / "SvgCanvas.tsx").read_text(encoding="utf-8")
+    assert 'className="jin-labels"' in canvas and "getBoundingClientRect" in canvas
+    # 積算をレンダラに頼まない（`jin/renderSvg` の引数は trace + upto + focus のまま）。
+    app = (SRC / "App.tsx").read_text(encoding="utf-8")
+    assert "stateValuesAt(replay.events, replay.upto)" in app
+    assert "values:" not in (SRC / "rpc" / "jin.ts").read_text(encoding="utf-8")
+
+
+def test_the_replay_rows_are_never_trimmed() -> None:
+    """設計書 §11 #41: 録画の再生の行は落とさない（落とすと `enter` 行が消えて値が黙って狂う）。"""
+    app = (SRC / "App.tsx").read_text(encoding="utf-8")
+    assert "export const MAX_LIVE_ROWS = 4000;" in app
+    assert "export const MAX_REPLAY_ROWS = 60000;" in app
+    replay_branch = app[app.index('if (source.kind === "replay")') :]
+    replay_branch = replay_branch[: replay_branch.index("const trimmed")]
+    assert "slice(" not in replay_branch
+    assert "MAX_REPLAY_ROWS" in replay_branch and "return;" in replay_branch
+
+
+def test_the_v2_e2e_uses_the_committed_recording_fixture() -> None:
+    """§12 行 6 の完了条件は実ブラウザで見る。録画はコミット済みの fixture で、プレイヤーの e2e と同じもの。"""
+    spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
+    replay_spec = (REPO_ROOT / "apps" / "player" / "e2e" / "replay.spec.ts").read_text(
+        encoding="utf-8"
+    )
+    fixture = "tests/fixtures/jinrec/paddle-120.jinrec"
+    assert (REPO_ROOT / fixture).is_file()
+    assert fixture in spec
+    assert '"paddle-120.jinrec"' in replay_spec
+    for phrase in (
+        ".jinrec を読んでスクラブするとオーバーレイと記憶環の値が動く",
+        "偽になった assert はバッジと一覧に出て",
+        "録画して書き出した .jinrec は jin run --input で同じ行数になり",
+    ):
+        assert phrase in spec, phrase

@@ -171,6 +171,150 @@ group("Player（実行ループ・runtime.md §10）", () => {
 		expect(player.trace.map((r) => r.tick)).toEqual([0]);
 	});
 
+	test("録画の再生: ヘッダの seed で boot し、録画の tick にだけイベントが渡り、止まったまま終わる", () => {
+		const { host, calls, boots } = fakeHost();
+		const { clock, frame } = fakeClock();
+		const traced: unknown[][] = [];
+		const drained: number[] = [];
+		const collector = {
+			drain: () => {
+				drained.push(1);
+				return [{ kind: "key", name: "ArrowRight", down: true }];
+			},
+			reset: () => {},
+		} as unknown as InputCollector;
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector,
+			audio,
+			clock,
+			onTrace: (rows) => traced.push([...rows]),
+		});
+		player.reboot(1);
+		player.start();
+		frame(1000 / 60);
+		expect(player.tick).toBe(1);
+		calls.length = 0;
+		traced.length = 0;
+		drained.length = 0;
+
+		const ticks = player.replay({
+			file: "t.jin",
+			seed: 9,
+			fps: 60,
+			ticks: 4,
+			events: [
+				{ tick: 1, kind: "key", name: "ArrowLeft", down: true },
+				{ tick: 3, kind: "key", name: "ArrowLeft", down: false },
+				{ tick: 3, kind: "pointer", x: 5, y: 6, down: true },
+				{ tick: 40, kind: "key", name: "Space", down: true }, // ticks の外は捨てる
+			],
+		});
+		expect(ticks).toBe(4);
+		expect(boots.at(-1)).toBe(9);
+		expect(player.seed).toBe(9);
+		expect(player.tick).toBe(4);
+		expect(player.running).toBe(false);
+		// 実入力は読まない（録画の行だけを同じ reducer に通す）。
+		expect(drained).toEqual([]);
+		expect(calls.map((c) => c.t)).toEqual([0, 1, 2, 3]);
+		expect(calls[0]?.inputs.events).toEqual([]);
+		expect(calls[1]?.inputs).toEqual({
+			events: [{ kind: "key", name: "ArrowLeft", down: true }],
+			keys: { ArrowLeft: true },
+			pointer: { x: 0, y: 0, down: false },
+		});
+		expect(calls[2]?.inputs.keys).toEqual({ ArrowLeft: true });
+		expect(calls[3]?.inputs).toEqual({
+			events: [
+				{ kind: "key", name: "ArrowLeft", down: false },
+				{ kind: "pointer", x: 5, y: 6, down: true },
+			],
+			keys: {},
+			pointer: { x: 5, y: 6, down: true },
+		});
+		// トレースは boot から通しで溜まり、親へは**最後に 1 回**流す。
+		expect(player.trace.map((r) => r.tick)).toEqual([0, 1, 2, 3]);
+		expect(traced).toHaveLength(1);
+		expect(traced[0]).toHaveLength(4);
+		// 止まったままなので、そこから 1 tick 進められる。
+		player.step();
+		expect(player.tick).toBe(5);
+	});
+
+	test("ヘッダに ticks が無い録画は jin run と同じ 600 tick 再生する（runtime.md §8）", () => {
+		const { host, calls } = fakeHost();
+		const { clock } = fakeClock();
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+		});
+		expect(
+			player.replay({
+				file: null,
+				seed: null,
+				fps: null,
+				ticks: null,
+				events: [],
+			}),
+		).toBe(600);
+		expect(calls).toHaveLength(600);
+		expect(player.seed).toBe(MANIFEST.stage.seed);
+	});
+
+	test("再生は root が done になったらそこで止まる", () => {
+		const { host, calls } = fakeHost(1);
+		const { clock } = fakeClock();
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+		});
+		expect(
+			player.replay({
+				file: null,
+				seed: null,
+				fps: null,
+				ticks: 10,
+				events: [],
+			}),
+		).toBe(2);
+		expect(calls.map((c) => c.t)).toEqual([0, 1]);
+		expect(player.done).toBe(true);
+	});
+
+	test("show は表示リストを描くだけで tick を呼ばず、走っている間は無視する", () => {
+		const { host, calls } = fakeHost();
+		const { clock } = fakeClock();
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+		});
+		player.reboot();
+		drawn.length = 0;
+		const ops = [["rect", 1, 2, 3, 4]] as const;
+		expect(player.show(ops)).toBe(true);
+		expect(drawn).toEqual([ops]);
+		expect(player.lastOps).toBe(ops);
+		expect(calls).toEqual([]);
+		player.start();
+		expect(player.show(ops)).toBe(false);
+		expect(drawn).toHaveLength(1);
+	});
+
 	test("done になったら止まり、以後は進めない", () => {
 		const { host, calls } = fakeHost(1);
 		const { clock, frame } = fakeClock();

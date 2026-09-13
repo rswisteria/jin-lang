@@ -262,7 +262,8 @@ def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
     main = read(SRC / "main.ts")
     assert "const EMBEDDED = window.parent !== window;" in main
     assert "if (EMBEDDED) return null;" in main
-    # `jin.load` / `jin.trace` / `jin.control` の 3 語で親と話す（エディタ側の RunPanel と同じ）。
+    # `jin.load` / `jin.trace` / `jin.control` の 3 語（Phase 5）で親と話す。Phase 6 で 7 語になり、
+    # 集合の等号は `test_editor_contract.py::test_the_parent_and_the_player_speak_the_same_vocabulary` が見る。
     for word in ('"jin.load"', '"jin.trace"', '"jin.control"'):
         assert word in main, word
     # 親以外からの message は無視する。
@@ -271,3 +272,49 @@ def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
     load = main[main.index("load: async (jil, manifest) =>") :]
     load = load[: load.index("ticks:")]
     assert "fetch(" not in load and "loadSource(" not in load
+
+
+def test_the_jinrec_reader_mirrors_the_python_one() -> None:
+    """設計書 §11 #39（Phase 6）: `src/jinrec.ts` は `jin_wasm.jinrec.read_jinrec` の写し。
+
+    版と kind の語彙が同じで、壊れ fixture（`tests/fixtures/jinrec/broken/`）を**両側が同じ期待値ファイル**で
+    検算していること。`jin.replay` はこの読み手を通す。
+    """
+    from jin_wasm.jinrec import EVENT_KINDS, JINREC_VERSION
+
+    reader = read(SRC / "jinrec.ts")
+    assert f"export const JINREC_VERSION = {JINREC_VERSION};" in reader
+    assert 'export const EVENT_KINDS = ["key", "pointer"] as const;' in reader
+    assert EVENT_KINDS == ("key", "pointer")
+    broken = REPO_ROOT / "tests" / "fixtures" / "jinrec" / "broken"
+    assert (broken / "broken.expected.json").is_file()
+    assert len(list(broken.glob("*.jinrec"))) >= 10
+    ts_test = read(PLAYER / "test" / "jinrec.test.ts")
+    py_test = (REPO_ROOT / "packages" / "jin-wasm" / "tests" / "test_jinrec_bundle.py").read_text(
+        encoding="utf-8"
+    )
+    assert "broken.expected.json" in ts_test and "broken.expected.json" in py_test
+    main = read(SRC / "main.ts")
+    assert "parseJinrec(text)" in main
+
+
+def test_the_replay_feeds_the_same_reducer_and_ends_paused() -> None:
+    """runtime.md §10（Phase 6）: 再生は録画の行を `InputReducer` に通し、止まったまま終わる。
+
+    `show` は描くだけで `tick` を呼ばない（ホストが呼ぶ Lua の関数は `boot` / `tick` の 2 つのまま。
+    `test_the_player_calls_only_boot_and_tick` が見る）。
+    """
+    player = read(SRC / "player.ts")
+    replay = player[player.index("replay(recording: Recording): number {") :]
+    replay = replay[: replay.index("show(ops")]
+    assert "this.reboot(recording.seed ?? this.o.manifest.stage.seed);" in replay
+    assert "eventsByTick(recording.events, ticks)" in replay
+    assert "this.advance(perTick[t] ?? [], false);" in replay
+    assert "this.running = false;" in replay
+    assert "collector.drain()" not in replay
+    show = player[player.index("show(ops") :]
+    show = show[: show.index("private queueFrame")]
+    assert "renderer.draw(ops)" in show and "host.tick" not in show
+    # e2e が再生と `jin run --input` の全行一致を見る。
+    spec = read(PLAYER / "e2e" / "replay.spec.ts")
+    assert "expect(browserRows).toEqual(headlessRows);" in spec
