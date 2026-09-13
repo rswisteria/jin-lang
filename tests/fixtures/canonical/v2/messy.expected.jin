@@ -1,0 +1,254 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "forms": [
+    {
+      "name": "Ball",
+      "fields": [
+        {
+          "name": "x",
+          "type": "num"
+        },
+        {
+          "name": "y",
+          "type": "num"
+        }
+      ]
+    }
+  ],
+  "circles": [
+    {
+      "name": "Game",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Play",
+          "Result"
+        ],
+        "exit": "Result.quit"
+      }
+    },
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        {
+          "name": "ball",
+          "type": "Ball",
+          "init": "Ball{x: 1000, y: 1.5}"
+        },
+        {
+          "name": "n",
+          "type": "num",
+          "init": "-(-0)",
+          "out": true
+        },
+        {
+          "name": "xs",
+          "type": "list<num>",
+          "init": "[1, 2]"
+        },
+        {
+          "name": "label",
+          "type": "str",
+          "init": "\"A/\""
+        }
+      ],
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "set",
+              "target": "ball.x",
+              "expr": "(n + 1) * 2"
+            },
+            {
+              "do": "let",
+              "name": "t",
+              "expr": "n - -n"
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "1.5",
+                "t + 1",
+                "abs(-n)",
+                "0"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "helper",
+              "args": [
+                "n"
+              ],
+              "into": "xs[0]"
+            },
+            {
+              "do": "if",
+              "cond": "n > 0 and n < 10 or t == 2",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "n",
+                  "expr": "n"
+                }
+              ],
+              "else": [
+                {
+                  "do": "set",
+                  "target": "label",
+                  "expr": "str(n) ++ (\"a\" ++ \"b\")"
+                }
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "each",
+              "name": "v",
+              "in": "[1, 2, 3]",
+              "steps": [
+                {
+                  "do": "set",
+                  "target": "n",
+                  "expr": "n + v"
+                }
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "while",
+              "cond": "not n >= 100",
+              "steps": [
+                {
+                  "do": "set",
+                  "target": "n",
+                  "expr": "n * 2"
+                }
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "times": "2 + 1",
+              "steps": [
+                {
+                  "do": "wait",
+                  "ticks": "1 + 1"
+                }
+              ]
+            },
+            {
+              "do": "wait",
+              "until": "n >= 3"
+            },
+            {
+              "do": "emit",
+              "circle": "Result",
+              "message": "hi",
+              "args": [
+                "n * 2"
+              ]
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "helper",
+          "params": [
+            {
+              "name": "a",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "return",
+              "expr": "a + 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "guards": [
+          {
+            "assert": "n >= 0",
+            "message": "n は 0 以上"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Result",
+      "core": "fin",
+      "state": [
+        {
+          "name": "quit",
+          "type": "bool",
+          "init": "true",
+          "out": true
+        },
+        {
+          "name": "got",
+          "type": "num",
+          "init": "0"
+        }
+      ],
+      "rites": [
+        {
+          "name": "fin",
+          "steps": [
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "take",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "k",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "set",
+              "target": "got",
+              "expr": "k"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "message",
+            "rite": "take"
+          }
+        ]
+      }
+    }
+  ]
+}

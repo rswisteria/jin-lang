@@ -68,6 +68,25 @@ def test_numstr_matches_python_repr(prelude, x: float) -> None:
     assert prelude.NUMSTR(x) == expected_numstr(x)
 
 
+def test_expression_number_literals_use_the_same_format_as_str(prelude) -> None:
+    """式の数値リテラルの正準形（expr.md §8・`jin_core.v2.expr.format_number`）は `str(x)` と同じ書式。
+
+    jin-core は jin-wasm を import できないので、両者の一致はここで見る（有限の値だけ。
+    `format_number` は NaN / inf を書けないので ValueError）。
+    """
+    from jin_core.v2.expr import format_number
+
+    rng = random.Random(20260914)
+    values = [x for x in _SAMPLES if math.isfinite(x)]
+    values += [rng.uniform(-1, 1) * 10.0 ** rng.randint(-12, 24) for _ in range(300)]
+    values += [float(rng.randint(-(2**54), 2**54)) for _ in range(100)]
+    for x in values:
+        assert format_number(x) == prelude.NUMSTR(x), x
+    for x in (math.inf, -math.inf, math.nan):
+        with pytest.raises(ValueError):
+            format_number(x)
+
+
 def test_numstr_matches_python_repr_for_random_values(prelude) -> None:
     rng = random.Random(20260913)
     for _ in range(500):

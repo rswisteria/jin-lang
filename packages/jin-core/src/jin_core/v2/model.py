@@ -9,6 +9,7 @@ v1 の `jin_core.model` とは独立している（共有するのは `JinModel`
 
 from __future__ import annotations
 
+import functools
 import re
 import typing
 from typing import Annotated, Literal, Union, get_args, get_origin
@@ -378,6 +379,7 @@ def _carries_expr_mark(annotation: object) -> bool:
     return False
 
 
+@functools.cache
 def expr_fields(cls: type[BaseModel]) -> frozenset[str]:
     """`cls` の欄のうち**式**を受けるもの（JSON 側のキー名）。
 
