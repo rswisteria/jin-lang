@@ -93,7 +93,7 @@ jin/
     jin-core/src/jin_core/         # v1 のモジュールは動かさない(§11 #17。全パッケージがフルパスで import している)
     jin-core/src/jin_core/v2/      # model / expr(文法・型) / spans / abilities(カタログの正本) / semantic / ops
     jin-core/src/jin_core/check.py # root_model_for が version で v1 / v2 へ振り分ける唯一の入口
-    jin-wasm/src/jin_wasm/         # codegen(v2 → JIL)/ prelude.lua / abilities / runtime(lupa)
+    jin-wasm/src/jin_wasm/         # codegen(v2 → JIL)/ prelude.lua / runtime(lupa)。カタログは jin_core.v2.abilities を import
     jin-render/src/jin_render/v2/  # v2 レイアウト
   apps/
     editor/                        # 既存。実行パネル(iframe)と v2 のフォームを足す

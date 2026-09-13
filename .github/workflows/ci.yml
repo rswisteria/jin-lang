@@ -80,11 +80,10 @@ jobs:
       - name: Detect JSON Schema drift
         run: uv run jin schema | diff -u schemas/jin.schema.json -
 
-      # Jin v2 の生成物（設計書 §11 #16 / #19）。同じスクリプトが 3 つを出す。
-      - name: Detect Jin v2 schema / abilities drift
-        run: |
-          uv run jin schema --version 2 | diff -u schemas/jin-v2.schema.json -
-          uv run python scripts/generate_schema.py >/dev/null && git diff --exit-code -- schemas/
+      # Jin v2 の生成物（設計書 §11 #16 / #19）。ツリーを書き換えずに比較する（W-04 と同じ）。
+      # abilities.json のドリフトは packages/jin-core/tests/test_v2_model.py が pytest 側で固定する。
+      - name: Detect Jin v2 schema drift
+        run: uv run jin schema --version 2 | diff -u schemas/jin-v2.schema.json -
 
       # 要件書 §9「examples/**/*.jin が全て validate を通る」
       - name: Check examples

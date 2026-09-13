@@ -7,7 +7,7 @@ Lua プレリュードと codegen）、`apps/player`（TS 型の生成元）、L
 
 abilities.md §7 は当初「`jin_wasm` が生成し `jin_core` が JSON を読む」としていたが、`jin_core` は
 `jin_wasm` を import できず、インストール済みパッケージから `schemas/` も見つけられないので、
-正本を最下層（ここ）に置く（設計書 §11 #18）。
+正本を最下層（ここ）に置く（設計書 §11 #19）。
 """
 
 from __future__ import annotations

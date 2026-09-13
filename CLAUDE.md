@@ -239,6 +239,8 @@ uv run lint-imports                       # 依存方向の契約
 uv run python scripts/generate_schema.py  # JSON Schema を再生成
 uv run jin check examples                 # examples の診断
 uv run jin fmt --check examples           # examples が正準形か
+uv run jin check examples-v2 && uv run jin fmt --check examples-v2   # Jin v2 の例（examples/ の外に置く。設計書 §11 #18）
+uv run jin schema --version 2             # Jin v2 の JSON Schema（CI が schemas/jin-v2.schema.json と diff する）
 uv run jin build examples/researcher/researcher.jin --out /tmp/out   # ADK プロジェクト生成
 PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl
 uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg      # 魔法陣 SVG（-o 無しは stdout）
