@@ -236,9 +236,12 @@ def serve(
         announce(f"{TOKEN_PREFIX}{files.token}")
         announce(f"{URL_PREFIX}{address.url}")
         if player is None:
+            # 対象が v1 か v2 かはここでは見ない（エディタは version をブラウザ側で判断する）ので
+            # v1 の `.jin` でも出る。v1 には実行パネルが無いことを文で断っておく。
             announce(
-                "プレイヤーが見つからないので実行パネルは使えません"
-                "（apps/player で `pnpm build` するか --player-dist で場所を指定してください）"
+                "プレイヤーが見つからないので Jin v2 の実行パネルは使えません"
+                "（v1 の .jin には関係ありません。apps/player で `pnpm build` するか"
+                " --player-dist で場所を指定してください）"
             )
     if open_browser:
         webbrowser.open(address.url)

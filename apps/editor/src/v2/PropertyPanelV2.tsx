@@ -94,9 +94,11 @@ export function PropertyPanelV2(
 						opsForChangeV2(model, selection, { key: field.key, value: next }),
 					);
 				};
-				// `core` / `delegate` などスカラを指す pointer では欄の pointer は選択の pointer そのもの。
+				// 選択がオブジェクトを指すなら欄の pointer は `<選択>/<キー>`。`core` / `delegate` のように
+				// スカラを指す pointer（`record` は合成した 1 欄の器）では選択の pointer そのもの。
+				// 欄が 1 つしか無いオブジェクト（`finish` / `break` …）も前者に入る。
 				const fieldPointer =
-					only === undefined || record !== value
+					value !== null && typeof value === "object" && !Array.isArray(value)
 						? `${pointer}/${field.key}`
 						: pointer;
 				return (

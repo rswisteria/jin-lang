@@ -42,8 +42,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   `docs/spec/adk-mapping.md` 由来の静的な辞書（`jin_lsp.adk_names`）から引く。`jin-adk` を入れると
   LSP の起動のたびに `google-adk` 全体の import を待つことになる（Claude Code の起動体感に直撃する）
 - **`apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない。**
-  例外は `schemas/jin.schema.json` ただ 1 つ（プロパティパネルのフォームを手書きしないために読む。
-  コピーを置かず直接読む）。Python 側は import-linter、**TS 側は eslint の
+  例外は `schemas/` の生成物 3 つ（`jin.schema.json` / Phase 5 からの `jin-v2.schema.json` /
+  `abilities.json`。プロパティパネルのフォームを手書きしないために読む。コピーを置かず直接読む）。
+  Python 側は import-linter、**TS 側は eslint の
   `no-restricted-imports`**（`apps/editor/eslint.config.js`）が落とす。
   **通信路の例外が 1 本ある**: 実行（Issue #34）だけは LSP を通らず、`jin editor` が配る
   静的サーバと**同一オリジンの `POST /run`**（SSE）へ投げる。ws には same-origin 制限が無く

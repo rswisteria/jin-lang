@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { LspCompletionItem } from "../rpc/protocol";
 
@@ -62,6 +62,12 @@ export function ExprEditor(props: ExprEditorProps): React.JSX.Element {
 	const [active, setActive] = useState(0);
 	const input = useRef<HTMLInputElement>(null);
 	const fetched = useRef(false);
+
+	// undo / redo や別の欄の確定でサーバの値が変わったら draft を差し替える。
+	// 入力中（フォーカスあり）は打ちかけの式を守る（確定は blur / Enter で行う）。
+	useEffect(() => {
+		if (document.activeElement !== input.current) setDraft(props.value);
+	}, [props.value]);
 
 	const refresh = (
 		text: string,

@@ -13,8 +13,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     fs: {
-      // `schemas/jin.schema.json` は `apps/editor` の外にある**唯一の**入力である。
-      // コピーを置かないための許可であって、リポジトリ全体を配るためではない。
+      // `schemas/*.json`（`jin.schema.json` / `jin-v2.schema.json` / `abilities.json`）が
+      // `apps/editor` の外にある入力のすべてである。コピーを置かないための許可であって、
+      // リポジトリ全体を配るためではない。
       allow: [repoRoot],
     },
   },

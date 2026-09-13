@@ -111,7 +111,7 @@ jin/
 jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp  ←  jin-cli
 ```
 
-`jin-wasm` は `jin-adk` / `jin-render` と**兄弟**(layers 契約の 1 要素に `|` で並べる)。`jin-core` / `jin-render` は引き続き `google-adk` にも `lupa` にも依存しない。`lupa` に依存するのは `jin-wasm` だけ。`apps/player` は Python を import せず、`schemas/abilities.json` だけを読む(`apps/editor` が `jin.schema.json` を読むのと同じ例外)。
+`jin-wasm` は `jin-adk` / `jin-render` と**兄弟**(layers 契約の 1 要素に `|` で並べる)。`jin-core` / `jin-render` は引き続き `google-adk` にも `lupa` にも依存しない。`lupa` に依存するのは `jin-wasm` だけ。`apps/player` は Python を import せず、`schemas/abilities.json` だけを読む(`apps/editor` が `jin.schema.json` / `jin-v2.schema.json` / `abilities.json` を読むのと同じ例外)。
 
 ### 1.3 v1 との共存(再利用と作り直しの境界)
 
@@ -599,7 +599,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 18 | `examples-v2/` の置き場(Phase 1 で確定) | **恒久的に `examples/` の外**。CI は `examples-v2` にも `check` / `fmt --check` を掛ける | `examples/` は「3 本」を等号で数える契約が複数あり、`jin-adk` / `jin-render` のテストが v1 前提で glob している |
 | 19 | ホスト能力カタログの正本(Phase 1 で確定) | `jin_core.v2.abilities`(純データ)。`schemas/abilities.json` はそこから生成し、Phase 2 の `jin_wasm` はそれを import する | `jin_core` は `jin_wasm` を import できず、インストール済みパッケージから `schemas/` も見つけられない。依存方向もこの向きが正しい |
 | 20 | 型文字列が指す型紙の未定義(Phase 1 で確定) | JIN011(参照解決の一種) | 新しい番号を切らない |
-| 21 | 依存の層(Phase 2 で確定・Phase 5 で改訂) | `jin_wasm` は `jin_adk` / `jin_render` と 3 兄弟(layers 契約の 1 要素 `"jin_adk \| jin_render \| jin_wasm"`)。`jin_lsp` は Phase 5 から `jin_wasm` に依存するが、読むのは **`jin_wasm.codegen`(と `jil`)だけ**で `jin_wasm.runtime`(lupa)/ `bundle` は import しない(`tests/contract/test_lsp_contract.py` が AST で固定) | v1 の `design.yaml` の 8 行は書き換えない(v1 の契約テストがそれを読む)。v2 の依存規則の正本は §1.2 |
+| 21 | 依存の層(Phase 2 で確定・Phase 5 で改訂) | `jin_wasm` は `jin_adk` / `jin_render` と 3 兄弟(layers 契約の 1 要素 `"jin_adk \| jin_render \| jin_wasm"`)。`jin_lsp` は Phase 5 から `jin_wasm` に依存するが、読むのは **`jin_wasm.codegen`(と `jil`)だけ**で `jin_wasm.runtime`(lupa)/ `bundle` は import しない(`tests/contract/test_lsp_contract.py` が AST で固定)。**インストール依存には `lupa` の wheel が入る**が import しないので LSP の起動時間は変わらない | v1 の `design.yaml` の 8 行は書き換えない(v1 の契約テストがそれを読む)。v2 の依存規則の正本は §1.2 |
 | 22 | `tick` の戻り値(Phase 2 で確定) | `ops` / `audio` / `trace`(デバッグのみ)/ `done` に **`error`**(実行時エラーの文)と **`public`**(公開 state の確定値)を足す | リリースビルドにはトレースが無く、`jin run` が実行時エラーの理由と最後の公開 state を返す口が他に無い。ホスト境界は `boot` / `tick` の 2 関数のまま |
 | 23 | 数値の書式(Phase 2 で確定) | Python の `repr(float)` と同じ配置(指数形は exp < -4 または exp >= 16、指数は符号付き 2 桁以上)。非整数 700 件で一致を固定 | runtime.md §6 が「JS と Python の両方と同じ」と言っていたが、両者は指数の桁数が違う。パリティは Lua 対 Lua なので影響は無い |
 | 24 | 命令数の上限(Phase 2 で確定) | `debug.sethook` の count hook で `boot` / `tick` ごとに 10^7 命令。超えたら `error` 行 + `done` | `while true` の手順で CI が止まらないための多層防御。hook は `debug` を nil にした後も生きる(実測)。Wasmoon 側は Phase 4 で同じ手口を検討 |
