@@ -8,65 +8,30 @@
    `boundary.await` の位置で**同じ circle の** tool 名
 4. **rune 内 `{` の後** — 可視な state key
 
-1 と 2 は `jin_core.check.models_at` が返すクラスから引く。**キー名を書き写さない**
-（モデルを変えたら追随する）。
+1 と 2 は `jin_core.check.models_at` が返すクラスから引く（`jin_lsp.features.schema_items`）。
+**キー名を書き写さない**（モデルを変えたら追随する）。
+
+v2（`version: 2`）のドキュメントは `jin_lsp.features.v2.complete` へ振る（設計書 §8）。
+キーと enum の引き方（`schema_items`）は v2 も共用する。
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import Any
 
-from jin_core.check import models_at
-from jin_core.pointer import parent_of, split_pointer
+from jin_core.pointer import split_pointer
 from lsprotocol import types
-from pydantic import BaseModel
 
 from jin_lsp import locate, positions
+from jin_lsp.features import v2
+from jin_lsp.features.schema_items import dedupe as _dedupe
+from jin_lsp.features.schema_items import enum_then_keys
+from jin_lsp.features.schema_items import item as _item
 from jin_lsp.session import DocumentState
 
 #: rune の中で state key を補完する引き金。`{{` は文字通りの `{` なので引き金にしない
 #: （`docs/spec/model.md` §3.1 のエスケープ規則）。
 RUNE_TRIGGER = "{"
-
-
-def _field_names(models: list[type[BaseModel]]) -> list[str]:
-    """モデルが許すキー名（JSON 側の名前 = alias 優先）。順序はモデル定義の順。"""
-    names: list[str] = []
-    for model in models:
-        for name, info in model.model_fields.items():
-            alias = info.alias or name
-            if alias not in names:
-                names.append(alias)
-    return names
-
-
-def _literal_values(annotation: Any) -> list[str]:
-    """`Literal["a", "b"]`（Optional / Union に包まれていても）から値を取り出す。"""
-    origin = get_origin(annotation)
-    if origin is Literal:
-        return [str(value) for value in get_args(annotation)]
-    if origin in (Union, type(int | str)):
-        found: list[str] = []
-        for argument in get_args(annotation):
-            found.extend(_literal_values(argument))
-        return found
-    return []
-
-
-def _enum_values(models: list[type[BaseModel]], key: str) -> list[str]:
-    values: list[str] = []
-    for model in models:
-        for name, info in model.model_fields.items():
-            if (info.alias or name) != key:
-                continue
-            for value in _literal_values(info.annotation):
-                if value not in values:
-                    values.append(value)
-    return values
-
-
-def _item(label: str, kind: types.CompletionItemKind, detail: str = "") -> types.CompletionItem:
-    return types.CompletionItem(label=label, kind=kind, detail=detail)
 
 
 def _circle_names(model: Any) -> list[str]:
@@ -97,7 +62,9 @@ def complete(state: DocumentState | None, position: types.Position) -> types.Com
     """
     if state is None:
         return types.CompletionList(is_incomplete=False, items=[])
-    model = state.model_v1_for_display  # v2 の補完は Phase 5
+    if state.model_v2_for_display is not None:
+        return v2.complete(state, position)
+    model = state.model_v1_for_display
     table = state.table_for_display
     if model is None or table is None:
         return types.CompletionList(is_incomplete=False, items=[])
@@ -120,7 +87,6 @@ def complete(state: DocumentState | None, position: types.Position) -> types.Com
         return types.CompletionList(is_incomplete=False, items=[])
 
     tokens = split_pointer(pointer)
-    parent = parent_of(pointer) or ""
     document = model.model_dump(by_alias=True, mode="json")
 
     # ---- 3. 参照名 -------------------------------------------------------------
@@ -138,41 +104,8 @@ def complete(state: DocumentState | None, position: types.Position) -> types.Com
     if items:
         return types.CompletionList(is_incomplete=False, items=_dedupe(items))
 
-    # ---- 2. enum 値 ------------------------------------------------------------
-    key = tokens[-1] if tokens else ""
-    enum = _enum_values(_enum_models(parent, document), key)
-    if enum:
-        items.extend(_item(value, types.CompletionItemKind.EnumMember, key) for value in enum)
-        return types.CompletionList(is_incomplete=False, items=items)
-
-    # ---- 1. スキーマ由来のキー --------------------------------------------------
-    # カーソルが値の上にあるなら、その値を持つオブジェクト（= 親）のキーを出す。
-    for candidate in (pointer, parent):
-        names = _field_names(models_at(candidate, document))
-        if names:
-            items.extend(_item(name, types.CompletionItemKind.Property, "key") for name in names)
-            break
-    return types.CompletionList(is_incomplete=False, items=_dedupe(items))
-
-
-def _enum_models(parent: str, document: Any) -> list[type[BaseModel]]:
-    """enum の候補を集めるモデル一覧。
-
-    `tools[]` は `kind` による**判別共用体**なので、`models_at("/circles/0/tools/0")` は
-    ソースに書かれている `kind` を見て 1 つに絞ってしまう（`jin_core.check._model_at`）。
-    それでは「今 `"tool"` と書いてあるところに `builtin` / `summon` も置ける」という
-    補完が出せない。要素の pointer が配列の添字で終わるときは、**配列そのもの**の
-    pointer で引き直して候補を全部得る。
-    """
-    models = models_at(parent, document)
-    tokens = split_pointer(parent)
-    if tokens and tokens[-1].isdigit():
-        container = parent_of(parent)
-        if container is not None:
-            for model in models_at(container, document):
-                if model not in models:
-                    models.append(model)
-    return models
+    # ---- 2. enum 値 → 1. スキーマ由来のキー（`schema_items.enum_then_keys`）------------
+    return types.CompletionList(is_incomplete=False, items=enum_then_keys(pointer, document))
 
 
 def _is_circle_reference(tokens: list[str]) -> bool:
@@ -197,17 +130,6 @@ def _is_await_reference(tokens: list[str]) -> bool:
         and tokens[1].isdigit()
         and tokens[2:4] == ["boundary", "await"]
     )
-
-
-def _dedupe(items: list[types.CompletionItem]) -> list[types.CompletionItem]:
-    """同じラベルを 2 回出さない（別の circle に同名の state key があるとき）。"""
-    seen: set[str] = set()
-    unique: list[types.CompletionItem] = []
-    for item in items:
-        if item.label not in seen:
-            seen.add(item.label)
-            unique.append(item)
-    return unique
 
 
 __all__ = ["RUNE_TRIGGER", "complete"]

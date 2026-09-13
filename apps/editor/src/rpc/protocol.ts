@@ -41,10 +41,42 @@ export interface JinPointerRow extends JinRange {
   readonly pointer: string;
 }
 
-/** モデルは `schemas/jin.schema.json` が定める JSON。エディタは**中身を解釈しない**。 */
+/**
+ * モデルは `schemas/jin.schema.json`（v1）/ `schemas/jin-v2.schema.json`（v2）が定める JSON。
+ * エディタは**中身を解釈しない**（版の判定は `version` の値だけを見る）。
+ */
 export type JinModel = Readonly<Record<string, unknown>>;
 
-export interface JinModelResult {
+/** `jin build` が書く `game.manifest.json` と同じ形（`docs/spec/v2/runtime.md` §9）。 */
+export interface JinManifest {
+  readonly file: string | null;
+  readonly stage: {
+    readonly width: number;
+    readonly height: number;
+    readonly fps: number;
+    readonly seed: number;
+  };
+  readonly namespaces: readonly string[];
+  readonly assets: readonly { readonly name: string; readonly kind: string; readonly path: string }[];
+  readonly debug: boolean;
+  readonly jil: string;
+}
+
+/**
+ * Jin v2（`version: 2`）のときだけ応答に加わる **JIL（`game.lua`）と manifest**
+ * （設計書 §8「ライブリロード」・Phase 5）。実行パネルはこれを `/play/` の iframe へ
+ * `postMessage({ type: "jin.load" })` して、保存せずに動かす。
+ *
+ * **best-effort** である: `applyOps` は通ったが式の構文 / 型エラーが残っている
+ * （`docs/spec/v2/ops.md` §1）と `jil` は `null` になり、理由が `jilError` に載る。
+ */
+export interface JinGenerated {
+  readonly jil?: string | null;
+  readonly manifest?: JinManifest | null;
+  readonly jilError?: string | null;
+}
+
+export interface JinModelResult extends JinGenerated {
   readonly model: JinModel;
   readonly pointers: readonly JinPointerRow[];
   /** 真なら「現在のテキストが壊れていて直前の正常なモデルで答えた」（NFR-AVAIL-001）。 */
@@ -81,15 +113,30 @@ export interface JinOpError {
 }
 
 export type JinApplyOpsResult =
-  | {
+  | ({
       readonly ok: true;
       readonly model: JinModel;
       readonly inverses: readonly JinOp[];
       readonly text: string;
       readonly applied: boolean;
       readonly diagnostics: readonly JinDiagnostic[];
-    }
+      /** v2 だけ: `rename` が追随できなかった式の pointer（`docs/spec/v2/ops.md` §3）。 */
+      readonly warnings?: readonly string[];
+    } & JinGenerated)
   | { readonly ok: false; readonly error: JinOpError };
+
+/** LSP 標準の位置（0 始まり・UTF-16）。`jin_lsp.positions` と同じ向きの換算を `v2/position.ts` が行う。 */
+export interface LspPosition {
+  readonly line: number;
+  readonly character: number;
+}
+
+/** `textDocument/completion` の 1 候補。使うのは `label` / `kind` / `detail` だけ。 */
+export interface LspCompletionItem {
+  readonly label: string;
+  readonly kind?: number;
+  readonly detail?: string;
+}
 
 export interface JinOpenResult {
   readonly uri: string;

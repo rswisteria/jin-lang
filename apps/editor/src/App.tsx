@@ -1,11 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DebugPanel } from "./debug/DebugPanel";
-import { appendRow, loadTrace, type Replay } from "./debug/replay";
+import { appendRow, appendRows, loadTrace, type Replay } from "./debug/replay";
 import { PropertyPanel } from "./form/PropertyPanel";
 import type { JsonSchema } from "./form/schemaForm";
+import { resolveRef } from "./form/schemaForm";
 import type { JinApi, RenderOptions } from "./rpc/jin";
-import type { JinDiagnostic, JinOp, JinRenderSvgResult } from "./rpc/protocol";
+import type {
+	JinDiagnostic,
+	JinGenerated,
+	JinOp,
+	JinRenderSvgResult,
+} from "./rpc/protocol";
+import { type PlayerControl, RunPanel } from "./run/RunPanel";
+import { runAgent } from "./run/client";
 import {
 	EMPTY_HISTORY,
 	type History,
@@ -21,10 +29,28 @@ import {
 } from "./state/selection";
 import { assertNever, hasDrawing, type ViewState } from "./state/viewState";
 import { SvgCanvas } from "./svg/SvgCanvas";
-import { runAgent } from "./run/client";
-import { rowsOf } from "./trace/parse";
+import type { JinTarget } from "./svg/hitTest";
+import { rowsOf, type TraceRow } from "./trace/parse";
 import { DiagnosticList } from "./ui/DiagnosticList";
 import { StatusBar } from "./ui/StatusBar";
+import {
+	addHostSigil,
+	addRite,
+	addState,
+	addStep,
+	extractSelectedStep,
+	moveOps,
+	removeSelected,
+	toggleStateOut,
+	wrapSelectedStep,
+} from "./v2/actions";
+import { PropertyPanelV2 } from "./v2/PropertyPanelV2";
+import {
+	followRenameV2,
+	resolveSelectionV2,
+	type SelectionV2,
+	selectionFromPointerV2,
+} from "./v2/selection";
 
 /**
  * 編集モード（要件書 §7.1）。
@@ -36,14 +62,32 @@ import { StatusBar } from "./ui/StatusBar";
  * デバッグモード（要件書 §7.2）も**同じ面**である（DP-COMMON-18: SSR 無しの単一ページ・
  * ページ内でモードを切り替える）。同じ SVG・同じ選択・同じ LSP 接続を共有し、
  * 違いは `jin/renderSvg` に `trace` と `upto` が付くことと、脇のパネルの中身だけである。
+ *
+ * **Jin v2（`version: 2`）も同じ面で開く**（設計書 §8・Phase 5）。版は `jin/model` の応答の
+ * `version` だけで決め、v2 なら schema（`jin-v2.schema.json`）・選択（`v2/selection.ts`）・
+ * オペレーション（`v2/dispatch.ts` / `v2/actions.ts`）・脇のパネル（式エディタ・実行パネル）を
+ * v2 のものに切り替える。v1 の経路は 1 行も変えない。
  */
 /** 面はひとつ、モードはページ内の切り替え（DP-COMMON-18・要件書 §7.1 / §7.2）。 */
 export type Mode = "edit" | "debug";
+
+/** v1 と v2 の選択を 1 つの state で持つ。v2 は `v2: true` の印で見分ける。 */
+export type AnySelection = Selection | SelectionV2;
+
+export function isV2Selection(
+	selection: AnySelection,
+): selection is SelectionV2 {
+	return "v2" in selection && selection.v2 === true;
+}
 
 export interface AppProps {
 	readonly api: JinApi;
 	readonly uri: string;
 	readonly schema: JsonSchema;
+	/** Jin v2 の schema（`schemas/jin-v2.schema.json`）。v2 のフォーム生成にだけ使う。 */
+	readonly schemaV2: JsonSchema;
+	/** ホスト能力の名前空間（`schemas/abilities.json`）。道具を足すパレットにだけ使う。 */
+	readonly namespaces: readonly string[];
 	/**
 	 * 実行エンドポイント（Issue #34）の origin。**このページを配っているのと同じところ**。
 	 * 別の場所を指せるようにしない（`main.tsx` が `window.location.origin` を渡す）。
@@ -53,10 +97,18 @@ export interface AppProps {
 	readonly token: string;
 }
 
+/** 実行パネルが走っている間、オーバーレイを描き直す間隔（ms）。 */
+export const LIVE_REFRESH_MS = 1000;
+
+/** 実行パネルから溜めるトレース行の上限。超えたら古い行を落とす（`jin/renderSvg` の送信量の上限）。 */
+export const MAX_LIVE_ROWS = 4000;
+
 export function App({
 	api,
 	uri,
 	schema,
+	schemaV2,
+	namespaces,
 	runOrigin,
 	token,
 }: AppProps): React.JSX.Element {
@@ -64,7 +116,7 @@ export function App({
 		kind: "disconnected",
 		reason: null,
 	});
-	const [selection, setSelection] = useState<Selection | null>(null);
+	const [selection, setSelection] = useState<AnySelection | null>(null);
 	const [focus, setFocus] = useState<string | null>(null);
 	const [history, setHistory] = useState<History>(EMPTY_HISTORY);
 	// 診断は `jin/open` / `jin/applyOps` / `jin/save` の応答に載る（要件書 §5 の座標系のまま・
@@ -81,6 +133,14 @@ export function App({
 	const [running, setRunning] = useState(false);
 	const [runError, setRunError] = useState<string | null>(null);
 	const [runSummary, setRunSummary] = useState<string | null>(null);
+	// サーバが最後に返したテキスト（`jin/open` / `jin/applyOps` / `jin/save`）。v2 の式エディタが
+	// 補完の位置を `pointers` から換算するのに使う。**モデルの写しであって独自の状態ではない。**
+	const [text, setText] = useState("");
+	// v2 の JIL と manifest（`jin/model` / `jin/applyOps` の応答）。実行パネルへ渡す。
+	const [generated, setGenerated] = useState<JinGenerated | null>(null);
+	// v2 のパレット（ステップの種別 / 道具の名前空間）。
+	const [stepKind, setStepKind] = useState("set");
+	const [host, setHost] = useState(namespaces[0] ?? "");
 
 	/**
 	 * モデルと SVG を取り直して表示状態を作る。**SVG はキャッシュしない**（DP-COMMON-07）。
@@ -107,6 +167,13 @@ export function App({
 					setTraceError(`このトレースは重ねられません: ${messageOf(error)}`);
 					drawing = await api.renderSvg(uri, renderOptions(nextFocus, null));
 				}
+				if (model.model["version"] === 2) {
+					setGenerated({
+						jil: model.jil ?? null,
+						manifest: model.manifest ?? null,
+						jilError: model.jilError ?? null,
+					});
+				}
 				setState({
 					kind: model.stale || drawing.stale ? "stale" : "ready",
 					uri,
@@ -129,6 +196,7 @@ export function App({
 			try {
 				const opened = await api.open(uri);
 				if (cancelled) return;
+				setText(opened.text);
 				setDiagnostics(opened.diagnostics);
 				await refresh(null, opened.diagnostics, null);
 			} catch (error) {
@@ -142,13 +210,18 @@ export function App({
 	}, [api, uri, refresh]);
 
 	const model = hasDrawing(state) ? state.model : null;
+	const isV2 = model !== null && model["version"] === 2;
 	const selectedPointer = useMemo(
 		() =>
 			model === null || selection === null
 				? null
-				: resolveSelection(model, selection),
+				: isV2Selection(selection)
+					? resolveSelectionV2(model, selection)
+					: resolveSelection(model, selection),
 		[model, selection],
 	);
+	const selectionV2 =
+		selection !== null && isV2Selection(selection) ? selection : null;
 
 	/** オペレーションを送る唯一の入口。履歴に積むかどうかだけが呼び出し側の裁量。 */
 	const send = useCallback(
@@ -172,9 +245,23 @@ export function App({
 				// rename は選択中の要素の名前を変えるので、3 つ組を新名へ追随させる
 				// （DP-COMMON-16 の cons が名指ししていた箇所）。
 				setSelection((current) =>
-					ops.reduce((acc, op) => followRename(acc, op, model), current),
+					current !== null && isV2Selection(current)
+						? ops.reduce(
+								(acc, op) => followRenameV2(acc, op, model),
+								current as SelectionV2 | null,
+							)
+						: ops.reduce(
+								(acc, op) => followRename(acc, op, model),
+								current as Selection | null,
+							),
 				);
+				setText(result.text);
 				setDiagnostics(result.diagnostics);
+				if (result.warnings !== undefined && result.warnings.length > 0) {
+					setNotice(
+						`rename が追随できなかった式があります: ${result.warnings.join(", ")}`,
+					);
+				}
 				// 編集してもトレースは**保持**する（読み込んだトレースはモデルから導出できない
 				// UI 意図であり、`applyOps` の応答で捨てるとスクラブ位置ごと失われる）。
 				// **残存**: 編集で配列が並び替わると、古いトレースの pointer が別の要素を指しうる。
@@ -191,6 +278,7 @@ export function App({
 			// `text` を渡さない = サーバが持つモデルの正準形を書く
 			// （`jin fmt` の出力とバイト一致・要件書 成功条件 5）。
 			const result = await api.save(uri);
+			setText(result.text);
 			setDiagnostics(result.diagnostics);
 			setNotice(`保存しました: ${result.path}`);
 		} catch (error) {
@@ -275,6 +363,62 @@ export function App({
 	);
 
 	/**
+	 * 実行パネル（v2）からのトレース。**tick ごとに配列で届く**ので `appendRows` でまとめて積み、
+	 * 描き直しは `LIVE_REFRESH_MS` に 1 回に間引く（60 tick/s × 十数行を毎回 `jin/renderSvg` に
+	 * 送ると ws のペイロードが万行になる）。行数は `MAX_LIVE_ROWS` で頭打ちにし、超えたら
+	 * 古い行を落として理由を出す。一時停止 / 1 tick / 最初から のときは即座に描き直す。
+	 */
+	const liveReplay = useRef<Replay | null>(null);
+	const liveTimer = useRef<number | null>(null);
+	const flushLive = useCallback((): void => {
+		if (liveTimer.current !== null) {
+			window.clearTimeout(liveTimer.current);
+			liveTimer.current = null;
+		}
+		void refresh(focus, diagnostics, liveReplay.current);
+	}, [refresh, focus, diagnostics]);
+	const onTrace = useCallback(
+		(rows: readonly TraceRow[]): void => {
+			const appended = appendRows(liveReplay.current, rows, "実行パネル");
+			const trimmed =
+				appended.events.length > MAX_LIVE_ROWS
+					? {
+							...appended,
+							events: appended.events.slice(-MAX_LIVE_ROWS),
+						}
+					: appended;
+			if (trimmed !== appended) {
+				setTraceError(
+					`トレースが ${String(MAX_LIVE_ROWS)} 行を超えたので古い行を落としています`,
+				);
+			}
+			liveReplay.current = trimmed;
+			setReplay(trimmed);
+			if (liveTimer.current === null) {
+				liveTimer.current = window.setTimeout(flushLive, LIVE_REFRESH_MS);
+			}
+		},
+		[flushLive],
+	);
+	const onControl = useCallback(
+		(action: PlayerControl): void => {
+			if (action === "reboot") {
+				liveReplay.current = null;
+				setReplay(null);
+				setTraceError(null);
+			}
+			if (action !== "start") flushLive();
+		},
+		[flushLive],
+	);
+	useEffect(
+		() => () => {
+			if (liveTimer.current !== null) window.clearTimeout(liveTimer.current);
+		},
+		[],
+	);
+
+	/**
 	 * スクラバ。**各位置で `jin/renderSvg` を呼び直す**（要件書 §7.2）。
 	 * オーバーレイをクライアントで作らないので、同じ `upto` なら同じ SVG になる。
 	 */
@@ -282,11 +426,68 @@ export function App({
 		(upto: number): void => {
 			if (replay === null || upto === replay.upto) return;
 			const next: Replay = { ...replay, upto };
+			liveReplay.current = next;
 			setReplay(next);
 			void refresh(focus, diagnostics, next);
 		},
 		[replay, focus, diagnostics, refresh],
 	);
+
+	const changeFocus = useCallback(
+		(next: string | null): void => {
+			setFocus(next);
+			void refresh(next, diagnostics, replay);
+		},
+		[refresh, diagnostics, replay],
+	);
+
+	/** v2 の pick: `data-jin` の pointer をそのまま要素として解決する（referent 規則は使わない）。 */
+	const pickV2 = useCallback(
+		(target: JinTarget, current: NonNullable<typeof model>): void => {
+			setSelection(selectionFromPointerV2(current, target.pointer));
+		},
+		[],
+	);
+
+	/**
+	 * v2 のダブルクリック（`docs/spec/v2/ops.md` §5）:
+	 * 手順の小陣 → `focus` を `陣名/手順名` に、記憶の四角 → `setState`（`out` の切り替え）、
+	 * 陣 / 参照（`data-jin-ref`）→ その陣に focus。
+	 */
+	const openV2 = useCallback(
+		(target: JinTarget, current: NonNullable<typeof model>): void => {
+			if (target.ref !== null) {
+				const referenced = selectionFromPointerV2(current, target.ref);
+				if (referenced !== null && "circle" in referenced) {
+					changeFocus(focus === referenced.circle ? null : referenced.circle);
+				}
+				return;
+			}
+			const picked = selectionFromPointerV2(current, target.pointer);
+			if (picked === null) return;
+			if (picked.kind === "rite") {
+				const next = `${picked.circle}/${picked.name}`;
+				changeFocus(focus === next ? picked.circle : next);
+			} else if (picked.kind === "state") {
+				void send(toggleStateOut(current, picked));
+			} else if ("circle" in picked) {
+				changeFocus(focus === picked.circle ? null : picked.circle);
+			}
+		},
+		[changeFocus, focus, send],
+	);
+
+	const focusRite = useMemo(() => {
+		if (focus === null) return null;
+		const [circle, rite] = focus.split("/");
+		return circle !== undefined && rite !== undefined ? { circle, rite } : null;
+	}, [focus]);
+
+	/** ステップの `do` の値（schema の判別共用体の枝から。名前を書き写さない）。 */
+	const stepKinds = useMemo(() => {
+		const steps = resolveRef(schemaV2, "#/$defs/Rite")?.properties?.["steps"];
+		return Object.keys(steps?.items?.discriminator?.mapping ?? {});
+	}, [schemaV2]);
 
 	const body = ((): React.JSX.Element => {
 		switch (state.kind) {
@@ -303,19 +504,29 @@ export function App({
 							selectedPointer={selectedPointer}
 							diagnostics={state.diagnostics}
 							onPick={(target) => {
+								if (isV2) {
+									pickV2(target, state.model);
+									return;
+								}
 								const pointer = target.ref ?? target.pointer;
 								setSelection(selectionFromPointer(state.model, pointer));
 							}}
 							onOpen={(target) => {
+								if (isV2) {
+									openV2(target, state.model);
+									return;
+								}
 								// 入れ子の小陣をダブルクリックで focus を切り替える（要件書 §7.1）。
 								const pointer = target.ref ?? target.pointer;
 								const picked = selectionFromPointer(state.model, pointer);
 								if (picked === null) return;
-								const next = focus === picked.circle ? null : picked.circle;
-								setFocus(next);
-								void refresh(next, diagnostics, replay);
+								changeFocus(focus === picked.circle ? null : picked.circle);
 							}}
 							onMove={(from, to) => {
+								if (isV2) {
+									void send(moveOps(from, to));
+									return;
+								}
 								// ドラッグで紋を環上で並べ替える → moveTool（要件書 §7.1）。
 								// 落とした先の紋の添字を目的地にする。**角度はエディタが計算しない**。
 								const index = Number(to.pointer.split("/").at(-1));
@@ -323,16 +534,49 @@ export function App({
 								void send([{ op: "moveTool", pointer: from.pointer, index }]);
 							}}
 							onDiagnostic={(diagnostic) =>
-								showDiagnostic(diagnostic, setNotice, setSelection, state.model)
+								showDiagnostic(
+									diagnostic,
+									setNotice,
+									setSelection,
+									state.model,
+									isV2,
+								)
 							}
 						/>
 						<aside className="jin-side">
 							{mode === "edit" ? (
-								<PropertyPanel
-									schema={schema}
-									model={state.model}
-									selection={selection}
-									onChange={(ops) => void send(ops)}
+								isV2 ? (
+									<PropertyPanelV2
+										schema={schemaV2}
+										model={state.model}
+										pointers={state.pointers}
+										text={text}
+										uri={uri}
+										api={api}
+										selection={selectionV2}
+										onChange={(ops) => void send(ops)}
+									/>
+								) : (
+									<PropertyPanel
+										schema={schema}
+										model={state.model}
+										selection={
+											selection !== null && !isV2Selection(selection)
+												? selection
+												: null
+										}
+										onChange={(ops) => void send(ops)}
+									/>
+								)
+							) : isV2 ? (
+								<RunPanel
+									generated={generated}
+									replay={replay}
+									selectedPointer={selectedPointer}
+									traceError={traceError}
+									onTrace={onTrace}
+									onControl={onControl}
+									onUpto={scrub}
 								/>
 							) : (
 								<DebugPanel
@@ -355,6 +599,7 @@ export function App({
 										setNotice,
 										setSelection,
 										state.model,
+										isV2,
 									)
 								}
 							/>
@@ -365,10 +610,11 @@ export function App({
 		return assertNever(state);
 	})();
 
-	const circleOf = selection?.circle ?? null;
+	const circleOf =
+		selection !== null && "circle" in selection ? selection.circle : null;
 
 	return (
-		<main className="jin-app">
+		<main className="jin-app" data-version={isV2 ? "2" : "1"}>
 			<header className="jin-toolbar">
 				<button
 					type="button"
@@ -384,7 +630,7 @@ export function App({
 					data-active={mode === "debug" ? "1" : "0"}
 					onClick={() => setMode("debug")}
 				>
-					デバッグ
+					{isV2 ? "実行" : "デバッグ"}
 				</button>
 				<span className="jin-sep" />
 				<button
@@ -411,47 +657,159 @@ export function App({
 					やり直す
 				</button>
 				<span className="jin-sep" />
-				<button
-					type="button"
-					data-testid="jin-add-tool"
-					disabled={model === null || circleOf === null}
-					onClick={() => {
-						if (model === null || circleOf === null) return;
-						void send(addToList(model, circleOf, "tools"));
-					}}
-				>
-					紋を追加
-				</button>
-				<button
-					type="button"
-					data-testid="jin-add-state"
-					disabled={model === null || circleOf === null}
-					onClick={() => {
-						if (model === null || circleOf === null) return;
-						void send(addToList(model, circleOf, "state"));
-					}}
-				>
-					記憶を追加
-				</button>
-				<button
-					type="button"
-					data-testid="jin-add-delegate"
-					disabled={model === null || circleOf === null}
-					onClick={() => {
-						if (model === null || circleOf === null) return;
-						void send(addToList(model, circleOf, "delegate"));
-					}}
-				>
-					委譲を追加
-				</button>
+				{isV2 ? (
+					<>
+						<button
+							type="button"
+							data-testid="jin-add-rite"
+							disabled={model === null || circleOf === null}
+							onClick={() => {
+								if (model === null || circleOf === null) return;
+								void send(addRite(model, circleOf));
+							}}
+						>
+							手順を追加
+						</button>
+						<select
+							data-testid="jin-step-kind"
+							value={stepKind}
+							onChange={(event) => setStepKind(event.currentTarget.value)}
+						>
+							{stepKinds.map((kind) => (
+								<option key={kind} value={kind}>
+									{kind}
+								</option>
+							))}
+						</select>
+						<button
+							type="button"
+							data-testid="jin-add-step"
+							disabled={
+								model === null ||
+								(selectionV2?.kind !== "step" &&
+									selectionV2?.kind !== "rite" &&
+									focusRite === null)
+							}
+							onClick={() => {
+								if (model === null) return;
+								void send(addStep(model, selectionV2, focusRite, stepKind));
+							}}
+						>
+							ステップを追加
+						</button>
+						<button
+							type="button"
+							data-testid="jin-add-state"
+							disabled={model === null || circleOf === null}
+							onClick={() => {
+								if (model === null || circleOf === null) return;
+								void send(addState(model, circleOf));
+							}}
+						>
+							記憶を追加
+						</button>
+						<select
+							data-testid="jin-host"
+							value={host}
+							onChange={(event) => setHost(event.currentTarget.value)}
+						>
+							{namespaces.map((name) => (
+								<option key={name} value={name}>
+									{name}
+								</option>
+							))}
+						</select>
+						<button
+							type="button"
+							data-testid="jin-add-sigil"
+							disabled={model === null || circleOf === null || host === ""}
+							onClick={() => {
+								if (model === null || circleOf === null) return;
+								void send(addHostSigil(model, circleOf, host));
+							}}
+						>
+							道具を追加
+						</button>
+						<button
+							type="button"
+							data-testid="jin-wrap-step"
+							disabled={model === null || selectionV2?.kind !== "step"}
+							onClick={() => {
+								if (model === null || selectionV2 === null) return;
+								void send(wrapSelectedStep(model, selectionV2));
+							}}
+						>
+							if で包む
+						</button>
+						<button
+							type="button"
+							data-testid="jin-extract-step"
+							disabled={model === null || selectionV2?.kind !== "step"}
+							onClick={() => {
+								if (model === null || selectionV2 === null) return;
+								void send(extractSelectedStep(model, selectionV2));
+							}}
+						>
+							手順に抽出
+						</button>
+						<button
+							type="button"
+							data-testid="jin-remove"
+							disabled={
+								model === null ||
+								selectionV2 === null ||
+								removeSelected(model, selectionV2).length === 0
+							}
+							onClick={() => {
+								if (model === null || selectionV2 === null) return;
+								void send(removeSelected(model, selectionV2));
+							}}
+						>
+							削除
+						</button>
+					</>
+				) : (
+					<>
+						<button
+							type="button"
+							data-testid="jin-add-tool"
+							disabled={model === null || circleOf === null}
+							onClick={() => {
+								if (model === null || circleOf === null) return;
+								void send(addToList(model, circleOf, "tools"));
+							}}
+						>
+							紋を追加
+						</button>
+						<button
+							type="button"
+							data-testid="jin-add-state"
+							disabled={model === null || circleOf === null}
+							onClick={() => {
+								if (model === null || circleOf === null) return;
+								void send(addToList(model, circleOf, "state"));
+							}}
+						>
+							記憶を追加
+						</button>
+						<button
+							type="button"
+							data-testid="jin-add-delegate"
+							disabled={model === null || circleOf === null}
+							onClick={() => {
+								if (model === null || circleOf === null) return;
+								void send(addToList(model, circleOf, "delegate"));
+							}}
+						>
+							委譲を追加
+						</button>
+					</>
+				)}
 				{focus === null ? null : (
 					<button
 						type="button"
 						data-testid="jin-focus-clear"
-						onClick={() => {
-							setFocus(null);
-							void refresh(null, diagnostics, replay);
-						}}
+						onClick={() => changeFocus(null)}
 					>
 						focus を外す（{focus}）
 					</button>
@@ -487,15 +845,20 @@ function renderOptions(
 function showDiagnostic(
 	diagnostic: JinDiagnostic,
 	setNotice: (value: string) => void,
-	setSelection: (value: Selection | null) => void,
+	setSelection: (value: AnySelection | null) => void,
 	model: Parameters<typeof selectionFromPointer>[0],
+	isV2: boolean,
 ): void {
 	setNotice(
 		diagnostic.hint === undefined
 			? `${diagnostic.code}: ${diagnostic.message}`
 			: `${diagnostic.code}: ${diagnostic.message} — ${diagnostic.hint}`,
 	);
-	setSelection(selectionFromPointer(model, diagnostic.pointer));
+	setSelection(
+		isV2
+			? selectionFromPointerV2(model, diagnostic.pointer)
+			: selectionFromPointer(model, diagnostic.pointer),
+	);
 }
 
 /**

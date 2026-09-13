@@ -2,6 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import abilities from "../../../schemas/abilities.json";
+import schemaV2 from "../../../schemas/jin-v2.schema.json";
 import schema from "../../../schemas/jin.schema.json";
 import type { JsonSchema } from "./form/schemaForm";
 import { createJinApi } from "./rpc/jin";
@@ -22,6 +24,9 @@ import "./style.css";
  *
  * `schemas/jin.schema.json` は**コピーせずに直接読む**（要件書 §7.1 の
  * 「フォームは JSON Schema から生成する」。コピーを置くとドリフトする）。
+ * Jin v2 では `schemas/jin-v2.schema.json`（v2 のフォーム）と `schemas/abilities.json`
+ * （道具を足すパレットの名前空間）も同じ理由で直接読む。3 つとも Pydantic 定義から
+ * 生成されてコミットされた成果物であり、Python パッケージではない（eslint の禁止対象外）。
  */
 const params = new URLSearchParams(window.location.search);
 const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
@@ -48,6 +53,8 @@ if (uri === "") {
 						api={createJinApi(client, token)}
 						uri={uri}
 						schema={schema as JsonSchema}
+						schemaV2={schemaV2 as JsonSchema}
+						namespaces={abilities.namespaces.map((entry) => entry.name)}
 						// 実行エンドポイント（Issue #34）は**このページを配っているのと同じ origin**
 						// にある（`jin editor` の静的サーバ）。別の場所を指せるようにしない。
 						runOrigin={window.location.origin}

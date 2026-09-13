@@ -80,12 +80,14 @@
         "target": {
           "maxLength": 65536,
           "title": "Target",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         },
         "args": {
           "items": {
             "maxLength": 65536,
-            "type": "string"
+            "type": "string",
+            "x-jin-expr": true
           },
           "title": "Args",
           "type": "array"
@@ -94,7 +96,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -244,7 +247,8 @@
         "args": {
           "items": {
             "maxLength": 65536,
-            "type": "string"
+            "type": "string",
+            "x-jin-expr": true
           },
           "title": "Args",
           "type": "array"
@@ -299,7 +303,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -369,7 +374,8 @@
         "assert": {
           "maxLength": 65536,
           "title": "Assert",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         },
         "message": {
           "anyOf": [
@@ -402,7 +408,8 @@
         "cond": {
           "maxLength": 65536,
           "title": "Cond",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         },
         "then": {
           "items": {
@@ -544,7 +551,8 @@
         "expr": {
           "maxLength": 65536,
           "title": "Expr",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         },
         "type": {
           "anyOf": [
@@ -604,7 +612,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -617,7 +626,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -630,7 +640,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -767,7 +778,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -889,12 +901,14 @@
         "target": {
           "maxLength": 65536,
           "title": "Target",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         },
         "expr": {
           "maxLength": 65536,
           "title": "Expr",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         }
       },
       "required": [
@@ -1034,7 +1048,8 @@
         "init": {
           "maxLength": 65536,
           "title": "Init",
-          "type": "string"
+          "type": "string",
+          "x-jin-expr": true
         },
         "out": {
           "default": false,
@@ -1084,7 +1099,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"
@@ -1097,7 +1113,8 @@
           "anyOf": [
             {
               "maxLength": 65536,
-              "type": "string"
+              "type": "string",
+              "x-jin-expr": true
             },
             {
               "type": "null"

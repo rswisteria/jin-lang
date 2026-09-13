@@ -25,9 +25,19 @@ export interface JsonSchema {
   readonly items?: JsonSchema;
   readonly maxLength?: number;
   readonly discriminator?: { readonly propertyName: string; readonly mapping: Record<string, string> };
+  /**
+   * Jin v2 の**式の欄の印**（`jin_core.v2.model.Expr`。`schemas/jin-v2.schema.json` にだけ現れる）。
+   * 式エディタを出すかどうかはこの印だけで決める（欄の名前を書き写さない・設計書 §8）。
+   */
+  readonly "x-jin-expr"?: boolean;
 }
 
-export type FieldType = "string" | "boolean" | "number" | "enum";
+/**
+ * `exprList` は **式の列**（`cast.args` / `emit.args`。`items` に `x-jin-expr` が付いた配列）。
+ * 配列は原則としてフォームに出さない（図の操作で編集する）が、式の列だけは図に載らないので
+ * 行ごとの式エディタとして例外扱いにする。
+ */
+export type FieldType = "string" | "boolean" | "number" | "enum" | "exprList";
 
 export interface FormField {
   readonly key: string;
@@ -41,6 +51,8 @@ export interface FormField {
   readonly options: readonly string[] | null;
   /** null を許す欄か（`anyOf: [X, null]`）。空欄にすると null を送る。 */
   readonly nullable: boolean;
+  /** 式の欄（`x-jin-expr`）。`exprList` は要素が式。 */
+  readonly expr: boolean;
 }
 
 /** `#/$defs/State` のような内部参照を解く。外部参照は解かない（この schema に無い）。 */
@@ -75,7 +87,7 @@ export function unwrap(root: JsonSchema, schema: JsonSchema): Unwrapped {
   return { schema: inner.schema, nullable: nullable || inner.nullable };
 }
 
-function fieldTypeOf(schema: JsonSchema): FieldType | null {
+function fieldTypeOf(root: JsonSchema, schema: JsonSchema): FieldType | null {
   if (schema.enum !== undefined) return "enum";
   if (schema.const !== undefined) return "string";
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
@@ -87,11 +99,20 @@ function fieldTypeOf(schema: JsonSchema): FieldType | null {
     case "integer":
     case "number":
       return "number";
+    case "array":
+      // 式の列だけは欄にする（v2 の `args`）。他の配列は図の操作で編集する。
+      return schema.items !== undefined && isExpr(root, schema.items) ? "exprList" : null;
     default:
       // 配列・オブジェクト・解けない型はフォームに出さない。
       // 配列（tools / state / delegate）は SVG 側の操作で編集する（要件書 §7.1）。
       return null;
   }
+}
+
+/** `x-jin-expr` が付いているか（`anyOf` / `$ref` の内側も見る）。 */
+export function isExpr(root: JsonSchema, schema: JsonSchema): boolean {
+  if (schema["x-jin-expr"] === true) return true;
+  return unwrap(root, schema).schema["x-jin-expr"] === true;
 }
 
 /**
@@ -103,7 +124,7 @@ export function fieldsOf(root: JsonSchema, objectSchema: JsonSchema): readonly F
   const fields: FormField[] = [];
   for (const [key, raw] of Object.entries(properties)) {
     const { schema, nullable } = unwrap(root, raw);
-    const type = fieldTypeOf(schema);
+    const type = fieldTypeOf(root, schema);
     if (type === null) continue;
     fields.push({
       key,
@@ -115,6 +136,7 @@ export function fieldsOf(root: JsonSchema, objectSchema: JsonSchema): readonly F
       maxLength: schema.maxLength ?? null,
       options: schema.enum === undefined ? null : schema.enum.map((value) => String(value)),
       nullable,
+      expr: type === "exprList" || isExpr(root, schema),
     });
   }
   return fields;

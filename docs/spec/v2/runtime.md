@@ -189,4 +189,5 @@ dist/
 - **録画は `boot` し直して tick 0 から始める**(途中からの録画は `jin run --input` と揃わない)。ヘッダの `ticks` は実行した tick 数。トレース(`debug`)は `boot` から通しで溜め、パリティは `jin run --input rec.jinrec --trace` の行と **JSON として読んでから全行一致**で比べる(`apps/player/e2e/parity.spec.ts`)
 - 命令数の上限は §8 と同じ Lua(`JIN_ARM` / `JIN_HOOK`)で掛ける。Wasmoon の `Thread.setTimeout` / `functionTimeout` は使わない(コルーチンの中で PANIC・probe §A.10)。`new LuaFactory(wasmUri)` には常に URL を渡す(引数無しは unpkg へ fetch しに行く)
 - `canvas.text` の書体は ASCII(U+0020〜U+007E)だけで、それ以外のコードポイントは □(幅は 1 コードポイント = 6 のまま。設計書 §11 #33)
-- `postMessage` は親(`window.parent`)へ tick ごとに `{ type: "jin.trace", rows }` を送る(targetOrigin は `*`。トレースは秘密ではない)。`{ type: "jin.load", … }` は**親からの message だけ**を受ける。親側(エディタの実行パネル)は Phase 5
+- `postMessage` は親(`window.parent`)へ tick ごとに `{ type: "jin.trace", rows }` を送る(targetOrigin は `*`。トレースは秘密ではない)。`{ type: "jin.load", … }` は**親からの message だけ**を受ける
+- **埋め込み(iframe)の規則**(Phase 5・設計書 §8 / §11 #38): iframe の中では `game.lua` / `game.manifest.json` を **fetch せず**、親の `{ type: "jin.load", jil, manifest }` を待つ(状態表示は「エディタからの読み込みを待っています」)。`{ type: "jin.control", action }`(`start` / `pause` / `step` / `reboot`)で親の操作を受ける。`reboot` は**止めた状態で** tick 0 に戻す(そこから 1 tick ずつ進められる)。`jin.load` のたびに `boot` からやり直す(ライブリロード)。asset の実体は埋め込みでは読めない(`.jin` の隣にあり、エディタのサーバは配らない)。親側は `apps/editor/src/run/RunPanel.tsx`、配信は `jin editor` の `/play/`

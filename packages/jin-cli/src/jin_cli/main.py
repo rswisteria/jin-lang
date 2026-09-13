@@ -1462,6 +1462,13 @@ def editor(
         Path | None,
         typer.Option("--dist", help="ビルド済みエディタの場所（既定: apps/editor/dist）"),
     ] = None,
+    player_dist: Annotated[
+        Path | None,
+        typer.Option(
+            "--player-dist",
+            help="Jin v2 の実行パネルが使うプレイヤーの場所（既定: apps/player/dist → 同梱版）",
+        ),
+    ] = None,
     host: Annotated[str, typer.Option("--host", help="待ち受けアドレス")] = "127.0.0.1",
     no_browser: Annotated[
         bool, typer.Option("--no-browser", help="ブラウザを開かず URL を stderr に出す")
@@ -1478,12 +1485,17 @@ def editor(
     親ディレクトリ配下の `.jin` に限定・symlink 拒否で閉じているが（`docs/spec/ops.md` §5.1）、
     **信頼しないディレクトリの `.jin` を `jin editor` で開かないこと**。
 
+    Jin v2（`version: 2`）の `.jin` では実行パネルが使える。プレイヤー（`apps/player` の
+    ビルド物）を同じサーバの `/play/` として配り、保存しなくても JIL を差し替えて動かす
+    （設計書 §8）。`POST /run` は v1 の ADK 実行だけの口で、v2 はそこを通らない。
+
     終了は Ctrl-C。
     """
     try:
         editor_serve(
             file,
             dist=dist,
+            player_dist=player_dist,
             host=host,
             open_browser=not no_browser,
             announce=lambda line: typer.echo(line, err=True),

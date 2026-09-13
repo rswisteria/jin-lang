@@ -111,7 +111,7 @@ jin/
 jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp  ←  jin-cli
 ```
 
-`jin-wasm` は `jin-adk` / `jin-render` と**兄弟**(layers 契約の 1 要素に `|` で並べる)。`jin-core` / `jin-render` は引き続き `google-adk` にも `lupa` にも依存しない。`lupa` に依存するのは `jin-wasm` だけ。`apps/player` は Python を import せず、`schemas/abilities.json` だけを読む(`apps/editor` が `jin.schema.json` を読むのと同じ例外)。
+`jin-wasm` は `jin-adk` / `jin-render` と**兄弟**(layers 契約の 1 要素に `|` で並べる)。`jin-core` / `jin-render` は引き続き `google-adk` にも `lupa` にも依存しない。`lupa` に依存するのは `jin-wasm` だけ。`apps/player` は Python を import せず、`schemas/abilities.json` だけを読む(`apps/editor` が `jin.schema.json` / `jin-v2.schema.json` / `abilities.json` を読むのと同じ例外)。
 
 ### 1.3 v1 との共存(再利用と作り直しの境界)
 
@@ -538,6 +538,14 @@ v1 の規律(正方形キャンバス、R=1、12 時から時計回り、`fmt_co
 - **ライブリロード**: `jin/applyOps` の応答に v2 なら JIL を含める(`jil` フィールド)。実行パネルは `boot` からやり直す(状態の引き継ぎは v2.1)
 - フォームは `jin.schema.json` から生成(v1 と同じ)。式の欄だけ「式エディタ」(1 行 + 補完)にする。**式エディタは `jin_core.v2.expr` を再実装しない**。補完候補は LSP の completion をそのまま使う
 
+Phase 5 で確定した実装(§11 #36〜#38):
+
+- **式の欄の印は schema に置く**: `jin_core.v2.model.Expr` が `x-jin-expr: true` を `jin-v2.schema.json` に出し、エディタ(`apps/editor/src/form/schemaForm.ts`)と LSP の completion(`jin_core.v2.model.expr_fields`)はその印だけで「式の欄か」を決める。欄の名前を書き写さない
+- **補完の位置**: 式エディタは式のリテラルの**先頭位置**(`jin/model` の `pointers` + 現在のテキストからコードポイント → UTF-16 に換算)で `textDocument/completion` を求め、候補を**カーソル直前のトークン**(識別子と `.`)で自分で絞る。サーバはスコープ順の識別子に `名前空間.メンバ` / `陣名.key` / `局所.欄` の点付きラベルを含めて返す。ドキュメント上で `名前.` の直後にカーソルがあるとき(Claude Code / VS Code)はメンバだけを点なしで返す
+- **`jin/model` と `jin/applyOps` の v2 の応答**は `jil` / `manifest` / `jilError`(`jin_lsp.jil.generated`・常に debug ビルド・best-effort)と `warnings` を持つ。`applyOps` は通ったが式に構文 / 型エラーが残っていれば `jil: null` + 理由(ops.md §1 のとおりオペレーションは失敗にしない)
+- **実行パネル**(`apps/editor/src/run/RunPanel.tsx`): `jin editor` が `/play/` として配るプレイヤーを同一オリジンの iframe で開き、`jin.load`(JIL + manifest)/ `jin.control`(実行 / 一時停止 / 1 tick / 最初から)を送り、`jin.trace` を受ける。走っている間のオーバーレイの描き直しは 1 秒に 1 回、一時停止 / 1 tick / 最初から では即時。溜める行は 4000 で頭打ち(超えたら古い行を落として理由を出す)。**`POST /run` は使わない**
+- **エディタの図の操作**(ops.md §5): 手順の小陣のダブルクリック → focus `陣名/手順名`、パレット(`do` の値は schema の判別共用体から)で `addStep`(選択中のステップの直後 / 手順の末尾)、ステップ / 道具のドラッグで `moveStep` / `moveSigil`(同じ列の中だけ)、選択中の 1 ステップを「if で包む」(`wrapSteps`)/「手順に抽出」(`extractRite`)、記憶の四角のダブルクリックで `setState`(`out`)。範囲選択と陣同士を結ぶ操作は残存(v2.1)
+
 ---
 
 ## 9. オペレーション(`docs/spec/v2/ops.md`)
@@ -591,7 +599,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 18 | `examples-v2/` の置き場(Phase 1 で確定) | **恒久的に `examples/` の外**。CI は `examples-v2` にも `check` / `fmt --check` を掛ける | `examples/` は「3 本」を等号で数える契約が複数あり、`jin-adk` / `jin-render` のテストが v1 前提で glob している |
 | 19 | ホスト能力カタログの正本(Phase 1 で確定) | `jin_core.v2.abilities`(純データ)。`schemas/abilities.json` はそこから生成し、Phase 2 の `jin_wasm` はそれを import する | `jin_core` は `jin_wasm` を import できず、インストール済みパッケージから `schemas/` も見つけられない。依存方向もこの向きが正しい |
 | 20 | 型文字列が指す型紙の未定義(Phase 1 で確定) | JIN011(参照解決の一種) | 新しい番号を切らない |
-| 21 | 依存の層(Phase 2 で確定) | `jin_wasm` は `jin_adk` / `jin_render` と 3 兄弟(layers 契約の 1 要素 `"jin_adk \| jin_render \| jin_wasm"`)。`jin_lsp` は `jin_wasm` に依存しない | v1 の `design.yaml` の 8 行は書き換えない(v1 の契約テストがそれを読む)。v2 の依存規則の正本は §1.2 |
+| 21 | 依存の層(Phase 2 で確定・Phase 5 で改訂) | `jin_wasm` は `jin_adk` / `jin_render` と 3 兄弟(layers 契約の 1 要素 `"jin_adk \| jin_render \| jin_wasm"`)。`jin_lsp` は Phase 5 から `jin_wasm` に依存するが、読むのは **`jin_wasm.codegen`(と `jil`)だけ**で `jin_wasm.runtime`(lupa)/ `bundle` は import しない(`tests/contract/test_lsp_contract.py` が AST で固定)。**インストール依存には `lupa` の wheel が入る**が import しないので LSP の起動時間は変わらない | v1 の `design.yaml` の 8 行は書き換えない(v1 の契約テストがそれを読む)。v2 の依存規則の正本は §1.2 |
 | 22 | `tick` の戻り値(Phase 2 で確定) | `ops` / `audio` / `trace`(デバッグのみ)/ `done` に **`error`**(実行時エラーの文)と **`public`**(公開 state の確定値)を足す | リリースビルドにはトレースが無く、`jin run` が実行時エラーの理由と最後の公開 state を返す口が他に無い。ホスト境界は `boot` / `tick` の 2 関数のまま |
 | 23 | 数値の書式(Phase 2 で確定) | Python の `repr(float)` と同じ配置(指数形は exp < -4 または exp >= 16、指数は符号付き 2 桁以上)。非整数 700 件で一致を固定 | runtime.md §6 が「JS と Python の両方と同じ」と言っていたが、両者は指数の桁数が違う。パリティは Lua 対 Lua なので影響は無い |
 | 24 | 命令数の上限(Phase 2 で確定) | `debug.sethook` の count hook で `boot` / `tick` ごとに 10^7 命令。超えたら `error` 行 + `done` | `while true` の手順で CI が止まらないための多層防御。hook は `debug` を nil にした後も生きる(実測)。Wasmoon 側は Phase 4 で同じ手口を検討 |
@@ -607,6 +615,9 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 34 | `--single` と asset(Phase 4 で確定) | `--single` は `index.html` 1 本(`player.js` をインライン、JIL / manifest / wasm の base64 を `window.JIN_BUNDLE` に)。`stage.assets` があれば拒む | 画像 / 音を base64 で埋めると 1 ファイルが肥大し、`assets/` の相対パスの契約(runtime.md §9)を二重に持つことになる。examples-v2 に asset は無い。asset 付きは `--single` 無しで `assets/` ごと配る |
 | 35 | プレイヤーの入力と録画の規則(Phase 4 で確定) | `KeyboardEvent.code`(カタログの `keys` だけ)。`repeat` / 二重押下は捨て、`blur` で押下中を記録してから離す。ポインタは主ボタンだけ、論理座標は整数に切り捨てて枠内に留める。移動は tick 内で最後の 1 つに畳み、down → up は残す。`inputs` と `.jinrec` は同じ reducer(`InputState.apply` の写し)から出す。録画は `boot` し直して tick 0 から | パリティを「検算」ではなく「構成」で保証する。プレイヤーが `keys` を独自に追跡すると blur の押しっぱなし / カタログ外のキーで `jin run --input` と割れる。共有 fixture(`tests/fixtures/jinrec/reducer.*`)を Python と TS の両方が検算する |
 
+| 36 | LSP の v2(Phase 5 で確定) | hover(式の型 / ホスト能力のシグネチャ / state の公開・非公開 / 陣・手順・型紙・`on` の要約)と completion(スコープ順の識別子 / `.` 後のメンバ / `do` / 型名 / 参照名 / キー・enum)は `jin_core.v2.semantic.analyze_model`(式の AST / 型 / 位置ごとのスコープの写し)から引く。`jin/applyOps` は `jin_core.v2.ops` へ振り分け、`jin/model` と共に `jil` / `manifest` / `jilError` を載せる。definition / references / documentSymbol / rename / codeAction の v2 は §8 に無く、引き続き v1 だけ | 式を LSP 側で構文解析 / 型推論しない(§8 の「再実装しない」)。スコープは検査の副産物として記録するのが最も安い |
+| 37 | 式の欄の印と補完の位置(Phase 5 で確定) | `Expr = Annotated[Text, Field(json_schema_extra={"x-jin-expr": True})]`(v2 のモジュール内の別名。v1 の `Text` には付けない)。式エディタはリテラルの先頭位置で completion を求め、候補をクライアントで前方一致させる。`args`(`list[Expr]`)だけは配列でも欄にする(行ごとの式エディタ) | `jin.schema.json` を 1 バイトも変えずに印を付ける。カーソル位置ごとに位置換算(エスケープの逆写像)をしなくて済む |
+| 38 | 実行パネルの配信と間引き(Phase 5 で確定) | `jin editor` は `/play/` でプレイヤーを配る(`--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR`。`translate_path` の正規化を通すので `/play/../` で抜けない)。プレイヤーは iframe の中では fetch せず親の `jin.load` を待ち、`jin.control` を受ける。親は `jin.trace` を tick ごとの配列で積み(`appendRows`)、描き直しは 1 秒に 1 回 + 操作時、行数は 4000 で頭打ち。asset(絵と音)は埋め込みでは読めない(`.jin` の隣にあり、エディタのサーバは配らない・残存) | 60 tick/s × 十数行を毎回 `jin/renderSvg` に送ると ws のペイロードが万行になる。`/play/` を同一オリジンにするのは `postMessage` の相手を `contentWindow` / `window.parent` に限るため |
 ---
 
 ## 12. 実装フェーズ(Claude Code への発注単位)
@@ -618,7 +629,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 2 | `jin-wasm`(jil / prelude.lua / codegen / lupa runtime / jinrec / bundle / `jin run` / `jin build`) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑(**実装済み**。プレイヤーの同梱は Phase 4・§11 #25) |
 | 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ)+ `jin render` / `jin/renderSvg` の v2 | SVG スナップショットが安定。13 種が `paddle` で全部出る(**実装済み**。`delegate` だけは `transfer.jin` で補う・§11 #30) |
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る(**実装済み**。パリティは `apps/player/e2e/parity.spec.ts`(録画 → `jin run --input` → トレース全行一致)、`--single` は `single.spec.ts`。`jin build` の同梱は `scripts/sync_player.py`。命令数の上限がコルーチンに届いていなかった残存は §11 #32 で閉じた) |
-| 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く |
+| 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「開く → ステップを足す → 保存 → `jin fmt` とバイト一致」「式エディタの補完」「実行パネルで 10 tick 進めてスクラブ」を実ブラウザで通す。§11 #36〜#38) |
 | 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く |
 | 7 | v2.1 候補: `--target wasm-gc`、`storage`、テキスト入力欄、式の正準化、状態を保った ライブリロード、v1 の陣(LLM エージェント)を v2 から `summon` する Python ホスト | 任意 |
 

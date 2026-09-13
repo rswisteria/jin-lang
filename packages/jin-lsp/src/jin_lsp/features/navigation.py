@@ -13,6 +13,7 @@ from jin_core.pointer import split_pointer
 from lsprotocol import types
 
 from jin_lsp import adk_names, locate, positions
+from jin_lsp.features import v2
 from jin_lsp.session import DocumentState
 
 
@@ -22,7 +23,8 @@ def _context(
     """表示用のモデル・行・対応表と、カーソル位置の pointer。"""
     if state is None:
         return None
-    # v2 のドキュメントは `None`（hover / definition / references の v2 は Phase 5）。
+    # v2 のドキュメントは `None`（definition / references / documentSymbol は v1 だけ。
+    # hover の v2 は `jin_lsp.features.v2` が答える）。
     model = state.model_v1_for_display
     table = state.table_for_display
     if model is None or table is None:
@@ -304,6 +306,8 @@ def _hover_markdown(model: JinFile, pointer: str) -> str | None:
 
 
 def hover(state: DocumentState | None, position: types.Position) -> types.Hover | None:
+    if state is not None and state.model_v2_for_display is not None:
+        return v2.hover(state, position)
     context = _context(state, position)
     if context is None:
         return None

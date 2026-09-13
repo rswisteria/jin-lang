@@ -290,3 +290,97 @@ def test_serve_terminates_the_run_slot_when_it_stops(tmp_path: Path, monkeypatch
     editor_module.serve(target, dist=dist, open_browser=False)
 
     assert terminated == [True], "serve の finally が走っている実行を終わらせていない"
+
+
+# ======================================================================================
+# `/play/`（Jin v2 の実行パネル・設計書 §8）
+# ======================================================================================
+def _serve(dist: Path, player: Path | None):
+    httpd = _static_server("127.0.0.1", dist, None, player)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    return httpd, f"http://127.0.0.1:{int(httpd.server_address[1])}"
+
+
+def test_the_player_is_served_under_play_and_cannot_escape(tmp_path: Path) -> None:
+    """`/play/…` はプレイヤーの根へ写り、`..` でエディタの `dist` にも外にも抜けない。"""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>editor</html>", encoding="utf-8")
+    player = tmp_path / "player"
+    player.mkdir()
+    (player / "index.html").write_text("<html>player</html>", encoding="utf-8")
+    (player / "player.js").write_text("// js", encoding="utf-8")
+    (player / "wasmoon.wasm").write_bytes(b"\\0asm")
+    (tmp_path / "secret.jin").write_text(VALID, encoding="utf-8")
+
+    httpd, base = _serve(dist, player)
+    try:
+        with urlopen(f"{base}/play/index.html", timeout=5) as answer:
+            assert answer.read() == b"<html>player</html>"
+        with urlopen(f"{base}/play/", timeout=5) as answer:
+            assert answer.read() == b"<html>player</html>"
+        with urlopen(f"{base}/play/wasmoon.wasm", timeout=5) as answer:
+            # `instantiateStreaming` は MIME を見る。Python の mimetypes が `application/wasm` を返す。
+            assert answer.headers.get("Content-Type") == "application/wasm"
+        with urlopen(f"{base}/index.html", timeout=5) as answer:
+            assert answer.read() == b"<html>editor</html>"
+        # 脱出: プレイヤーの根から上には行けない（正規化で根に戻るか 404）。
+        for escape in ("/play/../secret.jin", "/play/%2e%2e/secret.jin", "/play/../index.html"):
+            try:
+                with urlopen(f"{base}{escape}", timeout=5) as answer:
+                    assert answer.read() != VALID.encode("utf-8"), escape
+                    assert answer.read() != b"<html>editor</html>", escape
+            except HTTPError as caught:
+                assert caught.code == 404, escape
+        # `dist` 側の `play` という名前のファイルは影響を受けない（前置きが `/play/` だけ）。
+        with pytest.raises(HTTPError) as caught:
+            urlopen(f"{base}/player.js", timeout=5)
+        assert caught.value.code == 404
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_play_is_404_when_there_is_no_player(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>editor</html>", encoding="utf-8")
+    httpd, base = _serve(dist, None)
+    try:
+        with pytest.raises(HTTPError) as caught:
+            urlopen(f"{base}/play/index.html", timeout=5)
+        assert caught.value.code == 404
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_resolve_player_refuses_an_explicit_dir_without_index(tmp_path: Path) -> None:
+    from jin_cli.editor import EditorError, resolve_player
+
+    with pytest.raises(EditorError):
+        resolve_player(tmp_path)
+    (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    assert resolve_player(tmp_path) == tmp_path.resolve()
+
+
+def test_default_player_dist_prefers_the_repo_then_the_bundle(tmp_path: Path, monkeypatch) -> None:
+    from jin_cli import editor as editor_module
+
+    # リポジトリのレイアウトが無い所から探し、同梱版も無ければ None。
+    monkeypatch.setattr(editor_module, "BUNDLED_PLAYER_DIR", tmp_path / "none")
+    assert editor_module.default_player_dist(tmp_path / "x" / "y.py") is None
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "index.html").write_text("<html></html>", encoding="utf-8")
+    monkeypatch.setattr(editor_module, "BUNDLED_PLAYER_DIR", bundled)
+    assert editor_module.default_player_dist(tmp_path / "x" / "y.py") == bundled
+    # リポジトリの `apps/player/dist` があればそちらが勝つ。
+    repo = tmp_path / "repo"
+    (repo / "apps" / "player" / "dist").mkdir(parents=True)
+    (repo / "apps" / "player" / "dist" / "index.html").write_text("<html></html>", encoding="utf-8")
+    assert (
+        editor_module.default_player_dist(repo / "packages" / "x.py")
+        == (repo / "apps" / "player" / "dist").resolve()
+    )

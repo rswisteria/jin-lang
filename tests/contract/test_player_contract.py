@@ -255,3 +255,19 @@ def test_ci_runs_the_player_gates() -> None:
         "--single",
     ):
         assert needle in job, f"player ジョブに {needle} が無い"
+
+
+def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
+    """runtime.md §10（Phase 5）: iframe の中では `game.lua` を fetch せず、親の `jin.load` を待つ。"""
+    main = read(SRC / "main.ts")
+    assert "const EMBEDDED = window.parent !== window;" in main
+    assert "if (EMBEDDED) return null;" in main
+    # `jin.load` / `jin.trace` / `jin.control` の 3 語で親と話す（エディタ側の RunPanel と同じ）。
+    for word in ('"jin.load"', '"jin.trace"', '"jin.control"'):
+        assert word in main, word
+    # 親以外からの message は無視する。
+    assert "ev.source !== window.parent" in main
+    # `api.load` は fetch しない（wasm の場所はページから決まる）。
+    load = main[main.index("load: async (jil, manifest) =>") :]
+    load = load[: load.index("ticks:")]
+    assert "fetch(" not in load and "loadSource(" not in load

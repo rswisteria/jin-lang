@@ -11,9 +11,10 @@ import tseslint from "typescript-eslint";
  * `test/dependency-direction.test.ts` が「禁止された import を食わせると実際に落ちる」ことを
  * 確かめる（規則が存在することと、規則が落ちることは別 — Phase 0+1 で偽 green を踏んだ規律）。
  *
- * 例外は `schemas/jin.schema.json` ただ 1 つである。これは Python パッケージではなく
- * Pydantic から生成してリポジトリにコミットされた成果物で、プロパティパネルのフォームを
- * **手書きしない**ために読む（要件書 §7.1）。コピーを置くとドリフトするので直接読む。
+ * 例外は `schemas/` の生成物 3 つ（`jin.schema.json` / `jin-v2.schema.json` / `abilities.json`）
+ * である。これらは Python パッケージではなく Pydantic から生成してリポジトリにコミットされた
+ * 成果物で、プロパティパネルのフォームを**手書きしない**ために読む（要件書 §7.1・
+ * 設計書 §8）。コピーを置くとドリフトするので直接読む。
  */
 export const FORBIDDEN_IMPORT_PATTERNS = [
   {

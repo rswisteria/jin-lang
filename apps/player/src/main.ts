@@ -4,8 +4,10 @@
  * - 通常: `game.manifest.json` と `game.lua` をページからの相対パスで fetch し、`wasmoon.wasm` も相対パスで読む
  * - `--single`: `window.JIN_BUNDLE`（JIL / manifest / wasm の base64）から読む。wasm は `data:` URL で渡す
  * - 最小 UI: 実行 / 一時停止 / 1 tick / seed / 最初から / 録画 / 書き出し
- * - 埋め込み（iframe）: トレース行を親へ `postMessage({ type: "jin.trace", rows })`。親からの
- *   `{ type: "jin.load", jil, manifest }` で差し替える（ライブリロード）。親以外からの message は無視する
+ * - 埋め込み（iframe・Jin v2 のエディタの実行パネル）: **fetch せず**親からの
+ *   `{ type: "jin.load", jil, manifest }` を待って読み込む（ライブリロード）。トレース行は親へ
+ *   `postMessage({ type: "jin.trace", rows })`。`{ type: "jin.control", action }` で
+ *   実行 / 一時停止 / 1 tick / 最初から を受ける。親以外からの message は無視する
  * - `window.__jinPlayer`: パリティ e2e が使う操作口（UI と同じ関数を呼ぶだけ）
  */
 import { KEY_NAMES, subscriptions } from "./abilities";
@@ -58,16 +60,32 @@ function byId<T extends HTMLElement>(id: string): T {
 	return el as T;
 }
 
-async function loadSource(): Promise<Source> {
+/** iframe の中で動いているか（Jin v2 のエディタの実行パネル）。 */
+const EMBEDDED = window.parent !== window;
+
+/** `wasmoon.wasm` の場所。`--single` は `data:`、それ以外はページからの相対（fetch は要らない）。 */
+function wasmUriOf(): string {
+	const bundle = window.JIN_BUNDLE;
+	return bundle !== undefined
+		? `data:application/wasm;base64,${bundle.wasm}`
+		: new URL("wasmoon.wasm", document.baseURI).href;
+}
+
+/**
+ * 起動時の読み込み元。埋め込みなら `null`（親の `jin.load` を待つ。`game.lua` を fetch しに
+ * 行くと `/play/game.lua` の 404 を親のサーバに投げることになる）。
+ */
+async function loadSource(): Promise<Source | null> {
 	const bundle = window.JIN_BUNDLE;
 	if (bundle !== undefined) {
 		return {
 			jil: bundle.jil,
 			manifest: bundle.manifest,
-			wasmUri: `data:application/wasm;base64,${bundle.wasm}`,
+			wasmUri: wasmUriOf(),
 			assetUrl: null,
 		};
 	}
+	if (EMBEDDED) return null;
 	const manifestResponse = await fetch("game.manifest.json");
 	if (!manifestResponse.ok)
 		throw new Error(
@@ -80,7 +98,7 @@ async function loadSource(): Promise<Source> {
 	return {
 		jil: await jilResponse.text(),
 		manifest,
-		wasmUri: new URL("wasmoon.wasm", document.baseURI).href,
+		wasmUri: wasmUriOf(),
 		assetUrl: (path) => new URL(path, document.baseURI).href,
 	};
 }
@@ -151,7 +169,7 @@ async function main(): Promise<void> {
 	let host: JinHost | null = null;
 	let collector: InputCollector | null = null;
 	const audio = new AudioOut();
-	const embedded = window.parent !== window;
+	const embedded = EMBEDDED;
 
 	const render = (): void => {
 		if (player === null) return;
@@ -265,9 +283,21 @@ async function main(): Promise<void> {
 			type?: unknown;
 			jil?: unknown;
 			manifest?: unknown;
+			action?: unknown;
 		} | null;
-		if (data === null || typeof data !== "object" || data.type !== "jin.load")
+		if (data === null || typeof data !== "object") return;
+		if (data.type === "jin.control") {
+			// 親（エディタ）の操作。iframe の中のボタンと同じ関数を呼ぶだけ。
+			if (player === null) return;
+			if (data.action === "start") player.start();
+			else if (data.action === "pause") player.pause();
+			else if (data.action === "step") player.step();
+			// 親の「最初から」は**止めた状態で** tick 0 に戻す（そこから 1 tick ずつ進められる）。
+			else if (data.action === "reboot") player.reboot();
+			render();
 			return;
+		}
+		if (data.type !== "jin.load") return;
 		if (
 			typeof data.jil !== "string" ||
 			typeof data.manifest !== "object" ||
@@ -292,14 +322,16 @@ async function main(): Promise<void> {
 		startRecording: () => player?.startRecording(),
 		stopRecording: () => player?.stopRecording() ?? null,
 		load: async (jil, manifest) => {
-			const previous = await loadSource().catch(() => null);
+			// **fetch しない。** wasm の場所はページから決まる。asset の実体は埋め込みでは
+			// 読めない（`.jin` の隣にあり、エディタのサーバは配らない）ので、絵と音は出ない。
 			await setUp({
 				jil,
 				manifest,
-				wasmUri:
-					previous?.wasmUri ??
-					`data:application/wasm;base64,${window.JIN_BUNDLE?.wasm ?? ""}`,
-				assetUrl: previous?.assetUrl ?? null,
+				wasmUri: wasmUriOf(),
+				assetUrl:
+					embedded || window.JIN_BUNDLE !== undefined
+						? null
+						: (path) => new URL(path, document.baseURI).href,
 			});
 		},
 		ticks: () => player?.tick ?? 0,
@@ -314,7 +346,10 @@ async function main(): Promise<void> {
 	};
 
 	try {
-		await setUp(await loadSource());
+		const source = await loadSource();
+		if (source === null)
+			status.textContent = "エディタからの読み込みを待っています";
+		else await setUp(source);
 	} catch (error) {
 		showError(error);
 	}

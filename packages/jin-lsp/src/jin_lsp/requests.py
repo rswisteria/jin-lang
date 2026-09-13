@@ -16,6 +16,11 @@
 **`stale`**: `true` なら現在のテキストが壊れていて **last-good モデル**で答えた
 （NFR-AVAIL-001 のエラー回復）。黙って古い図を返すとエディタが「編集が効かない」と
 見えるので、必ず伝える（NFR-FAIL-001「黙って落とさない」の同じ精神）。
+
+**Jin v2（`version: 2`）** のドキュメントでは `jin/model` と `jin/applyOps` の応答に
+`jil` / `manifest` / `jilError`（`jin_lsp.jil.generated`・best-effort）が加わり、`jin/applyOps` は
+`jin_core.v2.ops`（32 件）を当てて `warnings`（`rename` が追随できなかった式の pointer）も返す
+（設計書 §8「ライブリロード」・Phase 5）。リクエストは 6 種のまま増えない。
 """
 
 from __future__ import annotations
@@ -25,10 +30,12 @@ from typing import Any
 from jin_core import canonical, ops
 from jin_core.model import JinFile
 from jin_core.parser import PointerTable
+from jin_core.v2 import ops as ops_v2
 from jin_core.v2.model import JinFileV2
 from jin_render import render
 from jin_render.overlay import TraceRowError
 
+from jin_lsp import jil
 from jin_lsp.session import DocumentState
 
 
@@ -121,11 +128,14 @@ def jin_model(state: DocumentState | None, uri: str) -> dict[str, Any]:
     model, stale = _require_model(state, uri)
     assert state is not None  # _require_model が None を弾いている
     table = state.table_for_display
-    return {
+    result: dict[str, Any] = {
         "model": model.model_dump(by_alias=True, mode="json"),
         "pointers": _range_to_json(table) if table is not None else [],
         "stale": stale,
     }
+    if isinstance(model, JinFileV2):
+        result.update(jil.generated(model, uri))
+    return result
 
 
 def jin_render_svg(
@@ -193,33 +203,56 @@ def jin_apply_ops(state: DocumentState | None, uri: str, op_list: list[dict[str,
             "JSON 構文エラーのあるテキストにはオペレーションを当てられません",
             "先に構文エラーを直してください（renderSvg / hover は直前の正常な版で答えます）",
         )
-    if not isinstance(state.model, JinFile):
-        # v2 のオペレーション（`jin_core.v2.ops`）を LSP が受けるのは Phase 5（設計書 §8）。
-        # v1 の `ops.apply_ops` に `JinFileV2` を渡すと AttributeError で落ちるので、ここで断る。
-        raise RequestError(
-            "JIN002",
-            "version: 2 の .jin にはまだオペレーションを当てられません（Phase 5）",
-            "renderSvg / model / formatting は使えます",
-        )
     if not isinstance(op_list, list):
         raise RequestError("JIN002", "ops は配列で渡してください", '例: [{"op": "setRoot", ...}]')
+    if isinstance(state.model, JinFile):
+        return _apply_v1(state.model, op_list)
+    return _apply_v2(state.model, op_list, uri)
+
+
+def _op_failure(exc: ops.OpError) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": {
+            "code": exc.code,
+            "message": exc.message,
+            "hint": exc.hint,
+            "pointer": exc.pointer,
+        },
+    }
+
+
+def _apply_v1(model: JinFile, op_list: list[dict[str, Any]]) -> dict[str, Any]:
     try:
-        result = ops.apply_ops(state.model, op_list)
+        result = ops.apply_ops(model, op_list)
     except ops.OpError as exc:
-        return {
-            "ok": False,
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "hint": exc.hint,
-                "pointer": exc.pointer,
-            },
-        }
+        return _op_failure(exc)
     return {
         "ok": True,
         "model": result.model.model_dump(by_alias=True, mode="json"),
         "inverses": result.inverses,
         "text": canonical.dumps(result.model),
+    }
+
+
+def _apply_v2(model: JinFileV2, op_list: list[dict[str, Any]], uri: str) -> dict[str, Any]:
+    """v2: `jin_core.v2.ops`（32 件）。応答に `warnings` と JIL（best-effort）が加わる。
+
+    `OpError` は v1 と同じクラスなので失敗の形（`ok: false` + 診断コード）も同じ。
+    式の構文 / 型エラーはオペレーションの失敗にしない（`docs/spec/v2/ops.md` §1）ので、
+    `ok: true` でも `jil` が `None`（`jilError` に理由）のことがある。
+    """
+    try:
+        result = ops_v2.apply_ops(model, op_list)
+    except ops.OpError as exc:
+        return _op_failure(exc)
+    return {
+        "ok": True,
+        "model": result.model.model_dump(by_alias=True, mode="json"),
+        "inverses": result.inverses,
+        "warnings": list(result.warnings),
+        "text": canonical.dumps(result.model),
+        **jil.generated(result.model, uri),
     }
 
 

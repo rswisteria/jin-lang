@@ -42,8 +42,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   `docs/spec/adk-mapping.md` 由来の静的な辞書（`jin_lsp.adk_names`）から引く。`jin-adk` を入れると
   LSP の起動のたびに `google-adk` 全体の import を待つことになる（Claude Code の起動体感に直撃する）
 - **`apps/editor` は LSP プロトコルにのみ依存し、Python パッケージを直接 import しない。**
-  例外は `schemas/jin.schema.json` ただ 1 つ（プロパティパネルのフォームを手書きしないために読む。
-  コピーを置かず直接読む）。Python 側は import-linter、**TS 側は eslint の
+  例外は `schemas/` の生成物 3 つ（`jin.schema.json` / Phase 5 からの `jin-v2.schema.json` /
+  `abilities.json`。プロパティパネルのフォームを手書きしないために読む。コピーを置かず直接読む）。
+  Python 側は import-linter、**TS 側は eslint の
   `no-restricted-imports`**（`apps/editor/eslint.config.js`）が落とす。
   **通信路の例外が 1 本ある**: 実行（Issue #34）だけは LSP を通らず、`jin editor` が配る
   静的サーバと**同一オリジンの `POST /run`**（SSE）へ投げる。ws には same-origin 制限が無く
@@ -111,6 +112,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2-2 | `jin-wasm`（jil / prelude.lua / codegen / lupa runtime / jinrec / bundle）+ `jin run` / `jin build` の v2 分岐 | 実装済み |
 | v2-3 | `jin_render.v2`（額縁 / 型紙 / 4 環 / 手順の図 / トレースオーバーレイ・13 種）+ `jin render` と `jin/renderSvg` の v2 | 実装済み |
 | v2-4 | `apps/player`（Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画 / 最小 UI / postMessage）+ `jin build` の同梱と `--single` + パリティ e2e | 実装済み |
+| v2-5 | LSP の v2（hover / completion / `jin/applyOps` + 応答の JIL）+ エディタの v2（式エディタ / 13 種 / 32 ops）+ 実行パネル（`/play/` iframe・ライブリロード） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -132,11 +134,10 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **`jin run` / `jin build` の v2 は `jin_wasm`**（正典は `docs/spec/v2/runtime.md` / `jil.md`）、
   **`jin render` の v2 は `jin_render.v2`**（正典は `docs/spec/v2/layout.md`）。入口は `jin_render.render` 1 本で、
   `JinFileV2` を受けたら `jin_render.v2.render_v2` へ振る（CLI / LSP は version を見ない）。`--focus` は
-  `陣名` か `陣名/手順名`（手順の図）。LSP は v2 で **診断 / `jin/model` / `jin/renderSvg` / formatting / `jin/save`**
-  だけ答え、hover / completion / definition / references / documentSymbol / rename / codeAction / `jin/applyOps` は
-  v1 のモデル（`DocumentState.model_v1`）にだけ効く（v2 のそれらは Phase 5。`jin/applyOps` は JIN002 で断る）。
-  **`jin editor` で v2 の `.jin` を開くと図は出る**が、エディタのヒットテスト（`apps/editor/src/svg/hitTest.ts`）は
-  9 種以外の `data-jin-kind` を `null` として無視するので、選択 / 編集は効かない（落ちない。v2 のエディタは Phase 5）
+  `陣名` か `陣名/手順名`（手順の図）。LSP は v2 で **診断 / `jin/model` / `jin/renderSvg` / formatting / `jin/save` /
+  hover / completion / `jin/applyOps`** に答える（Phase 5）。definition / references / documentSymbol / rename /
+  codeAction は v1 のモデル（`DocumentState.model_v1`）にだけ効く（v2 のそれらは設計書 §8 に無い・§11 #36）。
+  **`jin editor` で v2 の `.jin` を開くと v2 のエディタになる**（下の「Jin v2 Phase 5 の要点」）
 - **v2 の `data-jin-kind` は 13 種**（`jin_render.DATA_JIN_KINDS_V2`。v1 の 9 種とは別集合で、`stage` / `form` /
   `circle` / `core` / `rite` / `sigil` / `state` / `on` / `guard` / `delegate` / `flow-edge` / `step` / `step-edge`）。
   v1 の規律（`fmt_coord` 1 本 / 3 桁固定 / 楕円弧 `A` 不使用 / 2 色 + 強調 1 色 / `<style>` 不使用）と `geometry` /
@@ -279,6 +280,37 @@ Jin v2 Phase 4（`apps/player`）の要点（正典は `docs/spec/v2/runtime.md`
 - ツールチェーンは `apps/editor` と同じ版で完全一致（契約テストが両者の共通 devDependencies を突き合わせる）。
   `pnpm e2e` は Playwright 1.62.0 の chromium（`pnpm exec playwright install chromium`）と `uv sync` 済みの Python が要る
 
+Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点（正典は設計書 §8 / §11 #36〜#38、`docs/spec/v2/ops.md` §5、
+`docs/spec/v2/runtime.md` §10）:
+
+- **式の欄は schema の印 `x-jin-expr` だけで決める。** `jin_core.v2.model.Expr` が `jin-v2.schema.json` に出す
+  （`jin.schema.json` は 1 バイトも変えない）。エディタ（`apps/editor/src/form/schemaForm.ts` の `isExpr`）も LSP
+  （`jin_core.v2.model.expr_fields`）も欄の名前を書き写さない。`args`（`list[Expr]`）だけは配列でも欄にする
+- **式エディタは `jin_core.v2.expr` を再実装しない。** 候補は LSP 標準の `textDocument/completion`（`jin/…` は 6 種の
+  まま）。位置は `jin/model` の `pointers` と現在のテキストから換算し（`apps/editor/src/v2/position.ts`・
+  コードポイント → UTF-16）、リテラルの**先頭**で求めて、候補をカーソル直前のトークン（識別子と `.`）で前方一致させる。
+  サーバ（`jin_lsp.features.v2`）は `名前空間.メンバ` / `陣名.key` / `局所.欄` の点付きラベルを含めて返す
+- **hover / completion の v2 は `jin_core.v2.semantic.analyze_model`**（式の AST / 型 / 位置ごとのスコープの写し）から
+  引く。スコープは意味検査の副産物として `_check` / `_step` / `_rite` / `_circle_body` で記録し、`Analysis.scope_at` が
+  pointer の祖先へ遡る（打鍵途中で構文エラーの式でも、そのステップのスコープで候補が出る）
+- **`jin/applyOps` の v2 は `jin_core.v2.ops`**（32 件）。応答は `warnings` と `jil` / `manifest` / `jilError`
+  （`jin_lsp.jil.generated`・常に debug ビルド・best-effort）を持ち、`jin/model` も v2 なら同じ 3 つを載せる。
+  式に構文 / 型エラーが残っていれば `ok: true` のまま `jil: null`（ops.md §1）。**jin-lsp は jin-wasm に依存する**が
+  import するのは `jin_wasm.codegen`（と `jil`）だけで、`tests/contract/test_lsp_contract.py` が AST で固定する
+- **エディタの v2 は別ファイルに隔離する**（`apps/editor/src/v2/`: `selection.ts` / `dispatch.ts` / `actions.ts` /
+  `position.ts` / `ExprEditor.tsx` / `PropertyPanelV2.tsx`）。v1 のファイル（`form/dispatch.ts` / `App.tsx`）は v1 の
+  19 件だけ、`src/v2/` は v2 の 32 件だけを送る（契約テストが両側から固定）。選択は名前で持つ（DP-COMMON-16）が、
+  `on` は `event`、`guard` は `assert`、ステップは 陣 + 手順名 + 手順内パス。直接のオペレーションが無い欄は合成で書き、
+  **33 個目を作らない**（description / sigil の host / on の event / do。ops.md §5）
+- **実行パネルは同一オリジンの iframe `/play/`**（`apps/editor/src/run/RunPanel.tsx`）。`jin editor` が
+  `--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR` の順に探して配る（`translate_path` の正規化を
+  通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し、
+  **`POST /run` は使わない**。プレイヤーは iframe の中では fetch せず `jin.load` を待つ。走っている間の描き直しは
+  1 秒に 1 回（`LIVE_REFRESH_MS`）、行数は 4000 で頭打ち（`MAX_LIVE_ROWS`）。asset（絵と音）は埋め込みでは読めない
+- `apps/editor` が読む生成物は `jin.schema.json` / `jin-v2.schema.json` / `abilities.json` の 3 つ（いずれも Pydantic
+  定義から生成してコミットした成果物。コピーを置かない）。eslint の禁止規則は変えていない
+- スモークは `apps/editor/e2e/v2.spec.ts`（要 `apps/player` の `pnpm build`。CI の editor ジョブが e2e の前にビルドする）
+
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 
 - **サーバ側のプロトコルを増やさない。** トレース JSONL は**ブラウザ**が
@@ -334,6 +366,7 @@ cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）
+uv run jin editor examples-v2/paddle/paddle.jin --no-browser          # Jin v2 の視覚エディタ（式エディタ + 実行パネル。要 apps/editor と apps/player の dist）
 ```
 
 テスト配置は ADR-003（パッケージ単位の垂直分割 + 横断契約テスト）:

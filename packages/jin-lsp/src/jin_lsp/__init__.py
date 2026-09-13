@@ -4,7 +4,8 @@
 `jin_core` の同じ関数をこのサーバ経由で使い、LSP 固有のロジックは
 **位置変換とプロトコル露出だけ**に限定する（要件書 §6 冒頭）。
 
-依存方向は `jin_core | jin_render ← jin_lsp`（design.yaml rule 5）。
+依存方向は `jin_core | jin_render | jin_wasm ← jin_lsp`（design.yaml rule 5 + Jin v2 設計書 §1.2 /
+§11 #21。`jin_wasm` からは `codegen`（と `jil`）だけを読み、`runtime`（lupa）は import しない）。
 **`jin_adk` には依存しない**。hover で ADK クラス名を出すためだけに `google-adk` を
 LSP プロセスへ読み込むと、Claude Code がセッションを開くたびに ADK 全体の import を待つ。
 対応表は `docs/spec/adk-mapping.md` 由来の静的な辞書（`jin_lsp.adk_names`）から引く。
