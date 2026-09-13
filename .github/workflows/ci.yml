@@ -97,6 +97,14 @@ jobs:
       - name: Check examples-v2
         run: uv run jin check examples-v2 && uv run jin fmt --check examples-v2
 
+      # Jin v2 Phase 2（設計書 §12「examples 3 本が jin run --ticks 300 で回る」）。pytest も同じことを
+      # ライブラリ経由で見るが、ここは CLI の実プロセス（lupa の wheel が入ること）を確かめる。
+      - name: Run examples-v2 headless (lupa)
+        run: |
+          uv run jin run examples-v2/paddle/paddle.jin --ticks 300 > /dev/null
+          uv run jin run examples-v2/clicker/clicker.jin --ticks 300 > /dev/null
+          uv run jin run examples-v2/fib/fib.jin --ticks 300 > /dev/null
+
       # docs/document-review-agent.md の「動くサンプル」。examples/ の 3 本とは別枠
       # （本数を固定する契約テストがあるので examples/ には足さない）。
       # build / fake 実行 / 判定取り出しは tests/contract/test_docs_samples.py が見る。

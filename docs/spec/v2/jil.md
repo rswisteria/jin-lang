@@ -28,19 +28,20 @@ return { boot = boot, tick = tick }
 
 <!-- /machine-readable -->
 
-- 反復は `ipairs` と数値 `for` だけ。**文字列キーの動的アクセス**(`t[k]` で `k` が変数の文字列)は使わない。例外はプレリュードの `inputs.keys[name]` 1 か所(ホストが渡す押下集合。読み取りのみ)で、走査はこの 1 行を名指しで許す
+- 反復は `ipairs` と数値 `for` だけ。**文字列キーの動的アクセス**(`t[k]` で `k` が変数の文字列)は使わない。例外はプレリュードの `inputs.keys[name]` 1 か所(ホストが渡す押下集合。読み取りのみ)
+- 禁止語の走査(`jin_wasm.jil.forbidden_uses`)はコメントと文字列を除き、**自由な識別子**だけを見る。`.` / `:` の直後(`random.next()` / `manifest.debug`)とテーブルコンストラクタのキー(`{ next = f }`)は違反にしない。`string.dump` / `coroutine.wrap` は対で照合し、`...` はトークンとして照合する。走査が本物の `next(` / `os.time()` を落とすことは注入テストで固定する
 - 型紙は固定欄のテーブル(`{x = 1.0, y = 2.0}`)、list は 1 始まりの配列(`{[1] = …}`)。**Jin の添字 0 始まり → Lua の 1 始まり**の変換は生成部が `+ 1` で行う
 - `num` は常に float。リテラルは `1.0` の形で出す(`1` は出さない)。整数サブタイプを作る演算(`//`、整数同士の `+`)を生成しない。添字は `math.tointeger(math.floor(i)) + 1`
-- 文字列は `utf8.len` / `utf8.offset` / `string.sub`(バイト位置は `utf8.offset` から)で扱う。`string.format` は `%.17g` だけ(数値書式のため)
+- 文字列は `utf8.len` / `utf8.offset` / `string.sub`(バイト位置は `utf8.offset` から)で扱う。`string.format` は数値書式(`%d` と `%.<n>e`。runtime.md §6)だけ
 - 乱数は `math.random` を使わず、プレリュードの PCG32(整数演算は `&` `|` `~` `<<` `>>` と `*` `+`。Lua 5.4 の 64 bit 整数で、`math.maxinteger == 9223372036854775807` を `boot` で検査して違えば `error`)
 - コルーチンは `coroutine.create` / `resume` / `yield` / `status` / `close` だけ。`wrap` は使わない(エラーの伝播を制御するため)
-- 例外は `error({code = "...", message = "..."})` の形。`pcall` は**スケジューラの 1 か所**(tick 全体を包む)だけ。生成部は `pcall` しない
+- 例外は `error({code = "...", message = "..."})` の形。`pcall` は**スケジューラの 1 か所**(`protected`。boot と tick の両方が通る)だけ。生成部は `pcall` しない。スタック溢れは Lua が文字列で投げるので受けは `type(e) == "table"` で分岐する
 - 可変長引数 `...` と `select` を使わない(全関数の引数の数は静的に決まる)
 - グローバルは `boot` / `tick` の 2 つだけ(プレリュードは `local` に閉じ、生成部も `local`)。走査は `_ENV` への代入が無いことを見る
 
 ## 3. 名前の写像
 
-`.jin` の名前は Lua の識別子に**埋め込まない**。陣は `C[i]`(`circles` の添字)、手順は `R[i][j]`、state は `S[i].k_<j>`、局所は `l_<n>`、型紙の欄は `f_<j>` で表し、名前はトレース用の文字列表(`N`)にだけ載せる。これにより:
+`.jin` の名前は Lua の識別子に**埋め込まない**。陣は `S[i]` / `P[i]` / `R[i]`(`i` は `circles` の添字 **+ 1**。Lua のテーブルは 1 始まり)、手順は `R[i][j]`(`j` は `rites` の添字 + 1)、state は `S[i].k_<j>`(0 始まり)、公開 state の確定値は `P[i].k_<j>`、局所は `l_<n>`(手順ごとの通し番号)、型紙の欄は `f_<j>`(0 始まり。組み込み `Pointer` は `f_0` / `f_1` / `f_2`)で表し、名前は `CIRCLES[i].name` とトレース行の `name` にだけ文字列として載せる。JSON Pointer は 0 始まりのまま。これにより:
 
 - Lua の予約語(`end` / `function` …)と衝突しない
 - 名前の検査(`isidentifier` / NFKC)が要らない(`model.md` §3 の `[A-Za-z_][A-Za-z0-9_]*` は式文法のためであって、JIL の安全のためではない)
@@ -49,25 +50,31 @@ return { boot = boot, tick = tick }
 ## 4. 生成の形(抜粋。スナップショットで固定)
 
 ```lua
--- circle 1: Play  (核あり)
-local function R_1_2(dt)                          -- rite "step"
-  T(12, "/circles/1/rites/2")                     -- デバッグビルドだけ
-  if (H.input.key("ArrowLeft")) then
-    T(13, "/circles/1/rites/2/steps/0/then/0")
-    S[1].k_1 = math.max(0.0, S[1].k_1 - 180.0 * dt)
-    TS(1, 1, S[1].k_1)                            -- set 行(state だけ)
+-- circle 1: Play
+R[2][3] = function(l_0)  -- step          (陣 Play は circles[1] なので Lua では 2。手順 step は rites[2] なので 3)
+  local rr_ = TR(2, "step", "/circles/1/rites/2", '[' .. JV(l_0) .. ']')   -- デバッグビルドだけ(rite 行)
+  if H.input.key("ArrowLeft") then
+    S[2].k_1 = F.max(0.0, (S[2].k_1 - (180.0 * l_0)))
+    TS(2, "paddle", "/circles/1/rites/2/steps/0/then/0", JV(S[2].k_1))   -- set 行(state だけ)
   end
   …
-  if (S[1].k_0.f_1 > 180.0) then FINISH(1) return end
-  R_1_3()
+  if (S[2].k_0.f_1 > 180.0) then
+    T("finish", 2, nil, "/circles/1/rites/2/steps/8/then/0", nil, nil)
+    FINISH(2)
+    do return end
+  end
+  R[2][4]()                 -- 自陣の手順への cast(rite 行は呼ばれた側が積む)
+  if STOP(2) then return end
 end
 ```
 
-- `T(seq, pointer)` はトレース行(`rite` / `cast` / `set` …)を積む関数で、リリースビルドでは**呼び出しごと生成しない**(空関数を残して呼ぶのではなく、行を出さない。表示リストが同じことは設計書 §4.4 のテストで固定)
-- `FINISH(i)` は陣を `done` にし、その手順から `return` する。`finish` の後の同じ手順内のステップは走らない。呼び出し元の手順(`cast` した側)は `FINISHED[i]` を見て自分も `return` する(生成部が `cast` の直後に検査を出す)
-- `wait` は `coroutine.yield({ticks = n})` / `coroutine.yield({until_ = f})`。手順が `wait` を含む(または含む手順を `cast` する)場合、その手順の起動はスケジューラの `spawn` を通す(コルーチン化)。含まない手順は普通の関数呼び出し
-- `emit` は `Q[#Q + 1] = {to = i, name = "...", args = {...}}`
-- `transfer` は `TRANSFER(from, to)` の後に `return`
+- 手順は `local function` ではなく `R[i][j] = function` で定義する(1 チャンクの局所は 200 個まで。プレリュード + 陣 × 手順で上限に当たる)
+- トレース行はプレリュードの `T(kind, ci, name, pointer, input_json, output_json)` / `TS` / `TR` / `TRET` で積む。リリースビルドでは**呼び出しごと生成しない**(空関数を残して呼ぶのではなく、行を出さない。表示リストが同じことは `packages/jin-wasm/tests/test_codegen.py` が固定)。`enter` / `exit` / `event` / `wait` / `assert` / `error` / `frame` はプレリュードが積む
+- `FINISH(i)` は陣を `done` にし、その手順から `return` する。`finish` の後の同じ手順内のステップは走らない。呼び出し元の手順(自陣の手順を `cast` した側)は `STOP(i)`(`done` か休止中)を見て自分も `return` する(生成部が `cast` の直後に検査を出す)
+- `wait` は `WAIT_TICKS(n, pointer)` / `WAIT_UNTIL(function() return e end, pointer)`(中は `coroutine.yield`)。手順が `wait` を含む(または含む手順を自陣で `cast` する)場合、核 / `on` / 配達からの起動はスケジューラの `RUN(i, fn, true, args)` でコルーチンになる。含まない手順は `RUN(i, fn, false, args)` で普通の関数呼び出し。手順同士の `cast` は常に直接呼び出し(同じコルーチンの中で yield が伝わる)
+- `emit` は `EMIT(to, name, { args }, meta)`。`meta` はデバッグビルドだけ(`{ ci, pointer, args_json }`。配達の tick で emit 行を積む)
+- `transfer` は `TRANSFER(from, to)` の後に `do return end`。委譲先はその tick の 6 で `entered` になる
+- 生成部が定義するのは `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i]` / `JF[k]`(型紙の JSON 直列化。`JF[0]` は `Pointer`)だけで、プレリュード先頭のコメントと 1:1。ここを変えたら JIL の版を上げる
 
 ## 5. ホスト境界(runtime.md §1 の Lua 側)
 
@@ -78,11 +85,11 @@ function tick(t, inputs)
   if not ok then
     -- error 行を積んで done = true
   end
-  return JSON({ ops = OPS, audio = AUDIO, trace = TRACE, done = DONE })   -- 文字列
+  return JSON({ ops = OPS, audio = AUDIO, trace = TRACE, done = DONE, error = ERRMSG, public = PUB })   -- 文字列（error / public は設計書 §11 #22）
 end
 ```
 
-`tick` の戻り値は**プレリュードの `JSON` が直列化した文字列**で、ホストは `JSON.parse` / `json.loads` する(runtime.md §1)。Lua のテーブルを境界越しに渡さない(Wasmoon のテーブル変換は遅く、integer / float の区別が落ちる。probe A.3 / A.9)。直列化の対象は**配列とキー固定のテーブルだけ**で、キーの順は生成部が固定した順(`ops` / `audio` / `trace` / `done`、トレース行は `seq` / `tick` / `circle` / `kind` / `name` / `pointer` / `input` / `output`)で書き、`pairs` を使わない。文字列は JSON のエスケープ規則で、数値は runtime.md §6 の書式で書く。**64 bit 整数(PCG32 の状態など)は境界を越えない。**
+`tick` の戻り値は**プレリュードの `JSON` が直列化した文字列**で、ホストは `JSON.parse` / `json.loads` する(runtime.md §1)。Lua のテーブルを境界越しに渡さない(Wasmoon のテーブル変換は遅く、integer / float の区別が落ちる。probe A.3 / A.9)。直列化の対象は**配列とキー固定のテーブルだけ**で、キーの順は生成部が固定した順(`ops` / `audio` / `trace` / `done` / `error` / `public`、トレース行は `seq` / `tick` / `circle` / `kind` / `name` / `pointer` / `input` / `output`)で書き、`pairs` を使わない。文字列は JSON のエスケープ規則で、数値は runtime.md §6 の書式で書く。**64 bit 整数(PCG32 の状態など)は境界を越えない。**
 
 ## 6. wasm-GC 直接出力への含み(v2.1)
 

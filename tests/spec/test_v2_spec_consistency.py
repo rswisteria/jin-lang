@@ -251,3 +251,50 @@ def test_paddle_step_counts_are_as_the_design_document_says() -> None:
     step_limit = 12  # JIN210
     assert merged == 13
     assert merged > step_limit
+
+
+# ---------------------------------------------------------------- JIL / トレース（Phase 2）
+
+
+def test_jil_forbidden_words_match_the_implementation() -> None:
+    """jil.md §2 の禁止語（machine-readable）と `jin_wasm.jil.JIL_FORBIDDEN` が同じ列である。"""
+    from jin_wasm.jil import JIL_FORBIDDEN
+
+    spec = re.findall(r"`([^`]+)`", machine_block(SPEC_V2 / "jil.md", "jil-forbidden"))
+    assert spec == list(JIL_FORBIDDEN)
+    design_text = design_section("### 4.4")
+    for word in ("pairs", "next", "setmetatable", "load", "require", "..."):
+        assert f"`{word}`" in design_text or f"`{word}" in design_text
+
+
+def test_trace_kinds_match_the_implementation() -> None:
+    """runtime.md §5 の kind（machine-readable）と `jin_wasm.jil.TRACE_KINDS` が同じ列である。
+
+    設計書 §4.7 の列挙（13 種。`error` は Phase 2 で足した・§11 #22）も同じ列である。
+    """
+    from jin_wasm.jil import TRACE_FIELDS, TRACE_KINDS
+
+    spec = [
+        first_code_span(r[0])
+        for r in table_rows(machine_block(SPEC_V2 / "runtime.md", "trace-kinds"))[1:]
+    ]
+    assert spec == list(TRACE_KINDS)
+    design_text = design_section("### 4.7")
+    m = re.search(r"^kind: (.+)$", design_text, re.MULTILINE)
+    assert m, "設計書 §4.7 に kind の列挙行が無い"
+    design = [k.strip() for k in m.group(1).split("|")]
+    assert design == spec
+    fields = re.search(
+        r'\{ "seq", "tick", "circle", "kind", "name", "pointer", "input", "output" \}', design_text
+    )
+    assert fields, "設計書 §4.7 のトレース行のキー列が変わった"
+    assert list(TRACE_FIELDS) == [
+        "seq",
+        "tick",
+        "circle",
+        "kind",
+        "name",
+        "pointer",
+        "input",
+        "output",
+    ]

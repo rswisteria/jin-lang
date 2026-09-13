@@ -1,0 +1,538 @@
+# serializer version: 1
+# name: test_paddle_golden_frames
+  '''
+  {"tick":0,"ops":[["clear","#000"],["ink","#fff"],["rect",143,172,40,4],["circle",161.5,41.166666666666664,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":1,"ops":[["clear","#000"],["ink","#fff"],["rect",146,172,40,4],["circle",163,42.33333333333333,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":2,"ops":[["clear","#000"],["ink","#fff"],["rect",149,172,40,4],["circle",164.5,43.49999999999999,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":3,"ops":[["clear","#000"],["ink","#fff"],["rect",152,172,40,4],["circle",166,44.66666666666666,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":4,"ops":[["clear","#000"],["ink","#fff"],["rect",155,172,40,4],["circle",167.5,45.83333333333332,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":5,"ops":[["clear","#000"],["ink","#fff"],["rect",158,172,40,4],["circle",169,46.999999999999986,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":6,"ops":[["clear","#000"],["ink","#fff"],["rect",161,172,40,4],["circle",170.5,48.16666666666665,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":7,"ops":[["clear","#000"],["ink","#fff"],["rect",164,172,40,4],["circle",172,49.333333333333314,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":8,"ops":[["clear","#000"],["ink","#fff"],["rect",167,172,40,4],["circle",173.5,50.49999999999998,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":9,"ops":[["clear","#000"],["ink","#fff"],["rect",170,172,40,4],["circle",175,51.66666666666664,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":10,"ops":[["clear","#000"],["ink","#fff"],["rect",173,172,40,4],["circle",176.5,52.83333333333331,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":11,"ops":[["clear","#000"],["ink","#fff"],["rect",176,172,40,4],["circle",178,53.99999999999997,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":12,"ops":[["clear","#000"],["ink","#fff"],["rect",179,172,40,4],["circle",179.5,55.166666666666636,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":13,"ops":[["clear","#000"],["ink","#fff"],["rect",182,172,40,4],["circle",181,56.3333333333333,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":14,"ops":[["clear","#000"],["ink","#fff"],["rect",185,172,40,4],["circle",182.5,57.499999999999964,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":15,"ops":[["clear","#000"],["ink","#fff"],["rect",188,172,40,4],["circle",184,58.66666666666663,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":16,"ops":[["clear","#000"],["ink","#fff"],["rect",191,172,40,4],["circle",185.5,59.83333333333329,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":17,"ops":[["clear","#000"],["ink","#fff"],["rect",194,172,40,4],["circle",187,60.99999999999996,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":18,"ops":[["clear","#000"],["ink","#fff"],["rect",197,172,40,4],["circle",188.5,62.16666666666662,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":19,"ops":[["clear","#000"],["ink","#fff"],["rect",200,172,40,4],["circle",190,63.333333333333286,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":20,"ops":[["clear","#000"],["ink","#fff"],["rect",203,172,40,4],["circle",191.5,64.49999999999996,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":21,"ops":[["clear","#000"],["ink","#fff"],["rect",206,172,40,4],["circle",193,65.66666666666663,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":22,"ops":[["clear","#000"],["ink","#fff"],["rect",209,172,40,4],["circle",194.5,66.8333333333333,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":23,"ops":[["clear","#000"],["ink","#fff"],["rect",212,172,40,4],["circle",196,67.99999999999997,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":24,"ops":[["clear","#000"],["ink","#fff"],["rect",215,172,40,4],["circle",197.5,69.16666666666664,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":25,"ops":[["clear","#000"],["ink","#fff"],["rect",218,172,40,4],["circle",199,70.33333333333331,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":26,"ops":[["clear","#000"],["ink","#fff"],["rect",221,172,40,4],["circle",200.5,71.49999999999999,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":27,"ops":[["clear","#000"],["ink","#fff"],["rect",224,172,40,4],["circle",202,72.66666666666666,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":28,"ops":[["clear","#000"],["ink","#fff"],["rect",227,172,40,4],["circle",203.5,73.83333333333333,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":29,"ops":[["clear","#000"],["ink","#fff"],["rect",230,172,40,4],["circle",205,75,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":30,"ops":[["clear","#000"],["ink","#fff"],["rect",233,172,40,4],["circle",206.5,76.16666666666667,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":31,"ops":[["clear","#000"],["ink","#fff"],["rect",236,172,40,4],["circle",208,77.33333333333334,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":32,"ops":[["clear","#000"],["ink","#fff"],["rect",239,172,40,4],["circle",209.5,78.50000000000001,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":33,"ops":[["clear","#000"],["ink","#fff"],["rect",242,172,40,4],["circle",211,79.66666666666669,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":34,"ops":[["clear","#000"],["ink","#fff"],["rect",245,172,40,4],["circle",212.5,80.83333333333336,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":35,"ops":[["clear","#000"],["ink","#fff"],["rect",248,172,40,4],["circle",214,82.00000000000003,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":36,"ops":[["clear","#000"],["ink","#fff"],["rect",251,172,40,4],["circle",215.5,83.1666666666667,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":37,"ops":[["clear","#000"],["ink","#fff"],["rect",254,172,40,4],["circle",217,84.33333333333337,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":38,"ops":[["clear","#000"],["ink","#fff"],["rect",257,172,40,4],["circle",218.5,85.50000000000004,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":39,"ops":[["clear","#000"],["ink","#fff"],["rect",260,172,40,4],["circle",220,86.66666666666671,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":40,"ops":[["clear","#000"],["ink","#fff"],["rect",263,172,40,4],["circle",221.5,87.83333333333339,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":41,"ops":[["clear","#000"],["ink","#fff"],["rect",266,172,40,4],["circle",223,89.00000000000006,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":42,"ops":[["clear","#000"],["ink","#fff"],["rect",269,172,40,4],["circle",224.5,90.16666666666673,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":43,"ops":[["clear","#000"],["ink","#fff"],["rect",272,172,40,4],["circle",226,91.3333333333334,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":44,"ops":[["clear","#000"],["ink","#fff"],["rect",275,172,40,4],["circle",227.5,92.50000000000007,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":45,"ops":[["clear","#000"],["ink","#fff"],["rect",278,172,40,4],["circle",229,93.66666666666674,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":46,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",230.5,94.83333333333341,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":47,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",232,96.00000000000009,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":48,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",233.5,97.16666666666676,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":49,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",235,98.33333333333343,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":50,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",236.5,99.5000000000001,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":51,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",238,100.66666666666677,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":52,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",239.5,101.83333333333344,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":53,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",241,103.00000000000011,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":54,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",242.5,104.16666666666679,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":55,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",244,105.33333333333346,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":56,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",245.5,106.50000000000013,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":57,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",247,107.6666666666668,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":58,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",248.5,108.83333333333347,3],["text","SCORE 0",4,4]],"audio":[]}
+  {"tick":59,"ops":[["clear","#000"],["ink","#fff"],["rect",280,172,40,4],["circle",250,110.00000000000014,3],["text","SCORE 0",4,4]],"audio":[]}
+  
+  '''
+# ---
+# name: test_program_snapshot[debug-clicker]
+  '''
+  DEBUG = true
+  ROOT = 1
+  FPS = 60.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  R[1] = {}
+  -- circle 0: Clicker
+  R[1][1] = function()  -- grow
+    local rr_ = TR(1, "grow", "/circles/0/rites/0", '[]')
+    while true do
+      WAIT_TICKS(60.0, "/circles/0/rites/0/steps/0/steps/0")
+      S[1].k_0 = (S[1].k_0 + S[1].k_1)
+      TS(1, "count", "/circles/0/rites/0/steps/0/steps/1", JV(S[1].k_0))
+      if (H.random.next() < 0.1) then
+        S[1].k_2 = "LUCKY +10"
+        TS(1, "bonus", "/circles/0/rites/0/steps/0/steps/2/then/0", JV(S[1].k_2))
+        S[1].k_0 = (S[1].k_0 + 10.0)
+        TS(1, "count", "/circles/0/rites/0/steps/0/steps/2/then/1", JV(S[1].k_0))
+      else
+        S[1].k_2 = ""
+        TS(1, "bonus", "/circles/0/rites/0/steps/0/steps/2/else/0", JV(S[1].k_2))
+      end
+    end
+  end
+  R[1][2] = function()  -- screen
+    local rr_ = TR(1, "screen", "/circles/0/rites/1", '[]')
+    do
+      local a_1 = "#123"
+      local c_2 = T("cast", 1, "canvas.clear", "/circles/0/rites/1/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.clear(a_1)
+    end
+    do
+      local a_3, a_4, a_5 = ("COOKIES " .. F.str(S[1].k_0)), 8.0, 8.0
+      local c_6 = T("cast", 1, "ui.label", "/circles/0/rites/1/steps/1", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ',' .. JV(a_5) .. ']', nil)
+      H.ui.label(a_3, a_4, a_5)
+    end
+    do
+      local a_7, a_8, a_9 = (("RATE " .. F.str(S[1].k_1)) .. "/s"), 8.0, 20.0
+      local c_10 = T("cast", 1, "ui.label", "/circles/0/rites/1/steps/2", '[' .. JV(a_7) .. ',' .. JV(a_8) .. ',' .. JV(a_9) .. ']', nil)
+      H.ui.label(a_7, a_8, a_9)
+    end
+    do
+      local a_11, a_12, a_13 = S[1].k_2, 8.0, 32.0
+      local c_14 = T("cast", 1, "ui.label", "/circles/0/rites/1/steps/3", '[' .. JV(a_11) .. ',' .. JV(a_12) .. ',' .. JV(a_13) .. ']', nil)
+      H.ui.label(a_11, a_12, a_13)
+    end
+    if H.ui.button("CLICK", 20.0, 60.0, 90.0, 28.0) then
+      S[1].k_0 = (S[1].k_0 + 1.0)
+      TS(1, "count", "/circles/0/rites/1/steps/4/then/0", JV(S[1].k_0))
+    end
+    if (H.ui.button("UPGRADE", 130.0, 60.0, 90.0, 28.0) and (S[1].k_0 >= 10.0)) then
+      S[1].k_0 = (S[1].k_0 - 10.0)
+      TS(1, "count", "/circles/0/rites/1/steps/5/then/0", JV(S[1].k_0))
+      S[1].k_1 = (S[1].k_1 + 1.0)
+      TS(1, "rate", "/circles/0/rites/1/steps/5/then/1", JV(S[1].k_1))
+    end
+    if H.ui.button("DONE", 75.0, 110.0, 90.0, 28.0) then
+      T("finish", 1, nil, "/circles/0/rites/1/steps/6/then/0", nil, nil)
+      FINISH(1)
+      do return end
+    end
+  end
+  CIRCLES[1] = {
+    name = "Clicker",
+    init = function() return { k_0 = 0.0, k_1 = 0.0, k_2 = "" } end,
+    publish = function() P[1].k_0 = S[1].k_0 end,
+    pub = function() return '"Clicker.count":' .. JV(P[1].k_0) end,
+    dump = function() return '{' .. '"count":' .. JV(S[1].k_0) .. ',' .. '"rate":' .. JV(S[1].k_1) .. ',' .. '"bonus":' .. JV(S[1].k_2) .. '}' end,
+    core = R[1][1], core_waits = true,
+    on = { tick = R[1][2] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/0/boundary/on/0" },
+    guards = {
+      { fn = function() return (S[1].k_0 >= 0.0) end, message = "count は負にならない", pointer = "/circles/0/boundary/guards/0" },
+    },
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
+# name: test_program_snapshot[debug-fib]
+  '''
+  DEBUG = true
+  ROOT = 1
+  FPS = 60.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  R[1] = {}
+  -- circle 0: Fib
+  R[1][1] = function(l_0)  -- fib
+    local rr_ = TR(1, "fib", "/circles/0/rites/0", '[' .. JV(l_0) .. ']')
+    local l_1 = 0.0
+    local l_2 = 1.0
+    do
+      local n_1 = math.floor(l_0)
+      for i_2 = 0, n_1 - 1 do
+        local l_3 = (l_1 + l_2)
+        l_1 = l_2
+        l_2 = l_3
+      end
+    end
+    local r_3 = l_1
+    TRET(rr_, JV(r_3))
+    do return r_3 end
+  end
+  R[1][2] = function()  -- main
+    local rr_ = TR(1, "main", "/circles/0/rites/1", '[]')
+    do
+      local a_1 = 20.0
+      local r_2 = R[1][1](a_1)
+      if STOP(1) then return end
+      S[1].k_0 = r_2
+      TS(1, "answer", "/circles/0/rites/1/steps/0", JV(S[1].k_0))
+    end
+    T("finish", 1, nil, "/circles/0/rites/1/steps/1", nil, nil)
+    FINISH(1)
+    do return end
+  end
+  CIRCLES[1] = {
+    name = "Fib",
+    init = function() return { k_0 = 0.0 } end,
+    publish = function() P[1].k_0 = S[1].k_0 end,
+    pub = function() return '"Fib.answer":' .. JV(P[1].k_0) end,
+    dump = function() return '{' .. '"answer":' .. JV(S[1].k_0) .. '}' end,
+    core = R[1][2], core_waits = false,
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
+# name: test_program_snapshot[debug-paddle]
+  '''
+  DEBUG = true
+  ROOT = 1
+  FPS = 60.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JF[1] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"vx":' .. JV(v.f_2) .. ',' .. '"vy":' .. JV(v.f_3) .. '}' end  -- Ball
+  R[2] = {}
+  R[3] = {}
+  -- circle 1: Play
+  R[2][1] = function()  -- begin
+    local rr_ = TR(2, "begin", "/circles/1/rites/0", '[]')
+    S[2].k_2 = 0.0
+    TS(2, "score", "/circles/1/rites/0/steps/0", JV(S[2].k_2))
+    do
+      R[2][2]()
+      if STOP(2) then return end
+    end
+  end
+  R[2][2] = function()  -- serve
+    local rr_ = TR(2, "serve", "/circles/1/rites/1", '[]')
+    S[2].k_0 = { f_0 = 160.0, f_1 = 40.0, f_2 = 90.0, f_3 = 70.0 }
+    TS(2, "ball", "/circles/1/rites/1/steps/0", JF[1](S[2].k_0))
+  end
+  R[2][3] = function(l_0)  -- step
+    local rr_ = TR(2, "step", "/circles/1/rites/2", '[' .. JV(l_0) .. ']')
+    if H.input.key("ArrowLeft") then
+      S[2].k_1 = F.max(0.0, (S[2].k_1 - (180.0 * l_0)))
+      TS(2, "paddle", "/circles/1/rites/2/steps/0/then/0", JV(S[2].k_1))
+    end
+    if H.input.key("ArrowRight") then
+      S[2].k_1 = F.min(280.0, (S[2].k_1 + (180.0 * l_0)))
+      TS(2, "paddle", "/circles/1/rites/2/steps/1/then/0", JV(S[2].k_1))
+    end
+    S[2].k_0.f_0 = (S[2].k_0.f_0 + (S[2].k_0.f_2 * l_0))
+    TS(2, "ball", "/circles/1/rites/2/steps/2", JF[1](S[2].k_0))
+    S[2].k_0.f_1 = (S[2].k_0.f_1 + (S[2].k_0.f_3 * l_0))
+    TS(2, "ball", "/circles/1/rites/2/steps/3", JF[1](S[2].k_0))
+    if ((S[2].k_0.f_0 < 0.0) or (S[2].k_0.f_0 > 320.0)) then
+      S[2].k_0.f_2 = (-S[2].k_0.f_2)
+      TS(2, "ball", "/circles/1/rites/2/steps/4/then/0", JF[1](S[2].k_0))
+    end
+    if (S[2].k_0.f_1 < 0.0) then
+      S[2].k_0.f_3 = (-S[2].k_0.f_3)
+      TS(2, "ball", "/circles/1/rites/2/steps/5/then/0", JF[1](S[2].k_0))
+    end
+    if (((S[2].k_0.f_1 > 170.0) and (S[2].k_0.f_0 >= S[2].k_1)) and (S[2].k_0.f_0 <= (S[2].k_1 + 40.0))) then
+      S[2].k_0.f_3 = ((-F.abs(S[2].k_0.f_3)) * 1.05)
+      TS(2, "ball", "/circles/1/rites/2/steps/6/then/0", JF[1](S[2].k_0))
+      S[2].k_2 = (S[2].k_2 + 1.0)
+      TS(2, "score", "/circles/1/rites/2/steps/6/then/1", JV(S[2].k_2))
+      do
+        local a_1, a_2 = 440.0, 50.0
+        local c_3 = T("cast", 2, "audio.tone", "/circles/1/rites/2/steps/6/then/2", '[' .. JV(a_1) .. ',' .. JV(a_2) .. ']', nil)
+        H.audio.tone(a_1, a_2)
+      end
+    end
+    if (S[2].k_0.f_1 > 180.0) then
+      T("finish", 2, nil, "/circles/1/rites/2/steps/7/then/0", nil, nil)
+      FINISH(2)
+      do return end
+    end
+    do
+      R[2][4]()
+      if STOP(2) then return end
+    end
+  end
+  R[2][4] = function()  -- paint
+    local rr_ = TR(2, "paint", "/circles/1/rites/3", '[]')
+    do
+      local a_1 = "#000"
+      local c_2 = T("cast", 2, "canvas.clear", "/circles/1/rites/3/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.clear(a_1)
+    end
+    do
+      local a_3 = "#fff"
+      local c_4 = T("cast", 2, "canvas.ink", "/circles/1/rites/3/steps/1", '[' .. JV(a_3) .. ']', nil)
+      H.canvas.ink(a_3)
+    end
+    do
+      local a_5, a_6, a_7, a_8 = S[2].k_1, 172.0, 40.0, 4.0
+      local c_9 = T("cast", 2, "canvas.rect", "/circles/1/rites/3/steps/2", '[' .. JV(a_5) .. ',' .. JV(a_6) .. ',' .. JV(a_7) .. ',' .. JV(a_8) .. ']', nil)
+      H.canvas.rect(a_5, a_6, a_7, a_8)
+    end
+    do
+      local a_10, a_11, a_12 = S[2].k_0.f_0, S[2].k_0.f_1, 3.0
+      local c_13 = T("cast", 2, "canvas.circle", "/circles/1/rites/3/steps/3", '[' .. JV(a_10) .. ',' .. JV(a_11) .. ',' .. JV(a_12) .. ']', nil)
+      H.canvas.circle(a_10, a_11, a_12)
+    end
+    do
+      local a_14, a_15, a_16 = ("SCORE " .. F.str(S[2].k_2)), 4.0, 4.0
+      local c_17 = T("cast", 2, "canvas.text", "/circles/1/rites/3/steps/4", '[' .. JV(a_14) .. ',' .. JV(a_15) .. ',' .. JV(a_16) .. ']', nil)
+      H.canvas.text(a_14, a_15, a_16)
+    end
+  end
+  -- circle 2: Result
+  R[3][1] = function()  -- show
+    local rr_ = TR(3, "show", "/circles/2/rites/0", '[]')
+    S[3].k_0 = false
+    TS(3, "quit", "/circles/2/rites/0/steps/0", JV(S[3].k_0))
+    WAIT_TICKS(20.0, "/circles/2/rites/0/steps/1")
+  end
+  R[3][2] = function()  -- menu
+    local rr_ = TR(3, "menu", "/circles/2/rites/1", '[]')
+    do
+      local a_1 = "#000"
+      local c_2 = T("cast", 3, "canvas.clear", "/circles/2/rites/1/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.clear(a_1)
+    end
+    do
+      local a_3, a_4, a_5 = ("SCORE " .. F.str(P[2].k_2)), 120.0, 60.0
+      local c_6 = T("cast", 3, "canvas.text", "/circles/2/rites/1/steps/1", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ',' .. JV(a_5) .. ']', nil)
+      H.canvas.text(a_3, a_4, a_5)
+    end
+    if H.ui.button("RETRY", 120.0, 100.0, 80.0, 24.0) then
+      T("finish", 3, nil, "/circles/2/rites/1/steps/2/then/0", nil, nil)
+      FINISH(3)
+      do return end
+    end
+    if H.ui.button("QUIT", 120.0, 130.0, 80.0, 24.0) then
+      S[3].k_0 = true
+      TS(3, "quit", "/circles/2/rites/1/steps/3/then/0", JV(S[3].k_0))
+      T("finish", 3, nil, "/circles/2/rites/1/steps/3/then/1", nil, nil)
+      FINISH(3)
+      do return end
+    end
+  end
+  CIRCLES[1] = { name = "Game", flow = "loop", children = { 2, 3 }, exit = function() return P[3].k_0 end }
+  CIRCLES[2] = {
+    name = "Play",
+    init = function() return { k_0 = { f_0 = 160.0, f_1 = 40.0, f_2 = 90.0, f_3 = 70.0 }, k_1 = 140.0, k_2 = 0.0 } end,
+    publish = function() P[2].k_2 = S[2].k_2 end,
+    pub = function() return '"Play.score":' .. JV(P[2].k_2) end,
+    dump = function() return '{' .. '"ball":' .. JF[1](S[2].k_0) .. ',' .. '"paddle":' .. JV(S[2].k_1) .. ',' .. '"score":' .. JV(S[2].k_2) .. '}' end,
+    core = R[2][1], core_waits = false,
+    on = { tick = R[2][3] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/1/boundary/on/0" },
+    guards = {
+      { fn = function() return (S[2].k_2 >= 0.0) end, message = "score は負にならない", pointer = "/circles/1/boundary/guards/0" },
+    },
+  }
+  CIRCLES[3] = {
+    name = "Result",
+    init = function() return { k_0 = false } end,
+    publish = function() P[3].k_0 = S[3].k_0 end,
+    pub = function() return '"Result.quit":' .. JV(P[3].k_0) end,
+    dump = function() return '{' .. '"quit":' .. JV(S[3].k_0) .. '}' end,
+    core = R[3][1], core_waits = true,
+    on = { tick = R[3][2] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/2/boundary/on/0" },
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
+# name: test_program_snapshot[release-clicker]
+  '''
+  DEBUG = false
+  ROOT = 1
+  FPS = 60.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  R[1] = {}
+  -- circle 0: Clicker
+  R[1][1] = function()  -- grow
+    while true do
+      WAIT_TICKS(60.0, "/circles/0/rites/0/steps/0/steps/0")
+      S[1].k_0 = (S[1].k_0 + S[1].k_1)
+      if (H.random.next() < 0.1) then
+        S[1].k_2 = "LUCKY +10"
+        S[1].k_0 = (S[1].k_0 + 10.0)
+      else
+        S[1].k_2 = ""
+      end
+    end
+  end
+  R[1][2] = function()  -- screen
+    H.canvas.clear("#123")
+    H.ui.label(("COOKIES " .. F.str(S[1].k_0)), 8.0, 8.0)
+    H.ui.label((("RATE " .. F.str(S[1].k_1)) .. "/s"), 8.0, 20.0)
+    H.ui.label(S[1].k_2, 8.0, 32.0)
+    if H.ui.button("CLICK", 20.0, 60.0, 90.0, 28.0) then
+      S[1].k_0 = (S[1].k_0 + 1.0)
+    end
+    if (H.ui.button("UPGRADE", 130.0, 60.0, 90.0, 28.0) and (S[1].k_0 >= 10.0)) then
+      S[1].k_0 = (S[1].k_0 - 10.0)
+      S[1].k_1 = (S[1].k_1 + 1.0)
+    end
+    if H.ui.button("DONE", 75.0, 110.0, 90.0, 28.0) then
+      FINISH(1)
+      do return end
+    end
+  end
+  CIRCLES[1] = {
+    name = "Clicker",
+    init = function() return { k_0 = 0.0, k_1 = 0.0, k_2 = "" } end,
+    publish = function() P[1].k_0 = S[1].k_0 end,
+    pub = function() return '"Clicker.count":' .. JV(P[1].k_0) end,
+    core = R[1][1], core_waits = true,
+    on = { tick = R[1][2] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/0/boundary/on/0" },
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
+# name: test_program_snapshot[release-fib]
+  '''
+  DEBUG = false
+  ROOT = 1
+  FPS = 60.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  R[1] = {}
+  -- circle 0: Fib
+  R[1][1] = function(l_0)  -- fib
+    local l_1 = 0.0
+    local l_2 = 1.0
+    do
+      local n_1 = math.floor(l_0)
+      for i_2 = 0, n_1 - 1 do
+        local l_3 = (l_1 + l_2)
+        l_1 = l_2
+        l_2 = l_3
+      end
+    end
+    do return l_1 end
+  end
+  R[1][2] = function()  -- main
+    local r_1 = R[1][1](20.0)
+    if STOP(1) then return end
+    S[1].k_0 = r_1
+    FINISH(1)
+    do return end
+  end
+  CIRCLES[1] = {
+    name = "Fib",
+    init = function() return { k_0 = 0.0 } end,
+    publish = function() P[1].k_0 = S[1].k_0 end,
+    pub = function() return '"Fib.answer":' .. JV(P[1].k_0) end,
+    core = R[1][2], core_waits = false,
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
+# name: test_program_snapshot[release-paddle]
+  '''
+  DEBUG = false
+  ROOT = 1
+  FPS = 60.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JF[1] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"vx":' .. JV(v.f_2) .. ',' .. '"vy":' .. JV(v.f_3) .. '}' end  -- Ball
+  R[2] = {}
+  R[3] = {}
+  -- circle 1: Play
+  R[2][1] = function()  -- begin
+    S[2].k_2 = 0.0
+    R[2][2]()
+    if STOP(2) then return end
+  end
+  R[2][2] = function()  -- serve
+    S[2].k_0 = { f_0 = 160.0, f_1 = 40.0, f_2 = 90.0, f_3 = 70.0 }
+  end
+  R[2][3] = function(l_0)  -- step
+    if H.input.key("ArrowLeft") then
+      S[2].k_1 = F.max(0.0, (S[2].k_1 - (180.0 * l_0)))
+    end
+    if H.input.key("ArrowRight") then
+      S[2].k_1 = F.min(280.0, (S[2].k_1 + (180.0 * l_0)))
+    end
+    S[2].k_0.f_0 = (S[2].k_0.f_0 + (S[2].k_0.f_2 * l_0))
+    S[2].k_0.f_1 = (S[2].k_0.f_1 + (S[2].k_0.f_3 * l_0))
+    if ((S[2].k_0.f_0 < 0.0) or (S[2].k_0.f_0 > 320.0)) then
+      S[2].k_0.f_2 = (-S[2].k_0.f_2)
+    end
+    if (S[2].k_0.f_1 < 0.0) then
+      S[2].k_0.f_3 = (-S[2].k_0.f_3)
+    end
+    if (((S[2].k_0.f_1 > 170.0) and (S[2].k_0.f_0 >= S[2].k_1)) and (S[2].k_0.f_0 <= (S[2].k_1 + 40.0))) then
+      S[2].k_0.f_3 = ((-F.abs(S[2].k_0.f_3)) * 1.05)
+      S[2].k_2 = (S[2].k_2 + 1.0)
+      H.audio.tone(440.0, 50.0)
+    end
+    if (S[2].k_0.f_1 > 180.0) then
+      FINISH(2)
+      do return end
+    end
+    R[2][4]()
+    if STOP(2) then return end
+  end
+  R[2][4] = function()  -- paint
+    H.canvas.clear("#000")
+    H.canvas.ink("#fff")
+    H.canvas.rect(S[2].k_1, 172.0, 40.0, 4.0)
+    H.canvas.circle(S[2].k_0.f_0, S[2].k_0.f_1, 3.0)
+    H.canvas.text(("SCORE " .. F.str(S[2].k_2)), 4.0, 4.0)
+  end
+  -- circle 2: Result
+  R[3][1] = function()  -- show
+    S[3].k_0 = false
+    WAIT_TICKS(20.0, "/circles/2/rites/0/steps/1")
+  end
+  R[3][2] = function()  -- menu
+    H.canvas.clear("#000")
+    H.canvas.text(("SCORE " .. F.str(P[2].k_2)), 120.0, 60.0)
+    if H.ui.button("RETRY", 120.0, 100.0, 80.0, 24.0) then
+      FINISH(3)
+      do return end
+    end
+    if H.ui.button("QUIT", 120.0, 130.0, 80.0, 24.0) then
+      S[3].k_0 = true
+      FINISH(3)
+      do return end
+    end
+  end
+  CIRCLES[1] = { name = "Game", flow = "loop", children = { 2, 3 }, exit = function() return P[3].k_0 end }
+  CIRCLES[2] = {
+    name = "Play",
+    init = function() return { k_0 = { f_0 = 160.0, f_1 = 40.0, f_2 = 90.0, f_3 = 70.0 }, k_1 = 140.0, k_2 = 0.0 } end,
+    publish = function() P[2].k_2 = S[2].k_2 end,
+    pub = function() return '"Play.score":' .. JV(P[2].k_2) end,
+    core = R[2][1], core_waits = false,
+    on = { tick = R[2][3] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/1/boundary/on/0" },
+  }
+  CIRCLES[3] = {
+    name = "Result",
+    init = function() return { k_0 = false } end,
+    publish = function() P[3].k_0 = S[3].k_0 end,
+    pub = function() return '"Result.quit":' .. JV(P[3].k_0) end,
+    core = R[3][1], core_waits = true,
+    on = { tick = R[3][2] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/2/boundary/on/0" },
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---

@@ -124,6 +124,20 @@ def test_import_linter_passes_on_the_real_tree() -> None:
         ),
         # 兄弟の逆向き（`jin_adk` → `jin_render`）も layers 契約が落とす
         ("jin_adk", "trace.py", "import jin_render", "一方向"),
+        # Jin v2 Phase 2 で足した `jin_wasm`（3 兄弟目）も同じ理由で実測する。
+        # `"jin_adk | jin_render | jin_wasm"` の 1 要素から `jin_wasm` が抜けても
+        # 兄弟間の import が通ってしまうだけで全部緑のままになる
+        ("jin_wasm", "codegen.py", "import google.adk", "google-adk"),
+        ("jin_wasm", "codegen.py", "import jin_adk", "一方向"),
+        ("jin_wasm", "runtime.py", "import jin_render", "一方向"),
+        ("jin_adk", "trace.py", "import jin_wasm", "一方向"),
+        ("jin_render", "svg.py", "import jin_wasm", "一方向"),
+        (
+            "jin_wasm",
+            "runtime.py",
+            "from jin_cli.resolver import ImportResolver",
+            "jin_cli.resolver",
+        ),
     ],
 )
 def test_import_linter_actually_bites_on_a_forbidden_import(
@@ -213,10 +227,10 @@ def test_jin_core_imports_no_other_jin_package() -> None:
                 assert not (top.startswith("jin_") and top != "jin_core"), f"{path}: {name}"
 
 
-#: design.yaml `architecture.dependency_direction.rules` が名指しする Python パッケージの全集合。
-#: **Phase 4（`jin_lsp`）で最後の 1 つが埋まった。** v1 のスコープではこれ以上増えない
-#: （要件書 §1.2 のリポジトリ構成。`apps/editor` は Python パッケージではない）。
-PLANNED_PACKAGES = ("jin_core", "jin_adk", "jin_render", "jin_lsp", "jin_cli")
+#: design.yaml `architecture.dependency_direction.rules` が名指しする Python パッケージの全集合
+#: （v1 の 5 つ。Phase 4 の `jin_lsp` で埋まった）+ **Jin v2 の Phase 2 で足した `jin_wasm`**
+#: （正本は設計書 §1.2。`apps/editor` / `apps/player` は Python パッケージではない）。
+PLANNED_PACKAGES = ("jin_core", "jin_adk", "jin_render", "jin_wasm", "jin_lsp", "jin_cli")
 
 
 @pytest.mark.parametrize("planned_package", PLANNED_PACKAGES)

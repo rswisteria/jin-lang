@@ -1,0 +1,26 @@
+[project]
+name = "jin-wasm"
+version = "0.1.0"
+description = "Jin v2 → JIL（Lua 5.4 静的サブセット）のコード生成・lupa によるヘッドレス実行・バンドル"
+requires-python = ">=3.12"
+# jin-wasm は jin-core と lupa だけに依存する（設計書 §1.2 / §11 #21）。
+# jin-adk / jin-render とは**兄弟**（import-linter の layers 契約で両方向を落とす）。
+# lupa の版の根拠: delivery/20260904-1445-jin/wasm-api-probe.md §B（2026-09-13 実測）と
+# version-matrix.md §10。**`lupa.lua54` を明示して import する**（既定の `lupa.LuaRuntime` は
+# Lua 5.5.1 で、ブラウザ側の Wasmoon 1.16.0 の Lua 5.4 と揃わない）。
+dependencies = [
+  "jin-core",
+  "lupa>=2.8,<3",
+]
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# `prelude.lua` はパッケージディレクトリの中にあるので wheel に入る
+# （`uv build --wheel` で `jin_wasm/prelude.lua` が入ることを Phase 2 で実測）。
+packages = ["src/jin_wasm"]

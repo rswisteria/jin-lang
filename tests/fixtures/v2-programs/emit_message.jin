@@ -1,0 +1,138 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Pair",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Pair",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "Sender",
+          "Receiver"
+        ]
+      }
+    },
+    {
+      "name": "Sender",
+      "core": "start",
+      "state": [
+        {
+          "name": "sent",
+          "type": "bool",
+          "init": "false"
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "not sent",
+              "then": [
+                {
+                  "do": "emit",
+                  "circle": "Receiver",
+                  "message": "hello",
+                  "args": [
+                    "42",
+                    "\"hi\""
+                  ]
+                },
+                {
+                  "do": "set",
+                  "target": "sent",
+                  "expr": "true"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Receiver",
+      "core": "start",
+      "state": [
+        {
+          "name": "got",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "text",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "recv",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "v",
+              "type": "num"
+            },
+            {
+              "name": "s",
+              "type": "str"
+            }
+          ],
+          "steps": [
+            {
+              "do": "if",
+              "cond": "name == \"hello\"",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "got",
+                  "expr": "v"
+                },
+                {
+                  "do": "set",
+                  "target": "text",
+                  "expr": "s"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "message",
+            "rite": "recv"
+          }
+        ]
+      }
+    }
+  ]
+}
