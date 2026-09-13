@@ -1,0 +1,84 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": { "width": 320, "height": 180, "fps": 60, "seed": 7 },
+  "forms": [
+    { "name": "Ball", "fields": [
+      { "name": "x", "type": "num" }, { "name": "y", "type": "num" },
+      { "name": "vx", "type": "num" }, { "name": "vy", "type": "num" } ] }
+  ],
+  "circles": [
+    { "name": "Game", "flow": { "kind": "loop", "steps": ["Play", "Result"], "exit": "Result.quit" } },
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        { "name": "ball",   "type": "Ball", "init": "Ball{x: 160, y: 40, vx: 90, vy: 70}" },
+        { "name": "paddle", "type": "num",  "init": "140" },
+        { "name": "score",  "type": "num",  "init": "0", "out": true }
+      ],
+      "sigils": [
+        { "name": "canvas", "kind": "host", "host": "canvas" },
+        { "name": "input",  "kind": "host", "host": "input" },
+        { "name": "audio",  "kind": "host", "host": "audio" }
+      ],
+      "rites": [
+        { "name": "begin", "steps": [
+          { "do": "set", "target": "score", "expr": "0" },
+          { "do": "cast", "target": "serve" } ] },
+        { "name": "serve", "steps": [
+          { "do": "set", "target": "ball", "expr": "Ball{x: 160, y: 40, vx: 90, vy: 70}" } ] },
+        { "name": "step", "params": [ { "name": "dt", "type": "num" } ], "steps": [
+          { "do": "if", "cond": "input.key(\"ArrowLeft\")",
+            "then": [ { "do": "set", "target": "paddle", "expr": "max(0, paddle - 180 * dt)" } ] },
+          { "do": "if", "cond": "input.key(\"ArrowRight\")",
+            "then": [ { "do": "set", "target": "paddle", "expr": "min(280, paddle + 180 * dt)" } ] },
+          { "do": "set", "target": "ball.x", "expr": "ball.x + ball.vx * dt" },
+          { "do": "set", "target": "ball.y", "expr": "ball.y + ball.vy * dt" },
+          { "do": "if", "cond": "ball.x < 0 or ball.x > 320",
+            "then": [ { "do": "set", "target": "ball.vx", "expr": "-ball.vx" } ] },
+          { "do": "if", "cond": "ball.y < 0",
+            "then": [ { "do": "set", "target": "ball.vy", "expr": "-ball.vy" } ] },
+          { "do": "if", "cond": "ball.y > 170 and ball.x >= paddle and ball.x <= paddle + 40",
+            "then": [
+              { "do": "set", "target": "ball.vy", "expr": "-abs(ball.vy) * 1.05" },
+              { "do": "set", "target": "score", "expr": "score + 1" },
+              { "do": "cast", "target": "audio.tone", "args": ["440", "50"] } ] },
+          { "do": "if", "cond": "ball.y > 180", "then": [ { "do": "finish" } ] },
+          { "do": "cast", "target": "paint" } ] },
+        { "name": "paint", "steps": [
+          { "do": "cast", "target": "canvas.clear", "args": ["\"#000\""] },
+          { "do": "cast", "target": "canvas.ink",   "args": ["\"#fff\""] },
+          { "do": "cast", "target": "canvas.rect",   "args": ["paddle", "172", "40", "4"] },
+          { "do": "cast", "target": "canvas.circle", "args": ["ball.x", "ball.y", "3"] },
+          { "do": "cast", "target": "canvas.text",   "args": ["\"SCORE \" ++ str(score)", "4", "4"] } ] }
+      ],
+      "boundary": {
+        "on": [ { "event": "tick", "rite": "step" } ],
+        "guards": [ { "assert": "score >= 0", "message": "score は負にならない" } ]
+      }
+    },
+    {
+      "name": "Result",
+      "core": "show",
+      "state": [ { "name": "quit", "type": "bool", "init": "false", "out": true } ],
+      "sigils": [
+        { "name": "canvas", "kind": "host", "host": "canvas" },
+        { "name": "ui",     "kind": "host", "host": "ui" }
+      ],
+      "rites": [
+        { "name": "show", "steps": [
+          { "do": "set", "target": "quit", "expr": "false" },
+          { "do": "wait", "ticks": "20" } ] },
+        { "name": "menu", "steps": [
+          { "do": "cast", "target": "canvas.clear", "args": ["\"#000\""] },
+          { "do": "cast", "target": "canvas.text", "args": ["\"SCORE \" ++ str(Play.score)", "120", "60"] },
+          { "do": "if", "cond": "ui.button(\"RETRY\", 120, 100, 80, 24)", "then": [ { "do": "finish" } ] },
+          { "do": "if", "cond": "ui.button(\"QUIT\", 120, 130, 80, 24)",
+            "then": [ { "do": "set", "target": "quit", "expr": "true" }, { "do": "finish" } ] } ] }
+      ],
+      "boundary": { "on": [ { "event": "tick", "rite": "menu" } ] }
+    }
+  ]
+}
