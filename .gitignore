@@ -4,3 +4,5 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .import_linter_cache/
+# apps/player のビルド物の同梱先（scripts/sync_player.py が apps/player/dist から複製する。wheel には入る）
+packages/jin-wasm/src/jin_wasm/player/
