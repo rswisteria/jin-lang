@@ -61,6 +61,16 @@ ADK が cancel を握って正常復帰するため「応答の無い function_c
 
     guard: _write_svg -> _write_atomically(path,text,allow_create=True)
 
+## `jin build` / `jin run`（Jin v2）は任意コードを実行しない
+
+`version: 2` の `.jin` は `jin_wasm` へ振り分ける（`_load_model_or_exit` が `JinFileV2` を返す）。
+`jin run` は JIL（`require` も `load` も持たない Lua の静的サブセット）を `lupa.lua54` の
+サンドボックスで走らせるだけで、`ref` の import も `sys.path` の操作も無い（`jin_wasm.runtime`）。
+`jin build` は `<out>/` に `game.lua` / `game.manifest.json` / `assets/` を書く。asset の実体は
+`.jin` の親ディレクトリの中に閉じ、リンクを辿らない（`jin_wasm.bundle`）。`--trace` / `--frames` は
+v1 と同じ `_open_trace` + `_LazyTruncateSink` を通す（**新しい書き込み経路を作らない**）。
+`jin render` は v2 をまだ扱わない（Phase 3）。
+
 ## `guard:` 記法（security review R-2 の再発防止）
 
 「どこでシンボリックリンクを弾いているか」のような**実装依存の安全宣言**を散文で書くと、
@@ -105,9 +115,17 @@ from jin_core.check import CheckResult, JinReadError, check_file, read_source
 from jin_core.diagnostics import Diagnostic, has_error
 from jin_core.model import JinFile
 from jin_core.schema_export import render as render_schema
+from jin_core.v2.model import JinFileV2
 from jin_lsp.server import main as lsp_main
 from jin_render import RenderError, TraceRowError, brief
 from jin_render import render as render_svg
+from jin_wasm.bundle import WriteRefused as BundleWriteRefused
+from jin_wasm.bundle import write_bundle
+from jin_wasm.codegen import CodegenError
+from jin_wasm.codegen import generate as generate_game
+from jin_wasm.jinrec import JinrecError, read_jinrec
+from jin_wasm.runtime import RunError as WasmRunError
+from jin_wasm.runtime import run_headless
 
 from jin_cli.editor import EditorError
 from jin_cli.editor import serve as editor_serve
@@ -720,8 +738,11 @@ def dump(file: Annotated[Path, typer.Argument(help="対象の .jin")]) -> None:
 # ======================================================================================
 # Phase 2: build / run（jin-adk）
 # ======================================================================================
-def _load_model_or_exit(file: Path) -> JinFile:
-    """`.jin` を診断し、error が無ければモデルを返す。error があれば診断を出して exit 1。"""
+def _load_model_or_exit(file: Path, *, v2: bool = False) -> JinFile | JinFileV2:
+    """`.jin` を診断し、error が無ければモデルを返す。error があれば診断を出して exit 1。
+
+    `v2=True` のコマンド（build / run）だけが `JinFileV2` を受け取る。render は Phase 3 まで拒む。
+    """
     _require_jin_file(file)
     try:
         result = check_file(file)
@@ -735,12 +756,14 @@ def _load_model_or_exit(file: Path) -> JinFile:
             "診断に error があるため続行できません（先に jin check を通してください）", err=True
         )
         raise typer.Exit(code=1)
-    if not isinstance(result.model, JinFile):
-        # v2（version: 2）の build / run / render は Phase 2 / 3 で入る。黙って v1 として扱わない。
+    if isinstance(result.model, JinFileV2) and not v2:
+        # v2（version: 2）の render は Phase 3 で入る。黙って v1 として扱わない。
         typer.echo(
-            "version: 2 の .jin はまだ build / run / render できません（check / fmt / dump は使えます）",
+            "version: 2 の .jin はまだ render できません（check / fmt / dump / build / run は使えます）",
             err=True,
         )
+        raise typer.Exit(code=1)
+    if not isinstance(result.model, (JinFile, JinFileV2)):  # pragma: no cover - RootModel は 2 種
         raise typer.Exit(code=1)
     return result.model
 
@@ -754,9 +777,26 @@ def build(
     force: Annotated[
         bool, typer.Option("--force", help="既存の生成物（3 ファイル）を上書きする")
     ] = False,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="（v2）トレース行を出すデバッグビルドにする"),
+    ] = False,
+    single: Annotated[
+        bool,
+        typer.Option("--single", help="（v2）wasm と JIL を埋めた 1 ファイルの index.html を出す"),
+    ] = False,
 ) -> None:
-    """ADK プロジェクトを生成する（要件書 §3.1）。既存ファイルは --force なしでは上書きしない。"""
-    model = _load_model_or_exit(file)
+    """ADK プロジェクトを生成する（要件書 §3.1）。v2 の .jin なら JIL のバンドルを <out>/ に書く。
+
+    既存ファイルは --force なしでは上書きしない。
+    """
+    model = _load_model_or_exit(file, v2=True)
+    if isinstance(model, JinFileV2):
+        _build_v2(file, model, out, force=force, debug=debug, single=single)
+        raise typer.Exit(code=0)
+    if debug or single:
+        typer.echo("--debug / --single は version: 2 の .jin のためのオプションです", err=True)
+        raise typer.Exit(code=2)
     try:
         project = generate(model, source_name=file.name)
     except BuildError as exc:
@@ -839,18 +879,128 @@ class _LazyTruncateSink:
         self._handle.close()
 
 
+def _build_v2(
+    file: Path, model: JinFileV2, out: Path, *, force: bool, debug: bool, single: bool
+) -> None:
+    """v2: JIL のバンドルを `<out>/` に書く（runtime.md §9）。"""
+    try:
+        game = generate_game(model, source_name=file.name, debug=debug)
+    except CodegenError as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    try:
+        result = write_bundle(game, out, source=file, force=force, single=single)
+    except BundleWriteRefused as exc:
+        typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    for path in result.written:
+        _echo_or_exit(f"書き出しました: {_safe(str(path))}")
+    for note in result.notes:
+        typer.echo(_safe(note), err=True)
+
+
+def _run_v2(
+    file: Path,
+    model: JinFileV2,
+    *,
+    ticks: int | None,
+    seed: int | None,
+    input_path: Path | None,
+    trace: Path | None,
+    frames: Path | None,
+    debug: bool,
+) -> None:
+    """v2: lupa で JIL をヘッドレス実行する（runtime.md §8）。
+
+    標準出力には最後の tick の公開 state を JSON で 1 行出す。実行時エラーは stderr + exit 1
+    （トレース / frames はそこまでの分を書く）。任意コード実行は無い（モジュール docstring）。
+    """
+    events: list[dict] = []
+    if input_path is not None:
+        try:
+            recording = read_jinrec(input_path)
+        except JinrecError as exc:
+            typer.echo(_safe(str(exc)), err=True)
+            raise typer.Exit(code=2) from exc
+        events = recording.events
+        if ticks is None:
+            ticks = recording.ticks
+        if seed is None:
+            seed = recording.seed
+    if ticks is None:
+        ticks = 600
+    if ticks < 0:
+        typer.echo(f"--ticks は 0 以上の整数です（指定値: {ticks}）", err=True)
+        raise typer.Exit(code=2)
+    if seed is None:
+        seed = model.stage.seed
+    debug = debug or trace is not None
+    try:
+        game = generate_game(model, source_name=file.name, debug=debug)
+    except CodegenError as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    sinks: dict[str, _LazyTruncateSink] = {}
+    for label, path in (("trace", trace), ("frames", frames)):
+        if path is None:
+            continue
+        try:
+            sinks[label] = _LazyTruncateSink(_open_trace(path))
+        except OSError as exc:
+            typer.echo(
+                f"{_safe(str(path))}: 出力先を開けません（{exc.strerror}）。"
+                "親ディレクトリがあるか・書き込み権限があるか・シンボリックリンクでないかを確認してください",
+                err=True,
+            )
+            raise typer.Exit(code=1) from exc
+
+    def write_row(row: dict) -> None:
+        sinks["trace"].write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+    try:
+        result = run_headless(
+            game.lua,
+            game.manifest,
+            seed=seed,
+            ticks=ticks,
+            events=events,
+            on_row=write_row if "trace" in sinks else None,
+        )
+        if "frames" in sinks:
+            for frame in result.frames:
+                sinks["frames"].write(
+                    json.dumps(frame, ensure_ascii=False, separators=(",", ":")) + "\n"
+                )
+        for sink in sinks.values():
+            sink.finish()
+    except WasmRunError as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    finally:
+        for sink in sinks.values():
+            sink.close()
+    _echo_or_exit(json.dumps(result.public, ensure_ascii=False))
+    done = f"、tick {result.done_tick} で done" if result.done_tick is not None else ""
+    typer.echo(f"{result.ticks} tick 走らせました（seed {seed}{done}）", err=True)
+    if result.error is not None:
+        typer.echo(f"{_safe(str(file))}: 実行時エラー: {_safe(result.error)}", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def run(
     file: Annotated[Path, typer.Argument(help="対象の .jin")],
-    prompt: Annotated[str, typer.Argument(help="最初の利用者メッセージ")],
+    prompt: Annotated[
+        str | None, typer.Argument(help="（v1）最初の利用者メッセージ。v2 では書かない")
+    ] = None,
     session: Annotated[
-        str,
+        str | None,
         typer.Option(
             "--session",
-            help="セッション ID（トレース表示のラベル。実行ごとに新しい InMemorySessionService を"
+            help="（v1）セッション ID（トレース表示のラベル。実行ごとに新しい InMemorySessionService を"
             "作るので、同じ ID を渡しても前回の state は引き継がれない）",
         ),
-    ] = "jin",
+    ] = None,
     trace: Annotated[
         Path | None,
         typer.Option("--trace", help="トレース JSONL の出力先（要件書 §3.4・0600 で作る）"),
@@ -859,10 +1009,36 @@ def run(
         str | None,
         typer.Option(
             "--model",
-            help="fake を指定すると FakeLlm（固定応答・ネットワーク不要）に差し替える。"
+            help="（v1）fake を指定すると FakeLlm（固定応答・ネットワーク不要）に差し替える。"
             "省略時は .jin の core のモデルをそのまま使う（API キーが要る）",
         ),
     ] = None,
+    ticks: Annotated[
+        int | None,
+        typer.Option(
+            "--ticks", help="（v2）走らせる tick 数。既定は --input のヘッダの ticks、無ければ 600"
+        ),
+    ] = None,
+    seed: Annotated[
+        int | None, typer.Option("--seed", help="（v2）乱数の seed。既定は stage.seed")
+    ] = None,
+    input_: Annotated[
+        Path | None,
+        typer.Option(
+            "--input", help="（v2）入力ログ / 録画（.jinrec）。同じ tick に同じイベントを渡す"
+        ),
+    ] = None,
+    frames: Annotated[
+        Path | None,
+        typer.Option(
+            "--frames",
+            help="（v2）表示リストを 1 tick 1 行の JSONL で書く（トレース無しでも出せる）",
+        ),
+    ] = None,
+    debug: Annotated[
+        bool,
+        typer.Option("--debug", help="（v2）デバッグビルドで走らせる（--trace は暗黙に立てる）"),
+    ] = False,
 ) -> None:
     """生成コードを一時ディレクトリに書き出して import し、Runner で実行する。
 
@@ -877,7 +1053,37 @@ def run(
             err=True,
         )
         raise typer.Exit(code=2)
-    jin_model = _load_model_or_exit(file)
+    jin_model = _load_model_or_exit(file, v2=True)
+    if isinstance(jin_model, JinFileV2):
+        if prompt is not None or session is not None or model is not None:
+            typer.echo(
+                "version: 2 の .jin に prompt / --session / --model はありません"
+                "（--ticks / --seed / --input / --frames / --debug を使います）",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        _run_v2(
+            file,
+            jin_model,
+            ticks=ticks,
+            seed=seed,
+            input_path=input_,
+            trace=trace,
+            frames=frames,
+            debug=debug,
+        )
+        raise typer.Exit(code=0)
+    if prompt is None:
+        typer.echo("version: 1 の .jin には最初の利用者メッセージ（prompt）が要ります", err=True)
+        raise typer.Exit(code=2)
+    if ticks is not None or seed is not None or input_ is not None or frames is not None or debug:
+        typer.echo(
+            "--ticks / --seed / --input / --frames / --debug は version: 2 の .jin のためのオプションです",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if session is None:
+        session = "jin"
     llm = FakeLlm() if model == "fake" else None
     try:
         # `--trace` を開く前に生成を済ませる（BuildError で既存のトレースに触らない）
