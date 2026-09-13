@@ -21,14 +21,16 @@ Jin(陣) は Google ADK 上の LLM エージェントを魔法陣として記述
 ## パッケージ境界（依存は一方向）
 
 ```
-jin-core  ←  jin-adk | jin-render  ←  jin-lsp  ←  jin-cli
+jin-core  ←  jin-adk | jin-render  ←  jin-lsp  ←  jin-cli            # v1
+jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp  ←  jin-cli # Jin v2 Phase 2 以降（設計書 §1.2 / §11 #21）
 ```
 
 （`jin-adk` と `jin-render` は**兄弟**であり互いに依存しない。import-linter の layers 契約では
 1 要素に `"jin_adk | jin_render"` と `|` 区切りで書く。別要素に並べると片方向だけを禁じる、
 実際より強い順序を宣言してしまう）
 
-Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-adk` / `jin-render` / `jin-lsp` / `jin-cli`）。
+Phase 4 時点で 5 パッケージすべてが実在し（`jin-core` / `jin-adk` / `jin-render` / `jin-lsp` / `jin-cli`）、
+Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに依存する 3 つ目の兄弟）が加わった。
 `jin-adk` は ADK の語彙（LlmAgent / Runner / BaseLlm …）がリポジトリ内で現れてよい唯一のパッケージ。
 
 - `jin-core` は他の `jin-*` に依存しない（最下層）
@@ -75,7 +77,7 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 1. `[project].dependencies` — ワークスペースの依存に足す
 2. `[tool.uv.sources]` — `{ workspace = true }` を足す
 3. `[tool.importlinter].root_packages` — 契約の対象にする
-4. layers 契約の `layers` — **兄弟は 1 要素に `"jin_adk | jin_render"` と `|` 区切りで書く**
+4. layers 契約の `layers` — **兄弟は 1 要素に `"jin_adk | jin_render | jin_wasm"` と `|` 区切りで書く**
    （別要素に並べると実際の契約より強い順序を宣言してしまう）。ただし**兄弟がまだ存在しない間は単独で書く**:
    存在しないパッケージを `|` で並べると import-linter 2.14 が `Missing layer` で EXIT 1 になる（Phase 2 で実測）。
    2 つ目を足すときに `|` に直す
@@ -106,6 +108,7 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 | — | エディタからの実行（Issue #34・要件書 §7.2 の「v1.1」を前倒し） | 実装済み |
 | v2-0 | Jin v2（汎用ビジュアル言語）の設計書と `docs/spec/v2/` 8 本 + `examples-v2/` + probe | 実装済み |
 | v2-1 | `jin_core.v2`（model / expr / semantic / ops）+ `jin-v2.schema.json` / `abilities.json` + version 振り分け | 実装済み |
+| v2-2 | `jin-wasm`（jil / prelude.lua / codegen / lupa runtime / jinrec / bundle）+ `jin run` / `jin build` の v2 分岐 | 実装済み（プレイヤーの同梱は v2-4） |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -124,8 +127,26 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
   `jin_core.v2.spans` だけが換算する
 - **`examples-v2/` は恒久的に `examples/` の外**（`examples/` は v1 の契約が「3 本」と数える）。
   CI は `examples-v2` にも `check` / `fmt --check` を掛ける
-- `build` / `run` / `render` は v2 を明示的に拒む（Phase 2 / 3 まで）。LSP は v2 の診断だけ運び、
-  hover / renderSvg / applyOps は「モデル無し」として扱う（Phase 3 / 5）
+- **`jin run` / `jin build` の v2 は `jin_wasm`**（正典は `docs/spec/v2/runtime.md` / `jil.md`）。`render` は
+  v2 をまだ拒む（Phase 3）。LSP は v2 の診断だけ運び、hover / renderSvg / applyOps は「モデル無し」として扱う
+- **JIL は Lua 5.4 の静的サブセット**（`jin_wasm.jil.JIL_FORBIDDEN` は jil.md §2 と等号）。`game.lua` =
+  ヘッダ + `prelude.lua`（そのまま連結）+ 生成部 + `return { boot = boot, tick = tick }`。生成部が定義するのは
+  `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` だけで、プレリュード先頭のコメントと 1:1。
+  **名前を Lua の識別子に埋め込まない**（`S[i].k_j` / `R[i][j]` / `f_j` / `l_n`。添字は Lua の 1 始まり、pointer は 0 始まり）。
+  `num` は常に float（`160.0`）。`tests/contract/test_jil_contract.py` がプレリュードと全生成物を走査する
+- **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
+  `register_builtins=False` + `python` テーブルと `load` / `os` / `io` / `debug` … を nil にしてから JIL を読む。
+  命令数の上限（`INSTRUCTION_BUDGET` = 10^7 / boot と tick ごと）は `debug.sethook` の count hook。
+  ホストが呼ぶ Lua の関数は `boot` / `tick` の 2 つだけで、戻り値は JSON 文字列 1 本（Lua のテーブルは境界を越えない）
+- **数値の書式は Python の `repr(float)` と同じ配置**（runtime.md §6・設計書 §11 #23）。トレース・表示リスト・
+  `str()` の 3 つが同じ規則。`test_prelude.py` が非整数 700 件で固定する
+- **`jin build`（v2）は `<out>/` に `game.lua` / `game.manifest.json` / `assets/` を書く**（`jin_wasm.bundle`。
+  `jin_adk.build` と同じ `O_EXCL` / `O_NOFOLLOW` / `dir_fd` の規律）。asset は `.jin` の親ディレクトリの中に閉じる。
+  プレイヤー（`index.html` / `player.js` / `wasmoon.wasm`）は Phase 4 まで無く、`--single` は exit 1
+- **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasm --snapshot-update`
+  （`packages/jin-wasm/tests/__snapshots__/`。生成部 3 本 × debug / release と paddle 60 tick のゴールデン）。
+  差分を読んでからコミット。examples-v2 が使わない経路（parallel / transfer / emit / key / pointer / wait until /
+  each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 11 本が固定する
 - v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
   オペレーション列で、`apply_ops` が undo 順に平らにする
 
@@ -241,6 +262,8 @@ uv run jin check examples                 # examples の診断
 uv run jin fmt --check examples           # examples が正準形か
 uv run jin check examples-v2 && uv run jin fmt --check examples-v2   # Jin v2 の例（examples/ の外に置く。設計書 §11 #18）
 uv run jin schema --version 2             # Jin v2 の JSON Schema（CI が schemas/jin-v2.schema.json と diff する）
+uv run jin run examples-v2/paddle/paddle.jin --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # Jin v2 のヘッドレス実行（lupa。標準出力は最後の公開 state）
+uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json。プレイヤーは Phase 4）
 uv run jin build examples/researcher/researcher.jin --out /tmp/out   # ADK プロジェクト生成
 PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl
 uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg      # 魔法陣 SVG（-o 無しは stdout）

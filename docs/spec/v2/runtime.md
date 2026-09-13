@@ -34,9 +34,14 @@ inputs = {
 ```
 { ops = { {"clear","#000"}, {"ink","#fff"}, {"rect",140.0,172.0,40.0,4.0}, {"text","SCORE 1",4.0,4.0} },
   audio = { {"tone",440.0,50.0} },
-  trace = { … },     -- デバッグビルドだけ。§5 の行の配列
-  done = false }     -- root が done になったら true。以後の tick は何もしない
+  trace = { … },     -- デバッグビルドだけ(リリースビルドではキーごと無い)。§5 の行の配列
+  done = false,      -- root が done になったら true。以後の tick は何もしない
+  error = nil,       -- 実行時エラーの文(§5 の error 行と同じ。リリースビルドでも出る。無ければ null)
+  public = { … } }   -- 公開 state の確定値 { "Play.score": 3, "Result.quit": true }(jin run が標準出力に出す)
 ```
+
+`error` と `public` は Phase 2 で足した(設計書 §11 #22)。リリースビルドにはトレースが無いので、
+実行時エラーの理由と最後の公開 state を返す口がここしか無い。
 
 ## 2. tick の手順
 
@@ -45,9 +50,9 @@ inputs = {
 1. **配達**: 前 tick に `emit` されたメッセージを、`emit` の実行順に、宛先の `on message` の手順へ配達する。宛先が `active` でなければ捨てる(トレースに `emit` 行は残る)
 2. **再開**: `wait` 中の手順を陣の順に再開する。`ticks` は残数を 1 減らして 0 なら再開、`until` は式を評価して真なら再開。再開した手順が再び `wait` したら次 tick へ
 3. **イベント**: `active` な各陣へ、陣の順に、`events` の `key` / `pointer` を発生順に配り、最後に `tick(dt)` を配る。1 つの陣の中では `on` の手順を**その順**で走らせる。手順の中で `finish` したら、その陣への残りの配達は行わない
-4. **確定**: `out: true` の state を確定する(二重バッファ。他の陣が読む `Play.score` は、この段までは**前 tick の確定値**)
+4. **確定**: `out: true` の state を確定する(二重バッファ。他の陣が読む `Play.score` は、この段までは**前 tick の確定値**)。未 `entered` の陣(summon で書かれた state)も確定する。加えて陣が `entered` になった直後(`init` の値)と `done` になった直後(`finish` の書き込み)にもその陣だけ確定する(設計書 §11 #27)
 5. **検査**: デバッグビルドなら `guards[].assert` を陣の順に評価し、偽なら `assert` 行を残す
-6. **進行**: `done` になった陣の親 flow を進める(§3)。新しく `entered` になった陣は `init` を評価し、核の手順を**この段で**走らせる(この tick の 3 は済んでいるので `tick` イベントは届かない)。核の手順が `wait` したら 2 で再開される。この段で更に `done` になれば繰り返す(1 tick に何段でも進める。無限に進む構成は JIN012 の閉路検出で静的に落ちる)
+6. **進行**: `done` になった陣の親 flow を進める(§3)。新しく `entered` になった陣は `init` を評価し、核の手順を**この段で**走らせる(この tick の 3 は済んでいるので `tick` イベントは届かない)。核の手順が `wait` したら 2 で再開される。この段で更に `done` になれば繰り返す(1 tick に何段でも進める)。`exit` が常に偽で子が同期的に `done` になる `loop` のように無限に進む構成は静的には落ちないので、1 tick の進行を **1000 回**で打ち切って `error` 行にする(プレリュードの `ADVANCE_LIMIT`)
 7. **返却**: 表示リスト・音リスト・トレース行を返し、両リストを空にする
 
 `wait` 中の手順が待っている間も、その陣の `on` は届く(3)。`finish` した陣で `wait` 中の手順はその場で破棄する。
@@ -66,7 +71,7 @@ inputs = {
 
 `exit` は公開 state だけを参照する(JIN220)。評価に使う値は 4 で確定した値(同 tick に `finish` した陣の書き込みは 4 で確定済みなので見える)。
 
-`transfer`: 委譲元は `active` のまま**休止**(イベントを受けない)、委譲先を `entered` にしてスタックに積む。委譲先が `done` になるとスタックから外し、委譲元がイベントを受け始める(同 tick の 6 で)。委譲先が更に `transfer` すればスタックは深くなる(閉路は JIN012)。`idle` に戻るとき(親 `loop` の次の周)、スタックは空にする。
+`transfer`: 委譲元は `active` のまま**休止**(イベントを受けない)、委譲先を `entered` にしてスタックに積む。委譲先が `done` になるとスタックから外し、委譲元がイベントを受け始める(同 tick の 6 で)。委譲先が更に `transfer` すればスタックは深くなる(閉路は JIN012)。`idle` に戻るとき(親 `loop` の次の周)、スタックは空にする。委譲先が `done` になってスタックから外れたら委譲先は `idle` に戻す(再び `transfer` できる。公開 state は残る)。休止中の陣で `wait` している手順は再開しない(委譲先が `done` になった後の tick から再開する)。
 
 root が `done` になったら `tick` は `done = true` を返し、以後は何もしない(プレイヤーは「終了」を表示する)。
 
@@ -97,10 +102,10 @@ root が `done` になったら `tick` は `done = true` を返し、以後は�
 | `enter` | 陣が `entered` になった | `/circles/i` | — / `init` 後の state(公開・非公開とも) |
 | `exit` | 陣が `done` になった | `/circles/i` | — / state |
 | `event` | `on` の手順を起動する直前 | `/circles/i/boundary/on/j` | イベントの引数 / — |
-| `rite` | 手順を起動する直前(核 / cast / summon / 配達) | `/circles/i/rites/j` | 引数 / 戻り値(`return` 時に埋める) |
-| `cast` | `cast` ステップの実行(ホスト能力・summon・effect) | ステップの pointer | 評価済み引数 / 戻り値 |
+| `rite` | 手順を起動する直前(核 / cast / summon / 配達) | `/circles/i/rites/j` | 引数 / 戻り値(`return` 時に埋める。行は tick の終わりに直列化するので、`wait` で tick を跨いだ手順の戻り値は `null` のまま) |
+| `cast` | `cast` ステップの実行(ホスト能力・summon・effect)。**呼び出しの前**に積み、戻り値は呼び出しの後に埋める(list の効果で引数が変わる前の値が載り、実行時エラーの `pointer` がこのステップになる) | ステップの pointer | 評価済み引数 / 戻り値 |
 | `set` | **state** への代入(局所は記録しない) | ステップの pointer(`cast … into` なら `cast` 行とは別に `set` 行) | — / 新しい値 |
-| `emit` | `emit` ステップ | ステップの pointer | 引数 / 配達されたか(`true` / `false`。配達は次 tick なので**次 tick の 1 で埋めた行を出す**) |
+| `emit` | `emit` ステップ(行を積むのは**配達の tick の 1**。`seq` と `tick` は配達時のもの) | ステップの pointer | 引数 / 配達されたか(`true` / `false`) |
 | `transfer` | `transfer` ステップ | ステップの pointer | 委譲先 / — |
 | `wait` | 手順が中断した / 再開した | ステップの pointer | `{"ticks": n}` または `{"until": true}` / `"suspend"` または `"resume"` |
 | `finish` | `finish` ステップ | ステップの pointer | — / — |
@@ -119,7 +124,7 @@ root が `done` になったら `tick` は `done = true` を返し、以後は�
 トレース・表示リスト・`str()` で `num` を文字列にする規則は 1 つ:
 
 - 整数値(`x == floor(x)` かつ `|x| < 2^53`)は整数として(`3`)
-- それ以外は最短の往復可能表現(JS の `Number.prototype.toString` / Python の `repr` と同じ規則。Lua 側はプレリュードが `%.17g` から桁を削って最短を探す)
+- それ以外は最短の往復可能表現を **Python の `repr(float)` と同じ配置**で書く: 指数形は 10 進指数が `-4` 未満か `16` 以上のとき(`1e-05` / `1.5e+16`)、指数は符号付きで 2 桁以上、それ以外は固定小数(`0.0001` / `4503599627370495.5`)。Lua 側はプレリュードが `%.<n>e` の `n` を 0 から増やして往復する最短の桁を探し、配置を組み立てる。JS の `Number.prototype.toString` は指数の桁数が違う(`1e-5`)が、プレイヤーは JSON を parse するだけなので影響しない(設計書 §11 #23)。Python の `repr` と一致することは `packages/jin-wasm/tests/test_prelude.py` が非整数 700 件で固定する
 - `NaN` は `"NaN"`、`inf` は `"Infinity"` / `"-Infinity"`(JSON には文字列として載せる)
 
 パリティテストはこの書式で比較する。
@@ -146,10 +151,12 @@ JSONL。1 行目はヘッダ。
 jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--trace t.jsonl] [--frames f.jsonl] [--debug]
 ```
 
-- `--ticks` の既定は `--input` があればそのヘッダの `ticks`、無ければ 600
+- `--ticks` の既定は `--input` があればそのヘッダの `ticks`、無ければ 600。`--seed` の既定は `--input` のヘッダの `seed`、無ければ `stage.seed`。root が `done` になったら(その tick を含めて)止める
+- 実行時エラー(§5 の `error`)は stderr に 1 行出して **exit 1**(トレース / frames はそこまでの分を書く)
 - `--trace` は §5 の行(`--debug` を暗黙に立てる)。`--frames` は `frame` 行だけを別ファイルに(トレース無しでも出せる)
 - 標準出力には最後の tick の公開 state を JSON で 1 行出す(`{"Play.score": 3, "Result.quit": true}`)
-- lupa は **`lupa.lua54`** を明示する(lupa 2.8 の既定 `LuaRuntime` は Lua 5.5.1。probe B.1)。`LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True)` で作り、`globals().python = None` と `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` への `None` 代入を**JIL を読む前**に行う(`register_eval=False` だけでは `python.builtins` が残る。probe B.2)。JIL 自体はこれらを使わない(`jil.md`)ので、封じるのは多層防御
+- lupa は **`lupa.lua54`** を明示する(lupa 2.8 の既定 `LuaRuntime` は Lua 5.5.1。probe B.1)。`LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True)` で作り、`globals().python = None` と `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` への `None` 代入を**JIL を読む前**に行う(`register_eval=False` だけでは `python.builtins` が残る。probe B.2)。JIL 自体はこれらを使わない(`jil.md`)ので、封じるのは多層防御。`string.dump` も消す
+- **命令数の上限**: `boot` と毎 `tick` の前に `debug.sethook` の count hook を掛け直す(`jin_wasm.runtime.INSTRUCTION_BUDGET` = 10^7。examples-v2 の 1 tick は 1 万命令に満たない。hook は `debug` を nil にした後も生きる・probe_lupa2.py 実測)。超えると `{code = "budget"}` がスケジューラの `pcall` に捕まり `error` 行 + `done = true` になる。`arm` はホスト(Python)だけが握り、Lua のグローバルには置かない(設計書 §11 #24)
 
 ## 9. バンドル(`jin build`・v2)
 
@@ -164,6 +171,8 @@ dist/
 ```
 
 - 任意の静的サーバで開ける。`file://` は wasm の fetch が拒まれるブラウザがあるので `--single`(wasm と JIL を base64 で `index.html` に埋める)を用意する
+- **Phase 2 の時点ではプレイヤーが無い**。`jin build` は `game.lua` / `game.manifest.json` / `assets/` を書き、プレイヤーが無いことを stderr に 1 行出す。`--single` は exit 1。Phase 4 で `apps/player` のビルド物を `jin_wasm/player/` に同梱し、3 ファイルを一緒に書く(設計書 §11 #25)
+- **asset は `.jin` の親ディレクトリの中だけ**(`Asset.path` は `Ident` なので `../x` がモデルを通る)。絶対パスと `..` を拒み、`realpath` が親の中に留まることを確かめ、リンクを辿らず、通常ファイルだけをコピーする。バンドルの `game.manifest.json` の `assets[].path` は `assets/<ファイル名>` に書き換える(同名は拒む)。書き出しは `jin_adk.build` と同じ規律(`O_EXCL` / `O_NOFOLLOW` / `dir_fd` / 一時ファイル + `os.replace`。`jin_wasm.bundle`)
 - `game.manifest.json` の `namespaces` は `.jin` が許可した名前空間の和集合。プレイヤーは**それ以外の入力を集めない**(`input` が無ければキーイベントを購読しない)。これは機能であって防御ではない(JIL に外の世界へ出る口が無いのが防御)
 
 ## 10. プレイヤーの責務(`apps/player`)

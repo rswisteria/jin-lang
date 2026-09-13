@@ -93,7 +93,7 @@ jin/
     jin-core/src/jin_core/         # v1 のモジュールは動かさない(§11 #17。全パッケージがフルパスで import している)
     jin-core/src/jin_core/v2/      # model / expr(文法・型) / spans / abilities(カタログの正本) / semantic / ops
     jin-core/src/jin_core/check.py # root_model_for が version で v1 / v2 へ振り分ける唯一の入口
-    jin-wasm/src/jin_wasm/         # codegen(v2 → JIL)/ prelude.lua / runtime(lupa)。カタログは jin_core.v2.abilities を import
+    jin-wasm/src/jin_wasm/         # jil(契約・禁止語走査)/ prelude.lua / codegen(v2 → JIL)/ runtime(lupa)/ jinrec / bundle。カタログは jin_core.v2.abilities を import
     jin-render/src/jin_render/v2/  # v2 レイアウト
   apps/
     editor/                        # 既存。実行パネル(iframe)と v2 のフォームを足す
@@ -591,6 +591,13 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 18 | `examples-v2/` の置き場(Phase 1 で確定) | **恒久的に `examples/` の外**。CI は `examples-v2` にも `check` / `fmt --check` を掛ける | `examples/` は「3 本」を等号で数える契約が複数あり、`jin-adk` / `jin-render` のテストが v1 前提で glob している |
 | 19 | ホスト能力カタログの正本(Phase 1 で確定) | `jin_core.v2.abilities`(純データ)。`schemas/abilities.json` はそこから生成し、Phase 2 の `jin_wasm` はそれを import する | `jin_core` は `jin_wasm` を import できず、インストール済みパッケージから `schemas/` も見つけられない。依存方向もこの向きが正しい |
 | 20 | 型文字列が指す型紙の未定義(Phase 1 で確定) | JIN011(参照解決の一種) | 新しい番号を切らない |
+| 21 | 依存の層(Phase 2 で確定) | `jin_wasm` は `jin_adk` / `jin_render` と 3 兄弟(layers 契約の 1 要素 `"jin_adk \| jin_render \| jin_wasm"`)。`jin_lsp` は `jin_wasm` に依存しない | v1 の `design.yaml` の 8 行は書き換えない(v1 の契約テストがそれを読む)。v2 の依存規則の正本は §1.2 |
+| 22 | `tick` の戻り値(Phase 2 で確定) | `ops` / `audio` / `trace`(デバッグのみ)/ `done` に **`error`**(実行時エラーの文)と **`public`**(公開 state の確定値)を足す | リリースビルドにはトレースが無く、`jin run` が実行時エラーの理由と最後の公開 state を返す口が他に無い。ホスト境界は `boot` / `tick` の 2 関数のまま |
+| 23 | 数値の書式(Phase 2 で確定) | Python の `repr(float)` と同じ配置(指数形は exp < -4 または exp >= 16、指数は符号付き 2 桁以上)。非整数 700 件で一致を固定 | runtime.md §6 が「JS と Python の両方と同じ」と言っていたが、両者は指数の桁数が違う。パリティは Lua 対 Lua なので影響は無い |
+| 24 | 命令数の上限(Phase 2 で確定) | `debug.sethook` の count hook で `boot` / `tick` ごとに 10^7 命令。超えたら `error` 行 + `done` | `while true` の手順で CI が止まらないための多層防御。hook は `debug` を nil にした後も生きる(実測)。Wasmoon 側は Phase 4 で同じ手口を検討 |
+| 25 | バンドルのプレイヤー(Phase 2 で確定) | Phase 2 の `jin build` は `game.lua` / `game.manifest.json` / `assets/` だけを書き、プレイヤーが無いことを stderr に出す。`--single` は exit 1 | プレイヤーは Phase 4 の成果物。Phase 4 で `apps/player` のビルド物を `jin_wasm/player/` に同梱する |
+| 26 | トレース行の積むタイミング(Phase 2 で確定) | `emit` 行は配達の tick の 1 で積む(`seq` / `tick` は配達時)。`cast` 行は呼び出しの**前**に積み、戻り値は後で埋める | 行は tick の終わりに直列化するので、前の tick に積んだ行を後から書き換えられない。`cast` を前に積むと list の効果で変わる前の引数が載り、実行時エラーの pointer がそのステップになる |
+| 27 | 生存と確定の細部(Phase 2 で確定) | `entered` 直後(`init` の値)と `done` 直後(`finish` の書き込み)にその陣の公開 state を確定する。未 `entered` の陣の state は boot で `init` 値にし 4 で確定する。委譲先が `done` になったら `idle` に戻す。休止中の陣の `wait` は再開しない。1 tick の進行は 1000 回で `error` | 同期的に `done` になる子と `exit` の組み合わせが 1 tick で無限に進むのを防ぐ。`summon` で書かれた state を他の陣が読めるようにする |
 
 ---
 
@@ -600,7 +607,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 |---|---|---|
 | 0 | `docs/spec/v2/` 8 本、`examples-v2/` 3 本(手書き)、`wasm-api-probe.md`(Wasmoon / lupa の版・API・yield 制約の実測)、`tests/spec/test_v2_spec_consistency.py`(設計書と仕様書と例の突合) | 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める。probe が §1.1 の事実を確定させる |
 | 1 | `jin_core.v2`(model / expr / spans / abilities / semantic / ops)+ `jin-v2.schema.json` / `abilities.json` の生成 + `check_text` の version 振り分け + CLI(`schema --version 2`、`build` / `run` / `render` は v2 を明示的に拒む)+ LSP は v2 の診断だけ運ぶ | v1 の全テストが緑のまま。JIN2xx と共有番号の全部に fixture。`examples-v2` が `check` / `fmt --check` を通る。32 件の ops が往復でバイト一致(**実装済み**) |
-| 2 | `jin-wasm`(codegen / prelude.lua / abilities カタログ / lupa runtime / `jin run` / `jin build` のバンドル) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑 |
+| 2 | `jin-wasm`(jil / prelude.lua / codegen / lupa runtime / jinrec / bundle / `jin run` / `jin build`) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑(**実装済み**。プレイヤーの同梱は Phase 4・§11 #25) |
 | 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ) | SVG スナップショットが安定。13 種が `paddle` で全部出る |
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る |
 | 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く |
