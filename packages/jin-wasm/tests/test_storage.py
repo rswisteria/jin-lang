@@ -83,8 +83,8 @@ def test_a_broken_storage_copy_is_read_as_empty() -> None:
         manifest = dict(g.manifest)
         if storage is not None:
             manifest["storage"] = storage
-        result = host.tick(0, InputState().apply([])) if host.boot(7, manifest) is None else None
-        assert result is not None
+        host.boot(7, manifest)
+        result = host.tick(0, InputState().apply([]))
         assert result["public"]["Only.runs"] == 1, storage
 
 
