@@ -205,6 +205,7 @@ group("Player（実行ループ・runtime.md §10）", () => {
 			seed: 9,
 			fps: 60,
 			ticks: 4,
+			storage: null,
 			events: [
 				{ tick: 1, kind: "key", name: "ArrowLeft", down: true },
 				{ tick: 3, kind: "key", name: "ArrowLeft", down: false },
@@ -261,6 +262,7 @@ group("Player（実行ループ・runtime.md §10）", () => {
 				seed: null,
 				fps: null,
 				ticks: null,
+				storage: null,
 				events: [],
 			}),
 		).toBe(600);
@@ -285,6 +287,7 @@ group("Player（実行ループ・runtime.md §10）", () => {
 				seed: null,
 				fps: null,
 				ticks: 10,
+				storage: null,
 				events: [],
 			}),
 		).toBe(2);
@@ -506,6 +509,155 @@ group("Player の差し替え（状態を保つ・設計書 §11 #42）", () => 
 		f2(1000 / 60);
 		finished.done = true;
 		expect(after.resumeFrom(finished)).toBe(false);
+	});
+
+	test("記憶: boot に写しを渡し、tick の書き込みを store と onStore に反映する。resumeFrom は引き継ぐ", () => {
+		const boots: unknown[] = [];
+		const written: { writes: unknown; store: Record<string, string> }[] = [];
+		const host = {
+			boot: (_seed: number, manifest: Manifest) => {
+				boots.push(manifest.storage);
+			},
+			tick: (t: number): TickResult => ({
+				ops: [],
+				audio: [],
+				done: false,
+				error: null,
+				public: {},
+				snapshot: { tick: t, seed: 7, seq: t, rng: "0x1", circles: [] },
+				...(t === 1
+					? { storage: [["runs", "2"] as const, ["label", "run 2"] as const] }
+					: {}),
+			}),
+			close: () => {},
+		} as unknown as JinHost;
+		const { clock, frame } = fakeClock();
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+			storage: new Map([["runs", "1"]]),
+			onStore: (writes, store) =>
+				written.push({ writes, store: Object.fromEntries(store) }),
+		});
+		player.reboot();
+		expect(boots).toEqual([{ runs: "1" }]);
+		player.start();
+		frame(17);
+		expect(written).toEqual([]);
+		frame(17); // tick 1 が書く
+		expect(Object.fromEntries(player.store)).toEqual({
+			runs: "2",
+			label: "run 2",
+		});
+		expect(written).toEqual([
+			{
+				writes: [
+					["runs", "2"],
+					["label", "run 2"],
+				],
+				store: { runs: "2", label: "run 2" },
+			},
+		]);
+		// 次の boot には更新後の写しが渡る。
+		player.reboot();
+		expect(boots.at(-1)).toEqual({ runs: "2", label: "run 2" });
+
+		// 差し替えで続けるときも前の写しを引き継ぎ、resume と一緒に boot に渡す。
+		player.start();
+		frame(17);
+		player.pause();
+		const nextBoots: Manifest[] = [];
+		const next = new Player({
+			host: {
+				boot: (_seed: number, manifest: Manifest) => {
+					nextBoots.push(manifest);
+				},
+				tick: host.tick,
+				close: () => {},
+			} as unknown as JinHost,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+		});
+		expect(next.resumeFrom(player)).toBe(true);
+		expect(nextBoots[0]?.storage).toEqual({ runs: "2", label: "run 2" });
+		expect(nextBoots[0]?.resume).toBeDefined();
+		expect(Object.fromEntries(next.store)).toEqual({
+			runs: "2",
+			label: "run 2",
+		});
+
+		// forget は空にしてホストへ知らせ、空の写しで boot し直す。
+		written.length = 0;
+		player.forget();
+		expect(player.store.size).toBe(0);
+		expect(written).toEqual([{ writes: [], store: {} }]);
+		expect(boots.at(-1)).toEqual({});
+		expect(player.tick).toBe(0);
+	});
+
+	test("再生はヘッダの写しで boot し、書き込みをスクラッチに溜めて永続化しない。次の reboot で本物に戻る", () => {
+		const boots: unknown[] = [];
+		const written: unknown[] = [];
+		const host = {
+			boot: (_seed: number, manifest: Manifest) => {
+				boots.push(manifest.storage);
+			},
+			tick: (t: number): TickResult => ({
+				ops: [],
+				audio: [],
+				done: false,
+				error: null,
+				public: {},
+				storage: [["runs", String(t + 1)]],
+			}),
+			close: () => {},
+		} as unknown as JinHost;
+		const { clock } = fakeClock();
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+			storage: new Map([["runs", "9"]]),
+			onStore: (writes) => written.push(writes),
+		});
+		player.replay({
+			file: null,
+			seed: 3,
+			fps: null,
+			ticks: 2,
+			storage: { runs: "0", label: "old" },
+			events: [],
+		});
+		expect(boots).toEqual([{ runs: "0", label: "old" }]);
+		expect(player.replaying).toBe(true);
+		expect(written).toEqual([]); // 永続化しない
+		expect(Object.fromEntries(player.store)).toEqual({ runs: "9" }); // 本物はそのまま
+		// 再生の後の 1 tick もスクラッチに書く。
+		player.step();
+		expect(written).toEqual([]);
+		expect(Object.fromEntries(player.store)).toEqual({ runs: "9" });
+		// reboot で本物に戻る（ヘッダの写しは捨てる）。
+		player.reboot();
+		expect(player.replaying).toBe(false);
+		expect(boots.at(-1)).toEqual({ runs: "9" });
+		player.step();
+		expect(written).toEqual([[["runs", "1"]]]);
+		// 録画のヘッダには録画の boot に渡した写しが載る（seed は再生で 3 になったまま）。
+		player.startRecording();
+		player.step();
+		expect(player.stopRecording()?.split("\n")[0]).toBe(
+			'{"jinrec":1,"file":"t.jin","seed":3,"fps":60,"ticks":1,"storage":{"runs":"1"}}',
+		);
 	});
 
 	test("reboot のたびに世代が進み、プレイヤーを作り直しても戻らない", () => {

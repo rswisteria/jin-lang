@@ -307,7 +307,9 @@ def test_the_replay_feeds_the_same_reducer_and_ends_paused() -> None:
     player = read(SRC / "player.ts")
     replay = player[player.index("replay(recording: Recording): number {") :]
     replay = replay[: replay.index("show(ops")]
-    assert "this.reboot(recording.seed ?? this.o.manifest.stage.seed);" in replay
+    # v2.1: ヘッダの seed と記憶の写し（スクラッチ）で boot し直す（abilities.md §8）。
+    assert "recording.seed ?? this.o.manifest.stage.seed," in replay
+    assert "new Map(Object.entries(recording.storage ?? {}))," in replay
     assert "eventsByTick(recording.events, ticks)" in replay
     assert "this.advance(perTick[t] ?? [], false);" in replay
     assert "this.running = false;" in replay
@@ -338,7 +340,7 @@ def test_the_player_keeps_state_across_a_reload_through_the_snapshot() -> None:
     player = read(SRC / "player.ts")
     resume = player[player.index("resumeFrom(previous: Player): boolean {") :]
     resume = resume[: resume.index("start(): void {")]
-    assert "this.o.host.boot(this.seed, { ...this.o.manifest, resume: snapshot });" in resume
+    assert "resume: snapshot," in resume and "storage: this.storageCopy()," in resume
     assert "this.reducer = previous.reducer;" in resume
     assert "this.recorder = null;" in resume
     assert "this.generation = previous.generation;" in resume

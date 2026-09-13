@@ -463,8 +463,8 @@ export function App({
 	);
 	const onControl = useCallback(
 		(action: PlayerControl): void => {
-			// 最初から / 録画 は `boot` し直すので、溜めた行を捨てて走らせた行を受ける。
-			if (action === "reboot" || action === "record") {
+			// 最初から / 録画 / 記憶を消す は `boot` し直すので、溜めた行を捨てて走らせた行を受ける。
+			if (action === "reboot" || action === "record" || action === "forget") {
 				traceSource.current = { kind: "live" };
 				clearTrace();
 			}

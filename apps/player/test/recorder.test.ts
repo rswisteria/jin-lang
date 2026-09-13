@@ -21,4 +21,25 @@ group("Recorder（.jinrec・runtime.md §7）", () => {
 		]);
 		expect(r.events).toBe(3);
 	});
+
+	test("記憶の写しはヘッダの最後に、非空のときだけ載る（abilities.md §8）", () => {
+		const empty = new Recorder({
+			file: "s.jin",
+			seed: 1,
+			fps: 60,
+			storage: {},
+		});
+		expect(empty.finish(2).split("\n")[0]).toBe(
+			`{"jinrec":${JINREC_VERSION},"file":"s.jin","seed":1,"fps":60,"ticks":2}`,
+		);
+		const some = new Recorder({
+			file: "s.jin",
+			seed: 1,
+			fps: 60,
+			storage: { runs: "3", label: "run 3" },
+		});
+		expect(some.finish(2).split("\n")[0]).toBe(
+			`{"jinrec":${JINREC_VERSION},"file":"s.jin","seed":1,"fps":60,"ticks":2,"storage":{"runs":"3","label":"run 3"}}`,
+		);
+	});
 });

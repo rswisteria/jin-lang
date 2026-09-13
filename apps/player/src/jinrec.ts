@@ -25,6 +25,8 @@ export interface Recording {
 	readonly seed: number | null;
 	readonly fps: number | null;
 	readonly ticks: number | null;
+	/** 録画の `boot` に渡した記憶の写し（abilities.md §8）。無ければ null（= 空）。 */
+	readonly storage: Readonly<Record<string, string>> | null;
 	readonly events: readonly RecordedEvent[];
 }
 
@@ -51,6 +53,7 @@ export function parseJinrec(text: string): JinrecResult {
 		seed: number | null;
 		fps: number | null;
 		ticks: number | null;
+		storage: Readonly<Record<string, string>> | null;
 	} | null = null;
 	const events: RecordedEvent[] = [];
 	let lastTick = -1;
@@ -92,11 +95,24 @@ export function parseJinrec(text: string): JinrecResult {
 			if (ticks !== null && ticks < 0) {
 				return fail(number, "ヘッダの ticks は 0 以上です");
 			}
+			let storage: Readonly<Record<string, string>> | null = null;
+			const rawStorage = row["storage"];
+			if (rawStorage !== undefined && rawStorage !== null) {
+				if (typeof rawStorage !== "object" || Array.isArray(rawStorage)) {
+					return fail(number, "ヘッダの storage はオブジェクトです");
+				}
+				const entries = Object.entries(rawStorage as Record<string, unknown>);
+				if (entries.some(([, v]) => typeof v !== "string")) {
+					return fail(number, "ヘッダの storage の値は文字列です");
+				}
+				storage = Object.fromEntries(entries) as Record<string, string>;
+			}
 			header = {
 				file: typeof file === "string" ? file : null,
 				seed: isInt(row["seed"]) ? row["seed"] : null,
 				fps: isInt(row["fps"]) ? row["fps"] : null,
 				ticks,
+				storage,
 			};
 			continue;
 		}

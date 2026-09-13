@@ -12,6 +12,8 @@ export interface RecordingHeader {
 	readonly file: string;
 	readonly seed: number;
 	readonly fps: number;
+	/** 録画の `boot` に渡した記憶の写し（abilities.md §8）。空なら書かない。 */
+	readonly storage?: Readonly<Record<string, string>>;
 }
 
 export class Recorder {
@@ -32,14 +34,18 @@ export class Recorder {
 		return this.count;
 	}
 
-	/** ヘッダ + 本文。`ticks` は `tick(0..ticks-1)` を呼んだ数。 */
+	/** ヘッダ + 本文。`ticks` は `tick(0..ticks-1)` を呼んだ数。`storage` は非空のときだけ最後に。 */
 	finish(ticks: number): string {
+		const storage = this.header.storage;
 		const head = JSON.stringify({
 			jinrec: JINREC_VERSION,
 			file: this.header.file,
 			seed: this.header.seed,
 			fps: this.header.fps,
 			ticks,
+			...(storage !== undefined && Object.keys(storage).length > 0
+				? { storage }
+				: {}),
 		});
 		return [head, ...this.lines].join("\n") + "\n";
 	}

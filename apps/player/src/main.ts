@@ -14,6 +14,9 @@
  *   （トレースは `jin.trace` で 1 回にまとめて流す）、`{ type: "jin.frame", ops }` でスクラブ中の
  *   画面（トレースの `frame` 行の表示リスト）を描く。状態が変わるたびに `{ type: "jin.status", … }`、
  *   録画を止めたら `{ type: "jin.recording", text, seed, ticks }` を親へ送る
+ * - 記憶（`storage`・abilities.md §8）: `localStorage` の `jin.storage:<manifest.file>` に JSON の object で持つ。
+ *   `boot` のたびに写しを `manifest.storage` へ渡し、tick の書き込みが来るたびに丸ごと書き戻す。
+ *   埋め込み（エディタ）でも `--single` でも同じ規則（オリジンは違うので混ざらない）。「記憶を消す」で空にして最初から
  * - `window.__jinPlayer`: パリティ e2e が使う操作口（UI と同じ関数を呼ぶだけ）
  */
 import { KEY_NAMES, subscriptions } from "./abilities";
@@ -50,6 +53,10 @@ export interface PlayerApi {
 	load(jil: string, manifest: Manifest, keep?: boolean): Promise<void>;
 	/** 直近の差し替えの復元の知らせ（差し替え後の最初の tick で決まる。最初からなら null）。 */
 	lastResume(): ResumeNote | null;
+	/** 記憶（`storage`）の今の内容。再生中はスクラッチ（永続化されない側）ではなく本物。 */
+	storage(): Readonly<Record<string, string>>;
+	/** 記憶を空にして最初から（止めたまま）。 */
+	forget(): void;
 	/** boot し直すたびに増える世代（差し替えで続けたときは変わらない）。 */
 	generation(): number;
 	/** `.jinrec` のテキストを最初から再生する（止まったまま終わる）。 */
@@ -90,6 +97,43 @@ function byId<T extends HTMLElement>(id: string): T {
 
 /** iframe の中で動いているか（Jin v2 のエディタの実行パネル）。 */
 const EMBEDDED = window.parent !== window;
+
+/** 記憶（`storage`）を置く `localStorage` の鍵。ゲーム（`manifest.file`）ごとに分ける。 */
+function storageKeyOf(file: string): string {
+	return `jin.storage:${file}`;
+}
+
+/** `localStorage` から記憶を読む。無い・読めない・形が合わないときは空（落とさない）。 */
+function loadStore(file: string): Map<string, string> {
+	const store = new Map<string, string>();
+	try {
+		const raw = window.localStorage.getItem(storageKeyOf(file));
+		if (raw === null) return store;
+		const value: unknown = JSON.parse(raw);
+		if (value === null || typeof value !== "object" || Array.isArray(value))
+			return store;
+		for (const [key, item] of Object.entries(
+			value as Record<string, unknown>,
+		)) {
+			if (typeof item === "string") store.set(key, item);
+		}
+	} catch {
+		// 私的モードや容量超過で localStorage が使えないときは記憶無しで動く
+	}
+	return store;
+}
+
+/** 記憶を丸ごと `localStorage` へ書く（書けなくても落とさない）。 */
+function saveStore(file: string, store: ReadonlyMap<string, string>): void {
+	try {
+		window.localStorage.setItem(
+			storageKeyOf(file),
+			JSON.stringify(Object.fromEntries(store)),
+		);
+	} catch {
+		// 書けないときはこの実行の間だけ覚えている（Player の store が正）
+	}
+}
 
 /** `wasmoon.wasm` の場所。`--single` は `data:`、それ以外はページからの相対（fetch は要らない）。 */
 function wasmUriOf(): string {
@@ -189,6 +233,7 @@ async function main(): Promise<void> {
 	const rebootButton = byId<HTMLButtonElement>("reboot");
 	const recordButton = byId<HTMLButtonElement>("record");
 	const exportButton = byId<HTMLButtonElement>("export");
+	const forgetButton = byId<HTMLButtonElement>("forget");
 	const status = byId<HTMLSpanElement>("status");
 	const errorBox = byId<HTMLPreElement>("error");
 	const canvas = byId<HTMLCanvasElement>("stage");
@@ -300,6 +345,9 @@ async function main(): Promise<void> {
 			onResume: (note) => {
 				notice = resumeNotice(note);
 			},
+			// 記憶: 新しいプレイヤーは localStorage から読む（差し替えで続けるときは resumeFrom が前の写しで上書きする）。
+			storage: loadStore(source.manifest.file),
+			onStore: (_writes, store) => saveStore(source.manifest.file, store),
 		});
 		player = current;
 		// 前のホストは新しいプレイヤーが（差し替えなら snapshot を渡して）boot した後に閉じる。
@@ -361,6 +409,12 @@ async function main(): Promise<void> {
 		a.click();
 		setTimeout(() => URL.revokeObjectURL(url), 1000);
 	});
+	forgetButton.addEventListener("click", () => {
+		if (player === null) return;
+		player.forget();
+		player.start();
+		canvas.focus();
+	});
 	window.addEventListener("resize", () => {
 		if (player !== null) fitCanvas(canvas, canvas.width, canvas.height);
 	});
@@ -400,6 +454,11 @@ async function main(): Promise<void> {
 					player.seed = data.seed;
 				player.startRecording();
 				player.start();
+			}
+			// 記憶を消して最初から（親の「最初から」と同じく止めたまま）。
+			else if (data.action === "forget") {
+				player.forget();
+				notice = "記憶を消しました";
 			}
 			// 録画を止めて `.jinrec` の文字列を親へ返す（書き出しは親が行う）。
 			else if (data.action === "stop") {
@@ -474,6 +533,8 @@ async function main(): Promise<void> {
 			return next;
 		},
 		lastResume: () => player?.lastResume ?? null,
+		storage: () => Object.fromEntries(player?.store ?? []),
+		forget: () => player?.forget(),
 		generation: () => player?.generation ?? 0,
 		replay: (text) => {
 			if (player === null)

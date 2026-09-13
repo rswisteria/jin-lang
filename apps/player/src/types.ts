@@ -30,7 +30,15 @@ export interface Manifest {
 	 * 陣を名前で照合して状態を続ける。`game.manifest.json` には無く、プレイヤーが差し替えのときにだけ足す。
 	 */
 	readonly resume?: Snapshot;
+	/**
+	 * 記憶（`storage`・abilities.md §8・v2.1）: ホストが持つ内容の写し。`boot` のたびにプレイヤーが足す
+	 * （`game.manifest.json` には無い）。鍵も値も文字列。
+	 */
+	readonly storage?: Readonly<Record<string, string>>;
 }
+
+/** 記憶への 1 件の書き込み `[key, val]`（`tick` の戻り値の `storage`・abilities.md §8）。 */
+export type StorageWrite = readonly [string, string];
 
 /**
  * DEBUG の `tick` 結果に載る、次の `boot` の `manifest.resume` へ**そのまま**渡す状態（runtime.md §1）。
@@ -94,6 +102,8 @@ export interface TickResult {
 	readonly done: boolean;
 	readonly error: string | null;
 	readonly public: Readonly<Record<string, unknown>>;
+	/** この tick の記憶への書き込み（あった tick だけ。release でも出る。abilities.md §8）。 */
+	readonly storage?: readonly StorageWrite[];
 	/** DEBUG だけ。次の `boot` に渡せば状態が続く（差し替え）。 */
 	readonly snapshot?: Snapshot;
 	/** DEBUG だけ。`manifest.resume` 付きで boot した直後の 1 回だけ。 */
