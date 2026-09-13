@@ -20,7 +20,28 @@ export const JIN_KINDS = [
   "delegate",
 ] as const;
 
-export type JinKind = (typeof JIN_KINDS)[number];
+/**
+ * Jin v2 の `data-jin-kind` 13 種（`jin_render.DATA_JIN_KINDS_V2` / `docs/spec/v2/layout.md` §4）。
+ * v1 の 9 種とは**別集合**で、v1 側には触れない（`circle` / `core` / `state` / `guard` /
+ * `delegate` / `flow-edge` は名前が同じでも pointer の形が違う）。
+ */
+export const JIN_KINDS_V2 = [
+  "stage",
+  "form",
+  "circle",
+  "core",
+  "rite",
+  "sigil",
+  "state",
+  "on",
+  "guard",
+  "delegate",
+  "flow-edge",
+  "step",
+  "step-edge",
+] as const;
+
+export type JinKind = (typeof JIN_KINDS)[number] | (typeof JIN_KINDS_V2)[number];
 
 export interface JinTarget {
   readonly pointer: string;
@@ -30,9 +51,14 @@ export interface JinTarget {
 }
 
 function kindOf(element: Element): JinKind | null {
-  const value = element.getAttribute("data-jin-kind");
-  return (JIN_KINDS as readonly string[]).includes(value ?? "") ? (value as JinKind) : null;
+  const value = element.getAttribute("data-jin-kind") ?? "";
+  if ((JIN_KINDS as readonly string[]).includes(value)) return value as JinKind;
+  if ((JIN_KINDS_V2 as readonly string[]).includes(value)) return value as JinKind;
+  return null;
 }
+
+/** ドラッグで並べ替えられる種別（v1 の紋 → `moveTool`、v2 の道具 → `moveSigil`、ステップ → `moveStep`）。 */
+export const DRAGGABLE_KINDS: readonly JinKind[] = ["tool", "sigil", "step"];
 
 /** クリックされた要素から、最も近い `data-jin` 付きの祖先を探す。 */
 export function targetOf(element: Element | null): JinTarget | null {

@@ -9,6 +9,8 @@ import {
   type JinOpsResult,
   type JinRenderSvgResult,
   type JinSaveResult,
+  type LspCompletionItem,
+  type LspPosition,
 } from "./protocol";
 
 /**
@@ -24,6 +26,11 @@ export interface JinApi {
   renderSvg(uri: string, options?: RenderOptions): Promise<JinRenderSvgResult>;
   ops(): Promise<JinOpsResult>;
   applyOps(uri: string, ops: readonly JinOp[]): Promise<JinApplyOpsResult>;
+  /**
+   * LSP **標準**の `textDocument/completion`（`jin/…` は 6 種のまま増えない）。
+   * v2 の式エディタが候補を得るのに使う（設計書 §8「補完候補は LSP の completion をそのまま使う」）。
+   */
+  complete(uri: string, position: LspPosition): Promise<readonly LspCompletionItem[]>;
   onDiagnostics(handler: (uri: string, diagnostics: readonly JinDiagnostic[]) => void): void;
   dispose(): void;
 }
@@ -50,6 +57,14 @@ export function createJinApi(client: RpcClient, token: string): JinApi {
     renderSvg: (uri, options) => client.request(JIN_METHOD.renderSvg, { uri, ...options }),
     ops: () => client.request(JIN_METHOD.ops, {}),
     applyOps: (uri, ops) => client.request(JIN_METHOD.applyOps, { uri, ops }),
+    complete: async (uri, position) => {
+      const result = await client.request<
+        { textDocument: { uri: string }; position: LspPosition },
+        readonly LspCompletionItem[] | { items: readonly LspCompletionItem[] } | null
+      >("textDocument/completion", { textDocument: { uri }, position });
+      if (result === null) return [];
+      return Array.isArray(result) ? result : (result as { items: readonly LspCompletionItem[] }).items;
+    },
     onDiagnostics: (handler) => {
       client.onNotification<{ uri: string; diagnostics: readonly JinDiagnostic[] }>(
         "textDocument/publishDiagnostics",

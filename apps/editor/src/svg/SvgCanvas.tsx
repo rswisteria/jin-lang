@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import type { JinDiagnostic } from "../rpc/protocol";
-import { elementsFor, type JinTarget, targetOf } from "./hitTest";
+import { DRAGGABLE_KINDS, elementsFor, type JinTarget, targetOf } from "./hitTest";
 
 /**
  * `jin/renderSvg` が返した SVG をそのまま埋める（要件書 §7.1）。
@@ -90,14 +90,18 @@ export function SvgCanvas(props: SvgCanvasProps): React.JSX.Element {
       }}
       onPointerDown={(event) => {
         const target = targetOf(event.target as Element);
-        dragging.current = target !== null && target.kind === "tool" ? target : null;
+        dragging.current =
+          target !== null && target.kind !== null && DRAGGABLE_KINDS.includes(target.kind)
+            ? target
+            : null;
       }}
       onPointerUp={(event) => {
         const from = dragging.current;
         dragging.current = null;
         if (from === null) return;
         const to = targetOf(event.target as Element);
-        if (to !== null && to.kind === "tool" && to.pointer !== from.pointer) {
+        // 同じ種別の上に落としたときだけ並べ替える（紋 → 紋、ステップ → ステップ）。
+        if (to !== null && to.kind === from.kind && to.pointer !== from.pointer) {
           props.onMove(from, to);
         }
       }}

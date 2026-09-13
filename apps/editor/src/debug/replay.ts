@@ -80,6 +80,23 @@ export function appendRow(
 	return { name, events, upto: maxSeq(events) };
 }
 
+/**
+ * 実行パネル（Jin v2）から **tick ごとに配列で**届く行をまとめて足す。
+ * `appendRow` を行ごとに呼ぶと配列の複製が行数の 2 乗になる（60 tick/s × 十数行）。
+ */
+export function appendRows(
+	current: Replay | null,
+	rows: readonly TraceRow[],
+	name: string,
+): Replay {
+	const base = current?.events.length ?? 0;
+	const events: TraceEvent[] = [
+		...(current?.events ?? []),
+		...rows.map((row, offset) => ({ line: base + offset + 1, row })),
+	];
+	return { name, events, upto: maxSeq(events) };
+}
+
 function messageOf(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
