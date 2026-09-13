@@ -159,10 +159,10 @@ circle は v1 と同じ 2 種。**核あり**(`core` を持つ → 実行単位)
 
 ```json
 {
-  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
   "version": 2,
   "root": "Game",
-  "stage": { "width": 320, "height": 180, "fps": 60, "seed": 7 },
+  "stage": { "width": 320, "height": 180, "seed": 7 },
   "forms": [
     { "name": "Ball", "fields": [
       { "name": "x", "type": "num" }, { "name": "y", "type": "num" },

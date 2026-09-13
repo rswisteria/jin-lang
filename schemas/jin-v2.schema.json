@@ -1,0 +1,1164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "$defs": {
+    "Asset": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "sprite",
+            "sound"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 128,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "path"
+      ],
+      "title": "Asset",
+      "type": "object"
+    },
+    "Boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "items": {
+            "$ref": "#/$defs/OnHandler"
+          },
+          "title": "On",
+          "type": "array"
+        },
+        "guards": {
+          "items": {
+            "$ref": "#/$defs/Guard"
+          },
+          "title": "Guards",
+          "type": "array"
+        }
+      },
+      "title": "Boundary",
+      "type": "object"
+    },
+    "BreakStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "break",
+          "title": "Do",
+          "type": "string"
+        }
+      },
+      "required": [
+        "do"
+      ],
+      "title": "BreakStep",
+      "type": "object"
+    },
+    "CastStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "cast",
+          "title": "Do",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 65536,
+          "title": "Target",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "maxLength": 65536,
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "array"
+        },
+        "into": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Into"
+        }
+      },
+      "required": [
+        "do",
+        "target"
+      ],
+      "title": "CastStep",
+      "type": "object"
+    },
+    "Circle": {
+      "additionalProperties": false,
+      "description": "陣。核あり（core）と核なし（flow）の 2 種類がある（JIN022 は段 3）。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "core": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Core"
+        },
+        "flow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Flow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "state": {
+          "items": {
+            "$ref": "#/$defs/State"
+          },
+          "title": "State",
+          "type": "array"
+        },
+        "sigils": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "host": "#/$defs/SigilHost",
+                "summon": "#/$defs/SigilSummon"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SigilHost"
+              },
+              {
+                "$ref": "#/$defs/SigilSummon"
+              }
+            ]
+          },
+          "title": "Sigils",
+          "type": "array"
+        },
+        "rites": {
+          "items": {
+            "$ref": "#/$defs/Rite"
+          },
+          "title": "Rites",
+          "type": "array"
+        },
+        "boundary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Boundary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "delegate": {
+          "items": {
+            "maxLength": 128,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Delegate",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Circle",
+      "type": "object"
+    },
+    "EmitStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "emit",
+          "title": "Do",
+          "type": "string"
+        },
+        "circle": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Circle",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Message",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "maxLength": 65536,
+            "type": "string"
+          },
+          "title": "Args",
+          "type": "array"
+        }
+      },
+      "required": [
+        "do",
+        "circle",
+        "message"
+      ],
+      "title": "EmitStep",
+      "type": "object"
+    },
+    "FinishStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "finish",
+          "title": "Do",
+          "type": "string"
+        }
+      },
+      "required": [
+        "do"
+      ],
+      "title": "FinishStep",
+      "type": "object"
+    },
+    "Flow": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "sequence",
+            "parallel",
+            "loop"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "maxLength": 128,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit"
+        }
+      },
+      "required": [
+        "kind",
+        "steps"
+      ],
+      "title": "Flow",
+      "type": "object"
+    },
+    "Form": {
+      "additionalProperties": false,
+      "description": "型紙（model.md §2）。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FormField"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "fields"
+      ],
+      "title": "Form",
+      "type": "object"
+    },
+    "FormField": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 128,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "FormField",
+      "type": "object"
+    },
+    "Guard": {
+      "additionalProperties": false,
+      "properties": {
+        "assert": {
+          "maxLength": 65536,
+          "title": "Assert",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "assert"
+      ],
+      "title": "Guard",
+      "type": "object"
+    },
+    "IfStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "if",
+          "title": "Do",
+          "type": "string"
+        },
+        "cond": {
+          "maxLength": 65536,
+          "title": "Cond",
+          "type": "string"
+        },
+        "then": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "break": "#/$defs/BreakStep",
+                "cast": "#/$defs/CastStep",
+                "emit": "#/$defs/EmitStep",
+                "finish": "#/$defs/FinishStep",
+                "if": "#/$defs/IfStep",
+                "let": "#/$defs/LetStep",
+                "loop": "#/$defs/LoopStep",
+                "return": "#/$defs/ReturnStep",
+                "set": "#/$defs/SetStep",
+                "transfer": "#/$defs/TransferStep",
+                "wait": "#/$defs/WaitStep"
+              },
+              "propertyName": "do"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetStep"
+              },
+              {
+                "$ref": "#/$defs/LetStep"
+              },
+              {
+                "$ref": "#/$defs/CastStep"
+              },
+              {
+                "$ref": "#/$defs/IfStep"
+              },
+              {
+                "$ref": "#/$defs/LoopStep"
+              },
+              {
+                "$ref": "#/$defs/BreakStep"
+              },
+              {
+                "$ref": "#/$defs/WaitStep"
+              },
+              {
+                "$ref": "#/$defs/EmitStep"
+              },
+              {
+                "$ref": "#/$defs/ReturnStep"
+              },
+              {
+                "$ref": "#/$defs/FinishStep"
+              },
+              {
+                "$ref": "#/$defs/TransferStep"
+              }
+            ]
+          },
+          "title": "Then",
+          "type": "array"
+        },
+        "else": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "break": "#/$defs/BreakStep",
+                "cast": "#/$defs/CastStep",
+                "emit": "#/$defs/EmitStep",
+                "finish": "#/$defs/FinishStep",
+                "if": "#/$defs/IfStep",
+                "let": "#/$defs/LetStep",
+                "loop": "#/$defs/LoopStep",
+                "return": "#/$defs/ReturnStep",
+                "set": "#/$defs/SetStep",
+                "transfer": "#/$defs/TransferStep",
+                "wait": "#/$defs/WaitStep"
+              },
+              "propertyName": "do"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetStep"
+              },
+              {
+                "$ref": "#/$defs/LetStep"
+              },
+              {
+                "$ref": "#/$defs/CastStep"
+              },
+              {
+                "$ref": "#/$defs/IfStep"
+              },
+              {
+                "$ref": "#/$defs/LoopStep"
+              },
+              {
+                "$ref": "#/$defs/BreakStep"
+              },
+              {
+                "$ref": "#/$defs/WaitStep"
+              },
+              {
+                "$ref": "#/$defs/EmitStep"
+              },
+              {
+                "$ref": "#/$defs/ReturnStep"
+              },
+              {
+                "$ref": "#/$defs/FinishStep"
+              },
+              {
+                "$ref": "#/$defs/TransferStep"
+              }
+            ]
+          },
+          "title": "Else",
+          "type": "array"
+        }
+      },
+      "required": [
+        "do",
+        "cond",
+        "then"
+      ],
+      "title": "IfStep",
+      "type": "object"
+    },
+    "LetStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "let",
+          "title": "Do",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "expr": {
+          "maxLength": 65536,
+          "title": "Expr",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "required": [
+        "do",
+        "name",
+        "expr"
+      ],
+      "title": "LetStep",
+      "type": "object"
+    },
+    "LoopStep": {
+      "additionalProperties": false,
+      "description": "`kind` ごとに許すキーが違う（model.md §3.4）。違反は段 2（JIN002）で落とす。",
+      "properties": {
+        "do": {
+          "const": "loop",
+          "title": "Do",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "each",
+            "while",
+            "count"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "in": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In"
+        },
+        "cond": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cond"
+        },
+        "times": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Times"
+        },
+        "steps": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "break": "#/$defs/BreakStep",
+                "cast": "#/$defs/CastStep",
+                "emit": "#/$defs/EmitStep",
+                "finish": "#/$defs/FinishStep",
+                "if": "#/$defs/IfStep",
+                "let": "#/$defs/LetStep",
+                "loop": "#/$defs/LoopStep",
+                "return": "#/$defs/ReturnStep",
+                "set": "#/$defs/SetStep",
+                "transfer": "#/$defs/TransferStep",
+                "wait": "#/$defs/WaitStep"
+              },
+              "propertyName": "do"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetStep"
+              },
+              {
+                "$ref": "#/$defs/LetStep"
+              },
+              {
+                "$ref": "#/$defs/CastStep"
+              },
+              {
+                "$ref": "#/$defs/IfStep"
+              },
+              {
+                "$ref": "#/$defs/LoopStep"
+              },
+              {
+                "$ref": "#/$defs/BreakStep"
+              },
+              {
+                "$ref": "#/$defs/WaitStep"
+              },
+              {
+                "$ref": "#/$defs/EmitStep"
+              },
+              {
+                "$ref": "#/$defs/ReturnStep"
+              },
+              {
+                "$ref": "#/$defs/FinishStep"
+              },
+              {
+                "$ref": "#/$defs/TransferStep"
+              }
+            ]
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "do",
+        "kind",
+        "steps"
+      ],
+      "title": "LoopStep",
+      "type": "object"
+    },
+    "OnHandler": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "enum": [
+            "tick",
+            "key",
+            "pointer",
+            "message",
+            "exit"
+          ],
+          "title": "Event",
+          "type": "string"
+        },
+        "rite": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Rite",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event",
+        "rite"
+      ],
+      "title": "OnHandler",
+      "type": "object"
+    },
+    "Param": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 128,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "Param",
+      "type": "object"
+    },
+    "ReturnStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "return",
+          "title": "Do",
+          "type": "string"
+        },
+        "expr": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expr"
+        }
+      },
+      "required": [
+        "do"
+      ],
+      "title": "ReturnStep",
+      "type": "object"
+    },
+    "Rite": {
+      "additionalProperties": false,
+      "description": "手順（model.md §3.3）。ステップ数の上限（12）は段 3（JIN210）で見る。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/Param"
+          },
+          "title": "Params",
+          "type": "array"
+        },
+        "returns": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returns"
+        },
+        "steps": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "break": "#/$defs/BreakStep",
+                "cast": "#/$defs/CastStep",
+                "emit": "#/$defs/EmitStep",
+                "finish": "#/$defs/FinishStep",
+                "if": "#/$defs/IfStep",
+                "let": "#/$defs/LetStep",
+                "loop": "#/$defs/LoopStep",
+                "return": "#/$defs/ReturnStep",
+                "set": "#/$defs/SetStep",
+                "transfer": "#/$defs/TransferStep",
+                "wait": "#/$defs/WaitStep"
+              },
+              "propertyName": "do"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetStep"
+              },
+              {
+                "$ref": "#/$defs/LetStep"
+              },
+              {
+                "$ref": "#/$defs/CastStep"
+              },
+              {
+                "$ref": "#/$defs/IfStep"
+              },
+              {
+                "$ref": "#/$defs/LoopStep"
+              },
+              {
+                "$ref": "#/$defs/BreakStep"
+              },
+              {
+                "$ref": "#/$defs/WaitStep"
+              },
+              {
+                "$ref": "#/$defs/EmitStep"
+              },
+              {
+                "$ref": "#/$defs/ReturnStep"
+              },
+              {
+                "$ref": "#/$defs/FinishStep"
+              },
+              {
+                "$ref": "#/$defs/TransferStep"
+              }
+            ]
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "steps"
+      ],
+      "title": "Rite",
+      "type": "object"
+    },
+    "SetStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "set",
+          "title": "Do",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 65536,
+          "title": "Target",
+          "type": "string"
+        },
+        "expr": {
+          "maxLength": 65536,
+          "title": "Expr",
+          "type": "string"
+        }
+      },
+      "required": [
+        "do",
+        "target",
+        "expr"
+      ],
+      "title": "SetStep",
+      "type": "object"
+    },
+    "SigilHost": {
+      "additionalProperties": false,
+      "description": "kind: host → ホスト能力の名前空間を許可する（abilities.md）。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "host",
+          "title": "Kind",
+          "type": "string"
+        },
+        "host": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Host",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "host"
+      ],
+      "title": "SigilHost",
+      "type": "object"
+    },
+    "SigilSummon": {
+      "additionalProperties": false,
+      "description": "kind: summon → 他の陣の手順の同期呼び出し。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "summon",
+          "title": "Kind",
+          "type": "string"
+        },
+        "circle": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Circle",
+          "type": "string"
+        },
+        "rite": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Rite",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "circle",
+        "rite"
+      ],
+      "title": "SigilSummon",
+      "type": "object"
+    },
+    "Stage": {
+      "additionalProperties": false,
+      "description": "舞台（model.md §1）。数値は整数値（`60.0` は正準形でなくスキーマ違反）。",
+      "properties": {
+        "width": {
+          "maximum": 1024,
+          "minimum": 16,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "maximum": 1024,
+          "minimum": 16,
+          "title": "Height",
+          "type": "integer"
+        },
+        "fps": {
+          "default": 60,
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Fps",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 0,
+          "maximum": 4294967295,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "title": "Assets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "Stage",
+      "type": "object"
+    },
+    "State": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 128,
+          "title": "Type",
+          "type": "string"
+        },
+        "init": {
+          "maxLength": 65536,
+          "title": "Init",
+          "type": "string"
+        },
+        "out": {
+          "default": false,
+          "title": "Out",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "init"
+      ],
+      "title": "State",
+      "type": "object"
+    },
+    "TransferStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "transfer",
+          "title": "Do",
+          "type": "string"
+        },
+        "circle": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Circle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "do",
+        "circle"
+      ],
+      "title": "TransferStep",
+      "type": "object"
+    },
+    "WaitStep": {
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "const": "wait",
+          "title": "Do",
+          "type": "string"
+        },
+        "ticks": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ticks"
+        },
+        "until": {
+          "anyOf": [
+            {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Until"
+        }
+      },
+      "required": [
+        "do"
+      ],
+      "title": "WaitStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`.jin`（version 2）1 本に対応するルートモデル。",
+  "properties": {
+    "$schema": {
+      "maxLength": 2048,
+      "title": "$Schema",
+      "type": "string"
+    },
+    "version": {
+      "const": 2,
+      "title": "Version",
+      "type": "integer"
+    },
+    "root": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "title": "Root",
+      "type": "string"
+    },
+    "stage": {
+      "$ref": "#/$defs/Stage"
+    },
+    "forms": {
+      "items": {
+        "$ref": "#/$defs/Form"
+      },
+      "title": "Forms",
+      "type": "array"
+    },
+    "circles": {
+      "items": {
+        "$ref": "#/$defs/Circle"
+      },
+      "minItems": 1,
+      "title": "Circles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "$schema",
+    "version",
+    "root",
+    "stage",
+    "circles"
+  ],
+  "title": "JinFileV2",
+  "type": "object"
+}

@@ -87,6 +87,39 @@ CANONICAL_CODES: dict[str, Severity] = {
     "JIN070": "warning",
 }
 
+#: v2 固有のコード（docs/spec/v2/diagnostics.md §1 の 14 件）。`CANONICAL_CODES` とは別の表で、
+#: v1 の「診断コードを増やさない」契約（要件書 §2.4 との等号）に触れない。
+#: 一致は tests/spec/test_v2_spec_consistency.py が機械で検査する。
+V2_CODES: dict[str, Severity] = {
+    "JIN201": "error",
+    "JIN202": "error",
+    "JIN203": "error",
+    "JIN204": "error",
+    "JIN205": "error",
+    "JIN210": "error",
+    "JIN211": "error",
+    "JIN212": "error",
+    "JIN213": "error",
+    "JIN220": "error",
+    "JIN221": "error",
+    "JIN230": "error",
+    "JIN240": "warning",
+    "JIN250": "error",
+}
+
+#: v2 が v1 と共有する番号（docs/spec/v2/diagnostics.md §0）。意味が同じものだけ。
+V2_SHARED_CODES: tuple[str, ...] = (
+    "JIN001",
+    "JIN002",
+    "JIN010",
+    "JIN011",
+    "JIN012",
+    "JIN013",
+    "JIN020",
+    "JIN022",
+    "JIN060",
+)
+
 #: 要素数の上限（JIN020）。要件書 §2.4「tools または state が 12 を超えた」。
 MAX_ELEMENTS = 12
 
@@ -94,6 +127,10 @@ MAX_ELEMENTS = 12
 def severity_of(code: str) -> Severity:
     try:
         return CANONICAL_CODES[code]
+    except KeyError:
+        pass
+    try:
+        return V2_CODES[code]
     except KeyError as exc:  # pragma: no cover - 実装ミスの早期検出用
         raise KeyError(f"未知の診断コードです: {code}") from exc
 
@@ -105,6 +142,8 @@ def has_error(diagnostics: list[Diagnostic]) -> bool:
 __all__ = [
     "CANONICAL_CODES",
     "MAX_ELEMENTS",
+    "V2_CODES",
+    "V2_SHARED_CODES",
     "Diagnostic",
     "Position",
     "Range",
