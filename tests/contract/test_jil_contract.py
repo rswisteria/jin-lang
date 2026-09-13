@@ -13,7 +13,13 @@ from pathlib import Path
 import pytest
 from jin_core.check import check_file
 from jin_wasm.codegen import generate
-from jin_wasm.jil import HOST_ENTRY_POINTS, JIL_VERSION, forbidden_uses, strip_comments_and_strings
+from jin_wasm.jil import (
+    HOST_ENTRY_POINTS,
+    HOST_HOOK_GLOBALS,
+    JIL_VERSION,
+    forbidden_uses,
+    strip_comments_and_strings,
+)
 from jin_wasm.prelude import prelude_source
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -78,6 +84,28 @@ def test_only_boot_and_tick_are_global(path: Path) -> None:
         )
         for line_assign in re.findall(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=[^=]", prelude, re.MULTILINE):
             assert line_assign in declared, line_assign
+
+
+def test_the_prelude_reads_only_the_two_host_hook_globals() -> None:
+    """runtime.md §8: プレリュードが読むホスト提供のグローバルは `JIN_ARM` / `JIN_HOOK` だけ。
+
+    読み込み時に `local` へ捕まえる（ホストは読んだ後に消す）。`JIN_` で始まる名前が他に
+    現れないこと、捕まえた局所を `boot` / `tick` の先頭と `coroutine.resume` の前で呼ぶことを見る。
+    """
+    prelude = strip_comments_and_strings(prelude_source())
+    captured = re.findall(
+        r"^local\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(JIN_[A-Za-z0-9_]*)", prelude, re.MULTILINE
+    )
+    assert [g for _, g in captured] == list(HOST_HOOK_GLOBALS), captured
+    assert sorted(set(re.findall(r"\bJIN_[A-Za-z0-9_]*", prelude))) == sorted(HOST_HOOK_GLOBALS)
+    arm, hook = (name for name, _ in captured)
+    for entry in HOST_ENTRY_POINTS:
+        body = prelude.split(f"\nfunction {entry}(", 1)[1]
+        assert body.lstrip().split("\n", 2)[1].strip() == f"if {arm} then {arm}() end", entry
+    resumes = [m.start() for m in re.finditer(r"coroutine\.resume\(", prelude)]
+    assert len(resumes) == 1, "coroutine.resume は resume() の 1 か所だけ（jil.md §2）"
+    before = prelude[: resumes[0]].rsplit("\n", 2)[-2].strip()
+    assert before == f"if {hook} then {hook}(co) end", before
 
 
 @pytest.mark.parametrize("path", SOURCES, ids=IDS)

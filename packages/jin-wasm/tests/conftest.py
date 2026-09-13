@@ -28,8 +28,7 @@ EXPOSED = (
 
 def prelude_internals() -> Any:
     """プレリュード + `return { NUMSTR = NUMSTR, … }` を読んだ Lua テーブル。"""
-    runtime, arm = sandboxed_runtime()
-    arm(10_000_000)
+    runtime = sandboxed_runtime()
     tail = "return { " + ", ".join(f"{n} = {n}" for n in EXPOSED) + " }\n"
     return runtime.execute(prelude_source() + tail), runtime
 

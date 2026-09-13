@@ -157,6 +157,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
   `register_builtins=False` + `python` テーブルと `load` / `os` / `io` / `debug` … を nil にしてから JIL を読む。
   命令数の上限（`INSTRUCTION_BUDGET` = 10^7 / boot と tick ごと）は `debug.sethook` の count hook。
+  **Lua の hook はスレッドごと**なので、ホストは JIL を読む前に `JIN_ARM()` / `JIN_HOOK(co)` の 2 つの
+  グローバルを置き（読んだ後に消す）、プレリュードが `boot` / `tick` の先頭と毎 `coroutine.resume` の前に
+  呼ぶ（Phase 4 で確定。`wait` を含む手順の無限ループはこれが無いと止まらない・設計書 §11 #32）。
   ホストが呼ぶ Lua の関数は `boot` / `tick` の 2 つだけで、戻り値は JSON 文字列 1 本（Lua のテーブルは境界を越えない）
 - **数値の書式は Python の `repr(float)` と同じ配置**（runtime.md §6・設計書 §11 #23）。トレース・表示リスト・
   `str()` の 3 つが同じ規則。`test_prelude.py` が非整数 700 件で固定する

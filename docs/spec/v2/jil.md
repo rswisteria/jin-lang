@@ -38,6 +38,7 @@ return { boot = boot, tick = tick }
 - 例外は `error({code = "...", message = "..."})` の形。`pcall` は**スケジューラの 1 か所**(`protected`。boot と tick の両方が通る)だけ。生成部は `pcall` しない。スタック溢れは Lua が文字列で投げるので受けは `type(e) == "table"` で分岐する
 - 可変長引数 `...` と `select` を使わない(全関数の引数の数は静的に決まる)
 - グローバルは `boot` / `tick` の 2 つだけ(プレリュードは `local` に閉じ、生成部も `local`)。走査は `_ENV` への代入が無いことを見る
+- プレリュードが**読む**ホスト提供のグローバルは `JIN_ARM` / `JIN_HOOK` の 2 つだけ(runtime.md §8 の命令数の上限。読み込み時に `local` へ捕まえ、ホストは JIL を読んだ後に消す。無ければ何もしない)。生成部は読まない。走査(`tests/contract/test_jil_contract.py`)は `JIN_` で始まる名前がこの 2 つ以外に無いことと、`boot` / `tick` の先頭と `coroutine.resume` の前で呼ぶことを見る
 
 ## 3. 名前の写像
 

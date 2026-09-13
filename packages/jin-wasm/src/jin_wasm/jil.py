@@ -84,6 +84,12 @@ TRACE_FIELDS: tuple[str, ...] = (
 #: ホストが Lua を呼ぶ関数（runtime.md §1）。
 HOST_ENTRY_POINTS: tuple[str, ...] = ("boot", "tick")
 
+#: プレリュードが**読む**ホスト提供のグローバル（runtime.md §8）。ホストは JIL を読む前に置き、
+#: 読んだ後に消す。`JIN_ARM()` は今のスレッドに命令数の count hook を掛け直し、`JIN_HOOK(co)` は
+#: コルーチン `co` に同じ hook を掛ける（Lua の hook はスレッドごとなので、`wait` を含む手順の
+#: 無限ループは `JIN_ARM` だけでは止まらない。lupa / wasmoon とも実測・probe §A.10 / §B.8）。
+HOST_HOOK_GLOBALS: tuple[str, ...] = ("JIN_ARM", "JIN_HOOK")
+
 
 @dataclass(frozen=True, slots=True)
 class ForbiddenUse:
@@ -190,6 +196,7 @@ def forbidden_uses(text: str) -> list[ForbiddenUse]:
 
 __all__ = [
     "HOST_ENTRY_POINTS",
+    "HOST_HOOK_GLOBALS",
     "JIL_FORBIDDEN",
     "JIL_VERSION",
     "TRACE_FIELDS",

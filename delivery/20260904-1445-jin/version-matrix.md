@@ -180,3 +180,6 @@ hover の ADK クラス名は `docs/spec/adk-mapping.md` 由来の静的な辞�
 `debug.sethook` の count hook で掛け、`debug` を nil にした後も hook が生きることを
 `wasm-api-probe.md` §B.7（2026-09-13。スクリプト抜粋と生出力を転記してある）で実測した
 （`pcall` の中では `{code = "budget"}` として捕まり、外では `LuaError` になる）。
+**Lua の hook はスレッドごと**で、メインスレッドに掛けた hook はコルーチン（`wait` を含む手順）に
+届かない（lupa / wasmoon とも。§B.8 / §A.10）。Phase 4 からはホストが `JIN_ARM` / `JIN_HOOK` の
+2 つのグローバルを JIL を読む前に置き、プレリュードがコルーチンごとに `sethook(co, …)` を掛ける。
