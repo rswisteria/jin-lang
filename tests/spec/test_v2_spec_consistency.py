@@ -104,6 +104,20 @@ def test_data_jin_kinds_match_the_design_document() -> None:
     assert len(set(spec)) == 13
 
 
+def test_data_jin_kinds_match_the_implementation() -> None:
+    """layout.md §4 の 13 種と `jin_render.DATA_JIN_KINDS_V2` が同じ列である（Phase 3）。"""
+    from jin_render import DATA_JIN_KINDS, DATA_JIN_KINDS_V2
+
+    spec = [
+        first_code_span(r[0])
+        for r in table_rows(machine_block(SPEC_V2 / "layout.md", "data-jin-kinds"))[1:]
+    ]
+    assert spec == list(DATA_JIN_KINDS_V2)
+    # v1 の 9 種とは別集合（共通する名前はあってよいが、どちらかがもう一方を含むことは無い）。
+    assert not set(DATA_JIN_KINDS) <= set(DATA_JIN_KINDS_V2)
+    assert not set(DATA_JIN_KINDS_V2) <= set(DATA_JIN_KINDS)
+
+
 # ---------------------------------------------------------------- 環の半径は v1 と同じ 4 本
 
 
@@ -111,6 +125,15 @@ def test_v2_ring_radii_reuse_the_v1_values() -> None:
     v1 = {r[1] for r in table_rows(machine_block(SPEC_V1_LAYOUT, "ring-radii"))[1:]}
     v2 = {r[1] for r in table_rows(machine_block(SPEC_V2 / "layout.md", "ring-radii"))[1:]}
     assert v1 == v2 == {"0.35", "0.55", "0.75", "0.95"}
+
+
+def test_v2_ring_radii_match_the_implementation() -> None:
+    from jin_render.v2.geometry import RING_RADII_V2
+
+    rows = table_rows(machine_block(SPEC_V2 / "layout.md", "ring-radii"))[1:]
+    assert [(r[0], r[1]) for r in rows] == [
+        (name, f"{radius:.2f}") for name, radius in RING_RADII_V2
+    ]
 
 
 # ---------------------------------------------------------------- 診断 JIN2xx

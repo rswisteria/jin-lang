@@ -105,6 +105,13 @@ jobs:
           uv run jin run examples-v2/clicker/clicker.jin --ticks 300 > /dev/null
           uv run jin run examples-v2/fib/fib.jin --ticks 300 > /dev/null
 
+      # Jin v2 Phase 3（設計書 §12「SVG スナップショットが安定」）。CLI の実プロセスで陣と手順の図を描く。
+      - name: Render examples-v2
+        run: |
+          uv run jin render examples-v2/paddle/paddle.jin > /dev/null
+          uv run jin render examples-v2/paddle/paddle.jin --focus Play/step > /dev/null
+          uv run jin render examples-v2/clicker/clicker.jin --focus Clicker/screen > /dev/null
+
       # docs/document-review-agent.md の「動くサンプル」。examples/ の 3 本とは別枠
       # （本数を固定する契約テストがあるので examples/ には足さない）。
       # build / fake 実行 / 判定取り出しは tests/contract/test_docs_samples.py が見る。
