@@ -110,6 +110,7 @@ def test_the_scan_finds_the_modules_that_carry_claims() -> None:
         "jin-render/src/jin_render/svg.py",
         "jin-lsp/src/jin_lsp/logs.py",
         "jin-lsp/src/jin_lsp/positions.py",
+        "jin-wasm/src/jin_wasm/runtime.py",
     } <= found, found
 
     expected_packages = {
@@ -117,6 +118,7 @@ def test_the_scan_finds_the_modules_that_carry_claims() -> None:
         "jin-adk",
         "jin-render",
         "jin-lsp",
+        "jin-wasm",
     }
     assert {name.split("/", 1)[0] for name in found} == expected_packages, sorted(found)
 
