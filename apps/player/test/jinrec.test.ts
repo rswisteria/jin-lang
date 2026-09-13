@@ -48,6 +48,7 @@ group("parseJinrec は jin_wasm.jinrec.read_jinrec の写し", () => {
 			seed: 7,
 			fps: 60,
 			ticks: 600,
+			storage: null,
 			events: [
 				{ tick: 3, kind: "key", name: "ArrowLeft", down: true },
 				{ tick: 9, kind: "pointer", x: 150, y: 110, down: true },
@@ -61,6 +62,28 @@ group("parseJinrec は jin_wasm.jinrec.read_jinrec の写し", () => {
 		if (!parsed.ok) return;
 		expect(parsed.recording.events).toEqual([]);
 		expect(parsed.recording.ticks).toBeNull();
+	});
+
+	test("ヘッダの storage（記憶の写し）を読む。無ければ null（abilities.md §8）", () => {
+		const withStorage = parseJinrec(
+			'{"jinrec":1,"seed":7,"ticks":2,"storage":{"runs":"3"}}\n',
+		);
+		expect(withStorage.ok).toBe(true);
+		if (!withStorage.ok) return;
+		expect(withStorage.recording.storage).toEqual({ runs: "3" });
+		const without = parseJinrec('{"jinrec":1,"seed":7,"storage":null}\n');
+		expect(without.ok).toBe(true);
+		if (!without.ok) return;
+		expect(without.recording.storage).toBeNull();
+		// 往復: Recorder のヘッダをそのまま読める。
+		const r = new Recorder({
+			file: "s.jin",
+			seed: 1,
+			fps: 60,
+			storage: { a: "b" },
+		});
+		const parsed = parseJinrec(r.finish(1));
+		expect(parsed.ok && parsed.recording.storage).toEqual({ a: "b" });
 	});
 
 	test("版と kind の語彙は Python 側と同じ", () => {

@@ -637,3 +637,15 @@ def test_the_run_panel_keeps_state_across_edits_and_stays_mounted() -> None:
     assert "状態を保って差し替えました（tick ${String(tick)} から続けます）" in spec
     assert 'page.getByTestId("jin-keep-state").uncheck();' in spec
     assert ".toBe(generation + 1);" in spec
+
+
+def test_the_run_panel_can_forget_the_storage() -> None:
+    """設計書 §11 #47（v2.1）: 「記憶を消す」は `jin.control` の `forget`（語彙は 7 語のまま）。boot し直すので行を捨てる。"""
+    panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
+    assert 'data-testid="jin-forget"' in panel
+    assert 'onClick={() => control("forget")}' in panel
+    assert '| "forget";' in panel
+    app = (SRC / "App.tsx").read_text(encoding="utf-8")
+    assert 'action === "reboot" || action === "record" || action === "forget"' in app
+    spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
+    assert 'page.getByTestId("jin-forget").click();' in spec

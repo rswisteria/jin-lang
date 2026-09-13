@@ -128,4 +128,21 @@ def test_the_jil_spec_names_the_current_version() -> None:
     spec = (REPO_ROOT / "docs" / "spec" / "v2" / "jil.md").read_text(encoding="utf-8")
     assert f"-- jin: 2  jil: {JIL_VERSION}" in spec
     assert f"`jil: {JIL_VERSION}` は JIL の契約の版" in spec
-    assert JIL_VERSION == 2
+
+
+def test_the_prelude_implements_every_catalog_namespace_and_pure_function() -> None:
+    """abilities.md §1 / expr.md §4.1 の名前がプレリュードの `H` / `F` に揃っている（v2.1 で `storage` / `num`）。"""
+    from jin_core.v2 import abilities
+    from jin_core.v2.expr import PURE_FUNCTION_NAMES
+
+    prelude = prelude_source()
+    for ns in abilities.NAMESPACES:
+        assert f"H.{ns.name} = {{" in prelude, ns.name
+        block = prelude.split(f"H.{ns.name} = {{", 1)[1].split("\n}", 1)[0]
+        for member in ns.members:
+            # `key = function` でも `pointer = pointer_value` でも、メンバ名への代入があればよい
+            assert re.search(rf'(^|\s|\[")({member.name})("\])?\s*=[^=]', block, re.MULTILINE), (
+                f"H.{ns.name}.{member.name} がプレリュードに無い"
+            )
+    for name in PURE_FUNCTION_NAMES:
+        assert re.search(rf"^F\.{name} = ", prelude, re.MULTILINE), f"F.{name} がプレリュードに無い"

@@ -368,6 +368,8 @@ PURE_FUNCTIONS: dict[str, tuple[tuple[str, ...], str]] = {
     "atan2": (("num", "num"), "num"),
     "clamp": (("num", "num", "num"), "num"),
     "sub": (("str", "num", "num"), "str"),
+    # v2.1: `str` の逆（`storage.get` の文字列を数に戻す）。受ける形は expr.md §4.1 に閉じて書いてある。
+    "num": (("str",), "num"),
 }
 #: 多重定義・総称の純関数。表の形に収まらないので名前だけ列挙し、`_check_call` が個別に見る。
 SPECIAL_PURE_FUNCTIONS: tuple[str, ...] = ("len", "str", "contains")

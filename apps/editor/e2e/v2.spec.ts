@@ -607,3 +607,53 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 	);
 	expect(afterUpto).toBeLessThan((afterTick + 1) * 30);
 });
+test("storage: 「最初から」でも記憶は続き（runs が 2）、「記憶を消す」で空になって 1 に戻る（v2.1）", async ({
+	page,
+}) => {
+	// 台本を storage を使う fixture に差し替える（paddle は storage を使わない）。
+	await editor.stop();
+	editor = await startEditor(
+		readFileSync(
+			join(REPO_ROOT, "tests/fixtures/v2-programs/storage.jin"),
+			"utf8",
+		),
+	);
+	await open(page);
+	await page.getByTestId("jin-mode-debug").click();
+	const frame = page.frameLocator('[data-testid="jin-player"]');
+	await expect(frame.locator("#status")).toContainText("tick", {
+		timeout: 30_000,
+	});
+	await page.getByTestId("jin-play-pause").click();
+	const runs = page.locator(
+		'[data-testid="jin-state-value"][data-name="runs"] td',
+	);
+	await expect(runs).toHaveText("1");
+	// 「最初から」は boot し直すが、記憶（localStorage）は残るので runs は 2 に増える。
+	await page.getByTestId("jin-play-reboot").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("tick 0");
+	await page.getByTestId("jin-play-step").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("tick 1");
+	await expect(runs).toHaveText("2");
+	// 「記憶を消す」は空にして boot し直す（止めたまま）。runs は 1 から。
+	await page.getByTestId("jin-forget").click();
+	await expect(page.getByTestId("jin-player-notice")).toContainText(
+		"記憶を消しました",
+	);
+	await expect(page.getByTestId("jin-player-status")).toContainText("tick 0");
+	await page.getByTestId("jin-play-step").click();
+	await expect(runs).toHaveText("1");
+	// プレイヤーの記憶（localStorage の写し。鍵は開いた .jin の名前で決まるので推測しない）。
+	const stored = await page
+		.frames()
+		.find((f) => f.url().includes("/play/"))
+		?.evaluate(
+			() =>
+				(
+					window as unknown as {
+						__jinPlayer?: { storage(): Record<string, string> };
+					}
+				).__jinPlayer?.storage() ?? null,
+		);
+	expect(stored).toEqual({ runs: "1", best: "1", label: "run 1" });
+});

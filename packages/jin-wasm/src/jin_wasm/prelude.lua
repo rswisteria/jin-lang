@@ -1,4 +1,4 @@
--- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 2
+-- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 3
 --
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
@@ -34,7 +34,7 @@
 --   JR[k] = function(v) return { f_0 = ..., } | nil end        -- 型紙 k の読み手（DEBUG のみ。resume の JSON → Lua）
 -- プレリュードが持つもの:
 --   S[i]（陣 i の state。init が返す表）/ P[i]（公開 state の確定値。他陣は P を読む）
---   H（ホスト能力: H.canvas / H.input / H.ui / H.audio / H.random）/ F（純関数）/ E（効果）
+--   H（ホスト能力: H.canvas / H.input / H.ui / H.audio / H.random / H.storage）/ F（純関数）/ E（効果）
 --   AT / SETAT（添字）/ WAIT_TICKS / WAIT_UNTIL / FINISH / TRANSFER / EMIT / STOP
 --   T / TS / TR / TRET（トレース。DEBUG のときだけ生成部が呼ぶ）
 --   RN / RB / RSTR / RL / RREC（resume の読み手。num / bool / str / list / レコード。合わなければ nil）
@@ -358,6 +358,28 @@ H.random = {
   end,
 }
 
+-- storage（abilities.md §8・v2.1）。ホストの記憶は境界を越えない: 入りは boot の manifest.storage（写し。
+-- lupa は table、Wasmoon は proxy の userdata。pairs は禁止語なので写さず**参照のまま読むだけ**）、
+-- 出は tick の戻り値の storage（この tick の書き込みの一覧）。自分の書き込みは STORE に重ねて get に見せる。
+local STORAGE_BASE = nil   -- boot の manifest.storage（読むだけ）
+local STORE = {}           -- この実行での書き込み（key → val）
+local STORE_OUT = {}       -- この tick の書き込みの一覧 { {key, val}, ... }
+H.storage = {
+  get = function(key)
+    local mine = STORE[key]
+    if mine ~= nil then return mine end
+    if STORAGE_BASE ~= nil then
+      local base = RSTR(STORAGE_BASE[key])
+      if base ~= nil then return base end
+    end
+    return ""
+  end,
+  set = function(key, val)
+    STORE[key] = val
+    STORE_OUT[#STORE_OUT + 1] = { key, val }
+  end,
+}
+
 -- ---------------------------------------------------------------- 純関数（expr.md §4.1）と効果（§4.2）
 local F = {}
 F.abs = math.abs
@@ -405,6 +427,20 @@ F.contains = function(list, v)
     if item == v then return true end
   end
   return false
+end
+-- str の逆（expr.md §4.1・v2.1）。受けるのは str() が出す形と JSON の数値の形だけ。tonumber は 16 進・
+-- 空白・inf を通すので、先にパターンで弾く。合わなければ 0（無い鍵の "" も 0）。
+F.num = function(s)
+  if type(s) ~= "string" then return 0.0 end
+  if not (string.match(s, "^%-?%d+$")
+    or string.match(s, "^%-?%d+%.%d+$")
+    or string.match(s, "^%-?%d+[eE][%-+]?%d+$")
+    or string.match(s, "^%-?%d+%.%d+[eE][%-+]?%d+$")) then
+    return 0.0
+  end
+  local v = tonumber(s)
+  if v == nil or v ~= v or v == math.huge or v == -math.huge then return 0.0 end
+  return v + 0.0
 end
 
 local function index_of(list, i)
@@ -915,15 +951,23 @@ local function result()
   end
   parts[3] = ',"done":' .. JB(DONE) .. ',"error":' .. (ERRMSG and JS(ERRMSG) or "null")
     .. ',"public":{' .. table.concat(pubs, ",") .. "}"
-  -- DEBUG だけ: 状態を保った差し替えのための snapshot と、復元の直後 1 回だけの resume。
-  if DEBUG then
-    parts[4] = ',"snapshot":' .. snapshot_json()
-    parts[5] = RESUME_NOTE and (',"resume":' .. resume_note_json()) or ""
+  -- storage の書き込みがあった tick だけ（release でも出る。abilities.md §8）。
+  if #STORE_OUT > 0 then
+    local writes = {}
+    for k, w in ipairs(STORE_OUT) do writes[k] = "[" .. JS(w[1]) .. "," .. JS(w[2]) .. "]" end
+    parts[4] = ',"storage":[' .. table.concat(writes, ",") .. "]"
   else
     parts[4] = ""
-    parts[5] = ""
   end
-  parts[6] = "}"
+  -- DEBUG だけ: 状態を保った差し替えのための snapshot と、復元の直後 1 回だけの resume。
+  if DEBUG then
+    parts[5] = ',"snapshot":' .. snapshot_json()
+    parts[6] = RESUME_NOTE and (',"resume":' .. resume_note_json()) or ""
+  else
+    parts[5] = ""
+    parts[6] = ""
+  end
+  parts[7] = "}"
   return table.concat(parts)
 end
 
@@ -938,7 +982,13 @@ function boot(seed, manifest)
   -- 名前で照合して状態を写す（runtime.md §1 / §10・設計書 §11 #42〜#44）。DEBUG でなくても受けるが、
   -- snapshot を出すのは DEBUG だけなので実際にはデバッグビルドでだけ起きる。
   local resume = nil
-  if RREC(manifest) ~= nil then resume = RREC(manifest.resume) end
+  STORAGE_BASE = nil
+  if RREC(manifest) ~= nil then
+    resume = RREC(manifest.resume)
+    STORAGE_BASE = RREC(manifest.storage)
+  end
+  STORE = {}
+  STORE_OUT = {}
   SEQ = 0
   TICK = -1
   DONE = false
@@ -983,6 +1033,7 @@ function tick(t, inputs)
   if DONE then
     local out = result()
     TRACE = {}
+    STORE_OUT = {}
     RESUME_NOTE = nil
     return out
   end
@@ -993,6 +1044,8 @@ function tick(t, inputs)
   end
   local out = result()
   TRACE = {}
+  -- boot（核の手順）で書いた分は最初の tick の結果に載せる。空にするのは返した後（TRACE と同じ）。
+  STORE_OUT = {}
   RESUME_NOTE = nil
   return out
 end

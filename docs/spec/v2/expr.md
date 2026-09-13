@@ -102,6 +102,7 @@ STRING  := /"([^"\\\x00-\x1f]|\\["\\\/bfnrt]|\\u[0-9a-fA-F]{4})*"/
 | `str` | num / bool / str | str | 文字列化。`num` は整数値なら `"3"`、それ以外は最短の往復可能表現(`%.17g` を短縮。runtime.md §6) |
 | `sub` | str, num, num | str | `sub(s, i, n)`: 0 始まり `i` から `n` コードポイント |
 | `contains` | list<T>, T | bool | `T` は num / bool / str のみ |
+| `num` | str | num | `str` の逆(v2.1)。受けるのは `str()` が出す形と JSON の数値の形(`-?[0-9]+(.[0-9]+)?([eE][-+]?[0-9]+)?`)だけで、それ以外(空文字・前後の空白・`0x10`・`inf`・`nan`)は **0**。`storage.get` の文字列を数に戻す用 |
 
 <!-- /machine-readable -->
 

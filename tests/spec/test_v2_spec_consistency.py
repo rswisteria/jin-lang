@@ -166,10 +166,11 @@ def test_ability_namespaces_match_the_design_document() -> None:
         for r in table_rows(machine_block(SPEC_V2 / "abilities.md", "abilities"))[1:]
     }
     design = {first_code_span(r[0]) for r in table_rows(design_section("### 3.4"))[1:]}
-    assert (
-        spec | {"storage"} == design
-    )  # storage は設計書の表に v2.1 として載っているが、カタログには無い
-    assert spec == {"canvas", "input", "ui", "audio", "random"}
+    assert spec == design
+    assert spec == {"canvas", "input", "ui", "audio", "random", "storage"}  # storage は v2.1 で実装
+    from jin_core.v2 import abilities
+
+    assert {ns.name for ns in abilities.NAMESPACES} == spec
 
 
 # ---------------------------------------------------------------- オペレーション

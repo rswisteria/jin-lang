@@ -101,6 +101,14 @@ export function python(args: readonly string[]): string {
  *   e2e はビルド物を**自分で**並べて、プレイヤーの契約だけを見る）
  */
 export function buildPaddleWithPlayer(): { dir: string; dist: string } {
+	return buildWithPlayer(PADDLE);
+}
+
+/** 任意の v2 の `.jin` を `jin build --debug` して、プレイヤーの 3 ファイルを隣に置く。 */
+export function buildWithPlayer(jinFile: string): {
+	dir: string;
+	dist: string;
+} {
 	for (const name of PLAYER_FILES) {
 		if (!existsSync(join(PLAYER_DIST, name))) {
 			throw new Error(
@@ -111,7 +119,7 @@ export function buildPaddleWithPlayer(): { dir: string; dist: string } {
 	const dir = mkdtempSync(join(tmpdir(), "jin-player-e2e-"));
 	const dist = join(dir, "dist");
 	mkdirSync(dist);
-	jin(["build", PADDLE, "--out", dist, "--debug"]);
+	jin(["build", jinFile, "--out", dist, "--debug"]);
 	for (const name of PLAYER_FILES) {
 		copyFileSync(join(PLAYER_DIST, name), join(dist, name));
 	}

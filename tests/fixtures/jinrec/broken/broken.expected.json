@@ -62,5 +62,13 @@
   "blank-then-broken.jinrec": {
     "line": 4,
     "fragment": "kind"
+  },
+  "storage-not-object.jinrec": {
+    "line": 1,
+    "fragment": "オブジェクト"
+  },
+  "storage-value-not-str.jinrec": {
+    "line": 1,
+    "fragment": "文字列"
   }
 }

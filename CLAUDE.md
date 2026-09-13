@@ -115,6 +115,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2-5 | LSP の v2（hover / completion / `jin/applyOps` + 応答の JIL）+ エディタの v2（式エディタ / 13 種 / 32 ops）+ 実行パネル（`/play/` iframe・ライブリロード） | 実装済み |
 | v2-6 | デバッグ（`.jinrec` の再生・スクラブで記憶環の値と画面・`assert` のバッジ・実行パネルの録画と書き出し） | 実装済み |
 | v2.1 | 状態を保ったライブリロード（`tick` 結果の `snapshot` → `boot` の `manifest.resume`・`jin.load` の `keep`・jil: 2） | 実装済み |
+| v2.1 | `storage`（`get` / `set`・`boot` の `manifest.storage` → `tick` 結果の `storage`・`localStorage`・録画ヘッダの `storage`・式の `num(str)`・jil: 3） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -156,8 +157,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **JIL は Lua 5.4 の静的サブセット**（`jin_wasm.jil.JIL_FORBIDDEN` は jil.md §2 と等号）。`game.lua` =
   ヘッダ + `prelude.lua`（そのまま連結）+ 生成部 + `return { boot = boot, tick = tick }`。生成部が定義するのは
   `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` / `JR[k]`（型紙の読み手・debug だけ）だけで、
-  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **2**
-  （jil.md §1。v2.1 で `CIRCLES[i]` に `restore` / `prestore` / `pdump`、`tick` 結果に `snapshot` / `resume` が加わった。release の生成部は不変）。
+  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **3**
+  （jil.md §1。v2.1 で `CIRCLES[i]` に `restore` / `prestore` / `pdump`、`tick` 結果に `snapshot` / `resume` が加わって 2、
+  プレリュードに `H.storage` / `F.num`、`tick` 結果に `storage` が加わって 3。release の生成部は不変）。
   **名前を Lua の識別子に埋め込まない**（`S[i].k_j` / `R[i][j]` / `f_j` / `l_n`。添字は Lua の 1 始まり、pointer は 0 始まり）。
   `num` は常に float（`160.0`）。`tests/contract/test_jil_contract.py` がプレリュードと全生成物を走査する
 - **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
@@ -179,7 +181,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasm --snapshot-update`
   （`packages/jin-wasm/tests/__snapshots__/`。生成部 3 本 × debug / release と paddle 60 tick のゴールデン）。
   差分を読んでからコミット。examples-v2 が使わない経路（parallel / transfer / emit / key / pointer / wait until /
-  each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 11 本が固定する
+  each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 12 本が固定する（v2.1 の `storage` を含む）
 - v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
   オペレーション列で、`apply_ops` が undo 順に平らにする
 
@@ -363,6 +365,25 @@ Jin v2.1（状態を保ったライブリロード）の要点（正典は `docs
 - 語彙は 7 語のまま（`jin.load` に `keep`、`jin.status` に `generation` の**欄**が増えただけ）。e2e は
   `apps/player/e2e/reload.spec.ts`（Wasmoon 経路で tick / 公開 state / 世代が続き seq が途切れない）と
   `apps/editor/e2e/v2.spec.ts`（走らせて止める → 編集モードで式を直す → 戻ると続く → 外すと世代が進む）
+
+Jin v2.1（`storage`）の要点（正典は `docs/spec/v2/abilities.md` §8、expr.md §4.1、runtime.md §1.2 / §4 / §7 / §10、
+設計書 §11 #45〜#47）:
+
+- **ホスト境界は変えない。** 入りは `boot(seed, manifest)` の `manifest.storage`（ホストが持つ記憶の写し）、出は `tick` の
+  戻り値の `storage`（書き込みの一覧 `[[key, val], …]`・書き込みがあった tick だけ・**release でも出る**・`public` の直後）。
+  `boot` の核で書いた分は最初の `tick` の結果に載る（空にするのは返した後・`TRACE` と同じ）
+- **プレリュードは写しを `pairs` で写さない**（禁止語）。`STORAGE_BASE`（参照のまま読むだけ）+ `STORE`（自分の書き込み）の
+  2 段で、`get` は `STORE` → `RSTR(STORAGE_BASE[key])` → `""`。lupa は table、Wasmoon は proxy で届く
+- **`num(str)` は受ける形を閉じてある**（expr.md §4.1: `str()` が出す形と JSON の数値の形だけ。それ以外は 0。`tonumber` は
+  16 進・空白・`inf` を通すので先にパターンで弾く）。`storage.get` の `""`（無い鍵）は 0 になる
+- **プレイヤーの `Player.store`（`Map`）が正**。すべての boot（最初から / 録画 / 差し替え / 再生）で写しを渡し、書き込みを
+  反映して `localStorage` の `jin.storage:<manifest.file>` に丸ごと書き戻す。**再生はスクラッチ**（ヘッダの写しから始まり
+  永続化しない。次の `reboot` で本物に戻る）。録画のヘッダ `storage` は録画の boot に渡した写し（非空のときだけ・版は 1 のまま・
+  読み手は Python / TS とも object で値が文字列を検査し、壊れ fixture 2 本を両側で検算）。`jin run --input` は同じ写しで boot する
+- 「記憶を消す」は `jin.control` の `forget`（語彙は 7 語のまま）と iframe の中のボタン。空にして boot し直す
+- fixture は `tests/fixtures/v2-programs/storage.jin`（12 本目）。証拠は `packages/jin-wasm/tests/test_storage.py`
+  （1 回目の記憶を 2 回目に渡すと続く）、`apps/player/e2e/storage.spec.ts`（`localStorage` に残り読み直しで続く →
+  録画のヘッダの写しで `jin run --input` と全行一致 → 再生は上書きしない → 記憶を消す）、`apps/editor/e2e/v2.spec.ts`
 
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 

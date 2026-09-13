@@ -24,7 +24,7 @@ import re
 from dataclasses import dataclass
 
 #: JIL の契約の版（jil.md §1）。プレリュードと生成部の**組**で 1 つの版。
-JIL_VERSION = 2
+JIL_VERSION = 3
 
 #: 禁止語（jil.md §2 の machine-readable ブロックと等号）。
 JIL_FORBIDDEN: tuple[str, ...] = (

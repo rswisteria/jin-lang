@@ -27,6 +27,7 @@ import type {
 	Op,
 	ResumeNote,
 	Snapshot,
+	StorageWrite,
 	TraceRow,
 } from "./types";
 
@@ -54,6 +55,16 @@ export interface PlayerOptions {
 	readonly onChange?: () => void;
 	/** 差し替え直後の tick が返した復元の知らせ（1 回だけ）。 */
 	readonly onResume?: (note: ResumeNote) => void;
+	/** 記憶（`storage`・abilities.md §8）の初期内容。無ければ空。 */
+	readonly storage?: ReadonlyMap<string, string>;
+	/**
+	 * 記憶が変わった（tick の書き込み / `forget`）。永続化はホストの仕事（`store` を丸ごと書けばよい）。
+	 * 録画の再生の間（スクラッチ）は呼ばれない。
+	 */
+	readonly onStore?: (
+		writes: readonly StorageWrite[],
+		store: ReadonlyMap<string, string>,
+	) => void;
 }
 
 export class Player {
@@ -79,9 +90,27 @@ export class Player {
 	lastResume: ResumeNote | null = null;
 	/** boot し直した回数の通し番号（0 はまだ boot していない）。差し替えで続けたときは変わらない。 */
 	generation = 0;
+	/**
+	 * 記憶（`storage`・abilities.md §8）。ホストが持つ内容の写しで、`boot` のたびに `manifest.storage` へ渡し、
+	 * tick の書き込みを順に反映する。`Map` なので `__proto__` のような鍵も普通の鍵。
+	 */
+	readonly store: Map<string, string>;
+	/** 録画の再生の間の書き込み先（ヘッダの写しから始まり、永続化しない）。null なら `store` に書く。 */
+	private scratch: Map<string, string> | null = null;
 
 	constructor(private readonly o: PlayerOptions) {
 		this.seed = o.manifest.stage.seed;
+		this.store = new Map(o.storage ?? []);
+	}
+
+	/** 再生の間はスクラッチに書いている（永続化されない）。 */
+	get replaying(): boolean {
+		return this.scratch !== null;
+	}
+
+	/** 今の `boot` に渡す記憶の写し。 */
+	private storageCopy(): Record<string, string> {
+		return Object.fromEntries(this.scratch ?? this.store);
 	}
 
 	get recording(): boolean {
@@ -92,8 +121,19 @@ export class Player {
 		return this.recorder?.events ?? 0;
 	}
 
-	/** `boot` し直して tick 0 から。録画中なら録画も捨てる。 */
+	/** `boot` し直して tick 0 から。録画中なら録画も捨てる。再生のスクラッチも捨てる（記憶は本物に戻る）。 */
 	reboot(seed = this.seed): void {
+		this.restart(seed, null);
+	}
+
+	/** 記憶を空にして（ホストにも知らせて）`boot` し直す。Lua 側の写しも空から始まる。 */
+	forget(): void {
+		this.store.clear();
+		this.o.onStore?.([], this.store);
+		this.restart(this.seed, null);
+	}
+
+	private restart(seed: number, scratch: Map<string, string> | null): void {
 		this.seed = Math.trunc(seed);
 		this.tick = 0;
 		this.done = false;
@@ -103,11 +143,15 @@ export class Player {
 		this.recorder = null;
 		this.lastSnapshot = null;
 		this.lastResume = null;
+		this.scratch = scratch;
 		this.o.collector.reset();
 		this.accumulator = 0;
 		this.generation = nextGeneration;
 		nextGeneration += 1;
-		this.o.host.boot(this.seed, this.o.manifest);
+		this.o.host.boot(this.seed, {
+			...this.o.manifest,
+			storage: this.storageCopy(),
+		});
 		this.o.onChange?.();
 	}
 
@@ -137,7 +181,15 @@ export class Player {
 		this.lastPublic = previous.lastPublic;
 		this.accumulator = 0;
 		this.generation = previous.generation;
-		this.o.host.boot(this.seed, { ...this.o.manifest, resume: snapshot });
+		// 記憶も引き継ぐ（前のプレイヤーの写しが正。再生の途中ならスクラッチのまま続ける）。
+		this.store.clear();
+		for (const [key, value] of previous.store) this.store.set(key, value);
+		this.scratch = previous.scratch === null ? null : new Map(previous.scratch);
+		this.o.host.boot(this.seed, {
+			...this.o.manifest,
+			resume: snapshot,
+			storage: this.storageCopy(),
+		});
 		this.o.renderer.draw(this.lastOps);
 		this.o.onChange?.();
 		return true;
@@ -172,6 +224,8 @@ export class Player {
 			file: this.o.manifest.file,
 			seed: this.seed,
 			fps: this.o.manifest.stage.fps,
+			// 録画の boot に渡した記憶の写し（`jin run --input` が同じ写しで boot する。abilities.md §8）。
+			storage: this.storageCopy(),
 		});
 		this.o.onChange?.();
 	}
@@ -198,11 +252,16 @@ export class Player {
 	 * そこで止まる。終わったら**止まったまま**（tick = 走らせた数。そこからスクラブ / 1 tick）。
 	 * 同期で回し（paddle 600 tick で 1 秒未満）、トレースは最後にまとめて 1 回流す
 	 * （tick ごとに `postMessage` すると親が数百回描き直す）。再生の間に届いた実入力は捨てる。
+	 * 記憶はヘッダの写しで `boot` し、書き込みは**スクラッチ**に溜めて永続化しない（履歴の再実行であって、
+	 * 利用者の本物の記憶を上書きしない。abilities.md §8）。次の `reboot` で本物に戻る。
 	 */
 	replay(recording: Recording): number {
 		// ヘッダに `ticks` が無ければ `jin run --input` と同じ 600（runtime.md §8）。0 にすると同じ録画から違うトレースになる。
 		const ticks = recording.ticks ?? DEFAULT_TICKS;
-		this.reboot(recording.seed ?? this.o.manifest.stage.seed);
+		this.restart(
+			recording.seed ?? this.o.manifest.stage.seed,
+			new Map(Object.entries(recording.storage ?? {})),
+		);
 		const perTick = eventsByTick(recording.events, ticks);
 		for (let t = 0; t < ticks && !this.done; t += 1) {
 			this.advance(perTick[t] ?? [], false);
@@ -275,6 +334,12 @@ export class Player {
 		}
 		this.tick += 1;
 		if (result.snapshot !== undefined) this.lastSnapshot = result.snapshot;
+		if (result.storage !== undefined && result.storage.length > 0) {
+			// 書き込みを順に写しへ。再生中はスクラッチ（永続化しない）。
+			const target = this.scratch ?? this.store;
+			for (const [key, value] of result.storage) target.set(key, value);
+			if (this.scratch === null) this.o.onStore?.(result.storage, this.store);
+		}
 		this.lastOps = result.ops;
 		this.lastPublic = result.public;
 		this.o.renderer.draw(result.ops);

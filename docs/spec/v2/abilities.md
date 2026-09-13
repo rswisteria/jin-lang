@@ -10,7 +10,8 @@
 - 名前空間の単位で道具環に載せる(`sigils[].kind = host`)。名前空間 1 つで 1 枠
 - **ホストは Lua を呼ぶ側であり、Lua はホストを呼ばない**(設計書 §4.3)。ここに列挙する能力は
   すべて Lua のプレリュード(`prelude.lua`)に実装され、効果は **tick の戻り値**(表示リスト /
-  音リスト)としてホストへ渡る。読み取り系(`input`)は tick の**入力スナップショット**を読む
+  音リスト / 記憶への書き込みの一覧)としてホストへ渡る。読み取り系(`input`)は tick の**入力スナップショット**を、
+  `storage.get` は `boot` に渡された記憶の写し(§8)を読む
 - 壁時計・`Date`・ネットワーク・ファイルに相当する能力は**無い**
 - 引数の数と型は固定(可変長引数は無い)。合わなければ JIN205
 
@@ -36,12 +37,14 @@
 | `audio` | `play` | name: str | — | effect |
 | `random` | `next` | — | num | state |
 | `random` | `range` | lo: num, hi: num | num | state |
+| `storage` | `get` | key: str | str | read |
+| `storage` | `set` | key: str, val: str | — | effect |
 
 <!-- /machine-readable -->
 
-種別: `effect` は表示リスト / 音リストへ追記(式の中では使えない。`cast` から)。`read` は入力スナップショットを読む純関数(式の中で使える)。`effect+read` は描いて、かつ値を返す(式の中で使える。副作用は評価順)。`state` は乱数状態を進めて値を返す(式の中で使える)。
+種別: `effect` は表示リスト / 音リスト / 書き込みの一覧へ追記(式の中では使えない。`cast` から)。`read` は入力スナップショット / boot 時の記憶を読む純関数(式の中で使える)。`effect+read` は描いて、かつ値を返す(式の中で使える。副作用は評価順)。`state` は乱数状態を進めて値を返す(式の中で使える)。
 
-`storage`(`get` / `set`)は v2.1。カタログに無い名前空間は JIN205。
+`storage`(`get` / `set`)は v2.1 で足した(§8)。カタログに無い名前空間は JIN205。
 
 ## 2. `canvas`
 
@@ -108,3 +111,19 @@ PCG32(`state`, `inc` の 64 bit 整数 2 つ)。seed は `stage.seed`(CLI の `-
 （当初は「`jin_wasm` が生成し `jin_core` が JSON を読む」としていたが、`jin_core` は `jin_wasm` を import できず、
 インストール済みパッケージから `schemas/` も見つけられないので、正本を最下層に置いた。設計書 §11 #19。）
 `pointer` 配列は組み込みの型紙 `Pointer` の欄。
+
+## 8. `storage`(v2.1)
+
+ホストの**記憶**(ブラウザでは `localStorage`、ヘッドレスでは辞書)。鍵も値も `str`。ホスト境界は変えない
+(runtime.md §1): 値の**入り**は `boot(seed, manifest)` の `manifest.storage`(ホストが持つ内容の写し。無ければ空)、
+**出**は `tick` の戻り値の `storage`(この tick の書き込みの一覧 `[[key, val], …]`。書き込みが無い tick にはキーごと無い)。
+ホストは一覧を順に自分の記憶へ反映する(release でも出る。保存が要るのは release のゲームである)。
+
+- `get(key)`: 自分がこの実行で `set` した値 → 無ければ boot 時の写し → 無ければ `""`。純関数(式の中で使える)
+- `set(key, val)`: 以後の `get` に見え、書き込みの一覧に載る。`cast` からだけ
+
+決定性(runtime.md §4): `get` が見るのは boot 時の写しと自分の書き込みだけで、他のタブや別プロセスの書き込みは
+次の `boot` まで見えない。録画(`.jinrec`)のヘッダは録画の `boot` に渡した写しを `storage` に持ち、
+`jin run --input` はそれを `manifest.storage` に渡す(runtime.md §7)。録画の**再生**はヘッダの写しで `boot` し、
+書き込みを**永続化しない**(履歴の再実行であって、利用者の本物の記憶を上書きしない)。
+値の大きさに上限は置かない(`localStorage` の quota はホストの事情)。文字列を数に戻すには expr.md §4.1 の `num`。

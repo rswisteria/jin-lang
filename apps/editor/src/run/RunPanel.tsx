@@ -79,7 +79,8 @@ export type PlayerControl =
 	| "step"
 	| "reboot"
 	| "record"
-	| "stop";
+	| "stop"
+	| "forget";
 
 /** プレイヤーが `jin.status` で知らせる状態（runtime.md §10）。 */
 export interface PlayerStatus {
@@ -334,6 +335,14 @@ export function RunPanel(props: RunPanelProps): React.JSX.Element {
 					onClick={() => control("reboot")}
 				>
 					最初から
+				</button>
+				<button
+					type="button"
+					data-testid="jin-forget"
+					title="storage の記憶（localStorage）を空にして最初から"
+					onClick={() => control("forget")}
+				>
+					記憶を消す
 				</button>
 				<label className="jin-seed">
 					seed{" "}
