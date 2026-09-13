@@ -1,4 +1,4 @@
--- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 1
+-- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 2
 --
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
@@ -19,7 +19,10 @@
 --     -- 核あり陣:
 --     init = function() return { k_0 = ..., k_1 = ... } end,   -- entered のたびに評価（定数式）
 --     publish = function() P[i].k_2 = S[i].k_2 end,             -- out: true の state を確定する
---     dump = function() return "<state の JSON>" end,           -- enter / exit 行（DEBUG のみ呼ぶ）
+--     dump = function() return "<state の JSON>" end,           -- enter / exit 行と snapshot（DEBUG のみ）
+--     pdump = function() return "<公開 state の確定値の JSON>" end,  -- snapshot（DEBUG のみ。out: true の state だけ）
+--     restore = function(v) S[i].k_j = RN(v["name"]) ... end,       -- resume（DEBUG のみ。名前で引き、形が合う欄だけ）
+--     prestore = function(v) P[i].k_j = RN(v["name"]) ... end,      -- resume の公開 state（DEBUG のみ）
 --     core = R[i][j], core_waits = bool,
 --     on = { tick = R[i][j], key = ..., pointer = ..., message = ..., exit = ... },
 --     on_waits = { tick = bool, ... },
@@ -28,11 +31,13 @@
 --   }
 --   R[i] = {} ; R[i][j] = function(a, b) ... end               -- 手順（引数の数は静的）
 --   JF[k] = function(v) return "{...}" end                    -- 型紙 k の直列化（JF[0] は Pointer）
+--   JR[k] = function(v) return { f_0 = ..., } | nil end        -- 型紙 k の読み手（DEBUG のみ。resume の JSON → Lua）
 -- プレリュードが持つもの:
 --   S[i]（陣 i の state。init が返す表）/ P[i]（公開 state の確定値。他陣は P を読む）
 --   H（ホスト能力: H.canvas / H.input / H.ui / H.audio / H.random）/ F（純関数）/ E（効果）
 --   AT / SETAT（添字）/ WAIT_TICKS / WAIT_UNTIL / FINISH / TRANSFER / EMIT / STOP
 --   T / TS / TR / TRET（トレース。DEBUG のときだけ生成部が呼ぶ）
+--   RN / RB / RSTR / RL / RREC（resume の読み手。num / bool / str / list / レコード。合わなければ nil）
 --   CIRCLES[i].pub = function() return '"Play.score":' .. JN(P[i].k_2) end   -- 公開 state の JSON 断片（tick の戻り値の public）
 
 local DEBUG = false
@@ -41,6 +46,7 @@ local FPS = 60
 local CIRCLES = {}
 local R = {}
 local JF = {}
+local JR = {}
 local S = {}
 local P = {}
 
@@ -70,6 +76,9 @@ local CUR_CI = nil
 local ARM = JIN_ARM
 local HOOK = JIN_HOOK
 local MANIFEST = nil
+local SEED = 0
+-- 状態を保った差し替え（runtime.md §1 の manifest.resume）の結果。直後の tick 結果に 1 回だけ載せる。
+local RESUME_NOTE = nil
 
 local ADVANCE_LIMIT = 1000
 
@@ -180,6 +189,39 @@ local function JROW(row)
     .. ',"pointer":' .. JV(row.pointer)
     .. ',"input":' .. (row.input or "null")
     .. ',"output":' .. (row.output or "null") .. "}"
+end
+
+-- ---------------------------------------------------------------- resume の読み手（runtime.md §1 の manifest.resume）
+-- ホストから来た値（lupa は table、Wasmoon は proxy の userdata・probe A.3）を型に合わせて Lua の値にする。
+-- 合わなければ nil（呼び出し側は init の値のまま）。形は type() ではなく欄の読み取りと ipairs で見る。
+-- 数値は + 0.0（JS の整数値は Lua の integer で入る・probe A.10）。NaN / Infinity は文字列で来るので nil。
+local function RREC(v)
+  if type(v) == "table" or type(v) == "userdata" then return v end
+  return nil
+end
+local function RN(v)
+  if type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge then return v + 0.0 end
+  return nil
+end
+local function RB(v)
+  if type(v) == "boolean" then return v end
+  return nil
+end
+local function RSTR(v)
+  if type(v) == "string" then return v end
+  return nil
+end
+local function RL(read)
+  return function(v)
+    if RREC(v) == nil then return nil end
+    local out = {}
+    for k, item in ipairs(v) do
+      local x = read(item)
+      if x == nil then return nil end
+      out[k] = x
+    end
+    return out
+  end
 end
 
 -- ---------------------------------------------------------------- トレース（DEBUG のときだけ）
@@ -604,6 +646,130 @@ local function ADVANCE()
   ERR("advance", "1 tick の中で陣の進行が " .. ADVANCE_LIMIT .. " 回を超えました（exit が常に偽の loop など）")
 end
 
+-- ---------------------------------------------------------------- 状態を保った差し替え（runtime.md §1・設計書 §11 #42〜#44）
+-- snapshot: tick 結果に載せる実行時の状態（DEBUG のみ）。陣は配列（名前で照合する。pairs は使わない）。
+-- 手順の途中（wait 中のコルーチン）と未配達の emit は載らない（復元では捨てる）。
+local function snapshot_json()
+  local items = {}
+  for i = 1, #CIRCLES do
+    local c = CIRCLES[i]
+    local st = C[i]
+    items[i] = '{"name":' .. JS(c.name)
+      .. ',"status":' .. JS(st.status)
+      .. ',"paused":' .. JB(st.paused)
+      .. ',"pending":' .. JB(st.pending)
+      .. ',"cursor":' .. JN(st.cursor)
+      .. ',"published":' .. JB(st.published)
+      .. ',"delegate":' .. (st.delegate and JS(CIRCLES[st.delegate].name) or "null")
+      .. ',"state":' .. (c.dump and c.dump() or "null")
+      .. ',"public":' .. (c.pdump and c.pdump() or "null")
+      .. "}"
+  end
+  -- PCG32 の状態は 64 bit 整数なので 16 進の文字列で越える（jil.md §5 の例外）。
+  return '{"seed":' .. JN(SEED) .. ',"tick":' .. JN(TICK) .. ',"seq":' .. JN(SEQ)
+    .. ',"rng":' .. JS(string.format("0x%x", RS)) .. ',"done":' .. JB(DONE)
+    .. ',"circles":[' .. table.concat(items, ",") .. "]}"
+end
+
+local function resume_note_json()
+  local n = RESUME_NOTE
+  local kept = {}
+  for k, name in ipairs(n.kept) do kept[k] = JS(name) end
+  local dropped = {}
+  for k, name in ipairs(n.dropped) do dropped[k] = JS(name) end
+  return '{"mode":' .. JS(n.mode) .. ',"tick":' .. JN(n.tick)
+    .. ',"kept":[' .. table.concat(kept, ",") .. '],"dropped":[' .. table.concat(dropped, ",") .. "]}"
+end
+
+local function find_circle(name)
+  for i = 1, #CIRCLES do
+    if CIRCLES[i].name == name then return i end
+  end
+  return nil
+end
+
+-- boot の初期状態（idle・init の値）。復元に失敗して通常の boot に落ちるときにも呼ぶ。
+local function fresh_state()
+  for i = 1, #CIRCLES do
+    C[i] = { status = "idle", paused = false, pending = false, cursor = 0, waits = {}, published = false }
+    P[i] = {}
+    -- 未 entered の陣の state は init の値（model.md §3.2 の summon）。entered で評価し直す
+    if CIRCLES[i].init then
+      S[i] = CIRCLES[i].init()
+      publish(i)
+    else
+      S[i] = nil
+    end
+  end
+end
+
+-- 陣を名前で照合して状態を写す。核あり ↔ 核なしが変わった陣は照合しない（idle のまま）。
+-- root が照合できず idle のままなら false（呼び出し側が通常の boot に落とす）。
+local function restore_from(resume)
+  local kept = {}
+  local dropped = {}
+  local snaps = RREC(resume.circles)
+  if snaps ~= nil then
+    for _, sc in ipairs(snaps) do
+      local name = RSTR(sc.name)
+      local i = name and find_circle(name) or nil
+      local c = i and CIRCLES[i] or nil
+      -- 核あり陣の snapshot は state を持ち（空でも {}）、核なし陣は null。
+      if c ~= nil and (c.flow ~= nil) == (RREC(sc.state) == nil) then
+        local st = C[i]
+        local status = RSTR(sc.status)
+        if status == "active" or status == "done" or status == "idle" then st.status = status end
+        st.paused = sc.paused == true
+        st.pending = sc.pending == true
+        st.cursor = math.tointeger(sc.cursor) or 0
+        st.published = sc.published == true
+        local delegate = RSTR(sc.delegate)
+        st.delegate = delegate and find_circle(delegate) or nil
+        if st.delegate == nil then st.paused = false end
+        if st.delegate and C[st.delegate].status == "idle" then st.pending = true end
+        if c.restore and RREC(sc.state) then c.restore(sc.state) end
+        if c.prestore and RREC(sc.public) then c.prestore(sc.public) end
+        kept[#kept + 1] = name
+      elseif name ~= nil then
+        dropped[#dropped + 1] = name
+      end
+    end
+  end
+  if C[ROOT].status == "idle" then
+    fresh_state()
+    RESUME_NOTE = { mode = "fresh", tick = -1, kept = {}, dropped = dropped }
+    return false
+  end
+  TICK = math.tointeger(resume.tick) or -1
+  SEQ = math.tointeger(resume.seq) or 0
+  local rng = RSTR(resume.rng)
+  local rs = rng and math.tointeger(tonumber(rng)) or nil
+  if rs ~= nil then RS = rs end
+  DONE = resume.done == true
+  RESUME_NOTE = { mode = "resumed", tick = TICK, kept = kept, dropped = dropped }
+  return true
+end
+
+-- 復元後の修復: active な flow の idle な子（足された子・照合できなかった子）を entered にする。
+-- それ以外の修復はしない（wait 中の手順・未配達の emit は捨てる）。
+local function repair_flows()
+  for i = 1, #CIRCLES do
+    local c = CIRCLES[i]
+    local st = C[i]
+    if c.flow and st.status == "active" then
+      if c.flow == "parallel" then
+        for _, child in ipairs(c.children) do
+          if C[child].status == "idle" then ENTER(child) end
+        end
+      else
+        if st.cursor < 1 or st.cursor > #c.children then st.cursor = 1 end
+        local cur = c.children[st.cursor]
+        if C[cur].status == "idle" then ENTER(cur) end
+      end
+    end
+  end
+end
+
 -- ---------------------------------------------------------------- tick の手順（runtime.md §2）
 local function deliver()
   local q = Q
@@ -748,7 +914,16 @@ local function result()
     if c.pub and C[i].published then pubs[#pubs + 1] = c.pub() end
   end
   parts[3] = ',"done":' .. JB(DONE) .. ',"error":' .. (ERRMSG and JS(ERRMSG) or "null")
-    .. ',"public":{' .. table.concat(pubs, ",") .. "}}"
+    .. ',"public":{' .. table.concat(pubs, ",") .. "}"
+  -- DEBUG だけ: 状態を保った差し替えのための snapshot と、復元の直後 1 回だけの resume。
+  if DEBUG then
+    parts[4] = ',"snapshot":' .. snapshot_json()
+    parts[5] = RESUME_NOTE and (',"resume":' .. resume_note_json()) or ""
+  else
+    parts[4] = ""
+    parts[5] = ""
+  end
+  parts[6] = "}"
   return table.concat(parts)
 end
 
@@ -759,6 +934,11 @@ function boot(seed, manifest)
     error("Lua の整数が 64 bit ではありません")
   end
   MANIFEST = manifest
+  -- 状態を保った差し替え: manifest.resume（直前の tick 結果の snapshot）があれば、通常の boot の代わりに
+  -- 名前で照合して状態を写す（runtime.md §1 / §10・設計書 §11 #42〜#44）。DEBUG でなくても受けるが、
+  -- snapshot を出すのは DEBUG だけなので実際にはデバッグビルドでだけ起きる。
+  local resume = nil
+  if RREC(manifest) ~= nil then resume = RREC(manifest.resume) end
   SEQ = 0
   TICK = -1
   DONE = false
@@ -770,23 +950,27 @@ function boot(seed, manifest)
   LAST_DOWN = false
   CUR_PTR = nil
   CUR_CI = nil
-  for i = 1, #CIRCLES do
-    C[i] = { status = "idle", paused = false, pending = false, cursor = 0, waits = {}, published = false }
-    P[i] = {}
-    -- 未 entered の陣の state は init の値（model.md §3.2 の summon）。entered で評価し直す
-    if CIRCLES[i].init then
-      S[i] = CIRCLES[i].init()
-      publish(i)
-    else
-      S[i] = nil
-    end
-  end
-  rng_seed(math.tointeger(seed) or 0)
+  RESUME_NOTE = nil
+  fresh_state()
+  seed = math.tointeger(seed) or 0
+  -- 乱数列は seed と状態の組で決まる。snapshot の seed を優先する（ホストが別の seed を渡しても割れない）。
+  if resume ~= nil and math.tointeger(resume.seed) then seed = math.tointeger(resume.seed) end
+  SEED = seed
+  rng_seed(seed)
+  local resumed = false
   protected(function()
-    ENTER(ROOT)
-    ADVANCE()
+    if resume ~= nil then resumed = restore_from(resume) end
+    if resumed then
+      repair_flows()
+      ADVANCE()
+    else
+      ENTER(ROOT)
+      ADVANCE()
+    end
   end)
-  publish_all()
+  -- 通常の boot は全陣を確定する。復元では確定値 P を snapshot から写したので触らない
+  -- （tick の終わりの進行で set された値は次 tick の 4 まで P に出ない・設計書 §11 #43）。
+  if not resumed then publish_all() end
   OPS = {}
   AUDIO = {}
 end
@@ -799,6 +983,7 @@ function tick(t, inputs)
   if DONE then
     local out = result()
     TRACE = {}
+    RESUME_NOTE = nil
     return out
   end
   prepare_inputs(inputs)
@@ -808,5 +993,6 @@ function tick(t, inputs)
   end
   local out = result()
   TRACE = {}
+  RESUME_NOTE = nil
   return out
 end

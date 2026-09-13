@@ -10,7 +10,7 @@
 
 | 関数 | 引数 | 戻り |
 |---|---|---|
-| `boot(seed, manifest)` | seed: 整数、manifest: `game.manifest.json` の内容(Lua テーブル) | なし |
+| `boot(seed, manifest)` | seed: 整数、manifest: `game.manifest.json` の内容(Lua テーブル)。差し替えのときだけ `resume`(§1.3)が付く | なし |
 | `tick(t, inputs)` | t: 0 始まりの tick 番号、inputs: §1.1 | §1.2 の結果を **JSON 文字列**にしたもの(UTF-8) |
 
 戻り値を Lua テーブルでなく JSON 文字列にするのは、Wasmoon の Lua→JS テーブル変換が 50 行で約 600 µs/回かかるのに対し JSON 文字列 + `JSON.parse` なら 35 µs で済み、かつ Lua→JS で integer / float の区別と 64 bit 精度が落ちる経路を通らないため(`wasm-api-probe.md` A.3 / A.9)。直列化はプレリュードが行う(外部の JSON ライブラリは無い。数値は §6 の書式)。
@@ -37,11 +37,49 @@ inputs = {
   trace = { … },     -- デバッグビルドだけ(リリースビルドではキーごと無い)。§5 の行の配列
   done = false,      -- root が done になったら true。以後の tick は何もしない
   error = nil,       -- 実行時エラーの文(§5 の error 行と同じ。リリースビルドでも出る。無ければ null)
-  public = { … } }   -- 公開 state の確定値 { "Play.score": 3, "Result.quit": true }(jin run が標準出力に出す)
+  public = { … },    -- 公開 state の確定値 { "Play.score": 3, "Result.quit": true }(jin run が標準出力に出す)
+  snapshot = { … },  -- デバッグビルドだけ。次の boot の manifest.resume にそのまま渡せる状態(§1.3)
+  resume = { … } }   -- デバッグビルドだけ。manifest.resume 付きで boot した直後の 1 回だけ(§1.3)
 ```
 
 `error` と `public` は Phase 2 で足した(設計書 §11 #22)。リリースビルドにはトレースが無いので、
-実行時エラーの理由と最後の公開 state を返す口がここしか無い。
+実行時エラーの理由と最後の公開 state を返す口がここしか無い。`snapshot` と `resume` は v2.1 で足した
+(設計書 §11 #42〜#44)。キーの順は `ops` / `audio` / `trace` / `done` / `error` / `public` / `snapshot` / `resume`。
+
+### 1.3 状態を保った差し替え(`manifest.resume`・v2.1)
+
+エディタで式を直すたびに新しい JIL が届く(§10 のライブリロード)。`boot` からやり直すと score も ball も消えるので、
+デバッグビルドの `tick` 結果に載る **`snapshot`** を、次の(新しい JIL の)`boot` の `manifest.resume` に**そのまま**渡すと、
+プレリュードが**陣を名前で照合して**状態を写し、同じ tick から続ける。
+
+```
+snapshot = { seed = 7, tick = 29, seq = 411, rng = "0x970afbe494d8eded", done = false,
+  circles = { { name = "Game", status = "active", paused = false, pending = false, cursor = 1, published = false,
+                delegate = null, state = null, public = null },     -- 核なし陣は state / public が null
+              { name = "Play", status = "active", paused = false, pending = false, cursor = 1, published = true,
+                delegate = null, state = { score = 0, paddle = 140.0, ball = { … } }, public = { score = 0 } },
+              … } }
+```
+
+規則(`prelude.lua` の `restore_from` / `repair_flows`。`packages/jin-wasm/tests/test_resume.py` が固定する):
+
+- **名前で照合する。** 生成部の陣に snapshot と同じ名前があれば、生存(`status` / `paused` / `pending` / `cursor` /
+  `published` / `delegate`)と state(`restore`。欄も名前で引き、**型の形が合う欄だけ**写す。合わない欄・無い欄は `init` の値)と
+  公開 state の確定値 P(`prestore`)を写す。snapshot にだけある陣は捨て(`dropped`)、生成部にだけある陣は idle のまま
+- **核あり ↔ 核なしが変わった陣は照合しない**(idle のまま)
+- **root が照合できなければ通常の `boot`**(`resume.mode = "fresh"`。陣の改名など)
+- 復元後、active な flow の idle な子は `entered` にする(`repair_flows`。足した子・照合できなかった子がそこで動き出す)
+- **`wait` 中の手順と未配達の `emit` は捨てる**(コルーチンは境界を越えない。`on tick` は届き続ける)。録画も続けない
+- `seed` は snapshot のものが勝つ(ホストが別の seed を渡しても乱数列が割れない)。PCG32 の 64 bit 状態は
+  `"0x…"` の 16 進**文字列**で越える(jil.md §5 の唯一の例外)。`tick` / `seq` は snapshot から続く(§5 の `seq` は通しのまま)
+- 通常の `boot` は全陣を確定(`publish_all`)するが、復元では P を snapshot から写したので触らない
+  (tick の終わりの進行で `set` された値は次 tick の 4 まで P に出ない・二重バッファのまま)
+- 復元の知らせは直後の `tick` 結果に 1 回だけ: `resume = { mode = "resumed" | "fresh", tick, kept = { … }, dropped = { … } }`
+- ホストの値の形は `type()` で見ない(lupa は table、Wasmoon は proxy の userdata)。欄の読み取りと `ipairs` で見る(`RREC` / `RN` / `RB` / `RSTR` / `RL` / `JR[k]`)
+
+保証は「途切れずに走らせた列と、途中で差し替えて続けた列が**行(`seq` 込み)も画面も公開 state も乱数列も一致**する」
+(`test_paddle_resumed_from_a_snapshot_matches_the_uninterrupted_run`)。式を書き換えた JIL に差し替えれば、その式が効く
+tick から列が分かれる。リリースビルドには `snapshot` が無い(差し替えは常に `boot` から)。
 
 ## 2. tick の手順
 
@@ -88,7 +126,7 @@ root が `done` になったら `tick` は `done = true` を返し、以後は�
 
 ## 5. トレース行
 
-1 行 1 JSON(JSONL)。デバッグビルド(`--debug`)でだけ出る。`seq` は `boot` から通しの連番(0 始まり)。
+1 行 1 JSON(JSONL)。デバッグビルド(`--debug`)でだけ出る。`seq` は `boot` から通しの連番(0 始まり。状態を保った差し替え(§1.3)でも snapshot の `seq` から続き、0 に戻らない)。
 
 ```
 { "seq": 41, "tick": 12, "circle": "Play", "kind": "set", "name": "score",
@@ -183,12 +221,13 @@ dist/
 - 入力を集めて §1.1 の形にする。録画モードなら §7 も書く
 - Wasmoon は `openStandardLibs: true` で作り(`false` は base ライブラリごと消える)、JIL を読む前に `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` を **`lua.global.set(name, undefined)`** で消す(`null` は Wasmoon 1.16.0 で `TypeError` になり消えない。probe A.8)
 - `tick` の戻り値(JSON 文字列)を `JSON.parse` する。Lua のテーブルを直接受け取らない(§1)
-- 「実行 / 一時停止 / 1 tick / seed / 録画 / 書き出し」の最小 UI。エディタからは iframe で埋め込まれ、`postMessage` でトレース行を親へ流す(`{ "type": "jin.trace", "rows": [...] }`)。親からは `{ "type": "jin.load", "jil": "...", "manifest": {...} }` で差し替える(ライブリロード)
+- 「実行 / 一時停止 / 1 tick / seed / 録画 / 書き出し」の最小 UI。エディタからは iframe で埋め込まれ、`postMessage` でトレース行を親へ流す(`{ "type": "jin.trace", "rows": [...] }`)。親からは `{ "type": "jin.load", "jil": "...", "manifest": {...}, "keep": true }` で差し替える(ライブリロード。`keep` なら §1.3 で状態を保つ)
 - Python を import しない。読む生成物は `schemas/abilities.json` だけ(キー名の一覧と TS 型の生成元)。キー名 / op 名のリテラルをソースに書かず、カタログから引く(`tests/contract/test_player_contract.py` が走査する)
 - **入力の規則**(`apps/player/src/input.ts`): キーは `KeyboardEvent.code` で、カタログの `keys` にあるものだけ。`repeat` と同じキーの二重押下は捨て、`blur` では押下中のキーを `down: false` として**記録してから**離す。ポインタは主ボタンだけで、座標は論理座標(stage の幅 / 高さに写して整数に切り捨て、枠内に留める)。移動は tick の中で最後の 1 つに畳むが、down → up の遷移は残す(`ui.button` の離しが見る)。`inputs` と `.jinrec` は**同じ reducer**(`jin_wasm.runtime.InputState.apply` の写し)から出す(`tests/fixtures/jinrec/reducer.*` を Python と TS の両方が検算)
 - **録画は `boot` し直して tick 0 から始める**(途中からの録画は `jin run --input` と揃わない)。ヘッダの `ticks` は実行した tick 数。トレース(`debug`)は `boot` から通しで溜め、パリティは `jin run --input rec.jinrec --trace` の行と **JSON として読んでから全行一致**で比べる(`apps/player/e2e/parity.spec.ts`)
 - 命令数の上限は §8 と同じ Lua(`JIN_ARM` / `JIN_HOOK`)で掛ける。Wasmoon の `Thread.setTimeout` / `functionTimeout` は使わない(コルーチンの中で PANIC・probe §A.10)。`new LuaFactory(wasmUri)` には常に URL を渡す(引数無しは unpkg へ fetch しに行く)
 - `canvas.text` の書体は ASCII(U+0020〜U+007E)だけで、それ以外のコードポイントは □(幅は 1 コードポイント = 6 のまま。設計書 §11 #33)
 - `postMessage` は親(`window.parent`)へ tick ごとに `{ type: "jin.trace", rows }` を送る(targetOrigin は `*`。トレースは秘密ではない)。`{ type: "jin.load", … }` は**親からの message だけ**を受ける
-- **埋め込み(iframe)の規則**(Phase 5・設計書 §8 / §11 #38): iframe の中では `game.lua` / `game.manifest.json` を **fetch せず**、親の `{ type: "jin.load", jil, manifest }` を待つ(状態表示は「エディタからの読み込みを待っています」)。`{ type: "jin.control", action }`(`start` / `pause` / `step` / `reboot`)で親の操作を受ける。`reboot` は**止めた状態で** tick 0 に戻す(そこから 1 tick ずつ進められる)。`jin.load` のたびに `boot` からやり直す(ライブリロード)。asset の実体は埋め込みでは読めない(`.jin` の隣にあり、エディタのサーバは配らない)。親側は `apps/editor/src/run/RunPanel.tsx`、配信は `jin editor` の `/play/`
-- **埋め込みのデバッグ**(Phase 6・設計書 §8 / §11 #39〜#41): 親は `{ type: "jin.replay", text }` で `.jinrec` の生のテキストを渡す。プレイヤーは `src/jinrec.ts`(`jin_wasm.jinrec.read_jinrec` の写し。壊れた行は同じ行番号で断る)で読み、ヘッダの seed で `boot` し直して tick 0 からヘッダの `ticks` まで、`tick == t` の行を**同じ reducer**に通す(§8 と同じ手順・同じトレース。`apps/player/e2e/replay.spec.ts` が全行一致を見る)。root が `done` になったらそこで止まり、終わったら**止まったまま**(そこからスクラブ / 1 tick)。再生の間に届いた実入力は捨て、トレースは最後に 1 回 `jin.trace` で流す。`{ type: "jin.frame", ops }` は表示リストを描くだけ(止まっている間だけ・Lua は呼ばない)。状態が変わるたびに `{ type: "jin.status", loaded, tick, seed, running, done, error, recording, recordedEvents, notice }` を、`jin.control` の `stop`(録画を止める)には `{ type: "jin.recording", text, seed, ticks }` を親へ送る(書き出しは親)。`jin.control` の `record` は seed を受けて `boot` し直して走り出し、`reboot` も seed を受ける。親とプレイヤーの語彙は `jin.load` / `jin.control` / `jin.replay` / `jin.frame`(親から)と `jin.trace` / `jin.status` / `jin.recording`(親へ)の 7 語で、`tests/contract/test_editor_contract.py` が両側から抜いた集合の等号で固定する
+- **埋め込み(iframe)の規則**(Phase 5・設計書 §8 / §11 #38): iframe の中では `game.lua` / `game.manifest.json` を **fetch せず**、親の `{ type: "jin.load", jil, manifest }` を待つ(状態表示は「エディタからの読み込みを待っています」)。`{ type: "jin.control", action }`(`start` / `pause` / `step` / `reboot`)で親の操作を受ける。`reboot` は**止めた状態で** tick 0 に戻す(そこから 1 tick ずつ進められる)。`jin.load` のたびに差し替える(ライブリロード。`keep` が真で tick が進んでいれば §1.3 の `manifest.resume` で状態を保ち、そうでなければ `boot` からやり直す)。asset の実体は埋め込みでは読めない(`.jin` の隣にあり、エディタのサーバは配らない)。親側は `apps/editor/src/run/RunPanel.tsx`、配信は `jin editor` の `/play/`
+- **埋め込みのデバッグ**(Phase 6・設計書 §8 / §11 #39〜#41): 親は `{ type: "jin.replay", text }` で `.jinrec` の生のテキストを渡す。プレイヤーは `src/jinrec.ts`(`jin_wasm.jinrec.read_jinrec` の写し。壊れた行は同じ行番号で断る)で読み、ヘッダの seed で `boot` し直して tick 0 からヘッダの `ticks` まで、`tick == t` の行を**同じ reducer**に通す(§8 と同じ手順・同じトレース。`apps/player/e2e/replay.spec.ts` が全行一致を見る)。root が `done` になったらそこで止まり、終わったら**止まったまま**(そこからスクラブ / 1 tick)。再生の間に届いた実入力は捨て、トレースは最後に 1 回 `jin.trace` で流す。`{ type: "jin.frame", ops }` は表示リストを描くだけ(止まっている間だけ・Lua は呼ばない)。状態が変わるたびに `{ type: "jin.status", loaded, tick, seed, running, done, error, recording, recordedEvents, generation, notice }` を、`jin.control` の `stop`(録画を止める)には `{ type: "jin.recording", text, seed, ticks }` を親へ送る(書き出しは親)。`jin.control` の `record` は seed を受けて `boot` し直して走り出し、`reboot` も seed を受ける。親とプレイヤーの語彙は `jin.load` / `jin.control` / `jin.replay` / `jin.frame`(親から)と `jin.trace` / `jin.status` / `jin.recording`(親へ)の 7 語で、`tests/contract/test_editor_contract.py` が両側から抜いた集合の等号で固定する
+- **状態を保った差し替え**(v2.1・設計書 §11 #42〜#44): `jin.load` の `keep` が真で tick が進んでいれば(終わっていなければ)、新しい JIL のホストを作り、前のプレイヤーの直近の `snapshot` を `manifest.resume` に付けて `boot` する(`Player.resumeFrom`。ホストが呼ぶ Lua の関数は `boot` / `tick` のまま)。tick / seed / reducer / 押下状態(`InputCollector.adopt`。押したままのキーを引き継がないと離しの `down: false` が出ない)/ トレース / 直近の画面と公開 state を引き継ぎ、走っていたなら走らせ続ける。録画は止める。root が照合できず `resume.mode == "fresh"` ならその tick を捨てて `reboot`(tick 0 から。行は流さない)。読み込みは直列(wasm の起動を待つ間に次の `jin.load` が来ても重ねない)。`jin.status` の **`generation`** は `boot` し直すたび(最初から / 録画 / `keep` 無しの差し替え / `fresh`)に増え、続けたときは変わらない。親はこれで行を捨てるかを決める(`seq` が 0 に戻るので。録画の再生では `reboot` の知らせが行の一括より先に届くので、再生の行は残る)。復元の知らせは `notice`。**Wasmoon は JS の `null` を Lua に積めない**(proxy の userdata が欄を読んだ瞬間に PANIC でエンジンごと落ちる・probe §A.11)ので、`boot` に渡す manifest は `withoutNulls` で `null` を欄ごと落とす(核なし陣の `state` / `delegate` が `null`。Lua 側は無い欄を `nil` として読む)

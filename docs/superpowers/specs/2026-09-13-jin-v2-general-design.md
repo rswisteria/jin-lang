@@ -535,7 +535,7 @@ v1 の規律(正方形キャンバス、R=1、12 時から時計回り、`fmt_co
 - hover: 式の型、ホスト能力のシグネチャ(カタログ由来)、state の公開 / 非公開
 - completion: 式の中の識別子(スコープ順)、`.` の後の名前空間メンバ、`do` の値、型名
 - **実行パネル**: エディタに `apps/player` を **同一オリジンの iframe** で埋め込む。`jin editor` の静的サーバが `dist/` と同じものを `/play/` に配る。実行 / 一時停止 / 1 tick 進める / seed / 入力の記録と `.jinrec` の書き出し。**v1 の `POST /run` は使わない**(v2 の実行はブラウザ内で完結し、子プロセスも `ref` も無い)。トレースは iframe から `postMessage` で親へ流し、Phase 6 のスクラバにそのまま載る
-- **ライブリロード**: `jin/applyOps` の応答に v2 なら JIL を含める(`jil` フィールド)。実行パネルは `boot` からやり直す(状態の引き継ぎは v2.1)
+- **ライブリロード**: `jin/applyOps` の応答に v2 なら JIL を含める(`jil` フィールド)。実行パネルは既定で**状態を保って**差し替える(v2.1 で実装。runtime.md §1.3。「編集しても状態を保つ」を外せば `boot` からやり直す)
 - フォームは `jin.schema.json` から生成(v1 と同じ)。式の欄だけ「式エディタ」(1 行 + 補完)にする。**式エディタは `jin_core.v2.expr` を再実装しない**。補完候補は LSP の completion をそのまま使う
 
 Phase 5 で確定した実装(§11 #36〜#38):
@@ -553,6 +553,12 @@ Phase 6 で確定した実装(§11 #39〜#41):
 - **スクラブで画面も動く**: `upto` の位置の最後の `frame` 行の表示リストを `jin.frame` でプレイヤーに描かせる(止まっている間だけ。Lua は呼ばない)
 - **録画と書き出し**: 実行パネルの「録画」は seed を決めて `boot` し直し、「録画を止めて書き出す」で `jin.recording` の `.jinrec` を親がダウンロードとして渡す(`<jin 名>-seed<seed>-<ticks>t.jinrec`)。「この録画を再生」で読み直せる
 - **行数の上限は出どころで分ける**: 走らせている間は `MAX_LIVE_ROWS`(4000)で古い行を落とす(値の積算が最初からでなくなると断る)。録画の再生はヘッダの `ticks` で有界なので落とさず、`MAX_REPLAY_ROWS`(60000)を超えたら載せずに断る。描き直しはプレイヤーが止まった知らせ(`jin.status` の `running: false`)で行う
+
+v2.1(状態を保ったライブリロード)で確定した実装(§11 #42〜#44):
+
+- **snapshot は `tick` 結果に、復元は `boot` の `manifest.resume` に**(runtime.md §1.3): ホストが呼ぶ Lua の関数は `boot` / `tick` のままで、デバッグビルドの `tick` 結果に `snapshot`(seed / tick / seq / PCG32 の 16 進文字列 / 陣ごとの生存・state・公開 state の確定値)を載せ、次の `boot` に**そのまま**渡す。陣は**名前で照合**し、欄も名前で引いて**形が合うものだけ**写す(合わなければ `init`)。root が照合できなければ通常の `boot`。`wait` 中の手順と未配達の `emit` は捨てる。JIL の版は 1 → 2(生成部に `restore` / `prestore` / `pdump` / `JR[k]`。release の生成部は不変)。保証は「途切れずに走らせた列と、途中で差し替えて続けた列が行(`seq` 込み)も画面も乱数列も一致」(`packages/jin-wasm/tests/test_resume.py`)
+- **プレイヤーは前のプレイヤーから引き継ぐ**(`Player.resumeFrom`): tick / seed / reducer / 押下状態 / トレース / 直近の画面を持ち越し、走っていたなら走らせ続ける。録画は止める。`fresh` ならその tick を捨てて tick 0 から。`jin.status` の `generation`(`boot` し直すたびに増える)で親が走らせた行を捨てるかを決める。Wasmoon は JS の `null` を Lua に積めない(proxy が欄を読んだ瞬間に PANIC・probe §A.11)ので `boot` の前に `withoutNulls` で落とす(`apps/player/e2e/reload.spec.ts`)
+- **エディタは v2 の実行パネルをモード切り替えで外さない**(編集モードでは隠す): 式の欄は編集モードにしか無く、外すと iframe ごとプレイヤーが消えて状態が続かない。「編集しても状態を保つ」(既定 on)が `jin.load` の `keep` になる。e2e(`apps/editor/e2e/v2.spec.ts`)は「走らせて止める → 編集モードで式を直す → 戻ると tick / 記憶環の値 / `upto` がそのまま → 1 tick で続く → 外して編集すると世代が進む」を実ブラウザで通す
 
 ---
 
@@ -629,6 +635,9 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 39 | `.jinrec` の読み手と再生の場所(Phase 6 で確定) | 読み手は書き手と同じ `apps/player`(`src/jinrec.ts` = `read_jinrec` の写し。壊れ fixture を両側で同じ行番号で検算)。再生は iframe の中の `Player.replay`(ヘッダの seed で `boot`、tick 0 から同じ reducer、止まったまま終わる)。エディタは 1 行目の `"jinrec"` だけを見て生のテキストを `jin.replay` で渡す | `jin/` は 6 種のまま、`POST /run` は使わないので、再生できる場所はプレイヤーしか無い。エディタに読み手を置くと `apps/player` の TS を import するか写しを 3 つ目に増やすことになる |
 | 40 | 記憶環の値と `assert` のバッジ(Phase 6 で確定) | エディタが `set` 行を積算し(runtime.md §5 のとおり)、SVG の**外**の HTML 層に重ねる(位置は描かれた要素の矩形)。`jin_render` はオーバーレイ(発火の強調と点)だけを描き、値は描かない | SVG に `<text>` を足すのは「エディタが陣を描く」ことになり契約テストが落とす。レンダラに積算を持ち込むと `jin/renderSvg` の引数に「値」が増え、同じ `upto` なら同じ SVG という規律の外に状態が出る |
 | 41 | 再生の行数と描き直し(Phase 6 で確定) | 走らせている間の行は #38 のまま(4000 で古い行を落とす)。録画の再生は落とさず `MAX_REPLAY_ROWS`(60000)を超えたら載せずに断る。描き直しはプレイヤーの `jin.status`(`running: false`)で即座に、走っている間は 1 秒に 1 回 | 古い行を落とすと `enter` 行(init 値)が消え、以後 `set` されない state の値が黙って狂う。再生はヘッダの `ticks` で有界なので上限を別に置ける。paddle 600 tick は約 7,000 行 |
+| 42 | 状態を保った差し替えの経路(v2.1 で確定) | デバッグビルドの `tick` 結果に `snapshot` を載せ、次の `boot` の `manifest.resume` に**そのまま**渡す(runtime.md §1.3)。陣は名前で照合、欄は名前と型の形で写す(合わなければ `init`)。核あり ↔ 核なしが変わった陣は idle、root が照合できなければ通常の `boot`(`resume.mode = "fresh"`)、active な flow の idle な子は `entered`、`wait` 中の手順と未配達の `emit` は捨てる。復元の知らせは直後の tick 結果に 1 回。JIL の版は 1 → 2 | ホストが呼ぶ Lua の関数を `boot` / `tick` の 2 つのままにする(#6)。コルーチンは境界を越えないので `wait` は捨てるしかない。名前で照合すれば式の書き換え・state の追加 / 削除・手順の並べ替えの全部が「続く」側に入り、改名だけが最初からになる |
+| 43 | snapshot が越えるもの(v2.1 で確定) | `seed`(snapshot が勝つ)/ `tick` / `seq`(通しのまま)/ PCG32 の状態(`"0x…"` の 16 進文字列。jil.md §5 の唯一の例外)/ 陣ごとの生存と state(`dump`)と公開 state の確定値 P(`pdump`)。復元では `publish_all` を呼ばない。ホストの値の形は `type()` でなく欄の読み取りと `ipairs` で見る | 乱数列と `seq` が続かないと「途切れずに走らせた列と一致」が言えない(`test_resume.py`)。P を別に持つのは、tick の終わりの進行で `set` された値が次 tick の 4 まで P に出ない二重バッファ(#7)を復元でも保つため。lupa は table、Wasmoon は proxy の userdata で届く |
+| 44 | エディタ側の差し替え(v2.1 で確定) | `jin.load` に `keep`(既定 on の「編集しても状態を保つ」)。プレイヤーは前のプレイヤーから tick / reducer / 押下 / トレースを引き継ぎ(`resumeFrom`)、`fresh` なら tick 0 から。`jin.status` の `generation` で親が行を捨てる。v2 の実行パネルはモード切り替えで外さず編集モードでは隠す。Wasmoon には `null` を渡さない(`withoutNulls`・probe §A.11) | 式の欄は編集モードにしか無いので、iframe が外れると機能が成立しない。`seq` が 0 に戻る差し替え(keep 無し / fresh)を親が知る口が `generation`。JS の `null` は Wasmoon の proxy が欄を読んだ瞬間に PANIC でエンジンごと落ちる(実測) |
 ---
 
 ## 12. 実装フェーズ(Claude Code への発注単位)
@@ -642,6 +651,6 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る(**実装済み**。パリティは `apps/player/e2e/parity.spec.ts`(録画 → `jin run --input` → トレース全行一致)、`--single` は `single.spec.ts`。`jin build` の同梱は `scripts/sync_player.py`。命令数の上限がコルーチンに届いていなかった残存は §11 #32 で閉じた) |
 | 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「開く → ステップを足す → 保存 → `jin fmt` とバイト一致」「式エディタの補完」「実行パネルで 10 tick 進めてスクラブ」を実ブラウザで通す。§11 #36〜#38) |
 | 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く(**実装済み**。`apps/editor/e2e/v2.spec.ts` が「`.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く」「偽になった `assert` のバッジと一覧」「録画 → 書き出し → `jin run --input` と同じ行数 → 読み直し」を、`apps/player/e2e/replay.spec.ts` が再生と `jin run --input` の全行一致を実ブラウザで通す。§11 #39〜#41) |
-| 7 | v2.1 候補: `--target wasm-gc`、`storage`、テキスト入力欄、式の正準化、状態を保った ライブリロード、v1 の陣(LLM エージェント)を v2 から `summon` する Python ホスト | 任意 |
+| 7 | v2.1 候補: `--target wasm-gc`、`storage`、テキスト入力欄、式の正準化、状態を保ったライブリロード(**実装済み**。§11 #42〜#44。`packages/jin-wasm/tests/test_resume.py` が「途切れずに走らせた列と一致」を、`apps/player/e2e/reload.spec.ts` と `apps/editor/e2e/v2.spec.ts` が実ブラウザで「式を直しても tick / 記憶環の値が続く」を通す)、v1 の陣(LLM エージェント)を v2 から `summon` する Python ホスト | 任意 |
 
 Phase 0 の仕様書を先に承認してから Phase 1 に入る(v1 と同じ運び)。

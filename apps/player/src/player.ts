@@ -8,6 +8,12 @@
  * 1 tick の順序は固定: 入力を集める → （録画中なら）書く → reducer で `inputs` にする →
  * `tick` → 描く → 鳴らす → トレースを流す → `done` なら止まる。録画と `inputs` が同じ
  * イベント列から出ることがパリティの根拠（`input.ts`）。
+ *
+ * 状態を保った差し替え（runtime.md §1 の `manifest.resume`・設計書 §11 #42）: 新しい JIL のホストで
+ * 作った `Player` が `resumeFrom(previous)` で前のプレイヤーの直近の `snapshot` / reducer / トレース /
+ * tick を引き継ぎ、`manifest.resume` 付きで `boot` する。root が照合できなければ（`resume.mode`
+ * が `fresh`）そのまま `reboot` に落ちる。**世代**（`generation`）は boot し直すたびに増え、差し替えで
+ * 続けたときは増えない（親はこれでトレースを捨てるかを決める）。
  */
 import type { AudioOut } from "./audio";
 import type { Renderer } from "./canvas";
@@ -15,10 +21,20 @@ import type { JinHost } from "./host";
 import { InputCollector, InputReducer } from "./input";
 import { DEFAULT_TICKS, eventsByTick, type Recording } from "./jinrec";
 import { Recorder } from "./recorder";
-import type { InputEvent, Manifest, Op, TraceRow } from "./types";
+import type {
+	InputEvent,
+	Manifest,
+	Op,
+	ResumeNote,
+	Snapshot,
+	TraceRow,
+} from "./types";
 
 /** 1 フレームで追いつくために連続で呼ぶ tick の上限（runtime.md §10）。 */
 export const MAX_CATCH_UP = 4;
+
+/** 世代の採番（ページで 1 本。`Player` を作り直しても戻らない）。 */
+let nextGeneration = 1;
 
 export interface Clock {
 	/** ミリ秒。 */
@@ -36,6 +52,8 @@ export interface PlayerOptions {
 	readonly clock: Clock;
 	readonly onTrace?: (rows: readonly TraceRow[]) => void;
 	readonly onChange?: () => void;
+	/** 差し替え直後の tick が返した復元の知らせ（1 回だけ）。 */
+	readonly onResume?: (note: ResumeNote) => void;
 }
 
 export class Player {
@@ -53,8 +71,14 @@ export class Player {
 	error: string | null = null;
 	lastOps: readonly Op[] = [];
 	lastPublic: Readonly<Record<string, unknown>> = {};
-	/** デバッグビルドのトレース（`boot` から通し）。`reboot` で空になる。 */
+	/** デバッグビルドのトレース（`boot` から通し）。`reboot` で空になる。差し替えで続けたときは引き継ぐ。 */
 	readonly trace: TraceRow[] = [];
+	/** 直近の tick 結果の `snapshot`（DEBUG だけ。差し替えで次の `boot` に渡す）。 */
+	lastSnapshot: Snapshot | null = null;
+	/** 差し替え直後の tick が返した復元の知らせ。`reboot` で null に戻る。 */
+	lastResume: ResumeNote | null = null;
+	/** boot し直した回数の通し番号（0 はまだ boot していない）。差し替えで続けたときは変わらない。 */
+	generation = 0;
 
 	constructor(private readonly o: PlayerOptions) {
 		this.seed = o.manifest.stage.seed;
@@ -77,10 +101,46 @@ export class Player {
 		this.trace.length = 0;
 		this.reducer = new InputReducer();
 		this.recorder = null;
+		this.lastSnapshot = null;
+		this.lastResume = null;
 		this.o.collector.reset();
 		this.accumulator = 0;
+		this.generation = nextGeneration;
+		nextGeneration += 1;
 		this.o.host.boot(this.seed, this.o.manifest);
 		this.o.onChange?.();
+	}
+
+	/**
+	 * 状態を保った差し替え。前のプレイヤー（別の JIL のホストで動いていた）の直近の `snapshot` を
+	 * `manifest.resume` に付けて `boot` し、tick / seed / reducer / トレース / 直近の画面と公開 state /
+	 * 世代を引き継ぐ。**走らせるかは呼ぶ側**が決める（引き継いだ直後は止まっている）。
+	 * 録画は続けられない（差し替えた瞬間から後は同じ JIL の記録ではない）ので、前の録画は捨てる。
+	 * 前のプレイヤーに `snapshot` が無い（release / まだ tick していない）か終わっていれば false
+	 * （呼ぶ側は `reboot` に落とす）。
+	 */
+	resumeFrom(previous: Player): boolean {
+		const snapshot = previous.lastSnapshot;
+		if (snapshot === null || previous.done || previous.tick === 0) return false;
+		this.seed = snapshot.seed;
+		this.tick = snapshot.tick + 1;
+		this.done = false;
+		this.error = null;
+		this.trace.length = 0;
+		this.trace.push(...previous.trace);
+		this.reducer = previous.reducer;
+		this.recorder = null;
+		this.lastRecording = previous.lastRecording;
+		this.lastSnapshot = snapshot;
+		this.lastResume = null;
+		this.lastOps = previous.lastOps;
+		this.lastPublic = previous.lastPublic;
+		this.accumulator = 0;
+		this.generation = previous.generation;
+		this.o.host.boot(this.seed, { ...this.o.manifest, resume: snapshot });
+		this.o.renderer.draw(this.lastOps);
+		this.o.onChange?.();
+		return true;
 	}
 
 	start(): void {
@@ -201,7 +261,20 @@ export class Player {
 		this.recorder?.push(this.tick, events);
 		const inputs = this.reducer.apply(events);
 		const result = this.o.host.tick(this.tick, inputs);
+		if (result.resume !== undefined) {
+			// 差し替え直後の 1 回。root が照合できず通常の boot に落ちていたら（`fresh`）、この tick は
+			// 「tick N+1 で最初から」になっていて数が合わないので、捨てて tick 0 からやり直す。
+			this.lastResume = result.resume;
+			this.o.onResume?.(result.resume);
+			if (result.resume.mode === "fresh") {
+				const note = result.resume;
+				this.reboot();
+				this.lastResume = note;
+				return;
+			}
+		}
 		this.tick += 1;
+		if (result.snapshot !== undefined) this.lastSnapshot = result.snapshot;
 		this.lastOps = result.ops;
 		this.lastPublic = result.public;
 		this.o.renderer.draw(result.ops);

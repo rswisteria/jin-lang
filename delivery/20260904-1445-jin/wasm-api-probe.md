@@ -774,6 +774,52 @@ tick 3 (empty events / keys) ops: 5
   トレース・表示リストには差が出ない。`t` / `seed` は両ホストとも整数
 - 1 tick は約 0.2 ms（60 fps の 16.7 ms に対して 1% 強）
 
+### A.11（追加・v2.1 ライブリロード）`manifest.resume`（snapshot）を JS の object のまま渡す
+
+v2.1（2026-09-13）で状態を保った差し替えを書く前に、DEBUG の `tick` 結果の `snapshot` を **JSON のまま**
+（`JSON.parse` した object）`boot(seed, { ...manifest, resume: snapshot })` に渡して実測した
+（Node 22.16.0 / wasmoon 1.16.0・`jin build --debug` した paddle の `game.lua`。スクリプトは `probe_resume.mjs`）。
+
+**(1) JS の object は Lua では `userdata`（proxy）で、`ipairs` / `#` / 1 始まりの添字 / `math.tointeger` はそのまま効く:**
+
+```
+manifest=userdata
+resume=userdata
+circles=userdata
+seed=7:number
+tointeger(seed)=7
+rng=0x970afbe494d8eded
+  [1] name=Game state=nil public=nil status=active cursor=1:number
+  [2] name=Play state=userdata public=userdata status=active cursor=1:number
+  [3] name=Result state=userdata public=userdata status=idle cursor=0:number
+ipairs n=3 #=3
+```
+
+（A.10 の「JS の object / array は Lua の table になる」は `#` と添字が効くという意味で、`type()` は `userdata`。
+プレリュードの読み手 `RREC` が `type(v) == "table" or type(v) == "userdata"` の両方を通すのはこのため）
+
+**(2) JS の `null` は Lua に積めない。** 上の `state=nil` は `null` を落としてから渡したときの結果で、
+`snapshot` をそのまま渡すと核なし陣 `Game` の `state: null` を Lua が読んだ瞬間に
+
+```
+PANIC: unprotected error in call to Lua API (error object is not a string)
+Aborted(native code called abort())
+```
+
+でエンジンごと落ちる（`global.set(name, null)` が `TypeError: Cannot read properties of null (reading 'then')`
+になるのと同じ `pushValue`。proxy は欄を読んだときに初めて積むので、`boot` の呼び出しは通り、
+`restore_from` の中で落ちる）。→ ホスト（`apps/player/src/host.ts` の `withoutNulls`）が **`boot` に渡す前に
+`null` を欄ごと落とす**（配列は `undefined` で位置を保つ）。Lua 側は無い欄を `nil` として読む。
+
+**(3) `null` を落とせば、途切れずに走らせた列と一致する:**
+
+```
+resume: {"mode":"resumed","tick":9,"kept":["Game","Play","Result"],"dropped":[]}
+trace[0]: {"seq":115,"tick":10,"circle":"Play","kind":"event","name":"tick", ...}
+public: {"Play.score":0,"Result.quit":false} vs {"Play.score":0,"Result.quit":false}
+same: true true true      ← tick 11 の ops / trace / snapshot が uninterrupted と resumed で等しい
+```
+
 ---
 
 ## B. lupa

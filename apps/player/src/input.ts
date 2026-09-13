@@ -115,6 +115,19 @@ export class InputCollector {
 		return out;
 	}
 
+	/**
+	 * 差し替え（状態を保つ）で前の集め手から押下状態と溜まりを引き継ぐ。押したままの ArrowLeft を
+	 * 引き継がないと、離したときの `down: false` が出ない（reducer には押したままに見える）。
+	 */
+	adopt(previous: InputCollector): void {
+		this.pending = previous.pending.slice();
+		this.held.clear();
+		for (const name of previous.held) this.held.add(name);
+		this.pointerDown = previous.pointerDown;
+		this.lastX = previous.lastX;
+		this.lastY = previous.lastY;
+	}
+
 	/** 実行をやり直すとき（`boot` し直し）に押下状態も捨てる。 */
 	reset(): void {
 		this.pending = [];

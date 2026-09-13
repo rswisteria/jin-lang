@@ -268,9 +268,9 @@ def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
         assert word in main, word
     # 親以外からの message は無視する。
     assert "ev.source !== window.parent" in main
-    # `api.load` は fetch しない（wasm の場所はページから決まる）。
-    load = main[main.index("load: async (jil, manifest) =>") :]
-    load = load[: load.index("ticks:")]
+    # `api.load` は fetch しない（wasm の場所はページから決まる）。v2.1 で `keep`（状態を保つ）が付いた。
+    load = main[main.index("load: (jil, manifest, keep = false) =>") :]
+    load = load[: load.index("lastResume:")]
     assert "fetch(" not in load and "loadSource(" not in load
 
 
@@ -318,3 +318,47 @@ def test_the_replay_feeds_the_same_reducer_and_ends_paused() -> None:
     # e2e が再生と `jin run --input` の全行一致を見る。
     spec = read(PLAYER / "e2e" / "replay.spec.ts")
     assert "expect(browserRows).toEqual(headlessRows);" in spec
+
+
+def test_the_player_keeps_state_across_a_reload_through_the_snapshot() -> None:
+    """runtime.md §1.3 / §10（v2.1・設計書 §11 #42〜#44）: 状態を保った差し替え。
+
+    - `jin.load` の `keep` → `PlayerApi.load(jil, manifest, keep)` → `Player.resumeFrom(previous)` が直近の tick 結果の
+      `snapshot` を `manifest.resume` に付けて `boot` する（ホストが呼ぶ Lua の関数は `boot` / `tick` のまま）
+    - reducer と押下状態（`InputCollector.adopt`）を引き継ぐ。録画は続けない
+    - root が照合できず `resume.mode == "fresh"` ならその tick を捨てて `reboot`（行は流さない）
+    - 世代（`generation`）は boot し直すたびに増え、続けたときは変わらない。`jin.status` に載る
+    - Wasmoon は JS の `null` を Lua に積めない（probe §A.11）ので、`boot` は `withoutNulls` を通す
+    """
+    main = read(SRC / "main.ts")
+    assert "data.keep === true" in main
+    assert "current.resumeFrom(previous)" in main
+    assert "collector.adopt(previousCollector)" in main
+    assert "generation: player?.generation ?? 0," in main
+    player = read(SRC / "player.ts")
+    resume = player[player.index("resumeFrom(previous: Player): boolean {") :]
+    resume = resume[: resume.index("start(): void {")]
+    assert "this.o.host.boot(this.seed, { ...this.o.manifest, resume: snapshot });" in resume
+    assert "this.reducer = previous.reducer;" in resume
+    assert "this.recorder = null;" in resume
+    assert "this.generation = previous.generation;" in resume
+    assert "this.tick = snapshot.tick + 1;" in resume
+    advance = player[player.index("private advance(") :]
+    assert 'if (result.resume.mode === "fresh") {' in advance
+    assert "this.reboot();" in advance
+    assert "if (result.snapshot !== undefined) this.lastSnapshot = result.snapshot;" in advance
+    reboot = player[
+        player.index("reboot(seed = this.seed): void {") : player.index(
+            "resumeFrom(previous: Player): boolean {"
+        )
+    ]
+    assert "this.generation = nextGeneration;" in reboot
+    host = read(SRC / "host.ts")
+    assert 'this.lua.global.call("boot", Math.trunc(seed), withoutNulls(manifest));' in host
+    types = read(SRC / "types.ts")
+    assert "readonly snapshot?: Snapshot;" in types and "readonly resume?: ResumeNote;" in types
+    assert "readonly resume?: Snapshot;" in types  # Manifest
+    # e2e が Wasmoon 経路（proxy の userdata・空の state・16 進の PCG32）で続くことを見る。
+    spec = read(PLAYER / "e2e" / "reload.spec.ts")
+    assert "window.__jinPlayer?.load(j, m, true)" in spec
+    assert 'kept: ["Game", "Play", "Result"]' in spec

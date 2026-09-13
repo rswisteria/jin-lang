@@ -16,6 +16,12 @@
  * ホストが呼ぶ Lua の関数は **`boot` / `tick` の 2 つだけ**で、`tick` の戻り値は JSON 文字列
  * 1 本を `JSON.parse` する。Lua のテーブルは境界を越えない。`Thread.setTimeout`（C の hook）は
  * コルーチンの中で PANIC するので使わない（probe §A.10）。
+ *
+ * JS → Lua の値は proxy の userdata で渡り、Lua が欄を読んだときに初めて JS の値が積まれる。
+ * **JS の `null` は積めない**（`pushValue` が `TypeError` を投げ、Lua の中からだと PANIC で
+ * エンジンごと落ちる。probe §A.11）。`manifest` に載る `snapshot`（状態を保った差し替え・
+ * runtime.md §1）は核なし陣の `state` / `delegate` が `null` なので、`boot` に渡す前に
+ * `null` を欄ごと落として `nil` に見せる（`withoutNulls`）。
  */
 import { LuaFactory, type LuaEngine } from "wasmoon";
 
@@ -37,6 +43,23 @@ export const SANDBOX_REMOVED: readonly string[] = [
 
 /** プレリュードが読むホスト提供のグローバル（`jin_wasm.jil.HOST_HOOK_GLOBALS`）。読んだ後に消す。 */
 export const HOST_HOOK_GLOBALS: readonly string[] = ["JIN_ARM", "JIN_HOOK"];
+
+/**
+ * JSON 由来の値から `null` を落とした写し（オブジェクトは欄ごと消し、配列は `undefined` で位置を保つ）。
+ * Wasmoon は `null` を Lua に積めない（probe §A.11）。Lua 側の読み手は無い欄を `nil` として扱う。
+ */
+export function withoutNulls<T>(value: T): T {
+	if (value === null) return undefined as T;
+	if (Array.isArray(value)) return value.map(withoutNulls) as T;
+	if (typeof value === "object") {
+		const out: Record<string, unknown> = {};
+		for (const [key, item] of Object.entries(value as object)) {
+			if (item !== null) out[key] = withoutNulls(item);
+		}
+		return out as T;
+	}
+	return value;
+}
 
 /** 1 回の `boot` / `tick` の命令数の上限（`jin_wasm.runtime.INSTRUCTION_BUDGET` と同じ値）。 */
 export const INSTRUCTION_BUDGET = 10_000_000;
@@ -115,7 +138,7 @@ export class JinHost {
 
 	boot(seed: number, manifest: Manifest): void {
 		try {
-			this.lua.global.call("boot", Math.trunc(seed), manifest);
+			this.lua.global.call("boot", Math.trunc(seed), withoutNulls(manifest));
 		} catch (error) {
 			throw new HostError(`boot に失敗しました: ${message(error)}`);
 		}

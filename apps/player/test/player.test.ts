@@ -338,3 +338,186 @@ group("Player（実行ループ・runtime.md §10）", () => {
 		expect(calls.length).toBe(2);
 	});
 });
+
+/**
+ * 差し替え（runtime.md §1 の `manifest.resume`）の偽ホスト: tick 結果に `snapshot` を載せ、
+ * `manifest.resume` 付きで boot されたら次の tick に `resume` の知らせを載せる。
+ */
+function resumableHost(mode: "resumed" | "fresh" = "resumed") {
+	const boots: { seed: number; resume: unknown }[] = [];
+	const calls: { t: number; inputs: Inputs }[] = [];
+	let pendingNote: TickResult["resume"] | undefined;
+	let seed = 0;
+	const host = {
+		boot: (s: number, manifest: Manifest) => {
+			seed = s;
+			boots.push({ seed: s, resume: manifest.resume ?? null });
+			pendingNote =
+				manifest.resume === undefined
+					? undefined
+					: {
+							mode,
+							tick: mode === "fresh" ? -1 : manifest.resume.tick,
+							kept: mode === "fresh" ? [] : ["Only"],
+							dropped: [],
+						};
+		},
+		tick: (t: number, inputs: Inputs): TickResult => {
+			calls.push({ t, inputs });
+			const note = pendingNote;
+			pendingNote = undefined;
+			return {
+				ops: [["rect", t, 0, 1, 1]],
+				audio: [],
+				trace: [
+					{
+						seq: t,
+						tick: t,
+						circle: "Only",
+						kind: "event",
+						name: "tick",
+						pointer: "/circles/0",
+						input: null,
+						output: null,
+					},
+				],
+				done: false,
+				error: null,
+				public: { "Only.n": t + 1 },
+				snapshot: { tick: t, seed, seq: t, rng: "0x1", circles: [] },
+				...(note === undefined ? {} : { resume: note }),
+			};
+		},
+		close: () => {},
+	} as unknown as JinHost;
+	return { host, boots, calls };
+}
+
+group("Player の差し替え（状態を保つ・設計書 §11 #42）", () => {
+	function make(host: JinHost, queue: InputEvent[][] = []) {
+		const { clock, frame } = fakeClock();
+		const notes: unknown[] = [];
+		const traced: number[] = [];
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector(queue),
+			audio,
+			clock,
+			onResume: (note) => notes.push(note),
+			onTrace: (rows) => traced.push(...rows.map((r) => r.tick)),
+		});
+		return { player, frame, notes, traced };
+	}
+
+	test("resumeFrom は直近の snapshot を manifest.resume に付けて boot し、tick / seed / reducer / トレース / 世代を引き継ぐ", () => {
+		const a = resumableHost();
+		const { player: before, frame } = make(a.host, [
+			[],
+			[{ kind: "key", name: "ArrowLeft", down: true }],
+		]);
+		before.reboot(5);
+		before.start();
+		frame(1000 / 60);
+		frame(1000 / 60);
+		expect(before.tick).toBe(2);
+		expect(before.lastSnapshot).toEqual({
+			tick: 1,
+			seed: 5,
+			seq: 1,
+			rng: "0x1",
+			circles: [],
+		});
+
+		const b = resumableHost();
+		const { player: after, notes } = make(b.host, [[]]);
+		before.pause();
+		expect(after.resumeFrom(before)).toBe(true);
+		expect(b.boots).toEqual([{ seed: 5, resume: before.lastSnapshot }]);
+		expect(after.tick).toBe(2);
+		expect(after.seed).toBe(5);
+		expect(after.running).toBe(false); // 走らせるかは呼ぶ側
+		expect(after.generation).toBe(before.generation);
+		expect(after.trace.map((r) => r.tick)).toEqual([0, 1]);
+		expect(after.lastPublic).toEqual({ "Only.n": 2 });
+
+		// 次の tick は 2 から。押したままの ArrowLeft は reducer に残っている（作り直していない）。
+		after.step();
+		expect(b.calls.map((c) => c.t)).toEqual([2]);
+		expect(b.calls[0]?.inputs.keys).toEqual({ ArrowLeft: true });
+		expect(after.lastResume).toEqual({
+			mode: "resumed",
+			tick: 1,
+			kept: ["Only"],
+			dropped: [],
+		});
+		expect(notes).toHaveLength(1);
+		expect(after.trace.map((r) => r.tick)).toEqual([0, 1, 2]);
+		expect(after.lastSnapshot?.tick).toBe(2);
+		// 知らせは 1 回だけ。
+		after.step();
+		expect(notes).toHaveLength(1);
+	});
+
+	test("root が照合できず fresh に落ちたら、その tick は捨てて tick 0 からやり直す（世代が進む）", () => {
+		const a = resumableHost();
+		const { player: before, frame } = make(a.host);
+		before.reboot(5);
+		before.start();
+		frame(1000 / 60);
+		frame(1000 / 60);
+		before.pause();
+
+		const b = resumableHost("fresh");
+		const { player: after, notes, traced } = make(b.host);
+		expect(after.resumeFrom(before)).toBe(true);
+		const generation = after.generation;
+		after.step();
+		// boot が 2 回（resume 付き → 通常）、捨てた tick 2 の後に tick 0 から。
+		expect(b.boots.map((x) => x.resume !== null)).toEqual([true, false]);
+		expect(b.calls.map((c) => c.t)).toEqual([2]);
+		expect(after.tick).toBe(0);
+		expect(after.trace).toEqual([]);
+		expect(after.generation).toBe(generation + 1);
+		expect(after.lastResume?.mode).toBe("fresh");
+		expect(notes).toHaveLength(1);
+		after.step();
+		expect(b.calls.map((c) => c.t)).toEqual([2, 0]);
+		expect(traced).toEqual([0]); // 捨てた tick 2 の行は流れない
+	});
+
+	test("snapshot が無い（release / tick 0 / 終わっている）なら resumeFrom は false", () => {
+		const { host } = fakeHost(); // snapshot を載せないホスト
+		const { player: before, frame } = make(host);
+		before.reboot();
+		before.start();
+		frame(1000 / 60);
+		const { player: after } = make(resumableHost().host);
+		expect(after.resumeFrom(before)).toBe(false);
+
+		const { player: fresh } = make(resumableHost().host);
+		fresh.reboot();
+		expect(after.resumeFrom(fresh)).toBe(false); // tick 0
+
+		const { player: finished, frame: f2 } = make(resumableHost().host);
+		finished.reboot();
+		finished.start();
+		f2(1000 / 60);
+		finished.done = true;
+		expect(after.resumeFrom(finished)).toBe(false);
+	});
+
+	test("reboot のたびに世代が進み、プレイヤーを作り直しても戻らない", () => {
+		const { player: one } = make(resumableHost().host);
+		one.reboot();
+		const first = one.generation;
+		one.reboot();
+		expect(one.generation).toBe(first + 1);
+		const { player: two } = make(resumableHost().host);
+		two.reboot();
+		expect(two.generation).toBe(first + 2);
+		one.startRecording();
+		expect(one.generation).toBe(first + 3);
+	});
+});
