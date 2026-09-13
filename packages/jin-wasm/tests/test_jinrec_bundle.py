@@ -77,6 +77,34 @@ def test_jinrec_rejects_broken_files_with_a_line_number(
     assert str(path) in str(info.value)
 
 
+BROKEN = REPO_ROOT / "tests" / "fixtures" / "jinrec" / "broken"
+BROKEN_EXPECTED = json.loads((BROKEN / "broken.expected.json").read_text(encoding="utf-8"))
+
+
+def test_the_broken_fixture_set_matches_its_expectations() -> None:
+    """`broken/*.jinrec` と `broken.expected.json` の一覧が一致する（片方だけ足したら赤くなる）。"""
+    names = sorted(path.name for path in BROKEN.glob("*.jinrec"))
+    assert names == sorted(BROKEN_EXPECTED)
+
+
+@pytest.mark.parametrize("name", sorted(BROKEN_EXPECTED))
+def test_jinrec_rejects_the_shared_broken_fixtures_at_the_same_line(name: str) -> None:
+    """プレイヤーの読み手（`apps/player/src/jinrec.ts`）と**同じ fixture を同じ行番号で**拒む。
+
+    TS 側は `apps/player/test/jinrec.test.ts` が同じ `broken.expected.json` を読む。
+    `line` が null の期待は「行番号の無いエラー」（ヘッダが無い）。
+    """
+    want = BROKEN_EXPECTED[name]
+    with pytest.raises(JinrecError) as info:
+        read_jinrec(BROKEN / name)
+    message = str(info.value)
+    assert want["fragment"] in message
+    if want["line"] is None:
+        assert f"{BROKEN / name}: " in message
+    else:
+        assert f"{BROKEN / name}:{want['line']}: " in message
+
+
 # ---------------------------------------------------------------- bundle
 
 

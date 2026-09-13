@@ -1,0 +1,66 @@
+{
+  "empty.jinrec": {
+    "line": null,
+    "fragment": "ヘッダ"
+  },
+  "blank-only.jinrec": {
+    "line": null,
+    "fragment": "ヘッダ"
+  },
+  "bad-version.jinrec": {
+    "line": 1,
+    "fragment": "1 行目"
+  },
+  "not-object.jinrec": {
+    "line": 1,
+    "fragment": "オブジェクト"
+  },
+  "ticks-not-int.jinrec": {
+    "line": 1,
+    "fragment": "整数"
+  },
+  "ticks-negative.jinrec": {
+    "line": 1,
+    "fragment": "0 以上"
+  },
+  "file-not-str.jinrec": {
+    "line": 1,
+    "fragment": "file"
+  },
+  "tick-negative.jinrec": {
+    "line": 2,
+    "fragment": "0 以上"
+  },
+  "tick-order.jinrec": {
+    "line": 3,
+    "fragment": "昇順"
+  },
+  "bad-kind.jinrec": {
+    "line": 2,
+    "fragment": "kind"
+  },
+  "key-name.jinrec": {
+    "line": 2,
+    "fragment": "name"
+  },
+  "key-down.jinrec": {
+    "line": 2,
+    "fragment": "down"
+  },
+  "pointer-x.jinrec": {
+    "line": 2,
+    "fragment": "x"
+  },
+  "pointer-down.jinrec": {
+    "line": 2,
+    "fragment": "down"
+  },
+  "not-json.jinrec": {
+    "line": 3,
+    "fragment": "JSON"
+  },
+  "blank-then-broken.jinrec": {
+    "line": 4,
+    "fragment": "kind"
+  }
+}

@@ -1,0 +1,7 @@
+{"jinrec": 1, "file": "paddle.jin", "seed": 7, "fps": 60, "ticks": 120}
+{"tick": 3, "kind": "key", "name": "ArrowLeft", "down": true}
+{"tick": 30, "kind": "key", "name": "ArrowLeft", "down": false}
+{"tick": 40, "kind": "key", "name": "ArrowRight", "down": true}
+{"tick": 55, "kind": "pointer", "x": 150, "y": 110, "down": true}
+{"tick": 56, "kind": "pointer", "x": 152, "y": 110, "down": false}
+{"tick": 80, "kind": "key", "name": "ArrowRight", "down": false}

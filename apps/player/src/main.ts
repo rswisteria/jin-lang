@@ -7,7 +7,12 @@
  * - 埋め込み（iframe・Jin v2 のエディタの実行パネル）: **fetch せず**親からの
  *   `{ type: "jin.load", jil, manifest }` を待って読み込む（ライブリロード）。トレース行は親へ
  *   `postMessage({ type: "jin.trace", rows })`。`{ type: "jin.control", action }` で
- *   実行 / 一時停止 / 1 tick / 最初から を受ける。親以外からの message は無視する
+ *   実行 / 一時停止 / 1 tick / 最初から（seed 付き）/ 録画 / 録画を止める を受ける。
+ *   親以外からの message は無視する
+ * - 埋め込みのデバッグ（Phase 6）: `{ type: "jin.replay", text }` で `.jinrec` を最初から再生し
+ *   （トレースは `jin.trace` で 1 回にまとめて流す）、`{ type: "jin.frame", ops }` でスクラブ中の
+ *   画面（トレースの `frame` 行の表示リスト）を描く。状態が変わるたびに `{ type: "jin.status", … }`、
+ *   録画を止めたら `{ type: "jin.recording", text, seed, ticks }` を親へ送る
  * - `window.__jinPlayer`: パリティ e2e が使う操作口（UI と同じ関数を呼ぶだけ）
  */
 import { KEY_NAMES, subscriptions } from "./abilities";
@@ -15,8 +20,18 @@ import { AudioOut } from "./audio";
 import { Renderer } from "./canvas";
 import { JinHost } from "./host";
 import { InputCollector } from "./input";
+import { parseJinrec } from "./jinrec";
 import { Player, type Clock } from "./player";
 import type { Manifest, Op, SingleBundle, TraceRow } from "./types";
+
+/** `.jinrec` の再生の結果（`PlayerApi.replay`）。 */
+export interface ReplayOutcome {
+	readonly ok: boolean;
+	/** 走らせた tick 数（`ok` でなければ 0）。 */
+	readonly ticks: number;
+	/** 断った理由（`行番号: 理由`）。`ok` なら null。 */
+	readonly message: string | null;
+}
 
 /** e2e / 埋め込み側が触る口。 */
 export interface PlayerApi {
@@ -28,6 +43,10 @@ export interface PlayerApi {
 	startRecording(): void;
 	stopRecording(): string | null;
 	load(jil: string, manifest: Manifest): Promise<void>;
+	/** `.jinrec` のテキストを最初から再生する（止まったまま終わる）。 */
+	replay(text: string): ReplayOutcome;
+	/** 表示リストを描くだけ（走っている間は false）。 */
+	show(ops: readonly Op[]): boolean;
 	ticks(): number;
 	seed(): number;
 	running(): boolean;
@@ -170,8 +189,31 @@ async function main(): Promise<void> {
 	let collector: InputCollector | null = null;
 	const audio = new AudioOut();
 	const embedded = EMBEDDED;
+	/** 直近の再生 / 読み込みの一言（`jin.status` の `notice`）。 */
+	let notice: string | null = null;
+
+	/** 親（エディタ）へ状態を知らせる。埋め込みでなければ何もしない。 */
+	const postStatus = (): void => {
+		if (!embedded) return;
+		window.parent.postMessage(
+			{
+				type: "jin.status",
+				loaded: player !== null,
+				tick: player?.tick ?? 0,
+				seed: player?.seed ?? null,
+				running: player?.running ?? false,
+				done: player?.done ?? false,
+				error: player?.error ?? null,
+				recording: player?.recording ?? false,
+				recordedEvents: player?.recordedEvents ?? 0,
+				notice,
+			},
+			"*",
+		);
+	};
 
 	const render = (): void => {
+		postStatus();
 		if (player === null) return;
 		runButton.textContent = player.running ? "一時停止" : "実行";
 		runButton.disabled = player.done;
@@ -284,6 +326,9 @@ async function main(): Promise<void> {
 			jil?: unknown;
 			manifest?: unknown;
 			action?: unknown;
+			seed?: unknown;
+			text?: unknown;
+			ops?: unknown;
 		} | null;
 		if (data === null || typeof data !== "object") return;
 		if (data.type === "jin.control") {
@@ -293,8 +338,47 @@ async function main(): Promise<void> {
 			else if (data.action === "pause") player.pause();
 			else if (data.action === "step") player.step();
 			// 親の「最初から」は**止めた状態で** tick 0 に戻す（そこから 1 tick ずつ進められる）。
-			else if (data.action === "reboot") player.reboot();
+			// seed が付いていればそれで boot する。
+			else if (data.action === "reboot") {
+				player.reboot(
+					typeof data.seed === "number" && Number.isFinite(data.seed)
+						? data.seed
+						: player.seed,
+				);
+				seedInput.value = String(player.seed);
+			}
+			// 録画は `boot` し直して tick 0 から走り出す（iframe の中の「録画」ボタンと同じ）。
+			else if (data.action === "record") {
+				if (typeof data.seed === "number" && Number.isFinite(data.seed))
+					player.seed = data.seed;
+				player.startRecording();
+				player.start();
+			}
+			// 録画を止めて `.jinrec` の文字列を親へ返す（書き出しは親が行う）。
+			else if (data.action === "stop") {
+				const ticks = player.tick;
+				const text = player.stopRecording();
+				player.pause();
+				if (text !== null)
+					window.parent.postMessage(
+						{ type: "jin.recording", text, seed: player.seed, ticks },
+						"*",
+					);
+			}
 			render();
+			return;
+		}
+		if (data.type === "jin.replay") {
+			if (typeof data.text !== "string") return;
+			const outcome = api.replay(data.text);
+			notice = outcome.ok
+				? `録画を tick 0 から ${String(outcome.ticks)} tick 再生しました`
+				: `録画を読めません: ${outcome.message ?? ""}`;
+			render();
+			return;
+		}
+		if (data.type === "jin.frame") {
+			if (Array.isArray(data.ops)) api.show(data.ops as readonly Op[]);
 			return;
 		}
 		if (data.type !== "jin.load") return;
@@ -334,6 +418,24 @@ async function main(): Promise<void> {
 						: (path) => new URL(path, document.baseURI).href,
 			});
 		},
+		replay: (text) => {
+			if (player === null)
+				return { ok: false, ticks: 0, message: "まだ読み込んでいません" };
+			const parsed = parseJinrec(text);
+			if (!parsed.ok) {
+				return {
+					ok: false,
+					ticks: 0,
+					message: `${String(parsed.line)}: ${parsed.message}`,
+				};
+			}
+			return {
+				ok: true,
+				ticks: player.replay(parsed.recording),
+				message: null,
+			};
+		},
+		show: (ops) => player?.show(ops) ?? false,
 		ticks: () => player?.tick ?? 0,
 		seed: () => player?.seed ?? 0,
 		running: () => player?.running ?? false,

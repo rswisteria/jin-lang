@@ -13,8 +13,9 @@ import type { AudioOut } from "./audio";
 import type { Renderer } from "./canvas";
 import type { JinHost } from "./host";
 import { InputCollector, InputReducer } from "./input";
+import { eventsByTick, type Recording } from "./jinrec";
 import { Recorder } from "./recorder";
-import type { Manifest, Op, TraceRow } from "./types";
+import type { InputEvent, Manifest, Op, TraceRow } from "./types";
 
 /** 1 フレームで追いつくために連続で呼ぶ tick の上限（runtime.md §10）。 */
 export const MAX_CATCH_UP = 4;
@@ -129,6 +130,40 @@ export class Player {
 		return this.lastRecording;
 	}
 
+	/**
+	 * 録画を最初から再生する（runtime.md §7 / Phase 6 のスクラブ）。
+	 *
+	 * ヘッダの seed で `boot` し直し、tick 0 からヘッダの `ticks` まで、録画の `tick == t` の行を
+	 * **同じ reducer** に通して `tick` を呼ぶ（`jin run --input` と同じ）。root が `done` になったら
+	 * そこで止まる。終わったら**止まったまま**（tick = 走らせた数。そこからスクラブ / 1 tick）。
+	 * 同期で回し（paddle 600 tick で 1 秒未満）、トレースは最後にまとめて 1 回流す
+	 * （tick ごとに `postMessage` すると親が数百回描き直す）。再生の間に届いた実入力は捨てる。
+	 */
+	replay(recording: Recording): number {
+		const ticks = recording.ticks ?? 0;
+		this.reboot(recording.seed ?? this.o.manifest.stage.seed);
+		const perTick = eventsByTick(recording.events, ticks);
+		for (let t = 0; t < ticks && !this.done; t += 1) {
+			this.advance(perTick[t] ?? [], false);
+		}
+		this.running = false;
+		this.o.collector.reset();
+		if (this.trace.length > 0) this.o.onTrace?.(this.trace.slice());
+		this.o.onChange?.();
+		return this.tick;
+	}
+
+	/**
+	 * スクラブ中の画面（トレースの `frame` 行の表示リスト）。**描くだけで Lua は呼ばない。**
+	 * 走っている間は無視する（次の tick が上書きするだけで、止まっていないと意味が無い）。
+	 */
+	show(ops: readonly Op[]): boolean {
+		if (this.running) return false;
+		this.o.renderer.draw(ops);
+		this.lastOps = ops;
+		return true;
+	}
+
 	private queueFrame(): void {
 		if (this.frameQueued) return;
 		this.frameQueued = true;
@@ -153,8 +188,13 @@ export class Player {
 		if (this.running) this.queueFrame();
 	}
 
-	private advance(): void {
-		const events = this.o.collector.drain();
+	/**
+	 * 1 tick。`events` は既定で集めた実入力、再生では録画の行（`emit` は行ごとのトレース通知）。
+	 */
+	private advance(
+		events: readonly InputEvent[] = this.o.collector.drain(),
+		emit = true,
+	): void {
 		this.recorder?.push(this.tick, events);
 		const inputs = this.reducer.apply(events);
 		const result = this.o.host.tick(this.tick, inputs);
@@ -165,7 +205,7 @@ export class Player {
 		this.o.audio.play(result.audio);
 		if (result.trace !== undefined && result.trace.length > 0) {
 			this.trace.push(...result.trace);
-			this.o.onTrace?.(result.trace);
+			if (emit) this.o.onTrace?.(result.trace);
 		}
 		if (result.done) {
 			this.running = false;
