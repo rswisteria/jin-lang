@@ -108,8 +108,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | — | エディタからの実行（Issue #34・要件書 §7.2 の「v1.1」を前倒し） | 実装済み |
 | v2-0 | Jin v2（汎用ビジュアル言語）の設計書と `docs/spec/v2/` 8 本 + `examples-v2/` + probe | 実装済み |
 | v2-1 | `jin_core.v2`（model / expr / semantic / ops）+ `jin-v2.schema.json` / `abilities.json` + version 振り分け | 実装済み |
-| v2-2 | `jin-wasm`（jil / prelude.lua / codegen / lupa runtime / jinrec / bundle）+ `jin run` / `jin build` の v2 分岐 | 実装済み（プレイヤーの同梱は v2-4） |
+| v2-2 | `jin-wasm`（jil / prelude.lua / codegen / lupa runtime / jinrec / bundle）+ `jin run` / `jin build` の v2 分岐 | 実装済み |
 | v2-3 | `jin_render.v2`（額縁 / 型紙 / 4 環 / 手順の図 / トレースオーバーレイ・13 種）+ `jin render` と `jin/renderSvg` の v2 | 実装済み |
+| v2-4 | `apps/player`（Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画 / 最小 UI / postMessage）+ `jin build` の同梱と `--single` + パリティ e2e | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -157,12 +158,19 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
   `register_builtins=False` + `python` テーブルと `load` / `os` / `io` / `debug` … を nil にしてから JIL を読む。
   命令数の上限（`INSTRUCTION_BUDGET` = 10^7 / boot と tick ごと）は `debug.sethook` の count hook。
+  **Lua の hook はスレッドごと**なので、ホストは JIL を読む前に `JIN_ARM()` / `JIN_HOOK(co)` の 2 つの
+  グローバルを置き（読んだ後に消す）、プレリュードが `boot` / `tick` の先頭と毎 `coroutine.resume` の前に
+  呼ぶ（Phase 4 で確定。`wait` を含む手順の無限ループはこれが無いと止まらない・設計書 §11 #32）。
   ホストが呼ぶ Lua の関数は `boot` / `tick` の 2 つだけで、戻り値は JSON 文字列 1 本（Lua のテーブルは境界を越えない）
 - **数値の書式は Python の `repr(float)` と同じ配置**（runtime.md §6・設計書 §11 #23）。トレース・表示リスト・
   `str()` の 3 つが同じ規則。`test_prelude.py` が非整数 700 件で固定する
 - **`jin build`（v2）は `<out>/` に `game.lua` / `game.manifest.json` / `assets/` を書く**（`jin_wasm.bundle`。
   `jin_adk.build` と同じ `O_EXCL` / `O_NOFOLLOW` / `dir_fd` の規律）。asset は `.jin` の親ディレクトリの中に閉じる。
-  プレイヤー（`index.html` / `player.js` / `wasmoon.wasm`）は Phase 4 まで無く、`--single` は exit 1
+  プレイヤー（`index.html` / `player.js` / `wasmoon.wasm`）は `scripts/sync_player.py` が `apps/player/dist` から
+  `jin_wasm/player/`（gitignore・wheel には入る）に同梱していれば一緒に書く。無ければ stderr に 1 行出して game.* だけ書く。
+  **`--single` は `index.html` 1 本**（`player.js` インライン + `window.JIN_BUNDLE` に JIL / manifest / wasm の base64。
+  asset があれば拒む・設計書 §11 #34）。テストは `bundle.PLAYER_DIR` を monkeypatch して同梱あり / なしの両分岐を固定し、
+  CI の player ジョブだけが `JIN_REQUIRE_PLAYER=1` で「有る側」を要求する
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasm --snapshot-update`
   （`packages/jin-wasm/tests/__snapshots__/`。生成部 3 本 × debug / release と paddle 60 tick のゴールデン）。
   差分を読んでからコミット。examples-v2 が使わない経路（parallel / transfer / emit / key / pointer / wait until /
@@ -253,6 +261,24 @@ Phase 5 の要点（正典は要件書 §7 / `docs/spec/ops.md` §5 / `delivery/
 - `apps/editor` の版は**完全一致で固定**する（`^` / `~` を使わない）。
   レンダラの出力とバイト比較するテストがあるので、ツールチェーンが黙って動くと切り分けができない
 
+Jin v2 Phase 4（`apps/player`）の要点（正典は `docs/spec/v2/runtime.md` §8〜§10 / 設計書 §11 #32〜#35）:
+
+- **`apps/player` は Python パッケージを import しない。** 読む生成物は `schemas/abilities.json` だけ（キー名 / op 名の
+  リテラルをソースに書かない）。TS 側は eslint の `no-restricted-imports`（`apps/player/eslint.config.js`）、Python 側は
+  `tests/contract/test_player_contract.py` が走査する。JIL と manifest は `jin build` の出力（`game.lua` /
+  `game.manifest.json`）を fetch するか、`--single` の `window.JIN_BUNDLE` から読む
+- **ホストが呼ぶ Lua の関数は `boot` / `tick` の 2 つだけ**（`src/host.ts`）。サンドボックスの順序・消すグローバル・
+  `JIN_ARM` / `JIN_HOOK` を置く Lua（`HOOK_SETUP`）・命令数の上限は `jin_wasm.runtime` と**同じ**で、契約テストが
+  文字列で突き合わせる（`error` 行の文がホストで変わるとパリティが割れる）。Wasmoon の `Thread.setTimeout` は
+  コルーチンの中で PANIC するので使わない。`new LuaFactory()` は引数無しだと unpkg へ fetch するので常に URL を渡す
+- **パリティは構成で保証する**: `inputs` と `.jinrec` は同じ reducer（`src/input.ts` の `InputReducer` =
+  `InputState.apply` の写し）から出し、`tests/fixtures/jinrec/reducer.*` を Python と TS の両方が検算する。録画は
+  `boot` し直して tick 0 から。e2e（`e2e/parity.spec.ts`）は実ブラウザで録画 → `jin run --input` → トレースを
+  **JSON として読んでから全行一致**
+- **API は記憶で書かない。** Wasmoon の実測は `delivery/20260904-1445-jin/wasm-api-probe.md` §A（1.16.0。§A.10 が Phase 4）
+- ツールチェーンは `apps/editor` と同じ版で完全一致（契約テストが両者の共通 devDependencies を突き合わせる）。
+  `pnpm e2e` は Playwright 1.62.0 の chromium（`pnpm exec playwright install chromium`）と `uv sync` 済みの Python が要る
+
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 
 - **サーバ側のプロトコルを増やさない。** トレース JSONL は**ブラウザ**が
@@ -284,7 +310,9 @@ uv run jin fmt --check examples           # examples が正準形か
 uv run jin check examples-v2 && uv run jin fmt --check examples-v2   # Jin v2 の例（examples/ の外に置く。設計書 §11 #18）
 uv run jin schema --version 2             # Jin v2 の JSON Schema（CI が schemas/jin-v2.schema.json と diff する）
 uv run jin run examples-v2/paddle/paddle.jin --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # Jin v2 のヘッドレス実行（lupa。標準出力は最後の公開 state）
-uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json。プレイヤーは Phase 4）
+uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json + 同梱していれば index.html / player.js / wasmoon.wasm）
+uv run jin build examples-v2/paddle/paddle.jin --out /tmp/single --single   # 同（index.html 1 本。要 sync_player）
+uv run python scripts/sync_player.py      # apps/player/dist を jin_wasm/player/ に同梱（--check でずれ検出・--remove で外す）
 uv run jin render examples-v2/paddle/paddle.jin -o /tmp/p.svg              # Jin v2 の陣（root の額縁 + 入れ子の小陣）
 uv run jin render examples-v2/paddle/paddle.jin --focus Play/step --trace /tmp/t.jsonl --upto 12   # 手順の図 + overlay（seq 0 始まり）
 uv run jin build examples/researcher/researcher.jin --out /tmp/out   # ADK プロジェクト生成
@@ -303,6 +331,7 @@ uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同�
 uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同上（Phase 6・デバッグモード）
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
+cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）
 ```

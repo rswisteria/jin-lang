@@ -1,0 +1,33 @@
+[
+  {
+    "events": [{"kind": "key", "name": "ArrowLeft", "down": true}],
+    "keys": {"ArrowLeft": true},
+    "pointer": {"x": 0, "y": 0, "down": false}
+  },
+  {
+    "events": [
+      {"kind": "pointer", "x": 10, "y": 20, "down": false},
+      {"kind": "pointer", "x": 12, "y": 20, "down": true}
+    ],
+    "keys": {"ArrowLeft": true},
+    "pointer": {"x": 12, "y": 20, "down": true}
+  },
+  {
+    "events": [
+      {"kind": "key", "name": "ArrowRight", "down": true},
+      {"kind": "key", "name": "ArrowLeft", "down": false}
+    ],
+    "keys": {"ArrowRight": true},
+    "pointer": {"x": 12, "y": 20, "down": true}
+  },
+  {
+    "events": [{"kind": "pointer", "x": 12.5, "y": 21, "down": false}],
+    "keys": {"ArrowRight": true},
+    "pointer": {"x": 12.5, "y": 21, "down": false}
+  },
+  {
+    "events": [],
+    "keys": {"ArrowRight": true},
+    "pointer": {"x": 12.5, "y": 21, "down": false}
+  }
+]

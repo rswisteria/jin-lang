@@ -3,6 +3,8 @@
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
 -- すべて local に閉じ、グローバルは末尾の boot / tick の 2 つだけ（jil.md §2）。
+-- 読むグローバルはホストが JIL を読む前に置く JIN_ARM / JIN_HOOK の 2 つだけ（runtime.md §8。
+-- 読み込み時に local へ捕まえ、ホストは読んだ後に消す。無ければ命令数の上限なし）。
 -- 禁止語（pairs / next / setmetatable / load / os / io / debug / select / ... など）は使わない。
 -- 走査は tests/contract/test_jil_contract.py が掛ける。
 --
@@ -58,6 +60,15 @@ local RELEASES = {}   -- この tick にポインタの主ボタンが離され�
 local LAST_DOWN = false
 local CUR_PTR = nil   -- 最後にトレースした pointer（error 行のため）
 local CUR_CI = nil
+
+-- ---------------------------------------------------------------- 命令数の上限（runtime.md §8）
+-- ホストが JIL を読む前に置く 2 つのグローバル（読んだ後にホストが消す。無ければ上限なし）。
+-- ARM() は今のスレッドに count hook を掛け直し、HOOK(co) はコルーチン co に同じ hook を掛ける。
+-- Lua の hook はスレッドごとなので、wait を含む手順（コルーチン）の無限ループは ARM だけでは
+-- 止まらない。boot / tick の先頭で ARM、毎 coroutine.resume の前で HOOK を呼ぶ（count は掛け直す
+-- たびに戻るので、何 tick も生きる手順が累積で上限に当たることはない）。
+local ARM = JIN_ARM
+local HOOK = JIN_HOOK
 local MANIFEST = nil
 
 local ADVANCE_LIMIT = 1000
@@ -422,6 +433,7 @@ local function register_wait(i, co, req)
 end
 
 local function resume(i, co, args)
+  if HOOK then HOOK(co) end
   local ok, req = coroutine.resume(co, table.unpack(args))
   if not ok then error(req, 0) end
   if coroutine.status(co) == "suspended" then
@@ -742,6 +754,7 @@ end
 
 -- ---------------------------------------------------------------- ホスト境界（runtime.md §1）
 function boot(seed, manifest)
+  if ARM then ARM() end
   if math.maxinteger ~= 9223372036854775807 then
     error("Lua の整数が 64 bit ではありません")
   end
@@ -779,6 +792,7 @@ function boot(seed, manifest)
 end
 
 function tick(t, inputs)
+  if ARM then ARM() end
   OPS = {}
   AUDIO = {}
   INK = "#fff"

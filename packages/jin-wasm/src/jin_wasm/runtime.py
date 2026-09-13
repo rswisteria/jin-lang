@@ -12,16 +12,23 @@ JIL を読む**前**に次を行う（probe §B.2 の実測に基づく）:
 - `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` /
   `collectgarbage` を `None` にし、`string.dump` も消す
 - 命令数の上限（`INSTRUCTION_BUDGET`）を `debug.sethook` の count hook で掛ける。hook は
-  `debug` を消した後も生きる（probe §B.7 の実測）。`arm` はこのモジュールだけが
-  握り、Lua のグローバルには置かない。boot と毎 tick の前に掛け直す。上限を超えると
-  `{code = "budget"}` がスケジューラの `pcall` に捕まり、`error` 行 + `done = true` になる。
-  JSON 直列化の途中で超えたときだけ `LuaError` としてここまで届くので `RunError` にする
+  `debug` を消した後も生きる（probe §B.7 の実測）。**Lua の hook はスレッドごと**なので、
+  ホストがメインスレッドに掛けるだけでは `wait` を含む手順（コルーチン）の無限ループを
+  止められない（probe §B.8 / §A.10 の実測。Phase 2 の残存）。そこで JIL を読む前に
+  `JIN_ARM()`（今のスレッドに掛け直す）と `JIN_HOOK(co)`（コルーチンに掛ける）の 2 つの
+  グローバルを置き、プレリュードが `boot` / `tick` の先頭と毎 `coroutine.resume` の前に呼ぶ
+  （`jil.HOST_HOOK_GLOBALS`）。JIL を読んだ後はその 2 つを消す（プレリュードは読み込み時に
+  `local` へ捕まえているので、ホストが呼ぶ Lua の関数は引き続き `boot` / `tick` の 2 つだけ）。
+  上限を超えると `{code = "budget"}` がスケジューラの `pcall` に捕まり、`error` 行 +
+  `done = true` になる。JSON 直列化の途中で超えたときだけ `LuaError` としてここまで届くので
+  `RunError` にする
 
 `jin_adk.runtime` と違い、`sys.path` も `importlib` も触らない。
 
     guard: sandboxed_runtime -> lua54.LuaRuntime
     guard: sandboxed_runtime -> setattr(globals_,name,None)
-    guard: _arm -> self._arm_fn(self._budget)
+    guard: sandboxed_runtime -> runtime.execute(_SETUP)
+    guard: _drop_hook_globals -> setattr(globals_,name,None)
 """
 
 from __future__ import annotations
@@ -33,7 +40,7 @@ from typing import Any
 
 from lupa import lua54
 
-from jin_wasm.jil import HOST_ENTRY_POINTS
+from jin_wasm.jil import HOST_ENTRY_POINTS, HOST_HOOK_GLOBALS
 
 #: JIL を読む前に Lua のグローバルから消す名前（runtime.md §8 / probe §B.2）。
 SANDBOX_REMOVED: tuple[str, ...] = (
@@ -54,12 +61,17 @@ SANDBOX_REMOVED: tuple[str, ...] = (
 #: `while true do end` を CI で数十 ms で止められる値として 10^7 に置く（runtime.md §8）。
 INSTRUCTION_BUDGET = 10_000_000
 
+#: `JIN_ARM` / `JIN_HOOK`（`jil.HOST_HOOK_GLOBALS`）を置くチャンク。`debug` を消す**前**に
+#: `sethook` を捕まえる。`apps/player/src/host.ts` の `HOOK_SETUP` と同じ Lua（文言も同じ。
+#: `error` 行の文がホストで変わるとパリティが割れる）。
 _SETUP = """
 local sethook = debug.sethook
 return function(limit)
-  sethook(function()
+  local function over()
     error({ code = "budget", message = "命令数の上限 " .. limit .. " を超えました（無限ループ？）" }, 0)
-  end, "", limit)
+  end
+  JIN_ARM = function() sethook(over, "", limit) end
+  JIN_HOOK = function(co) sethook(co, over, "", limit) end
 end
 """
 
@@ -68,22 +80,35 @@ class RunError(Exception):
     """JIL の読み込みや実行が続けられない（利用者向けの文で伝える）。"""
 
 
-def sandboxed_runtime() -> tuple[Any, Callable[[int], None]]:
-    """サンドボックス化した `lupa.lua54.LuaRuntime` と、命令数の上限を掛ける関数を返す。
+def sandboxed_runtime(budget: int = INSTRUCTION_BUDGET) -> Any:
+    """サンドボックス化した `lupa.lua54.LuaRuntime` を返す（`JIN_ARM` / `JIN_HOOK` を置いた状態）。
+
+    JIL を読んだ後は `_drop_hook_globals` で 2 つを消す（`LuaHost` がそうする）。
 
     guard: sandboxed_runtime -> lua54.LuaRuntime
     guard: sandboxed_runtime -> setattr(globals_,name,None)
+    guard: sandboxed_runtime -> runtime.execute(_SETUP)
     """
     runtime = lua54.LuaRuntime(
         register_eval=False, register_builtins=False, unpack_returned_tuples=True
     )
     globals_ = runtime.globals()
     globals_.python = None
-    arm = runtime.execute(_SETUP)
+    runtime.execute(_SETUP)(int(budget))
     for name in SANDBOX_REMOVED:
         setattr(globals_, name, None)
     runtime.execute("string.dump = nil")
-    return runtime, arm
+    return runtime
+
+
+def _drop_hook_globals(runtime: Any) -> None:
+    """JIL を読んだ後に `JIN_ARM` / `JIN_HOOK` を消す（グローバルは `boot` / `tick` だけに戻る）。
+
+    guard: _drop_hook_globals -> setattr(globals_,name,None)
+    """
+    globals_ = runtime.globals()
+    for name in HOST_HOOK_GLOBALS:
+        setattr(globals_, name, None)
 
 
 class LuaHost:
@@ -93,13 +118,13 @@ class LuaHost:
     """
 
     def __init__(self, jil: str, *, budget: int = INSTRUCTION_BUDGET) -> None:
-        self._budget = budget
-        self._runtime, self._arm_fn = sandboxed_runtime()
-        self._arm()
+        self._runtime = sandboxed_runtime(budget)
         try:
             self._runtime.execute(jil)
         except lua54.LuaError as exc:
             raise RunError(f"JIL を読めません: {_lua_message(exc)}") from exc
+        finally:
+            _drop_hook_globals(self._runtime)
         globals_ = self._runtime.globals()
         for name in HOST_ENTRY_POINTS:
             if lua54.lua_type(getattr(globals_, name)) != "function":
@@ -107,22 +132,13 @@ class LuaHost:
         self._boot = globals_.boot
         self._tick = globals_.tick
 
-    def _arm(self) -> None:
-        """命令数の上限を掛け直す（boot と毎 tick の前）。
-
-        guard: _arm -> self._arm_fn(self._budget)
-        """
-        self._arm_fn(self._budget)
-
     def boot(self, seed: int, manifest: dict[str, Any]) -> None:
-        self._arm()
         try:
             self._boot(int(seed), self._runtime.table_from(manifest, recursive=True))
         except lua54.LuaError as exc:
             raise RunError(f"boot に失敗しました: {_lua_message(exc)}") from exc
 
     def tick(self, t: int, inputs: dict[str, Any]) -> dict[str, Any]:
-        self._arm()
         try:
             text = self._tick(int(t), self._runtime.table_from(inputs, recursive=True))
         except lua54.LuaError as exc:

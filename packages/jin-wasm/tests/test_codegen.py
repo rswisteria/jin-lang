@@ -390,8 +390,7 @@ def test_num_states_are_floats_at_runtime(name: str) -> None:
     lua = game.lua.replace(
         "return { boot = boot, tick = tick }\n", "return { boot = boot, tick = tick, S = S }\n"
     )
-    runtime, arm = sandboxed_runtime()
-    arm(10_000_000)
+    runtime = sandboxed_runtime()
     entry = runtime.execute(lua)
     entry.boot(0, runtime.table_from(game.manifest, recursive=True))
     for t in range(4):

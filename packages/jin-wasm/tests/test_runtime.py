@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from jin_wasm.runtime import InputState, LuaHost, RunError, run_headless
@@ -175,11 +176,106 @@ def test_missing_entry_point_is_a_run_error() -> None:
 def test_sandbox_removes_dangerous_globals() -> None:
     from jin_wasm.runtime import SANDBOX_REMOVED, sandboxed_runtime
 
-    runtime, _arm = sandboxed_runtime()
+    runtime = sandboxed_runtime()
     for name in (*SANDBOX_REMOVED, "python"):
         assert runtime.eval(f"type({name})") == "nil", name
     assert runtime.eval("type(string.dump)") == "nil"
     assert runtime.eval("_VERSION") == "Lua 5.4"
+    # JIL を読む前は JIN_ARM / JIN_HOOK が置かれている（プレリュードが local へ捕まえる）
+    assert runtime.eval("type(JIN_ARM) .. type(JIN_HOOK)") == "functionfunction"
+
+
+def test_hook_globals_are_removed_after_the_jil_is_loaded() -> None:
+    """読み込み後のグローバルは boot / tick だけ（jil.md §2）。プレリュードは local に捕まえ済み。"""
+    from jin_wasm.jil import HOST_HOOK_GLOBALS
+
+    host = LuaHost(program(LOOP_PROGRAM))
+    for name in HOST_HOOK_GLOBALS:
+        assert host._runtime.eval(f"type({name})") == "nil", name
+    # 消した後も上限は効く（boot / tick の中でプレリュードの ARM が掛け直す）
+    result = run_headless(program(BUSY_PROGRAM), {}, seed=0, ticks=3, budget=100_000)
+    assert result.error is not None and "命令数" in result.error
+
+
+#: `wait` を含む（コルーチンで走る）手順の中の無限ループ。Phase 2 の hook（メインスレッドだけ）では
+#: 止まらなかった（probe §B.8）。
+BUSY_COROUTINE_PROGRAM = """
+DEBUG = false
+ROOT = 1
+FPS = 60
+R[1] = {}
+R[1][1] = function() end
+R[1][2] = function(dt) local i = 0 while true do i = i + 1 end end
+CIRCLES[1] = {
+  name = "Busy",
+  init = function() return {} end,
+  core = R[1][1], core_waits = false,
+  on = { tick = R[1][2] }, on_waits = { tick = true }, on_ptr = { tick = "/circles/0/boundary/on/0" },
+}
+"""
+
+
+def test_instruction_budget_stops_an_infinite_loop_inside_a_coroutine() -> None:
+    result = run_headless(program(BUSY_COROUTINE_PROGRAM), {}, seed=0, ticks=3, budget=1_000_000)
+    assert result.error is not None and "命令数" in result.error
+    assert result.done_tick == 0
+
+
+#: 5 tick 生きる手順（毎 tick ≈ 12,000 命令）。hook を resume のたびに掛け直さないと、コルーチンの
+#: count が累積して 2 tick 目で 20,000 を超える。
+LONG_LIVED_COROUTINE_PROGRAM = """
+DEBUG = false
+ROOT = 1
+FPS = 60
+R[1] = {}
+R[1][1] = function()
+  for i = 1, 5 do
+    local j = 0
+    while j < 3000 do j = j + 1 end
+    WAIT_TICKS(1.0, "/circles/0/rites/0/steps/1")
+  end
+  FINISH(1)
+end
+CIRCLES[1] = {
+  name = "Long",
+  init = function() return {} end,
+  core = R[1][1], core_waits = true,
+  on = {}, on_waits = {}, on_ptr = {},
+}
+"""
+
+
+def test_the_coroutine_budget_is_reset_on_every_resume() -> None:
+    result = run_headless(
+        program(LONG_LIVED_COROUTINE_PROGRAM), {}, seed=0, ticks=10, budget=20_000
+    )
+    assert result.error is None
+    assert result.done_tick == 4  # boot で 1 回 + tick 0..3 で 4 回待ち、tick 4 で finish
+
+
+#: Python（`InputState.apply`）と TS（`apps/player/src/input.ts` の `InputReducer`）が同じ期待値で検算する
+#: 共有 fixture。プレイヤーの `inputs` と `.jinrec` が同じ reducer から出ることがパリティの根拠。
+JINREC_FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "jinrec"
+
+
+def test_input_state_matches_the_reducer_fixture_shared_with_the_player() -> None:
+    from jin_wasm.jinrec import read_jinrec
+
+    recording = read_jinrec(JINREC_FIXTURES / "reducer.jinrec")
+    expected = json.loads((JINREC_FIXTURES / "reducer.expected.json").read_text(encoding="utf-8"))
+    assert recording.ticks == len(expected)
+    state = InputState()
+    actual = [
+        state.apply(
+            [
+                {k: v for k, v in ev.items() if k != "tick"}
+                for ev in recording.events
+                if ev["tick"] == t
+            ]
+        )
+        for t in range(recording.ticks)
+    ]
+    assert actual == expected
 
 
 def test_input_state_reconstructs_held_keys_and_pointer() -> None:

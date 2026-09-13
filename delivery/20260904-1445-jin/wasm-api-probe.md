@@ -692,6 +692,88 @@ count(rows): returned 50, total 12.86 ms, avg 12.9 us per call
 - JS→Lua 方向（50 行を引数で渡す）は 12.9 µs/回で、Lua→JS の逆方向より大幅に軽い（JS の object は proxy userdata として渡され、深いコピーをしないため。A.3 の `got_kind = "userdata"` と整合）。
 - 60 fps（16.7 ms/フレーム）で毎フレーム描画命令列を受け取る用途なら、nested table 経由でも 50 行は収まるが、数百行になると変換だけでフレーム予算を食う。文字列（JSON または独自の平坦なエンコード）で受ける設計が有利。
 
+### A.10（追加・Phase 4）命令数の上限をコルーチンに効かせる経路 / `game.lua` の通し / JS→Lua の数値
+
+Phase 4（2026-09-13）で `apps/player` を書く前に実測した。スクリプトは `probe_p4.cjs` / `probe_p4b.cjs` /
+`probe_p4c.cjs` / `probe_p4d.cjs`、生出力は `out_p4.txt` / `out_p4b.txt` / `out_p4c.txt` / `out_p4d.txt`。
+
+**(1) Lua の関数で掛ける count hook は、`global.call` で叩いた Lua のグローバル関数からなら効く。JS ラッパ経由では効かない**（`probe_p4b.cjs`）:
+
+```
+(a) busy via global.call after global.call(arm): false|budget
+```
+
+`(a)` に続く `busy_co`（`coroutine.create` した中の `while true`）で**プロセスが止まった**（出力なし。5 秒の見張りも
+Lua が回り続けて発火しない）。`global.get('__jin_arm')` で JS の関数にしてから呼ぶ (b) も止まった（`probe_p4.cjs` の初版）。
+→ **hook は Lua のグローバル関数を `global.call` で呼ぶ形でだけ掛け、コルーチンには届かない**。
+
+**(2) wasmoon の `Thread.setTimeout`（C の hook）はメインスレッドでは効くが、コルーチンの中で PANIC する**（`probe_p4c.cjs`）:
+
+```
+(c) busy: false|userdata|Error: thread timeout exceeded ms 302
+PANIC: unprotected error in call to Lua API (error object is not a string)
+Aborted(native code called abort())
+FATAL RuntimeError: Aborted(native code called abort())
+```
+
+→ `setTimeout` / `functionTimeout` は使わない（プレイヤーの契約テストが `setTimeout(` の不在を走査する）。
+
+**(3) コルーチンごとに `debug.sethook(co, f, "", n)` を掛ければ届く。ホストが `JIN_ARM` / `JIN_HOOK` を置き、JIL を読んだ後に消す形**（`probe_p4d.cjs`。lupa の §B.8 と同じ Lua）:
+
+```js
+lua.doStringSync(`
+local sethook = debug.sethook
+local limit = 1000
+local function over() error({ code = "budget", message = "命令数の上限 " .. limit .. " を超えました（無限ループ？）" }, 0) end
+JIN_ARM = function() sethook(over, "", limit) end
+JIN_HOOK = function(co) sethook(co, over, "", limit) end
+`);
+lua.global.set('debug', undefined);
+lua.doStringSync(`local ARM, HOOK = JIN_ARM, JIN_HOOK  … function busy_co() if ARM then ARM() end … HOOK(co) … coroutine.resume(co) … end …`);
+lua.global.set('JIN_ARM', undefined);
+lua.global.set('JIN_HOOK', undefined);
+```
+
+```
+type(JIN_ARM) after load: nil
+busy: false|budget
+busy_co: false|budget:命令数の上限 1000 を超えました（無限ループ？）
+wait_co (5 yields of 300 iters each, limit 1000): false:budget,false:cannot resume dead coroutine,…
+main_after_co: false|budget
+```
+
+観測: メインスレッド（`busy`）もコルーチン（`busy_co`）も `budget` で止まる。読み込み後に `JIN_ARM` / `JIN_HOOK` を消しても、
+プレリュードが `local` に捕まえた関数は生きる。`wait_co` の 1 回目で止まったのは 300 回のループが約 1,200 命令で
+上限 1,000 を超えたため（掛け直しの検証は lupa 側 §B.8 と `packages/jin-wasm/tests/test_runtime.py` の変異で行った）。
+
+**(4) `game.lua`（paddle・debug）を `doStringSync` → `boot` → `tick` × 1204 で通す**（`probe_p4.cjs`）:
+
+```
+debug after: nil
+number types (t=3, seed=7, x=150, y=1.5, ev.x=12): integer/integer/integer/float/integer/1/true
+doStringSync(game.lua) returns: object [ 'tick', 'boot' ]
+type(boot)/type(tick): function/function
+boot -> []
+tick 0 typeof string len 2770 head {"ops":[["clear","#000"],["ink","#fff"],["rect",143,172,40,4],["circle",161.5,41.166666666666664,3],
+  ops 5 done false trace 17 public {"Play.score":0,"Result.quit":false} error null
+tick 1 typeof string len 2076 …  ops 5 done false trace 12 public {"Play.score":0,"Result.quit":false} error null
+tick 2 typeof string len 2085 …  ops 5 done false trace 12 public {"Play.score":0,"Result.quit":false} error null
+tick 3 (empty events / keys) ops: 5
+600 ticks ms (arm + tick + no parse): 124
+600 ticks ms (with JSON.parse): 87
+```
+
+観測:
+
+- `doStringSync(game.lua)` は末尾の `return { boot = boot, tick = tick }` を JS の object で返し、`boot` / `tick` はグローバルにもある。
+  プレイヤーは戻り値を捨て、`global.call('boot', seed, manifest)` / `global.call('tick', t, inputs)` を使う（戻りは `MultiReturn`。`[0]` が JSON 文字列）
+- JS の object / array は Lua の table になる（`#inputs.events == 1`、`inputs.keys.ArrowRight == true`）
+- **JS→Lua の数値は `Number.isInteger(v)` なら `lua_pushinteger`、それ以外は `lua_pushnumber`**（`index.js` の `pushValue`。`x=150` → `integer`、`y=1.5` → `float`）。
+  lupa は Python の `float` を float のまま渡す（`InputState.apply` は `float()` に揃える）ので、ホスト間で `inputs` の数値の副型が違う。
+  プレリュードは `pointer` / イベントの `x` / `y` を読む 3 か所すべてで `+ 0.0` して float に揃えているため（`prelude.lua` の `PTR` / `prepare_inputs` / `dispatch_events`）、
+  トレース・表示リストには差が出ない。`t` / `seed` は両ホストとも整数
+- 1 tick は約 0.2 ms（60 fps の 16.7 ms に対して 1% 強）
+
 ---
 
 ## B. lupa
@@ -1173,6 +1255,38 @@ json str return type: <class 'str'>
 - `string.format("%.17g", 0.1)` は `0.10000000000000001`、`"%.16e"` は 2 桁の指数（`e-01`）。runtime.md §6 の数値書式（Python の `repr` と同じ配置）は `%.<n>e` の桁を自前で組み直す
 - `math.floor(2.7) + 0.0` は float、`4.0 // 2.0` も float（jil.md §2「整数サブタイプを作る演算を生成しない」の根拠）。`-7.0 % 3.0 == 2.0`（Python と同じ符号規則）
 - `coroutine.close` は Lua 5.4 にある（プレリュードが休止中の陣を捨てるときに使う）
+
+### B.8（追加・Phase 4）lupa の count hook はコルーチンに届かない / コルーチンごとに掛ければ届く
+
+Phase 2 の §B.7 の hook（メインスレッドに `debug.sethook(f, "", n)`）が `wait` を含む手順（コルーチン）の
+無限ループを止められるかを Phase 4 の前に実測した（`probe_lupa_co.py` / `probe_lupa_co2.py`）。
+
+**(1) メインスレッドの hook はコルーチンに届かない**（`probe_lupa_co.py`。`busy_co` は 3×10^6 回のループを上限 1,000 で走らせる）:
+
+```
+busy: false|budget
+busy_co (3e6 loop, would stop at 1000 if hooked): true|ran-to-end
+```
+
+→ Phase 2 の `arm`（ホストがメインスレッドにだけ掛ける）は、コルーチンの中では**効いていなかった**（設計書 §11 #24 の残存。#32 で閉じる）。
+Lua 5.4 の `lua_newthread` は C の hook をコピーするが、`debug.sethook` の Lua 関数はレジストリのスレッド別テーブルから引かれるので、
+新しいスレッドでは何もしない。
+
+**(2) コルーチンごとに `sethook(co, f, "", n)` を掛ければ届く**（`probe_lupa_co2.py`。§A.10 (3) と同じ Lua をホストが置き、読み込み後に消す）:
+
+```
+type(JIN_ARM) after load: nil
+busy: false|budget
+busy_co: false|budget:命令数の上限 1000 を超えました（無限ループ？）
+wait_co (5 yields of 300 iters each, limit 1000): false:budget,false:cannot resume dead coroutine,…
+main_after_co: false|budget
+```
+
+観測: wasmoon（§A.10）と**同じ出力**。`jin_wasm.runtime._SETUP` はこの形（`JIN_ARM` / `JIN_HOOK` を置く）に改め、
+`LuaHost` は JIL を読んだ後に 2 つを `None` にする。プレリュードは `boot` / `tick` の先頭で `ARM()`、`resume()` で
+`coroutine.resume` の前に `HOOK(co)` を呼ぶ。`sethook` は count を掛け直すたびに 0 に戻すので、何 tick も生きる手順が
+累積で上限に当たることはない（`test_the_coroutine_budget_is_reset_on_every_resume`。HOOK を生成時にだけ掛ける変異では
+5 tick 目までに `命令数の上限 20000 を超えました` になることを確かめた）。
 
 ---
 

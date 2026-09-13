@@ -5,8 +5,14 @@
   game.lua              # JIL
   game.manifest.json    # { file, stage, namespaces, assets, debug, jil }
   assets/               # stage.assets の実体をコピー（manifest の path は assets/<ファイル名> に書き換える）
-  index.html / player.js / wasmoon.wasm   # apps/player のビルド物（Phase 4）。無ければ書かず、その旨を返す
+  index.html / player.js / wasmoon.wasm   # apps/player のビルド物。同梱されていなければ書かず、その旨を返す
 ```
+
+`--single` は `index.html` **1 本**だけを書く（`player.js` をインラインにし、JIL / manifest / wasm（base64）を
+`window.JIN_BUNDLE` に埋める。runtime.md §9）。asset は埋められないので、`assets` があれば拒む（設計書 §11 #34）。
+
+プレイヤーのビルド物は `jin_wasm/player/`（gitignore。`scripts/sync_player.py` が `apps/player/dist` から複製する。
+wheel には入る）。
 
 ## 安全の約束（`jin_adk.build` と同じ規律）
 
@@ -33,10 +39,12 @@ v1 の `jin check <dir>` / `fmt` の読み取りと同じ種類の残存で、�
     guard: _asset_source -> os.O_NOFOLLOW
     guard: _asset_source -> stat.S_ISREG
     guard: _move_into_place -> os.replace
+    guard: single_index_html -> _escape_inline_json(bundle)
 """
 
 from __future__ import annotations
 
+import base64
 import errno
 import json
 import os
@@ -50,9 +58,19 @@ TMP_SUFFIX = ".jin-tmp"
 GAME_LUA = "game.lua"
 GAME_MANIFEST = "game.manifest.json"
 ASSETS_DIR = "assets"
-#: apps/player のビルド物（Phase 4 で `jin_wasm/player/` に同梱する）。
+INDEX_HTML = "index.html"
+#: apps/player のビルド物（`scripts/sync_player.py` が `jin_wasm/player/` に複製する）。
 PLAYER_FILES = ("index.html", "player.js", "wasmoon.wasm")
 PLAYER_DIR = Path(__file__).with_name("player")
+#: `apps/player/public/index.html` の目印。`--single` はここを置き換える（`apps/player` 側と 1:1）。
+BUNDLE_MARKER = "<!-- jin:bundle -->"
+PLAYER_SCRIPT_TAG = '<script src="player.js"></script>'
+#: プレイヤーが同梱されていないときの補足（`jin build` が stderr に出す）。
+PLAYER_MISSING_NOTE = (
+    "プレイヤー（index.html / player.js / wasmoon.wasm）が同梱されていません。"
+    "`cd apps/player && pnpm install && pnpm build` のあと "
+    "`uv run python scripts/sync_player.py` で同梱できます"
+)
 
 
 class WriteRefused(Exception):
@@ -68,6 +86,46 @@ class BundleResult:
 
 def player_available() -> bool:
     return all((PLAYER_DIR / name).is_file() for name in PLAYER_FILES)
+
+
+def _escape_inline_json(text: str) -> str:
+    """`<script>` の中に置く JSON。`</` を `<\\/` にして `</script>` で閉じられないようにする。
+
+    JSON は文字列の中の `\\/` を `/` と読むので意味は変わらない（JIL / manifest に `</script>` が
+    入っていても HTML を壊せない）。
+    """
+    return text.replace("</", "<\\/")
+
+
+def single_index_html(
+    game: GeneratedGame, manifest: dict, *, player_dir: Path | None = None
+) -> bytes:
+    """`--single` の `index.html`: `player.js` をインラインにし、JIL / manifest / wasm を埋める。
+
+    `apps/player/public/index.html` の `<!-- jin:bundle -->` を `window.JIN_BUNDLE = {...}` に、
+    `<script src="player.js">` を `<script>` + 本文に置き換える。`player.js` は自前のビルド物なので
+    `</script` を含まないはずだが、含んでいたら（インラインにすると HTML が壊れる）拒む。
+
+    guard: single_index_html -> _escape_inline_json(bundle)
+    """
+    if player_dir is None:
+        player_dir = PLAYER_DIR
+    html = (player_dir / "index.html").read_text(encoding="utf-8")
+    player_js = (player_dir / "player.js").read_text(encoding="utf-8")
+    wasm = base64.b64encode((player_dir / "wasmoon.wasm").read_bytes()).decode("ascii")
+    if BUNDLE_MARKER not in html or PLAYER_SCRIPT_TAG not in html:
+        raise WriteRefused(
+            f"同梱された index.html に {BUNDLE_MARKER} か {PLAYER_SCRIPT_TAG} がありません"
+            "（apps/player のビルド物と jin_wasm の版がずれています）"
+        )
+    if "</script" in player_js.lower():
+        raise WriteRefused("同梱された player.js に </script が含まれるのでインラインにできません")
+    bundle = json.dumps({"jil": game.lua, "manifest": manifest, "wasm": wasm}, ensure_ascii=False)
+    html = html.replace(
+        BUNDLE_MARKER, f"<script>window.JIN_BUNDLE = {_escape_inline_json(bundle)};</script>", 1
+    )
+    html = html.replace(PLAYER_SCRIPT_TAG, f"<script>\n{player_js}\n</script>", 1)
+    return html.encode("utf-8")
 
 
 def _asset_source(source_dir: Path, rel: str) -> tuple[int, str]:
@@ -204,14 +262,17 @@ def write_bundle(
     force: bool = False,
     single: bool = False,
 ) -> BundleResult:
-    """バンドルを `<out>/` に書く。`single` はプレイヤーの同梱（Phase 4）が要る。"""
-    if single:
-        if not player_available():
-            raise WriteRefused(
-                "--single はプレイヤー（index.html / player.js / wasmoon.wasm）を埋め込みます。"
-                "プレイヤーは Phase 4（apps/player）で入るので、いまは使えません"
-            )
-        raise WriteRefused("--single は Phase 4 で実装します")  # pragma: no cover
+    """バンドルを `<out>/` に書く。`single` は `<out>/index.html` 1 本（プレイヤーの同梱が要る）。"""
+    if single and not player_available():
+        raise WriteRefused(
+            "--single はプレイヤー（index.html / player.js / wasmoon.wasm）を埋め込みます。"
+            + PLAYER_MISSING_NOTE
+        )
+    if single and game.manifest["assets"]:
+        raise WriteRefused(
+            "--single は asset（stage.assets）を埋め込めません（設計書 §11 #34）。"
+            "--single 無しで書き出して assets/ ごと配ってください"
+        )
 
     manifest = json.loads(json.dumps(game.manifest))
     source_dir = Path(source).parent
@@ -242,23 +303,34 @@ def write_bundle(
         opened: list[tuple[int, str, Path, int, str]] = []  # (fd, opened_name, shown, dir_fd, name)
         open_fds: list[int] = []
         try:
-            plans: list[_Plan] = [
-                _Plan(out_fd, GAME_LUA, lua_bytes, out / GAME_LUA),
-                _Plan(out_fd, GAME_MANIFEST, manifest_bytes, out / GAME_MANIFEST),
-            ]
-            if plans_assets:
-                assets_fd, assets_created = _open_subdir(out_fd, ASSETS_DIR, out / ASSETS_DIR)
-                for fd, basename in plans_assets:
-                    plans.append(_Plan(assets_fd, basename, fd, out / ASSETS_DIR / basename))
-            if player_available():  # pragma: no cover - Phase 4
-                for name in PLAYER_FILES:
-                    plans.append(_Plan(out_fd, name, (PLAYER_DIR / name).read_bytes(), out / name))
-            else:
-                notes.append(
-                    "プレイヤー（index.html / player.js / wasmoon.wasm）は Phase 4（apps/player）で入ります。"
-                    f"{GAME_LUA} / {GAME_MANIFEST} を書きました"
-                )
             try:
+                plans: list[_Plan] = []
+                if single:
+                    plans.append(
+                        _Plan(
+                            out_fd, INDEX_HTML, single_index_html(game, manifest), out / INDEX_HTML
+                        )
+                    )
+                else:
+                    plans.append(_Plan(out_fd, GAME_LUA, lua_bytes, out / GAME_LUA))
+                    plans.append(_Plan(out_fd, GAME_MANIFEST, manifest_bytes, out / GAME_MANIFEST))
+                    if plans_assets:
+                        assets_fd, assets_created = _open_subdir(
+                            out_fd, ASSETS_DIR, out / ASSETS_DIR
+                        )
+                        for fd, basename in plans_assets:
+                            plans.append(
+                                _Plan(assets_fd, basename, fd, out / ASSETS_DIR / basename)
+                            )
+                    if player_available():
+                        for name in PLAYER_FILES:
+                            plans.append(
+                                _Plan(out_fd, name, (PLAYER_DIR / name).read_bytes(), out / name)
+                            )
+                    else:
+                        notes.append(
+                            f"{PLAYER_MISSING_NOTE}。{GAME_LUA} / {GAME_MANIFEST} を書きました"
+                        )
                 for plan in plans:
                     fd, opened_name = _open_for_write(
                         plan.dir_fd, plan.name, force=force, shown=plan.shown
@@ -316,11 +388,17 @@ def write_bundle(
 
 __all__ = [
     "ASSETS_DIR",
+    "BUNDLE_MARKER",
     "GAME_LUA",
     "GAME_MANIFEST",
+    "INDEX_HTML",
+    "PLAYER_DIR",
     "PLAYER_FILES",
+    "PLAYER_MISSING_NOTE",
+    "PLAYER_SCRIPT_TAG",
     "BundleResult",
     "WriteRefused",
     "player_available",
+    "single_index_html",
     "write_bundle",
 ]
