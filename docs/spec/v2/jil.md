@@ -92,7 +92,7 @@ function tick(t, inputs)
 end
 ```
 
-`tick` の戻り値は**プレリュードの `JSON` が直列化した文字列**で、ホストは `JSON.parse` / `json.loads` する(runtime.md §1)。Lua のテーブルを境界越しに渡さない(Wasmoon のテーブル変換は遅く、integer / float の区別が落ちる。probe A.3 / A.9)。直列化の対象は**配列とキー固定のテーブルだけ**で、キーの順は生成部が固定した順(`ops` / `audio` / `trace` / `done` / `error` / `public` / `snapshot` / `resume`(後ろ 3 つは debug だけ)、トレース行は `seq` / `tick` / `circle` / `kind` / `name` / `pointer` / `input` / `output`)で書き、`pairs` を使わない。文字列は JSON のエスケープ規則で、数値は runtime.md §6 の書式で書く。**64 bit 整数は境界を越えない。** 唯一の例外は PCG32 の状態で、`snapshot.rng` に `"0x…"` の 16 進**文字列**として書き、`manifest.resume` から `tonumber` で読み戻す(runtime.md §1.3)。逆方向(`manifest.resume`)の値はホストの JSON 由来で、lupa では table、Wasmoon では proxy の userdata として届く。プレリュードの読み手(`RREC` / `RN` / `RB` / `RSTR` / `RL` / `JR[k]`)は `type()` ではなく欄の読み取りと `ipairs` で形を見る。
+`tick` の戻り値は**プレリュードの `JSON` が直列化した文字列**で、ホストは `JSON.parse` / `json.loads` する(runtime.md §1)。Lua のテーブルを境界越しに渡さない(Wasmoon のテーブル変換は遅く、integer / float の区別が落ちる。probe A.3 / A.9)。直列化の対象は**配列とキー固定のテーブルだけ**で、キーの順は生成部が固定した順(`ops` / `audio` / `trace` / `done` / `error` / `public` / `storage` / `snapshot` / `resume`。`trace` / `snapshot` / `resume` は debug だけ、`storage` は書き込みがあった tick だけ)、トレース行は `seq` / `tick` / `circle` / `kind` / `name` / `pointer` / `input` / `output`)で書き、`pairs` を使わない。文字列は JSON のエスケープ規則で、数値は runtime.md §6 の書式で書く。**64 bit 整数は境界を越えない。** 唯一の例外は PCG32 の状態で、`snapshot.rng` に `"0x…"` の 16 進**文字列**として書き、`manifest.resume` から `tonumber` で読み戻す(runtime.md §1.3)。逆方向(`manifest.resume`)の値はホストの JSON 由来で、lupa では table、Wasmoon では proxy の userdata として届く。プレリュードの読み手(`RREC` / `RN` / `RB` / `RSTR` / `RL` / `JR[k]`)は `type()` ではなく欄の読み取りと `ipairs` で形を見る。
 
 ## 6. wasm-GC 直接出力への含み(v2.1)
 

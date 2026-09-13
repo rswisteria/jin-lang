@@ -364,3 +364,34 @@ def test_the_player_keeps_state_across_a_reload_through_the_snapshot() -> None:
     spec = read(PLAYER / "e2e" / "reload.spec.ts")
     assert "window.__jinPlayer?.load(j, m, true)" in spec
     assert 'kept: ["Game", "Play", "Result"]' in spec
+
+
+def test_the_player_owns_the_storage_copy_and_never_persists_a_replay() -> None:
+    """abilities.md §8 / runtime.md §10（v2.1・設計書 §11 #47）: 記憶の写しはプレイヤーが持つ。
+
+    - すべての `boot`（最初から / 録画 / 差し替え / 再生）に `manifest.storage` を渡す
+    - tick の戻り値の `storage` を写しへ反映し、`onStore` で永続化を頼む（`localStorage` の鍵は `jin.storage:<file>`）
+    - 再生はヘッダの写しから始まるスクラッチに書き、永続化しない
+    - 録画のヘッダには録画の boot に渡した写し。読み手は Python と同じ文言で検査する
+    """
+    player = read(SRC / "player.ts")
+    assert "readonly store: Map<string, string>;" in player
+    assert player.count("storage: this.storageCopy(),") == 3  # restart / resumeFrom / Recorder
+    assert "new Map(Object.entries(recording.storage ?? {}))," in player
+    assert "if (this.scratch === null) this.o.onStore?.(result.storage, this.store);" in player
+    main = read(SRC / "main.ts")
+    assert "return `jin.storage:${file}`;" in main
+    assert "onStore: (_writes, store) => saveStore(source.manifest.file, store)," in main
+    assert 'data.action === "forget"' in main
+    recorder = read(SRC / "recorder.ts")
+    assert "? { storage }" in recorder
+    reader = read(SRC / "jinrec.ts")
+    for fragment in ("ヘッダの storage はオブジェクトです", "ヘッダの storage の値は文字列です"):
+        assert fragment in reader, fragment
+    broken = REPO_ROOT / "tests" / "fixtures" / "jinrec" / "broken"
+    assert (broken / "storage-not-object.jinrec").is_file()
+    assert (broken / "storage-value-not-str.jinrec").is_file()
+    # e2e: localStorage に残り読み直しで続く → 録画のヘッダの写しで jin run --input と全行一致 → 再生は上書きしない
+    spec = read(PLAYER / "e2e" / "storage.spec.ts")
+    assert "expect(browserRows).toEqual(headlessRows);" in spec
+    assert 'window.localStorage.getItem("jin.storage:storage.jin")' in spec
