@@ -1,0 +1,133 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "start",
+      "state": [
+        {
+          "name": "runs",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "best",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "label",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "storage",
+          "kind": "host",
+          "host": "storage"
+        },
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": [
+            {
+              "do": "set",
+              "target": "runs",
+              "expr": "num(storage.get(\"runs\")) + 1"
+            },
+            {
+              "do": "cast",
+              "target": "storage.set",
+              "args": [
+                "\"runs\"",
+                "str(runs)"
+              ]
+            },
+            {
+              "do": "set",
+              "target": "best",
+              "expr": "num(storage.get(\"best\"))"
+            },
+            {
+              "do": "set",
+              "target": "label",
+              "expr": "storage.get(\"label\")"
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "runs > best",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "best",
+                  "expr": "runs"
+                },
+                {
+                  "do": "cast",
+                  "target": "storage.set",
+                  "args": [
+                    "\"best\"",
+                    "str(best)"
+                  ]
+                },
+                {
+                  "do": "cast",
+                  "target": "storage.set",
+                  "args": [
+                    "\"label\"",
+                    "\"run \" ++ str(runs)"
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "storage.get(\"label\")",
+                "2",
+                "2"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    }
+  ]
+}

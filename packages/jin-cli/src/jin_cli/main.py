@@ -915,6 +915,7 @@ def _run_v2(
     （トレース / frames はそこまでの分を書く）。任意コード実行は無い（モジュール docstring）。
     """
     events: list[dict] = []
+    storage: dict[str, str] | None = None
     if input_path is not None:
         try:
             recording = read_jinrec(input_path)
@@ -922,6 +923,7 @@ def _run_v2(
             typer.echo(_safe(str(exc)), err=True)
             raise typer.Exit(code=2) from exc
         events = recording.events
+        storage = recording.storage  # 録画の boot に渡した記憶の写し（abilities.md §8）
         if ticks is None:
             ticks = recording.ticks
         if seed is None:
@@ -963,6 +965,7 @@ def _run_v2(
             seed=seed,
             ticks=ticks,
             events=events,
+            storage=storage,
             on_row=write_row if "trace" in sinks else None,
         )
         if "frames" in sinks:

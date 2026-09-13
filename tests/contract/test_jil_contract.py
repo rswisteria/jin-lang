@@ -128,4 +128,3 @@ def test_the_jil_spec_names_the_current_version() -> None:
     spec = (REPO_ROOT / "docs" / "spec" / "v2" / "jil.md").read_text(encoding="utf-8")
     assert f"-- jin: 2  jil: {JIL_VERSION}" in spec
     assert f"`jil: {JIL_VERSION}` は JIL の契約の版" in spec
-    assert JIL_VERSION == 2

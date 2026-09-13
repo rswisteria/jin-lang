@@ -93,6 +93,15 @@ NAMESPACES: tuple[Namespace, ...] = (
             _m("range", "lo: num, hi: num", "num", "state"),
         ),
     ),
+    # v2.1: ホストの記憶（abilities.md §8）。`get` は boot 時の写し + 自分の書き込みを読む純関数、
+    # `set` は書き込みの一覧（tick の戻り値の `storage`）へ追記する効果。
+    Namespace(
+        "storage",
+        (
+            _m("get", "key: str", "str", "read"),
+            _m("set", "key: str, val: str", None, "effect"),
+        ),
+    ),
 )
 
 #: `input.key` / `input.pressed` に渡せるキー名（`KeyboardEvent.code`。abilities.md §3）。

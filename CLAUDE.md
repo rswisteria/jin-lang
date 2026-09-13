@@ -179,7 +179,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasm --snapshot-update`
   （`packages/jin-wasm/tests/__snapshots__/`。生成部 3 本 × debug / release と paddle 60 tick のゴールデン）。
   差分を読んでからコミット。examples-v2 が使わない経路（parallel / transfer / emit / key / pointer / wait until /
-  each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 11 本が固定する
+  each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 12 本が固定する（v2.1 の `storage` を含む）
 - v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
   オペレーション列で、`apply_ops` が undo 順に平らにする
 

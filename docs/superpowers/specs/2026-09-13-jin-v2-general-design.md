@@ -350,7 +350,7 @@ Pydantic 定義(`jin_wasm.abilities`)から生成し、**補完・型検査・�
 | `ui` | `button(label,x,y,w,h)` / `label(s,x,y)` | 効果 + 純(描いて、この tick に離されたら真) | `bool` / — |
 | `audio` | `tone(hz,ms)` / `play(name)` | 効果(音リストへ追記) | — |
 | `random` | `next()` / `range(lo,hi)` | 効果(seed 付き PCG32 の状態を進める) | `num` |
-| `storage` | `get(key)` / `set(key,val)` | v2.1 | `str` |
+| `storage` | `get(key)` / `set(key,val)` | 純(boot 時の写しと自分の書き込みを読む)/ 効果(書き込みの一覧へ追記。v2.1 で実装・abilities.md §8) | `str` / — |
 
 色は `"#rgb"` / `"#rrggbb"` の文字列。`sprite` の `name` は `stage.assets[]` の名前(JIN205 で未知名を落とす)。**壁時計・`Date` に相当する能力は無い**(決定性)。`ui` は tick の入力スナップショットを自前で読むので、`ui` を使う陣に `input` の許可は要らない(JIN230 は `on key` / `on pointer` を受ける陣だけを見る)。
 

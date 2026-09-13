@@ -222,7 +222,14 @@ def test_v2_codes_do_not_overlap_v1_and_shared_codes_exist_in_v1() -> None:
 
 
 def test_abilities_catalog_namespaces() -> None:
-    assert [ns.name for ns in NAMESPACES] == ["canvas", "input", "ui", "audio", "random"]
+    assert [ns.name for ns in NAMESPACES] == [
+        "canvas",
+        "input",
+        "ui",
+        "audio",
+        "random",
+        "storage",  # v2.1（abilities.md §8）
+    ]
 
 
 # ---------------------------------------------------------------- examples-v2

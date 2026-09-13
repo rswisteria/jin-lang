@@ -1,6 +1,6 @@
 """入力ログ / 録画 `.jinrec`（runtime.md §7）の読み書き。
 
-JSONL。1 行目はヘッダ `{"jinrec": 1, "file", "seed", "fps", "ticks"}`、以降は
+JSONL。1 行目はヘッダ `{"jinrec": 1, "file", "seed", "fps", "ticks", ["storage"]}`、以降は
 `{"tick", "kind": "key" | "pointer", ...}`。`tick` は昇順（同じ tick の複数行は発生順）。
 壊れた行は黙って読み飛ばさず、行番号を添えて `JinrecError` にする（`jin_cli.main._read_trace_rows` と同じ規律）。
 """
@@ -26,6 +26,8 @@ class Recording:
     seed: int | None = None
     fps: int | None = None
     ticks: int | None = None
+    #: 録画の boot に渡した記憶の写し（abilities.md §8・v2.1）。無ければ None（= 空）。
+    storage: dict[str, str] | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -80,6 +82,13 @@ def _read_header(path: Path, number: int, value: dict[str, Any], out: Recording)
     out.ticks = value.get("ticks")
     if out.ticks is not None and out.ticks < 0:
         raise JinrecError(f"{path}:{number}: ヘッダの ticks は 0 以上です")
+    storage = value.get("storage")
+    if storage is not None:
+        if not isinstance(storage, dict):
+            raise JinrecError(f"{path}:{number}: ヘッダの storage はオブジェクトです")
+        if not all(isinstance(v, str) for v in storage.values()):
+            raise JinrecError(f"{path}:{number}: ヘッダの storage の値は文字列です")
+        out.storage = dict(storage)
 
 
 def _read_event(

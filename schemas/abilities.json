@@ -270,6 +270,37 @@
           "kind": "state"
         }
       ]
+    },
+    {
+      "name": "storage",
+      "members": [
+        {
+          "name": "get",
+          "params": [
+            {
+              "name": "key",
+              "type": "str"
+            }
+          ],
+          "returns": "str",
+          "kind": "read"
+        },
+        {
+          "name": "set",
+          "params": [
+            {
+              "name": "key",
+              "type": "str"
+            },
+            {
+              "name": "val",
+              "type": "str"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        }
+      ]
     }
   ],
   "keys": [

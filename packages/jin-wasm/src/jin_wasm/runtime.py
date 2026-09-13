@@ -215,6 +215,15 @@ class HeadlessResult:
     done_tick: int | None
     #: 実際に走らせた tick 数。
     ticks: int
+    #: 記憶（`storage`・abilities.md §8）の最後の内容。boot に渡した写しに tick ごとの書き込みを順に反映したもの。
+    storage: dict[str, str] = field(default_factory=dict)
+
+
+def apply_storage_writes(store: dict[str, str], result: dict[str, Any]) -> None:
+    """tick の戻り値の `storage`（書き込みの一覧 `[[key, val], …]`）をホストの記憶へ順に反映する。"""
+    for write in result.get("storage", []):
+        if isinstance(write, list) and len(write) == 2 and all(isinstance(x, str) for x in write):
+            store[write[0]] = write[1]
 
 
 def run_headless(
@@ -224,18 +233,21 @@ def run_headless(
     seed: int,
     ticks: int,
     events: Iterable[dict[str, Any]] = (),
+    storage: dict[str, str] | None = None,
     on_row: Callable[[dict[str, Any]], None] | None = None,
     budget: int = INSTRUCTION_BUDGET,
 ) -> HeadlessResult:
     """`boot` → `tick(0..ticks-1)` を順に呼ぶ。root が done になったら（その tick を含めて）止める。
 
     `events` は `{tick, kind, ...}` の列（録画の本文。tick 昇順・同じ tick は発生順）。
+    `storage` は boot に渡す記憶の写し（録画のヘッダの `storage`。無ければ空）。
     """
     by_tick: dict[int, list[dict[str, Any]]] = {}
     for ev in events:
         by_tick.setdefault(int(ev["tick"]), []).append(ev)
+    store: dict[str, str] = dict(storage or {})
     host = LuaHost(jil, budget=budget)
-    host.boot(seed, manifest)
+    host.boot(seed, {**manifest, "storage": dict(store)})
     state = InputState()
     rows: list[dict[str, Any]] = []
     frames: list[dict[str, Any]] = []
@@ -252,12 +264,13 @@ def run_headless(
                 on_row(row)
         frames.append({"tick": t, "ops": result["ops"], "audio": result["audio"]})
         public = result.get("public", {})
+        apply_storage_writes(store, result)
         if result.get("error") is not None:
             error = str(result["error"])
         if result.get("done"):
             done_tick = t
             break
-    return HeadlessResult(rows, frames, public, error, done_tick, ran)
+    return HeadlessResult(rows, frames, public, error, done_tick, ran, store)
 
 
 __all__ = [
