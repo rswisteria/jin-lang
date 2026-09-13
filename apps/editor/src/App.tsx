@@ -482,8 +482,9 @@ export function App({
 	/**
 	 * プレイヤーの状態。世代（boot し直すたびに増える。状態を保った差し替えでは変わらない）が進んだら
 	 * 走らせた行を捨てる（seq が 0 に戻るので古い行と重なる。編集のたびの `jin.load` は親の操作を
-	 * 通らないのでここで見る）。録画の再生の行は再生の終わりに 1 回で届いてから世代の知らせが来るので、
-	 * 出どころが `replay` の間は捨てない。止まった（一時停止 / 1 tick / 最初から / 再生の終わり / done）
+	 * 通らないのでここで見る）。録画の再生でも捨ててよい: `Player.replay` は `reboot` の知らせ（世代が進んだ
+	 * `jin.status`）を**先に**出し、再生の行の一括（`jin.trace`）はその**後**に届くので、再生の行は残る。
+	 * 出どころ（名前と行数の上限）は変えない。止まった（一時停止 / 1 tick / 最初から / 再生の終わり / done）
 	 * ら即座に描き直す。
 	 */
 	const lastGeneration = useRef(0);
@@ -491,7 +492,7 @@ export function App({
 		(status: PlayerStatus): void => {
 			if (status.generation !== lastGeneration.current) {
 				lastGeneration.current = status.generation;
-				if (traceSource.current.kind === "live") clearTrace();
+				clearTrace();
 			}
 			if (!status.running) flushLive();
 		},

@@ -611,7 +611,8 @@ def test_the_run_panel_keeps_state_across_edits_and_stays_mounted() -> None:
     - 「編集しても状態を保つ」（`jin-keep-state`・既定 on）は `jin.load` の `keep` に載る。切り替えただけでは
       `jin.load` を送り直さない（effect の依存に入れず ref で読む）
     - v2 の実行パネルはモードを切り替えても**外さない**（外すと iframe ごとプレイヤーが消える）。編集モードでは隠す
-    - 親は `jin.status` の世代（`generation`）が進んだら走らせた行を捨てる（seq が 0 に戻るので）。録画の再生の行は捨てない
+    - 親は `jin.status` の世代（`generation`）が進んだら行を捨てる（seq が 0 に戻るので）。出どころで分けない
+      （録画の再生は `reboot` の知らせが行の一括より先に届くので、再生の行は残る）
     """
     panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
     assert 'data-testid="jin-keep-state"' in panel
@@ -626,7 +627,9 @@ def test_the_run_panel_keeps_state_across_edits_and_stays_mounted() -> None:
     on_status = app[app.index("const onStatus = useCallback(") :]
     on_status = on_status[: on_status.index("useEffect(")]
     assert "status.generation !== lastGeneration.current" in on_status
-    assert 'if (traceSource.current.kind === "live") clearTrace();' in on_status
+    assert "lastGeneration.current = status.generation;" in on_status
+    assert "clearTrace();" in on_status
+    assert "traceSource.current.kind" not in on_status  # 出どころで分けない（再生の後の keep 無しでも捨てる）
     # e2e: 走らせて止める → 編集モードで式を直す → 戻ると tick / 記憶環の値 / upto がそのまま → 外すと世代が進む
     spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
     assert "状態を保って差し替えました（tick ${String(tick)} から続けます）" in spec

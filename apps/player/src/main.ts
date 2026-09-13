@@ -263,7 +263,8 @@ async function main(): Promise<void> {
 		const wasRunning = previous?.running ?? false;
 		const wasRecording = previous?.recording ?? false;
 		previous?.pause();
-		collector?.detach();
+		// 前の集め手は新しい集め手を作る直前まで聞き続ける（wasm の起動を待つ間に離したキーを取りこぼすと、
+		// `adopt` が押したままの状態を写してしまう）。読み込みは直列なので重ならない。
 		const previousHost = host;
 		const { width, height } = source.manifest.stage;
 		canvas.width = width;
@@ -276,6 +277,7 @@ async function main(): Promise<void> {
 		host = await JinHost.create(source.jil, source.wasmUri);
 		const sprites = await loadSprites(source);
 		await loadSounds(source, audio);
+		previousCollector?.detach();
 		collector = new InputCollector(canvas, {
 			width,
 			height,
