@@ -50,7 +50,7 @@ ADK が cancel を握って正常復帰するため「応答の無い function_c
 
 ## `jin render`（Phase 3）は任意コードを実行しない
 
-`jin render` は `jin_render.render`（`jin_core` と標準ライブラリだけに依存する純関数）を呼ぶだけで、
+`jin render` は `jin_render.render`（`jin_core` と標準ライブラリだけに依存する純関数。v1 / v2 とも）を呼ぶだけで、
 `ref` を import しない。`--trace` の JSONL も `json.loads` で読むだけである。
 `-o` の書き出しは `jin fmt` と同じヘルパ（`_write_atomically`）を通す。**新しい書き込み経路を作らない。**
 `_write_svg` が先に見る 5 条件のうち 4 つ（シンボリックリンク / ディレクトリ / 親の有無 /
@@ -69,7 +69,8 @@ ADK が cancel を握って正常復帰するため「応答の無い function_c
 `jin build` は `<out>/` に `game.lua` / `game.manifest.json` / `assets/` を書く。asset の実体は
 `.jin` の親ディレクトリの中に閉じ、リンクを辿らない（`jin_wasm.bundle`）。`--trace` / `--frames` は
 v1 と同じ `_open_trace` + `_LazyTruncateSink` を通す（**新しい書き込み経路を作らない**）。
-`jin render` は v2 をまだ扱わない（Phase 3）。
+`jin render` も同じ `_load_model_or_exit` で `JinFileV2` を受け取り、`jin_render.render`（version で
+`jin_render.v2` へ振り分ける純関数）へ渡すだけである。**新しい経路は無い**。
 
 ## `guard:` 記法（security review R-2 の再発防止）
 
@@ -738,10 +739,11 @@ def dump(file: Annotated[Path, typer.Argument(help="対象の .jin")]) -> None:
 # ======================================================================================
 # Phase 2: build / run（jin-adk）
 # ======================================================================================
-def _load_model_or_exit(file: Path, *, v2: bool = False) -> JinFile | JinFileV2:
+def _load_model_or_exit(file: Path) -> JinFile | JinFileV2:
     """`.jin` を診断し、error が無ければモデルを返す。error があれば診断を出して exit 1。
 
-    `v2=True` のコマンド（build / run）だけが `JinFileV2` を受け取る。render は Phase 3 まで拒む。
+    build / run / render のどれも `JinFile`（v1）と `JinFileV2`（v2）の両方を受け取り、
+    振り分けは呼び出し先（`jin_adk` / `jin_wasm` / `jin_render.render`）が行う。
     """
     _require_jin_file(file)
     try:
@@ -754,13 +756,6 @@ def _load_model_or_exit(file: Path, *, v2: bool = False) -> JinFile | JinFileV2:
     if result.model is None or not result.ok:
         typer.echo(
             "診断に error があるため続行できません（先に jin check を通してください）", err=True
-        )
-        raise typer.Exit(code=1)
-    if isinstance(result.model, JinFileV2) and not v2:
-        # v2（version: 2）の render は Phase 3 で入る。黙って v1 として扱わない。
-        typer.echo(
-            "version: 2 の .jin はまだ render できません（check / fmt / dump / build / run は使えます）",
-            err=True,
         )
         raise typer.Exit(code=1)
     if not isinstance(result.model, (JinFile, JinFileV2)):  # pragma: no cover - RootModel は 2 種
@@ -794,7 +789,7 @@ def build(
 
     既存ファイルは --force なしでは上書きしない。
     """
-    model = _load_model_or_exit(file, v2=True)
+    model = _load_model_or_exit(file)
     if isinstance(model, JinFileV2):
         _build_v2(file, model, out, force=force, debug=debug, single=single)
         raise typer.Exit(code=0)
@@ -1057,7 +1052,7 @@ def run(
             err=True,
         )
         raise typer.Exit(code=2)
-    jin_model = _load_model_or_exit(file, v2=True)
+    jin_model = _load_model_or_exit(file)
     if isinstance(jin_model, JinFileV2):
         if prompt is not None or session is not None or model is not None:
             typer.echo(
@@ -1335,7 +1330,10 @@ def render(
     ] = None,
     focus: Annotated[
         str | None,
-        typer.Option("--focus", help="展開する circle 名（省略時は root の circle）"),
+        typer.Option(
+            "--focus",
+            help="展開する陣名（省略時は root）。v2 は 陣名/手順名 で手順の中を開く",
+        ),
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="-o の既存ファイルを上書きする")] = False,
 ) -> None:

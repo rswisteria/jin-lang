@@ -22,7 +22,8 @@ def _context(
     """表示用のモデル・行・対応表と、カーソル位置の pointer。"""
     if state is None:
         return None
-    model = state.model_for_display
+    # v2 のドキュメントは `None`（hover / definition / references の v2 は Phase 5）。
+    model = state.model_v1_for_display
     table = state.table_for_display
     if model is None or table is None:
         return None
@@ -335,7 +336,7 @@ def document_symbols(state: DocumentState | None) -> list[types.DocumentSymbol]:
     context_state = state
     if context_state is None:
         return []
-    model = context_state.model_for_display
+    model = context_state.model_v1_for_display
     table = context_state.table_for_display
     if model is None or table is None:
         return []

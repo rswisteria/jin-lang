@@ -97,7 +97,7 @@ def complete(state: DocumentState | None, position: types.Position) -> types.Com
     """
     if state is None:
         return types.CompletionList(is_incomplete=False, items=[])
-    model = state.model_for_display
+    model = state.model_v1_for_display  # v2 の補完は Phase 5
     table = state.table_for_display
     if model is None or table is None:
         return types.CompletionList(is_incomplete=False, items=[])
