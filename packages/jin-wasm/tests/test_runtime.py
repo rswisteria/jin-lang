@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from jin_wasm.runtime import InputState, LuaHost, RunError, run_headless
@@ -250,6 +251,31 @@ def test_the_coroutine_budget_is_reset_on_every_resume() -> None:
     )
     assert result.error is None
     assert result.done_tick == 4  # boot で 1 回 + tick 0..3 で 4 回待ち、tick 4 で finish
+
+
+#: Python（`InputState.apply`）と TS（`apps/player/src/input.ts` の `InputReducer`）が同じ期待値で検算する
+#: 共有 fixture。プレイヤーの `inputs` と `.jinrec` が同じ reducer から出ることがパリティの根拠。
+JINREC_FIXTURES = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "jinrec"
+
+
+def test_input_state_matches_the_reducer_fixture_shared_with_the_player() -> None:
+    from jin_wasm.jinrec import read_jinrec
+
+    recording = read_jinrec(JINREC_FIXTURES / "reducer.jinrec")
+    expected = json.loads((JINREC_FIXTURES / "reducer.expected.json").read_text(encoding="utf-8"))
+    assert recording.ticks == len(expected)
+    state = InputState()
+    actual = [
+        state.apply(
+            [
+                {k: v for k, v in ev.items() if k != "tick"}
+                for ev in recording.events
+                if ev["tick"] == t
+            ]
+        )
+        for t in range(recording.ticks)
+    ]
+    assert actual == expected
 
 
 def test_input_state_reconstructs_held_keys_and_pointer() -> None:

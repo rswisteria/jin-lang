@@ -1,0 +1,7 @@
+{"jinrec": 1, "file": "reducer.jin", "seed": 1, "fps": 60, "ticks": 5}
+{"tick": 0, "kind": "key", "name": "ArrowLeft", "down": true}
+{"tick": 1, "kind": "pointer", "x": 10, "y": 20, "down": false}
+{"tick": 1, "kind": "pointer", "x": 12, "y": 20, "down": true}
+{"tick": 2, "kind": "key", "name": "ArrowRight", "down": true}
+{"tick": 2, "kind": "key", "name": "ArrowLeft", "down": false}
+{"tick": 3, "kind": "pointer", "x": 12.5, "y": 21, "down": false}
