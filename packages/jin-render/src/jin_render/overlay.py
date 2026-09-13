@@ -59,10 +59,14 @@ class TraceRow:
     pointer: str | None
 
 
-def read_trace(rows: Sequence[Mapping[str, Any]]) -> list[TraceRow]:
+def read_trace(rows: Sequence[Mapping[str, Any]], *, min_seq: int = 1) -> list[TraceRow]:
     """トレース行の並びを検証して `TraceRow` の列にする（`seq` の昇順）。
 
     同じ `seq` が複数あっても拒まない（並びは元の順序を保つ安定ソート）。
+
+    `min_seq` は `seq` の下限。v1（`jin_adk.trace`）は 1 始まりなので既定 1。
+    v2（`jin_wasm`）は `boot` から通しの **0 始まり**（`docs/spec/v2/runtime.md` §5）なので
+    `jin_render.v2` が 0 を渡す。v1 の既定は変えない（`--upto 0` の意味が変わる）。
     """
     # 型違いは `TypeError` ではなく `ValueError` にする。
     # ここは「Python の呼び出し規約の誤り」ではなく「**外部データ**（`--trace` の JSONL）が
@@ -80,9 +84,11 @@ def read_trace(rows: Sequence[Mapping[str, Any]]) -> list[TraceRow]:
         # `bool` は `int` の子なので明示的に外す（True が seq 1 として通ってしまう）。
         if isinstance(seq, bool) or not isinstance(seq, int):
             raise TraceRowError(index, f"トレース行の seq が整数ではありません: {brief(seq)}")
-        if not 1 <= seq <= SEQ_MAX:
-            # `jin_adk.trace` の `seq` は 1 始まりの連番（adk-mapping §6）。
-            raise TraceRowError(index, f"トレース行の seq が 1..{SEQ_MAX} の外です: {brief(seq)}")
+        if not min_seq <= seq <= SEQ_MAX:
+            # `jin_adk.trace` の `seq` は 1 始まりの連番（adk-mapping §6）。v2 は 0 始まり。
+            raise TraceRowError(
+                index, f"トレース行の seq が {min_seq}..{SEQ_MAX} の外です: {brief(seq)}"
+            )
         if "pointer" not in row:
             raise TraceRowError(index, "トレース行に pointer がありません")
         pointer = row["pointer"]
