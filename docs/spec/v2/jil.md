@@ -78,11 +78,11 @@ function tick(t, inputs)
   if not ok then
     -- error 行を積んで done = true
   end
-  return { ops = OPS, audio = AUDIO, trace = TRACE, done = DONE }
+  return JSON({ ops = OPS, audio = AUDIO, trace = TRACE, done = DONE })   -- 文字列
 end
 ```
 
-`tick` の戻り値はホストが JS オブジェクト / Python の値へ変換する(Wasmoon は自動、lupa は `list(t.values())` 相当をプレイヤー側 / runtime 側で行う。probe で確認)。戻り値のテーブルは**配列とキー固定のテーブルだけ**で構成し、ホスト側の変換が順序に依存しないようにする。
+`tick` の戻り値は**プレリュードの `JSON` が直列化した文字列**で、ホストは `JSON.parse` / `json.loads` する(runtime.md §1)。Lua のテーブルを境界越しに渡さない(Wasmoon のテーブル変換は遅く、integer / float の区別が落ちる。probe A.3 / A.9)。直列化の対象は**配列とキー固定のテーブルだけ**で、キーの順は生成部が固定した順(`ops` / `audio` / `trace` / `done`、トレース行は `seq` / `tick` / `circle` / `kind` / `name` / `pointer` / `input` / `output`)で書き、`pairs` を使わない。文字列は JSON のエスケープ規則で、数値は runtime.md §6 の書式で書く。**64 bit 整数(PCG32 の状態など)は境界を越えない。**
 
 ## 6. wasm-GC 直接出力への含み(v2.1)
 

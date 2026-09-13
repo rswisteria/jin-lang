@@ -11,7 +11,9 @@
 | 関数 | 引数 | 戻り |
 |---|---|---|
 | `boot(seed, manifest)` | seed: 整数、manifest: `game.manifest.json` の内容(Lua テーブル) | なし |
-| `tick(t, inputs)` | t: 0 始まりの tick 番号、inputs: §1.1 | §1.2 の結果テーブル |
+| `tick(t, inputs)` | t: 0 始まりの tick 番号、inputs: §1.1 | §1.2 の結果を **JSON 文字列**にしたもの(UTF-8) |
+
+戻り値を Lua テーブルでなく JSON 文字列にするのは、Wasmoon の Lua→JS テーブル変換が 50 行で約 600 µs/回かかるのに対し JSON 文字列 + `JSON.parse` なら 35 µs で済み、かつ Lua→JS で integer / float の区別と 64 bit 精度が落ちる経路を通らないため(`wasm-api-probe.md` A.3 / A.9)。直列化はプレリュードが行う(外部の JSON ライブラリは無い。数値は §6 の書式)。
 
 `boot` は舞台を初期化し、`root` の陣を `entered` にして核の手順を走らせる(`t = -1` 相当。トレースの `tick` は `-1`)。`tick` は §2 を 1 回行う。ホストは `tick` を **`t = 0, 1, 2, …` の順に、飛ばさず**呼ぶ。
 
@@ -147,7 +149,7 @@ jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--trace t.jsonl] [
 - `--ticks` の既定は `--input` があればそのヘッダの `ticks`、無ければ 600
 - `--trace` は §5 の行(`--debug` を暗黙に立てる)。`--frames` は `frame` 行だけを別ファイルに(トレース無しでも出せる)
 - 標準出力には最後の tick の公開 state を JSON で 1 行出す(`{"Play.score": 3, "Result.quit": true}`)
-- lupa は `register_eval=False` で作り、`load` / `os` / `io` / `require` / `dofile` / `debug` を `nil` にしてから JIL を読む(probe で確認した手順)。JIL 自体はこれらを使わない(`jil.md`)
+- lupa は **`lupa.lua54`** を明示する(lupa 2.8 の既定 `LuaRuntime` は Lua 5.5.1。probe B.1)。`LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True)` で作り、`globals().python = None` と `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` への `None` 代入を**JIL を読む前**に行う(`register_eval=False` だけでは `python.builtins` が残る。probe B.2)。JIL 自体はこれらを使わない(`jil.md`)ので、封じるのは多層防御
 
 ## 9. バンドル(`jin build`・v2)
 
@@ -169,5 +171,7 @@ dist/
 - `requestAnimationFrame` で時間を積み、`1 / fps` ごとに `tick` を呼ぶ。遅れたら最大 4 tick まで連続で呼び、それ以上は捨てる(音と絵が乱れるだけで、トレースの決定性は保たれる。捨てた tick は存在しない)
 - 表示リストを `<canvas>` に描く(§2 の `ops`)。音リストを WebAudio で鳴らす
 - 入力を集めて §1.1 の形にする。録画モードなら §7 も書く
+- Wasmoon は `openStandardLibs: true` で作り(`false` は base ライブラリごと消える)、JIL を読む前に `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` を **`lua.global.set(name, undefined)`** で消す(`null` は Wasmoon 1.16.0 で `TypeError` になり消えない。probe A.8)
+- `tick` の戻り値(JSON 文字列)を `JSON.parse` する。Lua のテーブルを直接受け取らない(§1)
 - 「実行 / 一時停止 / 1 tick / seed / 録画 / 書き出し」の最小 UI。エディタからは iframe で埋め込まれ、`postMessage` でトレース行を親へ流す(`{ "type": "jin.trace", "rows": [...] }`)。親からは `{ "type": "jin.load", "jil": "...", "manifest": {...} }` で差し替える(ライブリロード)
 - Python を import しない。読む生成物は `schemas/abilities.json` だけ(キー名の一覧と TS 型の生成元)

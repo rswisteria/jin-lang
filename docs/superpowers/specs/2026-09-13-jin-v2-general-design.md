@@ -63,10 +63,14 @@
 | LSP / エディタ | 既存 `jin-lsp` / `apps/editor` に v2 を載せる。`jin/…` は 6 種のまま | Phase 4〜6 の骨格を使う |
 | テスト | pytest + syrupy(SVG / IL / 表示リスト)+ pytest-lsp + Playwright(パリティ 1 本) | ネットワーク・API キー不要 |
 
-外部 API の事実(2026-09-13 に確認。版と数値は Phase 0 の probe `delivery/<ラン>/wasm-api-probe.md` で再確定する):
+外部 API の事実(2026-09-13 の実測。一次証拠は `delivery/20260904-1445-jin/wasm-api-probe.md`。スクリプトと生出力つき):
 
-- Wasmoon は公式 Lua 5.4 を wasm へコンパイルした VM。wasm 本体 393 kB(gzip 130 kB)。`lua.global.set` で JS 関数を Lua へ渡し、`lua.global.call` で Lua 関数を呼ぶ。**JS から Lua へ呼んだコールバックの中では yield できない**(「attempt to yield across a C-call boundary」)。→ §4.3 の「ホストは Lua を呼ぶ側であり、Lua はホストを呼ばない」契約で回避する
-- lupa は Lua 5.4.8 を同梱(`import lupa.lua54`)。CI のヘッドレス実行に使う
+- Wasmoon 1.16.0 は公式 Lua 5.4 を wasm へコンパイルした VM(`_VERSION` は `Lua 5.4`。パッチ版はバイナリに無い)。配布物は `glue.wasm` 271,581 B(gzip 111,128 B)+ `index.js` 151,652 B(gzip 39,177 B)。`lua.global.set` で JS 関数を Lua へ渡し、`lua.global.call` で Lua 関数を呼ぶ
+- **yield はホスト境界を跨げない。** JS 関数の中で `coroutine.yield` すると `attempt to yield across a C-call boundary`、JS から `global.call` で再入した先で yield すると **PANIC + `abort()`**。→ §4.3 の「ホストは Lua を呼ぶ側であり、Lua はホストを呼ばない」契約で回避する。純 Lua のスケジューラを `tick()` から 3 回回して動くことは実測済み
+- **Lua→JS のテーブル変換は遅い。** 50 行 × 5 値の入れ子テーブルを `global.call` の戻りで受けると約 600 µs/回。**JSON 文字列で返して `JSON.parse` すると 35.5 µs**。→ `tick` の戻り値は JSON 文字列にする(§4.3)。また Lua→JS で integer / float の区別と 64 bit 精度が落ちる(`math.maxinteger` が `9223372036854776000` になる)ので、境界を越えるのは浮動小数と文字列だけにする
+- `global.set('load', null)` は Wasmoon 側の `TypeError` で**失敗して `load` が残る**。`undefined` を渡すか Lua 側で `nil` を代入すれば消える。`openStandardLibs: false` は base ライブラリ(`pairs` / `pcall` / `type` …)ごと無くなるので使わない
+- `pairs` の順序は 1 つの engine / runtime の中では安定だが、engine を跨ぐと変わる(Wasmoon・lupa とも実測)。JIL が `pairs` を使わない(§4.4)根拠
+- lupa 2.8 の**既定の `LuaRuntime` は Lua 5.5.1**。`import lupa.lua54`(Lua 5.4.8)を明示して Wasmoon と揃える。`register_eval=False` だけでは `python.builtins`(`open` を含む)が残るので `register_builtins=False` と `globals().python = None` も要る
 - wasm-GC は Chrome 119 / Firefox 120 / Safari 18.2 で出荷済み。直接 wasm 出力(v2.1)の前提は揃っている
 
 ### 1.2 リポジトリ構成(追加分)
@@ -364,7 +368,7 @@ Pydantic 定義(`jin_wasm.abilities`)から生成し、**補完・型検査・�
 
 | 候補 | wasm 上で動く | 起動サイズ | 決定性 | canvas / 入力の相互運用 | フレーム間 yield | ブラウザ無しの CI | 直接 wasm 出力への道 |
 |---|---|---|---|---|---|---|---|
-| **JIL(Lua 5.4 静的サブセット)→ Wasmoon** | ○ | 393 kB(gzip 130 kB) | ○(浮動小数は IEEE、反復順序は配列だけ使う) | ○ `global.set` / `global.call` | ○ Lua コルーチン(JS 境界を跨がなければ) | ○ lupa(Lua 5.4.8) | ○ IL が静的なので後から wasm-GC バックエンドを足せる |
+| **JIL(Lua 5.4 静的サブセット)→ Wasmoon** | ○ | wasm 272 kB + JS 152 kB(gzip 111 + 39 kB) | ○(浮動小数は IEEE、反復順序は配列だけ使う) | ○ `global.set` / `global.call` | ○ Lua コルーチン(JS 境界を跨がなければ) | ○ lupa(Lua 5.4.8) | ○ IL が静的なので後から wasm-GC バックエンドを足せる |
 | 直接 wasm-GC 出力 | ◎ | 最小 | ◎ | △ 文字列・list のランタイムを自作 | △ 継続を自前で変換 | △ wasmtime(GC 対応の確認要) | — |
 | Python → Pyodide | ○ | 10 MB 超 | ○ | ○ | ○ | ◎ そのまま Python | × |
 | 自作 VM(Rust → wasm) | ○ | 小 | ◎ | ○ | ◎ | ○ 同じ crate | ○ |
@@ -392,9 +396,9 @@ Pydantic 定義(`jin_wasm.abilities`)から生成し、**補完・型検査・�
 
 - Wasmoon の「JS コールバック内で yield できない」制約に当たらない(`wait` の yield は純 Lua のスケジューラ内で起きる)
 - ブラウザ(TS)と Python(lupa)のホストが**同じ Lua を走らせる**。ホスト側の実装は「表示リストを描く」「入力を集める」「音を鳴らす」だけで、ゲームの意味論を 2 度書かない
-- 越境コストが tick あたり 1 往復に固定される
+- 越境コストが tick あたり 1 往復に固定される。**戻り値は JSON 文字列 1 本**(プレリュードが直列化し、ブラウザは `JSON.parse`、Python は `json.loads`)。Wasmoon のテーブル変換(約 600 µs/tick)を避け、integer / float の区別が落ちる経路を通らない(probe A.3 / A.9)
 
-表示リストの形(トレースの `frame` 行と同じ):
+表示リストの形(トレースの `frame` 行と同じ。`tick` の戻り値の JSON の一部):
 
 ```json
 { "seq": 41, "tick": 12, "kind": "frame",
