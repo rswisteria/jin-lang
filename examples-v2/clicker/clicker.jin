@@ -1,0 +1,47 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 2,
+  "root": "Clicker",
+  "stage": { "width": 240, "height": 160, "seed": 1 },
+  "circles": [
+    {
+      "name": "Clicker",
+      "core": "grow",
+      "state": [
+        { "name": "count", "type": "num", "init": "0", "out": true },
+        { "name": "rate",  "type": "num", "init": "0" },
+        { "name": "bonus", "type": "str", "init": "\"\"" }
+      ],
+      "sigils": [
+        { "name": "canvas", "kind": "host", "host": "canvas" },
+        { "name": "ui",     "kind": "host", "host": "ui" },
+        { "name": "random", "kind": "host", "host": "random" }
+      ],
+      "rites": [
+        { "name": "grow", "steps": [
+          { "do": "loop", "kind": "while", "cond": "true", "steps": [
+            { "do": "wait", "ticks": "60" },
+            { "do": "set", "target": "count", "expr": "count + rate" },
+            { "do": "if", "cond": "random.next() < 0.1",
+              "then": [ { "do": "set", "target": "bonus", "expr": "\"LUCKY +10\"" },
+                        { "do": "set", "target": "count", "expr": "count + 10" } ],
+              "else": [ { "do": "set", "target": "bonus", "expr": "\"\"" } ] } ] } ] },
+        { "name": "screen", "steps": [
+          { "do": "cast", "target": "canvas.clear", "args": ["\"#123\""] },
+          { "do": "cast", "target": "ui.label", "args": ["\"COOKIES \" ++ str(count)", "8", "8"] },
+          { "do": "cast", "target": "ui.label", "args": ["\"RATE \" ++ str(rate) ++ \"/s\"", "8", "20"] },
+          { "do": "cast", "target": "ui.label", "args": ["bonus", "8", "32"] },
+          { "do": "if", "cond": "ui.button(\"CLICK\", 20, 60, 90, 28)",
+            "then": [ { "do": "set", "target": "count", "expr": "count + 1" } ] },
+          { "do": "if", "cond": "ui.button(\"UPGRADE\", 130, 60, 90, 28) and count >= 10",
+            "then": [ { "do": "set", "target": "count", "expr": "count - 10" },
+                      { "do": "set", "target": "rate", "expr": "rate + 1" } ] },
+          { "do": "if", "cond": "ui.button(\"DONE\", 75, 110, 90, 28)", "then": [ { "do": "finish" } ] } ] }
+      ],
+      "boundary": {
+        "on": [ { "event": "tick", "rite": "screen" } ],
+        "guards": [ { "assert": "count >= 0", "message": "count は負にならない" } ]
+      }
+    }
+  ]
+}

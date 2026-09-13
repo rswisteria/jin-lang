@@ -82,8 +82,8 @@ jin/
     v2/runtime.md                  # tick の意味論・決定性・トレース行の契約
     v2/jil.md                      # 中間言語 JIL の契約(許す Lua のサブセット)
     v2/layout.md                   # v2 のレイアウトと data-jin-kind
-    diagnostics.md                 # JIN2xx を追記(番号帯は分ける)
-    ops.md                         # v2 のオペレーションを追記
+    v2/diagnostics.md              # JIN2xx(番号帯は v1 と分ける。v1 の diagnostics.md は触らない)
+    v2/ops.md                      # v2 のオペレーション(v1 の ops.md は触らない)
   packages/
     jin-core/src/jin_core/v1/      # 既存のモデル・意味検査・ops を移す(公開 API は互換)
     jin-core/src/jin_core/v2/      # model / expr(文法・型) / semantic / ops
@@ -93,9 +93,9 @@ jin/
   apps/
     editor/                        # 既存。実行パネル(iframe)と v2 のフォームを足す
     player/                        # 新規。Wasmoon + canvas + 入力 + 音。ビルド物は jin-wasm がバンドルに同梱
-  examples/
-    paddle/paddle.jin              # §2.2 の例(ボールとパドル)
-    clicker/clicker.jin            # UI だけのゲーム(ui.button / ui.label)
+  examples-v2/                     # Phase 1 で jin check が version を振り分けるまでは examples/ の外に置く
+    paddle/paddle.jin              # §2.2 の例(ボールとパドル)  (v1 のテストが `jin check examples` を
+    clicker/clicker.jin            # UI だけのゲーム(ui.button / ui.label)   全走査するため。Phase 1 で examples/ へ移す)
     fib/fib.jin                    # 純粋な計算(§2.5)
 ```
 
@@ -118,7 +118,7 @@ jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp  ←  jin-cli
 | LSP 骨格(stdio / ws、デバウンス、last-good、`jin_converter`、`jin/…` 6 種) | **そのまま使う**。`jin/renderSvg` は version で v1 / v2 レンダラへ振る |
 | エディタの殻(SVG ヒットテスト、schema フォーム、5 表示状態、undo/redo、スクラバ) | **そのまま使う**。v2 の `data-jin-kind` を選択の種別に足し、実行パネルを 1 枚足す |
 | `fmt_coord` / 2 色 / 属性のみ SVG / `xml_chars` | **そのまま使う** |
-| モデル・意味検査・診断 | **作り直し**(`jin_core.v2`)。JIN001 / 002 は共通、意味の同じ JIN010 / 011 / 012 / 020 / 022 / 060 は**同じ番号を使う**(§6) |
+| モデル・意味検査・診断 | **作り直し**(`jin_core.v2`)。JIN001 / 002 は共通、意味の同じ JIN010 / 011 / 012 / 013 / 020 / 022 / 060 は**同じ番号を使う**(§6) |
 | レイアウト規則 | **作り直し**(`jin_render.v2`)。環の半径は v1 と同じ 4 本を使い回す(§7) |
 | コード生成・実行系 | **作り直し**(`jin-wasm`)。v1 の `jin_adk` とは無関係 |
 | CLI | サブコマンドは 9 個のまま。`build` / `run` / `render` が version で振り分ける(§5) |
@@ -244,7 +244,7 @@ circle は v1 と同じ 2 種。**核あり**(`core` を持つ → 実行単位)
 
 - `Game` は核なし陣(loop)。`Play` が `finish` すると `Result` へ、`Result` が `finish` すると `exit` 式 `Result.quit` を評価し、偽なら `Play` からやり直す
 - `Play` に入ると核 `begin` が走る。以後、毎 tick `boundary.on` の `tick` → `step(dt)` が走る
-- `step` は **9 ステップ**、`paint` は **5 ステップ**。描画を `paint` に分けているのは、1 つにまとめると 14 ステップになり JIN210(12 超過)で落ちるから。「抽出」のコードアクションがこの分割を機械的に行う(入れ子の中の個数は別勘定なので、`if` の `then` にあるステップは数えない)
+- `step` は **9 ステップ**、`paint` は **5 ステップ**。描画を `paint` に分けているのは、`cast paint` の位置に `paint` の 5 つを戻すと 13 ステップになり JIN210(12 超過)で落ちるから。「抽出」のコードアクションがこの分割を機械的に行う(入れ子の中の個数は別勘定なので、`if` の `then` にあるステップは数えない)
 - `Result.menu` は `tick` の手順だが `params` を持たない。イベントの引数は**前方部分を省略してよい**(§6 JIN221)。`Result` は `ui.button` を使うが `input` の許可を持たない。`ui` は tick の入力スナップショットを自前で読むので `input` は要らない(§3.4)
 - `Result.show` の `wait` は 20 tick 待つ。待っている間も `on tick` は届く(§4.2)ので `menu` は描かれる
 - `Play.score` は `out: true` なので `Result` から読め、`Play` を出ても残る
@@ -464,9 +464,9 @@ kind: enter | exit | event | rite | cast | set | emit | transfer | wait | finish
 
 ---
 
-## 6. 診断(`docs/spec/diagnostics.md` へ追記)
+## 6. 診断(`docs/spec/v2/diagnostics.md`)
 
-v2 固有は **JIN2xx** の番号帯。意味が同じものは v1 の番号を使う(JIN001 / 002 / 010 / 011 / 012 / 020 / 022 / 060)。v1 の「診断コードを増やさない」は v1 の意味検査についての規則であり、v2 の番号帯は別のテストで固定する。
+v2 固有は **JIN2xx** の番号帯。意味が同じものは v1 の番号を使う(JIN001 / 002 / 010 / 011 / 012 / 013 / 020 / 022 / 060)。v1 の「診断コードを増やさない」は v1 の意味検査についての規則であり、v2 の番号帯は別のテストで固定する。
 
 | コード | 重大度 | 内容 | 修正ヒント |
 |---|---|---|---|
@@ -534,7 +534,7 @@ v1 の規律(正方形キャンバス、R=1、12 時から時計回り、`fmt_co
 
 ---
 
-## 9. オペレーション(`docs/spec/ops.md` へ追記)
+## 9. オペレーション(`docs/spec/v2/ops.md`)
 
 v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応答に含める。**合成で書けるものは足さない**(v1 の `_reference_replacement` と同じ方針)。
 
@@ -572,7 +572,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 5 | GUI / 描画 | 即時モード。表示リストを Lua で組み立て tick の戻り値で返す | 保持モードにするとブラウザ無しのゴールデン比較ができない |
 | 6 | ホスト境界 | ホストが呼ぶのは `boot` / `tick` の 2 つ。Lua はホストを呼ばない | 緩めると Wasmoon の yield 制約に当たり、越境コストも増える |
 | 7 | 決定性 | 固定 dt、seed 付き PCG32、入力は tick 境界、公開 state は二重バッファ | 緩めるとリプレイとパリティテストが成立しない |
-| 8 | `parallel` の意味 | 単一スレッドで配列順。公開 state の二重バッファで順序非依存 | |
+| 8 | `parallel` の意味 | 単一スレッドで配列順。公開 state の二重バッファで順序非依存(例外: `random` は舞台に 1 つなので呼び出し順に依存する。順序は配列順で固定なので決定性は保たれる) | |
 | 9 | 陣の終わり方 | `finish` で親の flow が進む。`transfer` はスタック(戻る) | |
 | 10 | 外部コード参照 | **無し**(`ref` は v2 に存在しない)。外部世界はホスト能力カタログだけ | `ref` を足すと v1 の S1 の危険性が v2 にも入る |
 | 11 | 美的制約 | 手順 12 ステップ・入れ子 3 段・記憶環 12・道具環 12 | |
@@ -587,7 +587,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 
 | Phase | 内容 | 完了条件 |
 |---|---|---|
-| 0 | `docs/spec/v2/` 6 本、`examples/` 3 本(手書き)、`wasm-api-probe.md`(Wasmoon / lupa の版・API・yield 制約の実測) | 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める。probe が §1.1 の事実を確定させる |
+| 0 | `docs/spec/v2/` 8 本、`examples-v2/` 3 本(手書き)、`wasm-api-probe.md`(Wasmoon / lupa の版・API・yield 制約の実測)、`tests/spec/test_v2_spec_consistency.py`(設計書と仕様書と例の突合) | 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める。probe が §1.1 の事実を確定させる |
 | 1 | `jin_core.v1` への移動(公開 API 互換)+ `jin_core.v2`(model / expr / semantic / canonical / ops)+ schema 生成 + CLI の version 振り分け | v1 の全テストが緑のまま。JIN2xx 全部に fixture。examples が `check` / `fmt --check` を通る |
 | 2 | `jin-wasm`(codegen / prelude.lua / abilities カタログ / lupa runtime / `jin run` / `jin build` のバンドル) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑 |
 | 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ) | SVG スナップショットが安定。13 種が `paddle` で全部出る |
