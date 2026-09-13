@@ -25,6 +25,7 @@ from typing import Any
 from jin_core import canonical, ops
 from jin_core.model import JinFile
 from jin_core.parser import PointerTable
+from jin_core.v2.model import JinFileV2
 from jin_render import render
 from jin_render.overlay import TraceRowError
 
@@ -97,7 +98,7 @@ def _range_to_json(table: PointerTable) -> list[dict[str, Any]]:
     ]
 
 
-def _require_model(state: DocumentState | None, uri: str) -> tuple[JinFile, bool]:
+def _require_model(state: DocumentState | None, uri: str) -> tuple[JinFile | JinFileV2, bool]:
     """表示用のモデルと `stale` を返す。どちらも無ければ `RequestError`。"""
     if state is None:
         raise RequestError(
@@ -191,6 +192,14 @@ def jin_apply_ops(state: DocumentState | None, uri: str, op_list: list[dict[str,
             "JIN001",
             "JSON 構文エラーのあるテキストにはオペレーションを当てられません",
             "先に構文エラーを直してください（renderSvg / hover は直前の正常な版で答えます）",
+        )
+    if not isinstance(state.model, JinFile):
+        # v2 のオペレーション（`jin_core.v2.ops`）を LSP が受けるのは Phase 5（設計書 §8）。
+        # v1 の `ops.apply_ops` に `JinFileV2` を渡すと AttributeError で落ちるので、ここで断る。
+        raise RequestError(
+            "JIN002",
+            "version: 2 の .jin にはまだオペレーションを当てられません（Phase 5）",
+            "renderSvg / model / formatting は使えます",
         )
     if not isinstance(op_list, list):
         raise RequestError("JIN002", "ops は配列で渡してください", '例: [{"op": "setRoot", ...}]')

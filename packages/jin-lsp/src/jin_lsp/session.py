@@ -24,6 +24,7 @@ from jin_core.check import CheckResult, check_text
 from jin_core.diagnostics import Diagnostic
 from jin_core.model import JinFile
 from jin_core.parser import PointerTable
+from jin_core.v2.model import JinFileV2
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,7 +38,7 @@ class LastGood:
 
     text: str
     lines: list[str]
-    model: JinFile
+    model: JinFile | JinFileV2
     table: PointerTable
 
 
@@ -45,7 +46,11 @@ class LastGood:
 class DocumentState:
     """1 つの `.jin` ドキュメントの状態。
 
-    `model` は**現在のテキスト**のモデル（壊れていれば `None`）。
+    `model` は**現在のテキスト**のモデル（壊れていれば `None`）。v1 は `JinFile`、
+    v2（`version: 2`）は `JinFileV2`。**v2 で答えるのは診断 / `jin/model` / `jin/renderSvg` /
+    formatting / `jin/save` だけ**で、hover / completion / definition / references /
+    documentSymbol / rename / codeAction / `jin/applyOps` は v1 のモデル（`model_v1`）にだけ
+    効く（v2 のそれらは Phase 5・設計書 §8）。
     `last_good` は直前に schema を通った世代（無ければ `None`）。
     """
 
@@ -54,16 +59,27 @@ class DocumentState:
     version: int = 0
     lines: list[str] = field(default_factory=list)
     diagnostics: list[Diagnostic] = field(default_factory=list)
-    model: JinFile | None = None
+    model: JinFile | JinFileV2 | None = None
     table: PointerTable | None = None
     last_good: LastGood | None = None
 
     @property
-    def model_for_display(self) -> JinFile | None:
-        """hover / renderSvg が使うモデル。現在が壊れていれば last-good に落ちる。"""
+    def model_v1(self) -> JinFile | None:
+        """**現在の** v1 モデル。v2 のドキュメントでは `None`（v1 専用の機能が見る）。"""
+        return self.model if isinstance(self.model, JinFile) else None
+
+    @property
+    def model_for_display(self) -> JinFile | JinFileV2 | None:
+        """renderSvg / jin/model が使うモデル。現在が壊れていれば last-good に落ちる。"""
         if self.model is not None:
             return self.model
         return self.last_good.model if self.last_good is not None else None
+
+    @property
+    def model_v1_for_display(self) -> JinFile | None:
+        """hover / completion / documentSymbol が使う v1 モデル。v2 のドキュメントでは `None`。"""
+        model = self.model_for_display
+        return model if isinstance(model, JinFile) else None
 
     @property
     def table_for_display(self) -> PointerTable | None:
@@ -116,9 +132,9 @@ class DocumentStore:
         """
         previous = self._documents.get(uri)
         result: CheckResult = check_text(text, self._file_name(uri))
-        if not isinstance(result.model, JinFile):
-            # v2（version: 2）のモデルは Phase 1 では診断だけを運ぶ。hover / renderSvg / applyOps は
-            # 「モデル無し」として扱う（v2 のレンダラと ops は Phase 3 / 5）。
+        if not isinstance(
+            result.model, (JinFile, JinFileV2)
+        ):  # pragma: no cover - RootModel は 2 種
             result.model = None
         lines = split_lines(text)
         state = DocumentState(

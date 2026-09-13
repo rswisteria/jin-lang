@@ -109,6 +109,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2-0 | Jin v2（汎用ビジュアル言語）の設計書と `docs/spec/v2/` 8 本 + `examples-v2/` + probe | 実装済み |
 | v2-1 | `jin_core.v2`（model / expr / semantic / ops）+ `jin-v2.schema.json` / `abilities.json` + version 振り分け | 実装済み |
 | v2-2 | `jin-wasm`（jil / prelude.lua / codegen / lupa runtime / jinrec / bundle）+ `jin run` / `jin build` の v2 分岐 | 実装済み（プレイヤーの同梱は v2-4） |
+| v2-3 | `jin_render.v2`（額縁 / 型紙 / 4 環 / 手順の図 / トレースオーバーレイ・13 種）+ `jin render` と `jin/renderSvg` の v2 | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -127,8 +128,27 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   `jin_core.v2.spans` だけが換算する
 - **`examples-v2/` は恒久的に `examples/` の外**（`examples/` は v1 の契約が「3 本」と数える）。
   CI は `examples-v2` にも `check` / `fmt --check` を掛ける
-- **`jin run` / `jin build` の v2 は `jin_wasm`**（正典は `docs/spec/v2/runtime.md` / `jil.md`）。`render` は
-  v2 をまだ拒む（Phase 3）。LSP は v2 の診断だけ運び、hover / renderSvg / applyOps は「モデル無し」として扱う
+- **`jin run` / `jin build` の v2 は `jin_wasm`**（正典は `docs/spec/v2/runtime.md` / `jil.md`）、
+  **`jin render` の v2 は `jin_render.v2`**（正典は `docs/spec/v2/layout.md`）。入口は `jin_render.render` 1 本で、
+  `JinFileV2` を受けたら `jin_render.v2.render_v2` へ振る（CLI / LSP は version を見ない）。`--focus` は
+  `陣名` か `陣名/手順名`（手順の図）。LSP は v2 で **診断 / `jin/model` / `jin/renderSvg` / formatting / `jin/save`**
+  だけ答え、hover / completion / definition / references / documentSymbol / rename / codeAction / `jin/applyOps` は
+  v1 のモデル（`DocumentState.model_v1`）にだけ効く（v2 のそれらは Phase 5。`jin/applyOps` は JIN002 で断る）。
+  **`jin editor` で v2 の `.jin` を開くと図は出る**が、エディタのヒットテスト（`apps/editor/src/svg/hitTest.ts`）は
+  9 種以外の `data-jin-kind` を `null` として無視するので、選択 / 編集は効かない（落ちない。v2 のエディタは Phase 5）
+- **v2 の `data-jin-kind` は 13 種**（`jin_render.DATA_JIN_KINDS_V2`。v1 の 9 種とは別集合で、`stage` / `form` /
+  `circle` / `core` / `rite` / `sigil` / `state` / `on` / `guard` / `delegate` / `flow-edge` / `step` / `step-edge`）。
+  v1 の規律（`fmt_coord` 1 本 / 3 桁固定 / 楕円弧 `A` 不使用 / 2 色 + 強調 1 色 / `<style>` 不使用）と `geometry` /
+  `svg` / `paths` / `ornament` / `overlay` を共有し、v2 で決めること（額縁 1.18・印章・手順の図の弧の割り当て・
+  実装で確定した値）は v2 layout.md §3 / §8 に書いてある。**環の半径 4 本は v1 と同じ値**
+- **v2 のトレースの `seq` は 0 始まり**（runtime.md §5）。overlay は `read_trace(rows, min_seq=0)` で読み、
+  v1 の既定（1 始まり）は変えない。`frame` 行（`/stage`）は額縁を強調せず点にだけ数える。
+  `tests/fixtures/traces/paddle-v2.jsonl`（`jin run --ticks 3 --debug --trace`・38 行）が jin-render のテスト用で、
+  実行結果との全行一致は `tests/contract/test_render_contract_v2.py` が見る
+- **v2 の SVG スナップショット**は `packages/jin-render/tests/__snapshots__/test_snapshots_v2.ambr`（7 本）。
+  `jin_render.v2.geometry` の値や描き方を直したら `uv run pytest packages/jin-render --snapshot-update` で更新し、
+  差分を読んでからコミット。paddle に `delegate` が無いので 13 種目は `tests/fixtures/v2-programs/transfer.jin` で
+  補う（設計書 §11 #30。paddle は §2.2 と突合されるので書き換えない）
 - **JIL は Lua 5.4 の静的サブセット**（`jin_wasm.jil.JIL_FORBIDDEN` は jil.md §2 と等号）。`game.lua` =
   ヘッダ + `prelude.lua`（そのまま連結）+ 生成部 + `return { boot = boot, tick = tick }`。生成部が定義するのは
   `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` だけで、プレリュード先頭のコメントと 1:1。
@@ -181,7 +201,8 @@ Phase 3 の要点（正典は `docs/spec/layout.md`）:
   この関数だけを呼ぶ（要件書 §4 最終項）
 - `jin_render` は**純関数**。ファイルを読まず、モジュールレベルの可変状態を持たない（DP-COMMON-07）。
   schema を通るモデルなら**意味エラーを含んでいても例外を投げない**（Phase 4 のエラー回復・layout.md §5）
-- `data-jin-kind` は 9 種のみ。10 種目を増やさない。トレースの点は `circle`（layout.md §7.4）
+- `data-jin-kind` は 9 種のみ。10 種目を増やさない。トレースの点は `circle`（layout.md §7.4）。
+  Jin v2 の 13 種（`DATA_JIN_KINDS_V2`）は**別集合**で、v1 の 9 種には触れない
 - SVG スナップショットは `packages/jin-render/tests/__snapshots__/`（syrupy）。
   レイアウトを直したら `uv run pytest packages/jin-render --snapshot-update` で更新し、差分を読んでからコミット
 
@@ -264,6 +285,8 @@ uv run jin check examples-v2 && uv run jin fmt --check examples-v2   # Jin v2 �
 uv run jin schema --version 2             # Jin v2 の JSON Schema（CI が schemas/jin-v2.schema.json と diff する）
 uv run jin run examples-v2/paddle/paddle.jin --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # Jin v2 のヘッドレス実行（lupa。標準出力は最後の公開 state）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json。プレイヤーは Phase 4）
+uv run jin render examples-v2/paddle/paddle.jin -o /tmp/p.svg              # Jin v2 の陣（root の額縁 + 入れ子の小陣）
+uv run jin render examples-v2/paddle/paddle.jin --focus Play/step --trace /tmp/t.jsonl --upto 12   # 手順の図 + overlay（seq 0 始まり）
 uv run jin build examples/researcher/researcher.jin --out /tmp/out   # ADK プロジェクト生成
 PYTHONPATH=tests/fixtures/stubs uv run jin run examples/pipeline/pipeline.jin "go" --model fake --trace /tmp/t.jsonl
 uv run jin render examples/researcher/researcher.jin -o /tmp/r.svg      # 魔法陣 SVG（-o 無しは stdout）

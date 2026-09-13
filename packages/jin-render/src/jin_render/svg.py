@@ -14,10 +14,12 @@ SVG 生成に混ぜない。桁数は `COORD_DECIMALS`（3 桁・固定小数）
 
 ## XML エスケープ
 
-**現在 SVG に流れる `.jin` 由来の文字列は `instruction.rune` のテキストノードだけ**である
+**v1 で SVG に流れる `.jin` 由来の文字列は `instruction.rune` のテキストノードだけ**である
 （F-V-P3-002 の実測）。circle 名 / tool 名 / state 名は描画に出ず、`data-jin` は添字だけの
 pointer、`data-jin-seq` は整数。したがって属性値のエスケープを実際に守っているのは
-`test_svg.py` の単体テストであって、統合テストではない。
+`test_svg.py` の単体テストであって、統合テストではない。**v2**（`jin_render.v2`）は核の手順名
+（8 文字まで）・型紙 / 手順 / 名前空間 / イベントの頭文字・額縁の `width×height @fps` を
+テキストノードに出す。どれも `Name`（ASCII の識別子）か整数由来だが、経路は同じ `text_value` を通す。
 
 `attr_value` は**将来属性へ流れる値**（Phase 5 の `title` / `aria-label` など）の受け皿として
 残す。属性値は `quoteattr` ではなく `escape` + **常に二重引用符**にする。`quoteattr` は値に

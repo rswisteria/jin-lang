@@ -131,10 +131,37 @@ def test_v1_files_reject_v2_arguments(args, tmp_path: Path) -> None:
     assert "version" in result.stderr
 
 
-def test_render_still_rejects_v2() -> None:
-    result = invoke("render", FIB)
-    assert result.exit_code == 1
-    assert "まだ render できません" in result.stderr
+# ---------------------------------------------------------------- render（Phase 3）
+
+
+@pytest.mark.parametrize("focus", [None, "Play", "Play/step", "Game"])
+def test_render_accepts_v2(focus: str | None) -> None:
+    """Phase 3: `jin render` は v2 を `jin_render.render` へ渡す（陣名 / 陣名/手順名）。"""
+    args = ["render", PADDLE] + (["--focus", focus] if focus else [])
+    result = invoke(*args)
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.startswith("<svg ")
+    assert 'data-jin-kind="stage"' in result.stdout
+    if focus == "Play/step":
+        assert 'data-jin-kind="step-edge"' in result.stdout
+
+
+@pytest.mark.parametrize("focus", ["Nope", "Play/nope", "Play/step/0"])
+def test_render_rejects_an_unknown_v2_focus(focus: str) -> None:
+    result = invoke("render", PADDLE, "--focus", focus)
+    assert result.exit_code == 2
+    assert "focus" in result.stderr
+
+
+def test_render_overlays_a_v2_trace(tmp_path: Path) -> None:
+    """`jin run --trace` が書いた行（seq 0 始まり）を `jin render --trace` が読めること。"""
+    trace = tmp_path / "t.jsonl"
+    assert invoke("run", PADDLE, "--ticks", "2", "--debug", "--trace", trace).exit_code == 0
+    result = invoke("render", PADDLE, "--focus", "Play", "--trace", trace, "--upto", "0")
+    assert result.exit_code == 0, result.stderr
+    # `--upto 0` は `enter` 行（seq 0）だけを発火させる（v2 layout.md §6）。
+    assert result.stdout.count('data-jin-fired="1"') >= 1
+    assert 'data-jin-seq="0"' in result.stdout
 
 
 # ---------------------------------------------------------------- build

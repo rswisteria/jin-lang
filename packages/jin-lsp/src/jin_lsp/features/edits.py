@@ -46,6 +46,7 @@ def format_document(state: DocumentState | None) -> list[types.TextEdit] | None:
     整形すると、ユーザーが今書いている内容を**黙って捨てる**ことになる
     （エラー回復が許されるのは読み取り = hover / renderSvg までである）。
     差分が無ければ空リストを返す（無意味な編集をクライアントへ送らない）。
+    v2（`JinFileV2`）も `canonical.dumps` が汎用なのでそのまま整形する（`jin fmt` と同じ）。
     """
     if state is None or state.model is None:
         return None
@@ -133,13 +134,13 @@ def _target_at(
     state: DocumentState, position: types.Position
 ) -> tuple[str, str, types.Range] | None:
     """カーソル位置の rename 対象（定義側 pointer・種類・元の範囲）。"""
-    if state.model is None or state.table is None:
+    if state.model_v1 is None or state.table is None:
         return None
     jin_position = positions.from_lsp_position(state.lines, position)
     pointer = locate.pointer_at(state.table, jin_position)
     if pointer is None:
         return None
-    found = _definition_pointer(state.model, pointer)
+    found = _definition_pointer(state.model_v1, pointer)
     if found is None:
         return None
     range_ = locate.range_of(state.table, pointer)
@@ -170,14 +171,14 @@ def rename(
     失敗は `None` を返す（LSP の rename に診断を返す口が無いので、
     クライアントは「変更なし」を見る。理由は `codeAction` 側で出す）。
     """
-    if state is None or state.model is None:
+    if state is None or state.model_v1 is None:
         return None
     target = _target_at(state, position)
     if target is None:
         return None
     try:
         result = ops.apply_op(
-            state.model, {"op": "rename", "pointer": target[0], "value": new_name}
+            state.model_v1, {"op": "rename", "pointer": target[0], "value": new_name}
         )
     except ops.OpError:
         return None
@@ -190,10 +191,10 @@ def _edit_from_ops(
     state: DocumentState, uri: str, op_list: list[dict[str, Any]]
 ) -> types.WorkspaceEdit | None:
     """オペレーション列を当てた結果を `WorkspaceEdit` にする。失敗なら `None`。"""
-    if state.model is None:
+    if state.model_v1 is None:
         return None
     try:
-        result = ops.apply_ops(state.model, op_list)
+        result = ops.apply_ops(state.model_v1, op_list)
     except ops.OpError:
         return None
     return types.WorkspaceEdit(
@@ -250,8 +251,8 @@ def _quick_fixes(
     elif code == "JIN030":
         # loop に max も exit も無い → `max: 5` を足す（要件書 §6.2 / diagnostics.md §2）。
         index = _circle_index_of_diagnostic(diagnostic)
-        if index is not None and state.model is not None and index < len(state.model.circles):
-            flow = state.model.circles[index].flow
+        if index is not None and state.model_v1 is not None and index < len(state.model_v1.circles):
+            flow = state.model_v1.circles[index].flow
             if flow is not None:
                 value = flow.model_dump(by_alias=True, mode="json")
                 value["max"] = DEFAULT_LOOP_MAX
@@ -295,7 +296,7 @@ def _reference_replacement(
     | `/circles/<i>/flow/steps/<j>` | `setFlow`（steps を差し替えた flow） |
     | `/circles/<i>/tools/<j>/circle` | `removeTool` + `addTool` |
     """
-    if state.model is None:
+    if state.model_v1 is None:
         return None
     tokens = split_pointer(pointer)
     if tokens == ["root"]:
@@ -303,9 +304,9 @@ def _reference_replacement(
     if tokens[:1] != ["circles"] or len(tokens) < 3 or not tokens[1].isdigit():
         return None
     index = int(tokens[1])
-    if index >= len(state.model.circles):
+    if index >= len(state.model_v1.circles):
         return None
-    circle = state.model.circles[index]
+    circle = state.model_v1.circles[index]
     rest = tokens[2:]
 
     if len(rest) == 2 and rest[0] == "delegate" and rest[1].isdigit():
@@ -376,16 +377,16 @@ def _extract_subcircle(
     **アクションを出さない**。state は陣に固有で移せず、core の無い陣から作る
     サブ陣の core を決める根拠が要件書に無いためである。
     """
-    if state.model is None:
+    if state.model_v1 is None:
         return None
     index = _circle_index_of_diagnostic(diagnostic)
-    if index is None or index >= len(state.model.circles):
+    if index is None or index >= len(state.model_v1.circles):
         return None
-    circle = state.model.circles[index]
+    circle = state.model_v1.circles[index]
     if len(circle.tools) <= MAX_ELEMENTS or circle.core is None:
         return None
 
-    existing = {other.name for other in state.model.circles}
+    existing = {other.name for other in state.model_v1.circles}
     new_name = f"{circle.name}Extracted"
     suffix = 2
     while new_name in existing:
@@ -399,7 +400,7 @@ def _extract_subcircle(
         {
             "op": "addCircle",
             "pointer": "/circles",
-            "index": len(state.model.circles),
+            "index": len(state.model_v1.circles),
             "value": {"name": new_name, "core": circle.core, "tools": moved},
         }
     ]
@@ -441,6 +442,10 @@ def code_actions(
     `jin/applyOps` を直接呼ぶ。
     """
     if state is None:
+        return []
+    if state.model is not None and state.model_v1 is None:
+        # v2 のドキュメント: v1 の 19 オペレーションは当たらない（`jin/applyOps` も JIN002 で断る）。
+        # v2 のオペレーション（32 件）の露出は Phase 5。
         return []
     actions: list[types.CodeAction | types.Command] = []
     for diagnostic in params.context.diagnostics:

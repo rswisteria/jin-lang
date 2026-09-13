@@ -598,6 +598,10 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 25 | バンドルのプレイヤー(Phase 2 で確定) | Phase 2 の `jin build` は `game.lua` / `game.manifest.json` / `assets/` だけを書き、プレイヤーが無いことを stderr に出す。`--single` は exit 1 | プレイヤーは Phase 4 の成果物。Phase 4 で `apps/player` のビルド物を `jin_wasm/player/` に同梱する |
 | 26 | トレース行の積むタイミング(Phase 2 で確定) | `emit` 行は配達の tick の 1 で積む(`seq` / `tick` は配達時)。`cast` 行は呼び出しの**前**に積み、戻り値は後で埋める | 行は tick の終わりに直列化するので、前の tick に積んだ行を後から書き換えられない。`cast` を前に積むと list の効果で変わる前の引数が載り、実行時エラーの pointer がそのステップになる |
 | 27 | 生存と確定の細部(Phase 2 で確定) | `entered` 直後(`init` の値)と `done` 直後(`finish` の書き込み)にその陣の公開 state を確定する。未 `entered` の陣の state は boot で `init` 値にし 4 で確定する。委譲先が `done` になったら `idle` に戻す。休止中の陣の `wait` は再開しない。1 tick の進行は 1000 回で `error` | 同期的に `done` になる子と `exit` の組み合わせが 1 tick で無限に進むのを防ぐ。`summon` で書かれた state を他の陣が読めるようにする |
+| 28 | トレースの `seq` の下限(Phase 3 で確定) | v2 の overlay は `seq` の **0 始まり**を受ける(`jin_render.overlay.read_trace(rows, min_seq=0)`)。v1 の既定(1 始まり)は変えない。`frame` 行(`/stage`)は額縁を強調せず点にだけ数える | runtime.md §5 が「`boot` から通しの 0 始まり」と決めており、v1 の 1 始まりの検査のままでは `jin run --trace` の出力を `jin render --trace` が拒む |
+| 29 | 手順の図の弧の割り当て(Phase 3 で確定) | 入れ子のブロックは**親の弧**に収め、`if` の `then` / `else` は前半 / 後半、子は等分した区画の中央(v2 layout.md §3) | Phase 0 の §3 は「その環に置くステップの数で等角配置」と「親の弧に収める」を同時に書いており両立しない。前者だと `then` の中身が親から離れた角度に飛び、分岐の弦が環を横切って読めない |
+| 30 | Phase 3 の完了条件「13 種が `paddle` で全部出る」(Phase 3 で確定) | paddle の 3 視点(root / `Play` / `Play/step`)で 12 種、`delegate` だけは `tests/fixtures/v2-programs/transfer.jin` で補う(`tests/contract/test_render_contract_v2.py`) | paddle は §2.2 の例と突合されており(`test_paddle_example_matches_the_design_document_section_2_2`)、実行に効かない `delegate` を足すために §2.2 を書き換えない。paddle 単体で `delegate` だけが欠けることも同じテストが固定する |
+| 31 | LSP の v2 の範囲(Phase 3 で確定) | `jin/renderSvg`(`focus` に `陣名/手順名`)/ `jin/model` / formatting / `jin/save` は v2 で答える。hover / completion / definition / references / documentSymbol / rename / codeAction / `jin/applyOps` は v1 だけ(v2 は「モデル無し」と同じ振る舞いで落ちない・`jin/applyOps` は JIN002 で断る)。`jin editor` で v2 を開くと図は出るが、エディタは 9 種以外の `data-jin-kind` を `null` として無視するので選択 / 編集は効かない(落ちない) | §8 の hover / completion / applyOps の v2 は Phase 5。`DocumentState.model` を `JinFile \| JinFileV2` に広げ、v1 専用の機能は `model_v1` を見る |
 
 ---
 
@@ -608,7 +612,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 0 | `docs/spec/v2/` 8 本、`examples-v2/` 3 本(手書き)、`wasm-api-probe.md`(Wasmoon / lupa の版・API・yield 制約の実測)、`tests/spec/test_v2_spec_consistency.py`(設計書と仕様書と例の突合) | 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める。probe が §1.1 の事実を確定させる |
 | 1 | `jin_core.v2`(model / expr / spans / abilities / semantic / ops)+ `jin-v2.schema.json` / `abilities.json` の生成 + `check_text` の version 振り分け + CLI(`schema --version 2`、`build` / `run` / `render` は v2 を明示的に拒む)+ LSP は v2 の診断だけ運ぶ | v1 の全テストが緑のまま。JIN2xx と共有番号の全部に fixture。`examples-v2` が `check` / `fmt --check` を通る。32 件の ops が往復でバイト一致(**実装済み**) |
 | 2 | `jin-wasm`(jil / prelude.lua / codegen / lupa runtime / jinrec / bundle / `jin run` / `jin build`) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑(**実装済み**。プレイヤーの同梱は Phase 4・§11 #25) |
-| 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ) | SVG スナップショットが安定。13 種が `paddle` で全部出る |
+| 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ)+ `jin render` / `jin/renderSvg` の v2 | SVG スナップショットが安定。13 種が `paddle` で全部出る(**実装済み**。`delegate` だけは `transfer.jin` で補う・§11 #30) |
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る |
 | 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く |
 | 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く |

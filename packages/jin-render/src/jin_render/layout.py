@@ -33,6 +33,7 @@ from typing import Any
 from jin_core.model import Boundary, Circle, Flow, JinFile
 
 from jin_render import geometry as geo
+from jin_render import paths
 from jin_render.ornament import ornament_dots
 from jin_render.overlay import TraceRow, is_ancestor_or_same, read_trace
 from jin_render.svg import (
@@ -80,99 +81,15 @@ class RenderError(Exception):
 
 
 # --------------------------------------------------------------------------------------
-# パス生成（数値はすべて fmt_coord を通す）
+# パス生成は `jin_render.paths`（v2 と共有。数値はすべて fmt_coord を通す）
 # --------------------------------------------------------------------------------------
-def _move(point: tuple[float, float]) -> str:
-    return f"M {fmt_coord(point[0])} {fmt_coord(point[1])}"
-
-
-def _line_to(point: tuple[float, float]) -> str:
-    return f"L {fmt_coord(point[0])} {fmt_coord(point[1])}"
-
-
-def _curve_to(c1: tuple[float, float], c2: tuple[float, float], end: tuple[float, float]) -> str:
-    return (
-        f"C {fmt_coord(c1[0])} {fmt_coord(c1[1])} "
-        f"{fmt_coord(c2[0])} {fmt_coord(c2[1])} "
-        f"{fmt_coord(end[0])} {fmt_coord(end[1])}"
-    )
-
-
-def _arc_d(frame: geo.Frame, radius: float, start_deg: float, sweep_deg: float) -> str:
-    start, segments = geo.arc_segments(frame, radius, start_deg, sweep_deg)
-    return " ".join([_move(start)] + [_curve_to(*segment) for segment in segments])
-
-
-def _square_d(frame: geo.Frame, angle_deg: float, radius: float, half: float) -> str:
-    """半径方向と接線方向に辺を持つ正方形。`transform` を使わずに 4 頂点を直接計算する。"""
-    cx, cy = geo.point(frame, radius, angle_deg)
-    theta = math.radians(angle_deg)
-    ux, uy = math.cos(theta), math.sin(theta)
-    vx, vy = -math.sin(theta), math.cos(theta)
-    size = half * frame.scale
-    corners = [
-        (cx + size * (ux + vx), cy + size * (uy + vy)),
-        (cx + size * (-ux + vx), cy + size * (-uy + vy)),
-        (cx + size * (-ux - vx), cy + size * (-uy - vy)),
-        (cx + size * (ux - vx), cy + size * (uy - vy)),
-    ]
-    return " ".join(
-        [_move(corners[0]), _line_to(corners[1]), _line_to(corners[2]), _line_to(corners[3]), "Z"]
-    )
-
-
-def _diamond_d(frame: geo.Frame, radius: float) -> str:
-    size = radius * frame.scale
-    cx, cy = frame.cx, frame.cy
-    corners = [(cx, cy - size), (cx + size, cy), (cx, cy + size), (cx - size, cy)]
-    return " ".join(
-        [_move(corners[0]), _line_to(corners[1]), _line_to(corners[2]), _line_to(corners[3]), "Z"]
-    )
-
-
-def _arrow_d(
-    start: tuple[float, float],
-    end: tuple[float, float],
-    gap_start: float,
-    gap_end: float,
-    head: float,
-) -> str | None:
-    """両端を `gap_*` だけ詰めた線分。`head > 0` なら終端に矢じりを足す。
-
-    詰めたあとに長さが残らない（節が重なっている）ときは `None`（描かない）。
-    """
-    dx, dy = end[0] - start[0], end[1] - start[1]
-    length = math.hypot(dx, dy)
-    if length <= gap_start + gap_end:
-        return None
-    ux, uy = dx / length, dy / length
-    tail = (start[0] + ux * gap_start, start[1] + uy * gap_start)
-    tip = (end[0] - ux * gap_end, end[1] - uy * gap_end)
-    parts = [_move(tail), _line_to(tip)]
-    if head > 0.0:
-        back = (tip[0] - ux * head, tip[1] - uy * head)
-        wing = head * 0.5
-        nx, ny = -uy, ux
-        parts += [
-            _move((back[0] + nx * wing, back[1] + ny * wing)),
-            _line_to(tip),
-            _line_to((back[0] - nx * wing, back[1] - ny * wing)),
-        ]
-    return " ".join(parts)
-
-
-def _dot(
-    center: tuple[float, float], radius: float, pointer: str, kind: str, *, ref: str | None
-) -> Node:
-    attrs = [
-        ("cx", fmt_coord(center[0])),
-        ("cy", fmt_coord(center[1])),
-        ("r", fmt_coord(radius)),
-    ]
-    if ref is None:
-        # 解決できない参照は破線の空円（layout.md §5）。
-        attrs.append(("stroke-dasharray", DASH))
-    return Node("circle", attrs, pointer=pointer, kind=kind, ref=ref)
+_arc_d = paths.arc_d
+_arrow_d = paths.arrow_d
+_diamond_d = paths.diamond_d
+_dot = paths.dot
+_line_to = paths.line_to
+_move = paths.move
+_square_d = paths.square_d
 
 
 def fit_rune(text: str) -> str:
@@ -794,12 +711,12 @@ def fired_indices(elements: list[Node], rows: list[TraceRow]) -> set[int]:
     return fired
 
 
-def _trace_dots(frame: geo.Frame, pointer: str, total: int, rows: list[TraceRow]) -> list[Node]:
+def trace_dots(frame: geo.Frame, pointer: str, total: int, rows: list[TraceRow]) -> list[Node]:
     """境界環の外側に「発火したイベント数」ぶんの点を並べる（要件書 §4）。
 
     位置はトレース**全体**の行数で決まるので、`upto` を増やしても既に置いた点は動かない
     （増えるだけ）。`data-jin-kind` は 9 種の中から `circle`、pointer は焦点の circle
-    （layout.md §7）。
+    （layout.md §7）。v2 も同じ関数で点を置く（v2 layout.md §6）。
     """
     # 点は `fired_indices` の**あと**に足すので `fired` にならない（§7.4 の意図どおり）。
     # 以前は `accent_attr="fill"` を渡していたが到達しない設定だった（F-C-P3-007）。
@@ -886,7 +803,7 @@ def render(
             for position in sorted(fired_indices(elements, fired_rows)):
                 elements[position].fired = True
             group.children.extend(
-                _trace_dots(frame, f"/circles/{focus_index}", len(all_rows), fired_rows)
+                trace_dots(frame, f"/circles/{focus_index}", len(all_rows), fired_rows)
             )
     return document(builder.defs, body, geo.CANVAS_PX)
 
@@ -900,4 +817,5 @@ __all__ = [
     "fired_indices",
     "fit_rune",
     "render",
+    "trace_dots",
 ]
