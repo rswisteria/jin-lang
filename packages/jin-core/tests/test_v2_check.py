@@ -18,6 +18,8 @@ from jin_core.diagnostics import V2_CODES, V2_SHARED_CODES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "errors" / "v2"
+PADDLE = REPO_ROOT / "examples-v2" / "paddle" / "paddle.jin"
+FIB = REPO_ROOT / "examples-v2" / "fib" / "fib.jin"
 ALL_FIXTURES = sorted(FIXTURE_DIR.glob("*.jin"))
 
 
@@ -85,3 +87,42 @@ def test_semantic_diagnostics_are_deterministically_ordered() -> None:
         ("JIN060", "/root"),
         ("JIN213", "/circles/0/rites/0/steps/0"),
     ]
+
+
+# ---------------------------------------------------------------- analyze_model（Phase 5・LSP が読む）
+
+
+def test_analyze_model_records_types_and_scopes_per_pointer() -> None:
+    from jin_core.v2.semantic import analyze_model
+
+    model = check_file(PADDLE).model
+    assert model is not None
+    analysis = analyze_model(model)
+    assert analysis.diagnostics == []
+    assert analysis.types["/circles/1/state/0/init"] == "Ball"
+    assert analysis.types["/circles/0/flow/exit"] == "bool"
+    # 手順の中の式: 局所（params）と state と道具環が見える
+    scope = analysis.scope_at("/circles/1/rites/2/steps/0/expr")
+    assert scope is not None and scope.circle == "Play"
+    assert set(scope.locals) == {"dt"} and "ball" in scope.state and "canvas" in scope.sigils
+    # 式そのものが記録されていない pointer でも、ステップ / 手順 / 陣へ遡る
+    assert analysis.scope_at("/circles/1/rites/2/steps/0/nope") is scope
+    assert analysis.scope_at("/circles/1/rites/2") is not None
+    assert analysis.scope_at("/stage") is None
+    # state.init は定数式のスコープ（識別子は見えない）
+    constant = analysis.scope_at("/circles/1/state/0/init")
+    assert constant is not None and constant.constant and constant.locals == {}
+
+
+def test_analyze_model_scope_is_a_snapshot_at_that_step() -> None:
+    """`let` で増えた局所は、その後のステップにだけ見える。"""
+    from jin_core.v2.semantic import analyze_model
+
+    model = check_file(FIB).model
+    assert model is not None
+    analysis = analyze_model(model)
+    steps = model.circles[0].rites[0].steps
+    first = analysis.scope_at("/circles/0/rites/0/steps/0")
+    last = analysis.scope_at(f"/circles/0/rites/0/steps/{len(steps) - 1}")
+    assert first is not None and last is not None
+    assert set(first.locals) < set(last.locals)

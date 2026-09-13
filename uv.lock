@@ -921,6 +921,7 @@ source = { editable = "packages/jin-lsp" }
 dependencies = [
     { name = "jin-core" },
     { name = "jin-render" },
+    { name = "jin-wasm" },
     { name = "pygls", extra = ["ws"] },
 ]
 
@@ -928,6 +929,7 @@ dependencies = [
 requires-dist = [
     { name = "jin-core", editable = "packages/jin-core" },
     { name = "jin-render", editable = "packages/jin-render" },
+    { name = "jin-wasm", editable = "packages/jin-wasm" },
     { name = "pygls", extras = ["ws"], specifier = ">=2.1,<3" },
 ]
 

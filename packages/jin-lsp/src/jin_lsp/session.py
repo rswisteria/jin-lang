@@ -47,10 +47,10 @@ class DocumentState:
     """1 つの `.jin` ドキュメントの状態。
 
     `model` は**現在のテキスト**のモデル（壊れていれば `None`）。v1 は `JinFile`、
-    v2（`version: 2`）は `JinFileV2`。**v2 で答えるのは診断 / `jin/model` / `jin/renderSvg` /
-    formatting / `jin/save` だけ**で、hover / completion / definition / references /
-    documentSymbol / rename / codeAction / `jin/applyOps` は v1 のモデル（`model_v1`）にだけ
-    効く（v2 のそれらは Phase 5・設計書 §8）。
+    v2（`version: 2`）は `JinFileV2`。v2 で答えるのは診断 / `jin/model` / `jin/renderSvg` /
+    formatting / `jin/save` / **hover / completion / `jin/applyOps`**（Phase 5・設計書 §8）。
+    definition / references / documentSymbol / rename / codeAction は v1 のモデル（`model_v1`）に
+    だけ効く（v2 のそれらは §8 に無い。設計書 §11 #36）。
     `last_good` は直前に schema を通った世代（無ければ `None`）。
     """
 
@@ -80,6 +80,12 @@ class DocumentState:
         """hover / completion / documentSymbol が使う v1 モデル。v2 のドキュメントでは `None`。"""
         model = self.model_for_display
         return model if isinstance(model, JinFile) else None
+
+    @property
+    def model_v2_for_display(self) -> JinFileV2 | None:
+        """hover / completion の v2 分岐が使う v2 モデル。v1 のドキュメントでは `None`。"""
+        model = self.model_for_display
+        return model if isinstance(model, JinFileV2) else None
 
     @property
     def table_for_display(self) -> PointerTable | None:

@@ -222,3 +222,35 @@ def test_the_lsp_package_has_no_dynamic_imports() -> None:
             ):
                 offenders.append(f"{path.name}: {node.func.id}()")
     assert offenders == [], offenders
+
+
+def test_the_lsp_package_imports_only_the_codegen_of_jin_wasm() -> None:
+    """設計書 §11 #36（Phase 5）: `jin_lsp` が `jin_wasm` から読むのは **`codegen`（と `jil`）だけ**。
+
+    `jin/applyOps` / `jin/model` の応答に JIL を載せるために jin-lsp は jin-wasm に依存するが、
+    `jin_wasm.runtime`（lupa の実行系）や `jin_wasm.bundle`（ファイル書き出し）を LSP プロセスに
+    読み込むと、`jin lsp --ws` の口から実行系へ届く経路と起動時間の両方が増える。
+    layers 契約は `jin_wasm` 全体を許すので、モジュール単位の閉じ込めはここで固定する。
+    """
+    allowed = {"jin_wasm.codegen", "jin_wasm.jil"}
+    offenders: list[str] = []
+    for path in sorted(LSP_SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("jin_wasm"):
+                if node.module not in allowed:
+                    offenders.append(f"{path.name}: from {node.module}")
+            elif isinstance(node, ast.Import):
+                offenders += [
+                    f"{path.name}: import {a.name}"
+                    for a in node.names
+                    if a.name.startswith("jin_wasm")
+                ]
+    assert offenders == [], offenders
+    # 依存そのものは実在する（走査対象が消えて空で緑になっていない）
+    uses = [
+        path.name
+        for path in LSP_SRC.rglob("*.py")
+        if "from jin_wasm.codegen import" in path.read_text(encoding="utf-8")
+    ]
+    assert uses == ["jil.py"], uses

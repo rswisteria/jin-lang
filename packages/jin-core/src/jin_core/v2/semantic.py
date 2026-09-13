@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from jin_core.diagnostics import MAX_ELEMENTS, Diagnostic, Position, Range, severity_of
 from jin_core.parser import PointerTable
+from jin_core.pointer import split_pointer
 from jin_core.semantic import _find_cycle, _sorted, close_names
 from jin_core.v2 import abilities
 from jin_core.v2 import expr as ex
@@ -80,6 +81,12 @@ class _Analyzer:
         self.out: list[Diagnostic] = []
         #: 型検査を通った式の AST（pointer → 型注記付きノード）。`rename` の参照追随が読む。
         self.nodes: dict[str, ex.Node] = {}
+        #: 式の型（pointer → 型。決められなければ None）。LSP の hover が読む。
+        self.types: dict[str, str | None] = {}
+        #: その位置で見えるスコープ（式の pointer / ステップ / 手順 / 陣 → `Scope` の写し）。
+        #: LSP の completion が「式の中の識別子（スコープ順）」を出すのに読む。局所は
+        #: ステップの並びで増えるので、記録するのは**その位置に到達した時点**の写しである。
+        self.scopes: dict[str, ex.Scope] = {}
         self.circles = {c.name: c for c in model.circles}
         self.forms: dict[str, dict[str, str]] = dict(BUILTIN_FORMS)
         for form in model.forms:
@@ -406,6 +413,7 @@ class _Analyzer:
             circle=circle.name,
             circles=frozenset(self.circles),
         )
+        self.scopes[base] = _snapshot(scope_base)
 
         # state.init: 定数式（JIN250）と型
         for j, state in enumerate(circle.state):
@@ -535,6 +543,7 @@ class _Analyzer:
         declared: dict[str, str] = {}
         for k, param in enumerate(rite.params):
             self._declare(f"{pointer}/params/{k}/name", param.name, param.type, scope, declared)
+        self.scopes[pointer] = _snapshot(scope)
         ctx = _RiteContext(circle=circle, rite=rite, info=info, scope=scope, declared=declared)
         self._steps(f"{pointer}/steps", rite.steps, ctx, depth=0, loop_depth=0)
 
@@ -583,6 +592,7 @@ class _Analyzer:
     ) -> str | None:
         """1 ステップを検査し、後続に到達しないなら抜けた語（'return' など）を返す。"""
         scope = ctx.scope
+        self.scopes[sp] = _snapshot(scope)
         if isinstance(step, SetStep):
             target_type = self._place(f"{sp}/target", step.target, scope)
             node = self._parse(f"{sp}/expr", step.expr)
@@ -993,7 +1003,24 @@ class _Analyzer:
         for issue in result.issues:
             self.emit_at(issue.code, pointer, issue.span, issue.message, issue.hint)
         self.nodes[pointer] = node
+        self.types[pointer] = result.type
+        self.scopes[pointer] = _snapshot(scope)
         return result.type
+
+
+def _snapshot(scope: ex.Scope) -> ex.Scope:
+    """`Scope` の写し。局所（`locals`）だけは後から増えるので複製し、他は共有する。"""
+    return ex.Scope(
+        locals=dict(scope.locals),
+        state=scope.state,
+        sigils=scope.sigils,
+        public=scope.public,
+        forms=scope.forms,
+        circle=scope.circle,
+        circles=scope.circles,
+        constant=scope.constant,
+        exit_mode=scope.exit_mode,
+    )
 
 
 @dataclass(slots=True)
@@ -1047,16 +1074,55 @@ def analyze(
     return _sorted(analyzer.out)
 
 
-def typed_nodes(model: JinFileV2) -> tuple[dict[str, ex.Node], list[Diagnostic]]:
-    """全ての式の型注記付き AST（pointer → Node）と、その際の診断を返す。
+@dataclass(slots=True)
+class Analysis:
+    """`analyze_model` の結果。式の AST / 型 / スコープと診断。
 
-    `rename` の型紙欄追随（docs/spec/v2/ops.md §3）が使う。位置情報は要らないので、
-    対応表は空（診断の range はルートに落ちる）。
+    - `nodes`: 型検査を通った式の AST（pointer → Node）。`rename` の参照追随が読む
+    - `types`: 式の型（pointer → 型。決められなければ None）。LSP の hover が読む
+    - `scopes`: その位置で見えるスコープ（式 / ステップ / 手順 / 陣の pointer → `Scope`）。
+      LSP の completion が読む。`scope_at` が pointer の祖先へ遡って引く
+    - `diagnostics`: 意味検査の診断（位置は無い。対応表を渡していないのでルートに落ちる）
+    """
+
+    nodes: dict[str, ex.Node]
+    types: dict[str, str | None]
+    scopes: dict[str, ex.Scope]
+    diagnostics: list[Diagnostic]
+
+    def scope_at(self, pointer: str) -> ex.Scope | None:
+        """`pointer`（式・ステップ・手順・陣のどれか、またはその下）で見えるスコープ。
+
+        式そのものが記録されていなくても（構文エラーで型検査に進んでいない打鍵途中の式）、
+        そのステップ / 手順 / 陣の記録へ遡る。どこにも無ければ `None`（`/stage` など）。
+        """
+        tokens = split_pointer(pointer)
+        for length in range(len(tokens), -1, -1):
+            candidate = "".join(f"/{token}" for token in tokens[:length])
+            found = self.scopes.get(candidate)
+            if found is not None:
+                return found
+        return None
+
+
+def analyze_model(model: JinFileV2) -> Analysis:
+    """位置情報なしの意味検査。式の AST / 型 / スコープを pointer で引ける形で返す。
+
+    位置情報は要らないので、対応表は空（診断の range はルートに落ちる）。
     """
     table = PointerTable(value_ranges={"": Range(Position(1, 1), Position(1, 1))})
     analyzer = _Analyzer(model, table, "<memory>", None)
     analyzer.run()
-    return analyzer.nodes, analyzer.out
+    return Analysis(analyzer.nodes, analyzer.types, analyzer.scopes, analyzer.out)
+
+
+def typed_nodes(model: JinFileV2) -> tuple[dict[str, ex.Node], list[Diagnostic]]:
+    """全ての式の型注記付き AST（pointer → Node）と、その際の診断を返す。
+
+    `rename` の型紙欄追随（docs/spec/v2/ops.md §3）と `jin_wasm.codegen` が使う。
+    """
+    analysis = analyze_model(model)
+    return analysis.nodes, analysis.diagnostics
 
 
 #: hint を個別に書いていない診断に付ける既定の直し方（要件書 §5「hint は具体的な値」の最低限）。
@@ -1074,4 +1140,13 @@ def _fallback_hint(code: str) -> str:
     return _FALLBACK_HINTS.get(code, "docs/spec/v2/diagnostics.md を参照")
 
 
-__all__ = ["BUILTIN_FORMS", "EVENT_PARAMS", "MAX_NESTING", "MAX_STEPS", "analyze", "typed_nodes"]
+__all__ = [
+    "BUILTIN_FORMS",
+    "EVENT_PARAMS",
+    "MAX_NESTING",
+    "MAX_STEPS",
+    "Analysis",
+    "analyze",
+    "analyze_model",
+    "typed_nodes",
+]

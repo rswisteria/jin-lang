@@ -238,3 +238,36 @@ def test_example_v2_passes_the_pipeline_and_is_canonical(path: Path) -> None:
     assert isinstance(result.model, JinFileV2)
     assert result.diagnostics == []
     assert path.read_text(encoding="utf-8") == dumps(result.model)
+
+
+# ---------------------------------------------------------------- 式の欄の印（Phase 5）
+
+
+def test_expression_fields_carry_the_editor_mark_in_the_schema() -> None:
+    """設計書 §8: エディタは schema の `x-jin-expr` だけを見て式エディタを出す。
+
+    `Expr` そのもの・`list[Expr]`（`cast.args`）・`Expr | None`（`into` / `in` / `exit`）・
+    alias 付き（`assert`）のどれにも載る。v1 の `jin.schema.json` には現れない。
+    """
+    from jin_core.v2.model import EXPR_SCHEMA_MARK
+
+    defs = build_schema_v2()["$defs"]
+    assert defs["SetStep"]["properties"]["expr"][EXPR_SCHEMA_MARK] is True
+    assert defs["CastStep"]["properties"]["args"]["items"][EXPR_SCHEMA_MARK] is True
+    assert defs["CastStep"]["properties"]["into"]["anyOf"][0][EXPR_SCHEMA_MARK] is True
+    assert defs["LoopStep"]["properties"]["in"]["anyOf"][0][EXPR_SCHEMA_MARK] is True
+    assert defs["Guard"]["properties"]["assert"][EXPR_SCHEMA_MARK] is True
+    assert defs["Flow"]["properties"]["exit"]["anyOf"][0][EXPR_SCHEMA_MARK] is True
+    description = defs["Circle"]["properties"]["description"]
+    assert EXPR_SCHEMA_MARK not in description.get("anyOf", [{}])[0]
+    assert EXPR_SCHEMA_MARK not in serialize(build_schema())
+
+
+def test_expr_fields_follow_the_mark_without_naming_the_fields() -> None:
+    from jin_core.v2.model import CastStep, Circle, Guard, LoopStep, State, expr_fields
+
+    assert expr_fields(CastStep) == {"target", "args", "into"}
+    assert expr_fields(LoopStep) == {"cond", "in", "times"}
+    assert expr_fields(Guard) == {"assert"}
+    assert expr_fields(State) == {"init"}
+    assert expr_fields(Circle) == frozenset()

@@ -10,9 +10,11 @@ v1 の `jin_core.model` とは独立している（共有するのは `JinModel`
 from __future__ import annotations
 
 import re
-from typing import Annotated, Literal
+import typing
+from typing import Annotated, Literal, Union, get_args, get_origin
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
+from pydantic.fields import FieldInfo
 
 from jin_core.model import MAX_IDENT_LENGTH, Ident, JinModel, Text, Url
 
@@ -38,7 +40,13 @@ TypeStr = Annotated[Ident, Field(pattern=r"^[A-Za-z_<>][A-Za-z0-9_<>]*$")]
 
 #: 葉の式（docs/spec/v2/expr.md）。モデル段では文字列として保持し、構文と型は段 3 で検査する。
 #: 改行やタブを含む式は段 3 の JIN201 が落とす（Text は改行を許すので、ここでは通す）。
-Expr = Text
+#:
+#: `x-jin-expr` は **schema の印**（設計書 §8「式の欄だけ式エディタにする」）。エディタは
+#: `schemas/jin-v2.schema.json` のこの印だけを見て式エディタを出し、欄の名前を書き写さない。
+#: LSP の completion も同じ印（`expr_fields`）で「式の中か」を判定する。v1 の `Text` には付けない
+#: （`jin.schema.json` を 1 バイトも変えない・設計書 §11 #16）。
+EXPR_SCHEMA_MARK = "x-jin-expr"
+Expr = Annotated[Text, Field(json_schema_extra={EXPR_SCHEMA_MARK: True})]
 
 FlowKind = Literal["sequence", "parallel", "loop"]
 SigilKind = Literal["host", "summon"]
@@ -355,6 +363,35 @@ class Circle(JinModel):
         return self
 
 
+def _carries_expr_mark(annotation: object) -> bool:
+    """型注釈の木のどこかに `Expr`（`x-jin-expr` 付き `Field`）があるか。"""
+    if get_origin(annotation) is Annotated:
+        base, *extras = get_args(annotation)
+        for extra in extras:
+            if isinstance(extra, FieldInfo):
+                extra_schema = extra.json_schema_extra
+                if isinstance(extra_schema, dict) and extra_schema.get(EXPR_SCHEMA_MARK):
+                    return True
+        return _carries_expr_mark(base)
+    if get_origin(annotation) in (Union, type(int | str), list):
+        return any(_carries_expr_mark(argument) for argument in get_args(annotation))
+    return False
+
+
+def expr_fields(cls: type[BaseModel]) -> frozenset[str]:
+    """`cls` の欄のうち**式**を受けるもの（JSON 側のキー名）。
+
+    `list[Expr]`（`cast.args`）と `Expr | None` も含む。名前を書き写さず `Expr` の印から引くので、
+    モデルに式の欄を足せば LSP の completion もエディタの式エディタも追随する。
+    """
+    hints = typing.get_type_hints(cls, include_extras=True)
+    names: set[str] = set()
+    for name, info in cls.model_fields.items():
+        if _carries_expr_mark(hints.get(name)):
+            names.add(info.alias or name)
+    return frozenset(names)
+
+
 class JinFileV2(JinModel):
     """`.jin`（version 2）1 本に対応するルートモデル。"""
 
@@ -368,6 +405,7 @@ class JinFileV2(JinModel):
 
 __all__ = [
     "DEFAULT_SCHEMA_URL_V2",
+    "EXPR_SCHEMA_MARK",
     "MAX_FPS",
     "MAX_SEED",
     "MAX_STAGE_SIZE",
@@ -412,5 +450,6 @@ __all__ = [
     "TransferStep",
     "TypeStr",
     "WaitStep",
+    "expr_fields",
     "parse_type",
 ]
