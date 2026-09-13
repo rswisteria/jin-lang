@@ -49,7 +49,10 @@ export function SvgCanvas(props: SvgCanvasProps): React.JSX.Element {
 
 	// SVG の差し替え。React に管理させず innerHTML で入れる（属性名が SVG 固有で、
 	// JSX へ写すと `data-jin-*` 以外の綴りが変わる危険がある）。
-	useEffect(() => {
+	// **layout effect にする**: 下のラベルの位置決めも layout effect で、宣言順に走る。
+	// 普通の effect にすると、SVG が変わったコミットでラベルが**古い図**の矩形で置かれ、
+	// focus を変えたときに消えるべき値のラベルが前の図の座標に浮いたまま残る。
+	useLayoutEffect(() => {
 		const node = host.current;
 		if (node === null) return;
 		node.innerHTML = props.svg;

@@ -333,6 +333,16 @@ test(".jinrec を読んでスクラブするとオーバーレイと記憶環の
 	await expect
 		.poll(async () => Number(await paddleCell.textContent()))
 		.toBeLessThan(140);
+
+	// focus を手順の図に変えると（state の四角が無い）値のラベルは消え、戻すと出る。
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/2"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/step");
+	await expect(canvas.locator("[data-jin-label]")).toHaveCount(0);
+	await page.getByTestId("jin-focus-clear").click();
+	await expect(paddleLabel).toBeVisible();
 });
 
 test("偽になった assert はバッジと一覧に出て、スクラブで消える", async ({

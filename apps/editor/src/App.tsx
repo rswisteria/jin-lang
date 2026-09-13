@@ -328,6 +328,10 @@ export function App({
 	const openTrace = useCallback(
 		async (file: File): Promise<void> => {
 			const result = await loadTrace(file);
+			// v2 の実行パネルでも読めるので、走らせた行の入れ物（`liveReplay`）と出どころも合わせる。
+			// 合わせないと、読んだ直後の一時停止 / 1 tick で古い入れ物（null）で描き直してオーバーレイだけ消える。
+			liveReplay.current = result.ok ? result.replay : null;
+			traceSource.current = { kind: "replay", name: file.name };
 			if (!result.ok) {
 				setReplay(null);
 				setTraceError(result.message);

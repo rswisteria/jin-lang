@@ -14,6 +14,8 @@ import type { InputEvent } from "./types";
 
 export const JINREC_VERSION = 1;
 export const EVENT_KINDS = ["key", "pointer"] as const;
+/** ヘッダに `ticks` が無いときの再生の tick 数（runtime.md §8: `jin run --ticks` の既定と同じ）。 */
+export const DEFAULT_TICKS = 600;
 
 /** 録画の 1 行（`tick` 付き）。 */
 export type RecordedEvent = InputEvent & { readonly tick: number };

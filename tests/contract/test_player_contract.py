@@ -262,7 +262,8 @@ def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
     main = read(SRC / "main.ts")
     assert "const EMBEDDED = window.parent !== window;" in main
     assert "if (EMBEDDED) return null;" in main
-    # `jin.load` / `jin.trace` / `jin.control` の 3 語で親と話す（エディタ側の RunPanel と同じ）。
+    # `jin.load` / `jin.trace` / `jin.control` の 3 語（Phase 5）で親と話す。Phase 6 で 7 語になり、
+    # 集合の等号は `test_editor_contract.py::test_the_parent_and_the_player_speak_the_same_vocabulary` が見る。
     for word in ('"jin.load"', '"jin.trace"', '"jin.control"'):
         assert word in main, word
     # 親以外からの message は無視する。

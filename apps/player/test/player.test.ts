@@ -244,6 +244,30 @@ group("Player（実行ループ・runtime.md §10）", () => {
 		expect(player.tick).toBe(5);
 	});
 
+	test("ヘッダに ticks が無い録画は jin run と同じ 600 tick 再生する（runtime.md §8）", () => {
+		const { host, calls } = fakeHost();
+		const { clock } = fakeClock();
+		const player = new Player({
+			host,
+			manifest: MANIFEST,
+			renderer,
+			collector: fakeCollector([]),
+			audio,
+			clock,
+		});
+		expect(
+			player.replay({
+				file: null,
+				seed: null,
+				fps: null,
+				ticks: null,
+				events: [],
+			}),
+		).toBe(600);
+		expect(calls).toHaveLength(600);
+		expect(player.seed).toBe(MANIFEST.stage.seed);
+	});
+
 	test("再生は root が done になったらそこで止まる", () => {
 		const { host, calls } = fakeHost(1);
 		const { clock } = fakeClock();

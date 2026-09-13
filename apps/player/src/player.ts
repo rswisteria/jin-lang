@@ -13,7 +13,7 @@ import type { AudioOut } from "./audio";
 import type { Renderer } from "./canvas";
 import type { JinHost } from "./host";
 import { InputCollector, InputReducer } from "./input";
-import { eventsByTick, type Recording } from "./jinrec";
+import { DEFAULT_TICKS, eventsByTick, type Recording } from "./jinrec";
 import { Recorder } from "./recorder";
 import type { InputEvent, Manifest, Op, TraceRow } from "./types";
 
@@ -140,7 +140,8 @@ export class Player {
 	 * （tick ごとに `postMessage` すると親が数百回描き直す）。再生の間に届いた実入力は捨てる。
 	 */
 	replay(recording: Recording): number {
-		const ticks = recording.ticks ?? 0;
+		// ヘッダに `ticks` が無ければ `jin run --input` と同じ 600（runtime.md §8）。0 にすると同じ録画から違うトレースになる。
+		const ticks = recording.ticks ?? DEFAULT_TICKS;
 		this.reboot(recording.seed ?? this.o.manifest.stage.seed);
 		const perTick = eventsByTick(recording.events, ticks);
 		for (let t = 0; t < ticks && !this.done; t += 1) {

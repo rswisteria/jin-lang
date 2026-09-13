@@ -305,7 +305,7 @@ Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点�
   **33 個目を作らない**（description / sigil の host / on の event / do。ops.md §5）
 - **実行パネルは同一オリジンの iframe `/play/`**（`apps/editor/src/run/RunPanel.tsx`）。`jin editor` が
   `--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR` の順に探して配る（`translate_path` の正規化を
-  通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し、
+  通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し（Phase 6 で 7 語に増えた。下の Phase 6 の要点）、
   **`POST /run` は使わない**。プレイヤーは iframe の中では fetch せず `jin.load` を待つ。走っている間の描き直しは
   1 秒に 1 回（`LIVE_REFRESH_MS`）、行数は 4000 で頭打ち（`MAX_LIVE_ROWS`）。asset（絵と音）は埋め込みでは読めない
 - `apps/editor` が読む生成物は `jin.schema.json` / `jin-v2.schema.json` / `abilities.json` の 3 つ（いずれも Pydantic

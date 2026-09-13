@@ -576,9 +576,9 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | JIL | 生成物のスナップショット(syrupy)。**禁止語の走査**(§4.4)。`examples/*` を lupa で `--ticks 300` 回して例外が出ない |
 | 決定性 | 同じ `.jin` + seed + 入力ログで 2 回走らせてトレースと表示リストがバイト一致。`parallel` の子の順序を入れ替えても公開 state の系列が一致 |
 | 表示リスト | `examples/paddle` の 60 tick 分のゴールデン(JSONL スナップショット) |
-| パリティ | Playwright 1 本: `dist/index.html` を開き、録画済み `.jinrec` を再生させてトレースを取り出し、`jin run --input` の出力と一致 |
+| パリティ | Playwright 2 本(`apps/player/e2e/parity.spec.ts` = ブラウザで録画する側、`replay.spec.ts` = 録画済み `.jinrec` を再生する側・Phase 6): `dist/index.html` を開き、録画 / 再生してトレースを取り出し、`jin run --input` の出力と全行一致 |
 | レンダラ | SVG スナップショット。13 種の `data-jin-kind` が `examples/paddle` で全部出る。全 pointer がモデルに解決できる |
-| LSP / エディタ | v1 のスモークに「v2 ファイルを開く → ステップを足す → 保存 → 正準形一致」と「実行パネルで 10 tick 進めてスクラブ」を足す |
+| LSP / エディタ | v1 のスモークに「v2 ファイルを開く → ステップを足す → 保存 → 正準形一致」と「実行パネルで 10 tick 進めてスクラブ」を足す。Phase 6 で「`.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く」「偽になった `assert` のバッジと一覧」「録画 → 書き出し → `jin run --input` と同じ行数 → 読み直し」の 3 本を足す(`apps/editor/e2e/v2.spec.ts`) |
 | 契約 | `jin-wasm` が `jin-adk` / `jin-render` を import しない(import-linter)。`apps/player` が Python を import しない(eslint)。ホストが Lua を呼ぶ関数が `boot` / `tick` の 2 つだけ(TS 側を走査) |
 
 ---
