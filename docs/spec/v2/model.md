@@ -237,6 +237,6 @@ v1 `docs/spec/model.md` §6 と同じ: pointer はモデル JSON への JSON Poi
 
 v1 §2.3 の規則に加えて:
 
-- 式(`init` / `expr` / `cond` / `args[]` / `assert` / `exit` / `ticks` / `until` / `times` / `in` / `target` / `into`)は**文字列のまま**保存する(整形しない。設計書 §11 #15)
+- 式(`init` / `expr` / `cond` / `args[]` / `assert` / `exit` / `ticks` / `until` / `times` / `in` / `target` / `into`。schema の印 `x-jin-expr` を持つ欄)は **AST から書き戻した正準形**にする(expr.md §8・v2.1。設計書 §11 #48。空白は演算子の両側に 1 つ、括弧は必要なときだけ、数値は `str(x)` の書式、文字列は最小エスケープ)。**構文エラーの式は変えない**(入力を失わない。JIN201 は check が出す)
 - 既定値(`out: false` / `params: []` / `args: []` / `else: []` / `forms: []` / `assets: []` / `fps: 60` / `seed: 0`)は書かない
 - `stage` の数値は整数の JSON 数値で書く(`60`。`60.0` は正準形でない)
