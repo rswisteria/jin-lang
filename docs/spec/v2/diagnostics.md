@@ -14,7 +14,7 @@
 | JIN001 | JSON 構文エラー |
 | JIN002 | スキーマ違反(v2 のスキーマ。`version: 2` の分岐) |
 | JIN010 | 名前の重複(circle / form / state / sigil / rite / 局所 / `on` の event / 組み込み `Pointer` との衝突) |
-| JIN011 | 未解決の参照(`root` 以外: `core` / `flow.steps` / `summon` / `on.rite` / `delegate` / `transfer` / `emit.circle` / `cast.target`) |
+| JIN011 | 未解決の参照(`root` 以外: `core` / `flow.steps` / `summon` / `on.rite` / `delegate` / `transfer` / `emit.circle` / `cast.target` / 型文字列が指す型紙) |
 | JIN012 | 参照が循環している(`flow.steps` / `delegate` / `summon` / 型紙の入れ子) |
 | JIN013 | circle が複数の親を持つ(`flow.steps` の入次数 2 以上) |
 | JIN020 | `state` / `sigils` / `rites` が 12 を超えた |

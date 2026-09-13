@@ -6,6 +6,9 @@
 
 ## 1. 文法(EBNF)
 
+実装は `packages/jin-core/src/jin_core/v2/expr.py` の `JIN_EXPR_GRAMMAR`(インラインの Lark 文法、LALR、位置伝播)。
+`.lark` ファイルは無い(v1 の JSON 文法と同じ流儀)。
+
 <!-- machine-readable: expr-grammar -->
 
 ```

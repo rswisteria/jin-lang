@@ -104,6 +104,30 @@ Phase 4 時点で 5 パッケージすべてが実在する（`jin-core` / `jin-
 | 5 | `apps/editor` 編集モード + `jin editor` | 実装済み |
 | 6 | `apps/editor` デバッグモード（トレースリプレイ） | 実装済み |
 | — | エディタからの実行（Issue #34・要件書 §7.2 の「v1.1」を前倒し） | 実装済み |
+| v2-0 | Jin v2（汎用ビジュアル言語）の設計書と `docs/spec/v2/` 8 本 + `examples-v2/` + probe | 実装済み |
+| v2-1 | `jin_core.v2`（model / expr / semantic / ops）+ `jin-v2.schema.json` / `abilities.json` + version 振り分け | 実装済み |
+
+### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
+
+正典は `docs/superpowers/specs/2026-09-13-jin-v2-general-design.md`（設計書）と `docs/spec/v2/*.md`。
+**v1 の正典・契約テストには触れない**（サブコマンド 9 個 / `data-jin-kind` 9 種 / `jin/` 6 種 /
+`CANONICAL_CODES` 14 件はそのまま）。v2 は別の集合を別のテストで固定する。
+
+- **振り分けは `jin_core.check.root_model_for` 1 か所**（`version: 2` だけが `JinFileV2` へ）。
+  `canonical.dumps` は Pydantic 汎用なので v2 にそのまま効く。`CheckResult.model` は `JinFile | JinFileV2`
+- **schema は別ファイル** `schemas/jin-v2.schema.json`（`jin schema --version 2`）。`jin.schema.json` は
+  1 バイトも変えない（`apps/editor` がルート `properties` を直接読む）。`schemas/abilities.json` の正本は
+  `jin_core.v2.abilities`。3 つとも `uv run python scripts/generate_schema.py` で再生成する
+- **診断は JIN2xx の別番号帯**（`jin_core.diagnostics.V2_CODES`）。意味が同じ JIN001 / 002 / 010 / 011 /
+  012 / 013 / 020 / 022 / 060 は共有。fixture は `tests/fixtures/errors/v2/`（v1 の走査は非再帰なので混ざらない）
+- **式（葉）は `jin_core.v2.expr` のインライン Lark 文法**。式内の位置 → JSON 文字列リテラル内の列は
+  `jin_core.v2.spans` だけが換算する
+- **`examples-v2/` は恒久的に `examples/` の外**（`examples/` は v1 の契約が「3 本」と数える）。
+  CI は `examples-v2` にも `check` / `fmt --check` を掛ける
+- `build` / `run` / `render` は v2 を明示的に拒む（Phase 2 / 3 まで）。LSP は v2 の診断だけ運び、
+  hover / renderSvg / applyOps は「モデル無し」として扱う（Phase 3 / 5）
+- v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
+  オペレーション列で、`apply_ops` が undo 順に平らにする
 
 v1 のサブコマンドは 9 つで揃った（`check` / `fmt` / `schema` / `dump` / `build` / `run` /
 `render` / `lsp` / `editor`）。空実装を先に置くと `jin --help` が嘘をつくので、
