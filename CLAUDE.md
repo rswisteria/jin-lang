@@ -133,7 +133,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   `JinFileV2` を受けたら `jin_render.v2.render_v2` へ振る（CLI / LSP は version を見ない）。`--focus` は
   `陣名` か `陣名/手順名`（手順の図）。LSP は v2 で **診断 / `jin/model` / `jin/renderSvg` / formatting / `jin/save`**
   だけ答え、hover / completion / definition / references / documentSymbol / rename / codeAction / `jin/applyOps` は
-  v1 のモデル（`DocumentState.model_v1`）にだけ効く（v2 のそれらは Phase 5。`jin/applyOps` は JIN002 で断る）
+  v1 のモデル（`DocumentState.model_v1`）にだけ効く（v2 のそれらは Phase 5。`jin/applyOps` は JIN002 で断る）。
+  **`jin editor` で v2 の `.jin` を開くと図は出る**が、エディタのヒットテスト（`apps/editor/src/svg/hitTest.ts`）は
+  9 種以外の `data-jin-kind` を `null` として無視するので、選択 / 編集は効かない（落ちない。v2 のエディタは Phase 5）
 - **v2 の `data-jin-kind` は 13 種**（`jin_render.DATA_JIN_KINDS_V2`。v1 の 9 種とは別集合で、`stage` / `form` /
   `circle` / `core` / `rite` / `sigil` / `state` / `on` / `guard` / `delegate` / `flow-edge` / `step` / `step-edge`）。
   v1 の規律（`fmt_coord` 1 本 / 3 桁固定 / 楕円弧 `A` 不使用 / 2 色 + 強調 1 色 / `<style>` 不使用）と `geometry` /
