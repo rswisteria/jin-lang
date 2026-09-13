@@ -104,6 +104,7 @@ v1 §7 と同じ規則(祖先一致 → referent 規則。`jin_render.layout.fir
 - v2 のトレースの `seq` は `boot` から通しの **0 始まり**(runtime.md §5)。読み取りは `jin_render.overlay.read_trace(rows, min_seq=0)` で、v1 の既定(1 始まり)は変えない。`--upto 0` は `enter` 行 1 件を発火させる
 - `frame` 行の pointer は `/stage` だが、額縁と型紙の印章は強調の対象に**入れない**(陣 / 手順の `<g>` の配下だけを走査する)。`frame` 行は点にだけ数える(画面はプレイヤー側で出す)
 - 陣の図では、手順の中のステップの行(`/circles/i/rites/j/steps/…`)は祖先一致で**手順環の小陣**(`/circles/i/rites/j`)に落ちる。手順の図では焦点の手順の外の行(`enter` / 他の手順)はどの要素にも当たらず、点にだけ数える
+- **記憶環の値と `assert` のバッジは SVG に描かない**(Phase 6・設計書 §11 #40)。runtime.md §5 のとおりエディタが `set` 行を積算し(`apps/editor/src/debug/values.ts`)、SVG の**外**の HTML 層に重ねる(位置は描かれた要素の矩形から取る)。`jin_render` が描くのは発火の強調と点だけで、同じ `upto` なら同じ SVG という規律は変わらない
 
 ## 7. エラー回復
 

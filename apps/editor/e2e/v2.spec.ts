@@ -393,3 +393,77 @@ test("偽になった assert はバッジと一覧に出て、スクラブで消
 	await expect(page.getByTestId("jin-assert")).toHaveCount(1);
 	await expect(badge).toHaveText("n は 2 未満");
 });
+
+test("実行パネルで録画して書き出した .jinrec は jin run --input で同じ行数になり、読み直せる", async ({
+	page,
+}) => {
+	await open(page);
+	await page.getByTestId("jin-mode-debug").click();
+	const frame = page.frameLocator('[data-testid="jin-player"]');
+	await expect(frame.locator("#status")).toContainText("tick", {
+		timeout: 30_000,
+	});
+	// seed を決めて録画（`boot` し直して tick 0 から走る）。キーを 1 つ入れる。
+	await page.getByTestId("jin-play-pause").click();
+	await page.getByTestId("jin-seed").fill("11");
+	await page.getByTestId("jin-play-record").click();
+	await expect(page.getByTestId("jin-player-status")).toContainText("録画中");
+	await frame.locator("#stage").click();
+	await page.keyboard.down("ArrowLeft");
+	await expect
+		.poll(async () => {
+			const text = await page.getByTestId("jin-player-status").textContent();
+			return Number(/tick (\d+)/.exec(text ?? "")?.[1] ?? 0);
+		})
+		.toBeGreaterThan(20);
+	await page.keyboard.up("ArrowLeft");
+	// 止めて書き出す → 親がダウンロードとして渡す。
+	const downloaded = page.waitForEvent("download");
+	await page.getByTestId("jin-play-stop").click();
+	const download = await downloaded;
+	expect(download.suggestedFilename()).toMatch(/^smoke-seed11-\d+t\.jinrec$/);
+	const recPath = join(dirname(editor.file), "recorded.jinrec");
+	await download.saveAs(recPath);
+	const lines = readFileSync(recPath, "utf8").trim().split("\n");
+	const header = JSON.parse(lines[0] ?? "{}") as {
+		seed: number;
+		ticks: number;
+	};
+	expect(header.seed).toBe(11);
+	expect(lines.slice(1).some((line) => line.includes('"ArrowLeft"'))).toBe(
+		true,
+	);
+	await expect(page.getByTestId("jin-player-status")).toContainText(
+		`tick ${String(header.ticks)} · seed 11 · 停止`,
+	);
+	// 走らせている間に溜めた行数 = ヘッドレスで同じ録画を再生した行数。
+	const tracePath = join(dirname(editor.file), "recorded-trace.jsonl");
+	execFileSync(
+		"uv",
+		[
+			"run",
+			"jin",
+			"run",
+			editor.file,
+			"--input",
+			recPath,
+			"--trace",
+			tracePath,
+		],
+		{ cwd: REPO_ROOT },
+	);
+	const rows = readFileSync(tracePath, "utf8")
+		.split("\n")
+		.filter((line) => line.trim() !== "").length;
+	await expect(page.getByTestId("jin-trace-name")).toHaveText(
+		`実行パネル（${String(rows)} 件）`,
+	);
+	// 「この録画を再生」で読み直すと、同じ行数が録画の名前で載る。
+	await page.getByTestId("jin-replay-last").click();
+	await expect(page.getByTestId("jin-trace-name")).toHaveText(
+		`録画: ${download.suggestedFilename()}（${String(rows)} 件）`,
+	);
+	await expect(page.getByTestId("jin-player-notice")).toContainText(
+		`${String(header.ticks)} tick 再生しました`,
+	);
+});

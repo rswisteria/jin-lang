@@ -185,6 +185,8 @@ export class Player {
 			n += 1;
 		}
 		if (this.accumulator >= period) this.accumulator = 0; // 追いつけない分は捨てる
+		// 進んだフレームでは状態（tick 数・録画の件数）を知らせる（親の `jin.status` もこれで動く）。
+		if (n > 0) this.o.onChange?.();
 		if (this.running) this.queueFrame();
 	}
 
