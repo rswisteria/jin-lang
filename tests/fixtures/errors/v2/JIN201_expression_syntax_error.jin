@@ -1,0 +1,34 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "main",
+      "state": [
+        {
+          "name": "count",
+          "type": "num",
+          "init": "0"
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "1 +"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

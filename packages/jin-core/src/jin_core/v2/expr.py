@@ -413,6 +413,8 @@ class Scope:
     circles: frozenset[str] = frozenset()
     #: 定数式（state.init）として検査するとき True（識別子・ホスト能力を JIN250 にする）。
     constant: bool = False
+    #: `flow.exit` として検査するとき True（公開 state 以外の参照を JIN220 にする）。
+    exit_mode: bool = False
 
 
 @dataclass(slots=True)
@@ -489,6 +491,14 @@ class _Checker:
                 node.span,
                 f"init に識別子 '{node.name}' は使えません（定数式だけ）",
                 "リテラル・型紙コンストラクタ・純関数で書いてください",
+            )
+            return None
+        if scope.exit_mode:
+            self.issue(
+                "JIN220",
+                node.span,
+                f"exit は公開 state（'陣名.key'）だけを参照できます（'{node.name}'）",
+                "参照したい state に \"out\": true を付け、'陣名.key' と書いてください",
             )
             return None
         if node.name in scope.locals:
@@ -629,14 +639,15 @@ class _Checker:
             )
             return None
         keys = self.scope.public.get(base.name)
+        missing = "JIN220" if self.scope.exit_mode else "JIN203"
         if keys is None:
             self.issue(
-                "JIN203", base.span, f"陣 '{base.name}' に公開 state はありません（核なし陣）"
+                missing, base.span, f"陣 '{base.name}' に公開 state はありません（核なし陣）"
             )
             return None
         if node.name not in keys:
             self.issue(
-                "JIN203",
+                missing,
                 node.name_span,
                 f"陣 '{base.name}' に公開 state '{node.name}' はありません",
                 f"{base.name} の state '{node.name}' に \"out\": true を付ける",

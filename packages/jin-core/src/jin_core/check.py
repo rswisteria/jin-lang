@@ -276,7 +276,7 @@ def check_text(text: str, file: str, *, resolver: RefResolver | None = None) -> 
 
     # ---- 段 3: 意味 ---------------------------------------------------------------
     if isinstance(model, JinFileV2):
-        result.diagnostics.extend(semantic_v2.analyze(model, parsed.table, file))
+        result.diagnostics.extend(semantic_v2.analyze(model, parsed.table, file, source=text))
     else:
         result.diagnostics.extend(semantic.analyze(model, parsed.table, file, resolver=resolver))
     return result
