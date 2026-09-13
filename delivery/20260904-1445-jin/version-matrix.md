@@ -164,3 +164,19 @@ E1（2026-09-04）と E3（2026-09-05）の値は一致した。`uv lock` → `U
 
 `jin-lsp` は **`jin-adk` を依存に持たない**（`google-adk` を LSP プロセスへ読み込まないため）。
 hover の ADK クラス名は `docs/spec/adk-mapping.md` 由来の静的な辞書から引く。
+
+## 10. Jin v2 Phase 2（jin-wasm）で追加した依存（2026-09-13 実測）
+
+一次証拠は `wasm-api-probe.md`（同日・同ディレクトリ）。`uv lock` で解決し、`uv sync` 後に
+`lupa.__version__` / `LuaRuntime().lua_version` で読んだ実際の版。
+
+| パッケージ | 宣言 | 入った版 | 備考 |
+|---|---|---|---|
+| lupa | `lupa>=2.8,<3`（`packages/jin-wasm`） | **2.8** | wheel に Lua 5.1 / 5.2 / 5.3 / **5.4.8** / 5.5.1 / LuaJIT 2.0 / 2.1 の 7 本を同梱。**`lupa.lua54` を明示して import する**（既定の `lupa.LuaRuntime` は Lua 5.5.1・probe §B.1）。`register_eval=False` だけでは `python.builtins` が残るので `register_builtins=False` + `globals().python = None`（probe §B.2） |
+| wasmoon | （Python 側では宣言しない。Phase 4 の `apps/player` が `1.16.0` で固定する） | — | Lua 5.4。`global.set(name, null)` は `TypeError`、`undefined` で消す（probe §A.8）。JS 境界を跨ぐ yield は PANIC（probe §A.4） |
+
+`jin-wasm` は **`jin-core` と `lupa` だけ**に依存する（設計書 §1.2）。`jin-core` / `jin-render` /
+`jin-lsp` は `lupa` に依存しない。命令数の上限（`jin_wasm.runtime.INSTRUCTION_BUDGET`）は
+`debug.sethook` の count hook で掛け、`debug` を nil にした後も hook が生きることを
+`/home/wisteria/.claude/jobs/8e42df6b/tmp/probe_lupa2.py`（2026-09-13）で実測した
+（`pcall` の中では `{code = "budget"}` として捕まり、外では `LuaError` になる）。
