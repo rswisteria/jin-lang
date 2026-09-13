@@ -629,7 +629,9 @@ def test_the_run_panel_keeps_state_across_edits_and_stays_mounted() -> None:
     assert "status.generation !== lastGeneration.current" in on_status
     assert "lastGeneration.current = status.generation;" in on_status
     assert "clearTrace();" in on_status
-    assert "traceSource.current.kind" not in on_status  # 出どころで分けない（再生の後の keep 無しでも捨てる）
+    assert (
+        "traceSource.current.kind" not in on_status
+    )  # 出どころで分けない（再生の後の keep 無しでも捨てる）
     # e2e: 走らせて止める → 編集モードで式を直す → 戻ると tick / 記憶環の値 / upto がそのまま → 外すと世代が進む
     spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
     assert "状態を保って差し替えました（tick ${String(tick)} から続けます）" in spec
