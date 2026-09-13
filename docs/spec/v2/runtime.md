@@ -171,7 +171,8 @@ dist/
 ```
 
 - 任意の静的サーバで開ける。`file://` は wasm の fetch が拒まれるブラウザがあるので `--single`(wasm と JIL を base64 で `index.html` に埋める)を用意する
-- **Phase 2 の時点ではプレイヤーが無い**。`jin build` は `game.lua` / `game.manifest.json` / `assets/` を書き、プレイヤーが無いことを stderr に 1 行出す。`--single` は exit 1。Phase 4 で `apps/player` のビルド物を `jin_wasm/player/` に同梱し、3 ファイルを一緒に書く(設計書 §11 #25)
+- プレイヤーは `apps/player` のビルド物(`pnpm build` → `dist/` の 3 ファイル)を `scripts/sync_player.py` が `jin_wasm/player/` に**同梱**する(gitignore。wheel には入る。設計書 §11 #25)。同梱されていなければ `jin build` は `game.lua` / `game.manifest.json` / `assets/` だけを書き、同梱の仕方を stderr に 1 行出す。`--single` は同梱が要る
+- **`--single` は `index.html` 1 本だけを書く**。`apps/player/public/index.html` の `<!-- jin:bundle -->` を `<script>window.JIN_BUNDLE = { jil, manifest, wasm(base64) }</script>` に、`<script src="player.js">` を本文のインラインに置き換える(`</` は `<\/` に逃がすので JIL / manifest に `</script>` が入っても HTML を壊せない)。**asset は埋められないので `stage.assets` があれば拒む**(設計書 §11 #34)。wasm は `data:application/wasm;base64,…` で Wasmoon に渡り、ページは何も fetch しない(`apps/player/e2e/single.spec.ts` が実測)
 - **asset は `.jin` の親ディレクトリの中だけ**(`Asset.path` は `Ident` なので `../x` がモデルを通る)。絶対パスと `..` を拒み、`realpath` が親の中に留まることを確かめ、リンクを辿らず、通常ファイルだけをコピーする。バンドルの `game.manifest.json` の `assets[].path` は `assets/<ファイル名>` に書き換える(同名は拒む)。書き出しは `jin_adk.build` と同じ規律(`O_EXCL` / `O_NOFOLLOW` / `dir_fd` / 一時ファイル + `os.replace`。`jin_wasm.bundle`)
 - `game.manifest.json` の `namespaces` は `.jin` が許可した名前空間の和集合。プレイヤーは**それ以外の入力を集めない**(`input` が無ければキーイベントを購読しない)。これは機能であって防御ではない(JIL に外の世界へ出る口が無いのが防御)
 
@@ -183,4 +184,9 @@ dist/
 - Wasmoon は `openStandardLibs: true` で作り(`false` は base ライブラリごと消える)、JIL を読む前に `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` を **`lua.global.set(name, undefined)`** で消す(`null` は Wasmoon 1.16.0 で `TypeError` になり消えない。probe A.8)
 - `tick` の戻り値(JSON 文字列)を `JSON.parse` する。Lua のテーブルを直接受け取らない(§1)
 - 「実行 / 一時停止 / 1 tick / seed / 録画 / 書き出し」の最小 UI。エディタからは iframe で埋め込まれ、`postMessage` でトレース行を親へ流す(`{ "type": "jin.trace", "rows": [...] }`)。親からは `{ "type": "jin.load", "jil": "...", "manifest": {...} }` で差し替える(ライブリロード)
-- Python を import しない。読む生成物は `schemas/abilities.json` だけ(キー名の一覧と TS 型の生成元)
+- Python を import しない。読む生成物は `schemas/abilities.json` だけ(キー名の一覧と TS 型の生成元)。キー名 / op 名のリテラルをソースに書かず、カタログから引く(`tests/contract/test_player_contract.py` が走査する)
+- **入力の規則**(`apps/player/src/input.ts`): キーは `KeyboardEvent.code` で、カタログの `keys` にあるものだけ。`repeat` と同じキーの二重押下は捨て、`blur` では押下中のキーを `down: false` として**記録してから**離す。ポインタは主ボタンだけで、座標は論理座標(stage の幅 / 高さに写して整数に切り捨て、枠内に留める)。移動は tick の中で最後の 1 つに畳むが、down → up の遷移は残す(`ui.button` の離しが見る)。`inputs` と `.jinrec` は**同じ reducer**(`jin_wasm.runtime.InputState.apply` の写し)から出す(`tests/fixtures/jinrec/reducer.*` を Python と TS の両方が検算)
+- **録画は `boot` し直して tick 0 から始める**(途中からの録画は `jin run --input` と揃わない)。ヘッダの `ticks` は実行した tick 数。トレース(`debug`)は `boot` から通しで溜め、パリティは `jin run --input rec.jinrec --trace` の行と **JSON として読んでから全行一致**で比べる(`apps/player/e2e/parity.spec.ts`)
+- 命令数の上限は §8 と同じ Lua(`JIN_ARM` / `JIN_HOOK`)で掛ける。Wasmoon の `Thread.setTimeout` / `functionTimeout` は使わない(コルーチンの中で PANIC・probe §A.10)。`new LuaFactory(wasmUri)` には常に URL を渡す(引数無しは unpkg へ fetch しに行く)
+- `canvas.text` の書体は ASCII(U+0020〜U+007E)だけで、それ以外のコードポイントは □(幅は 1 コードポイント = 6 のまま。設計書 §11 #33)
+- `postMessage` は親(`window.parent`)へ tick ごとに `{ type: "jin.trace", rows }` を送る(targetOrigin は `*`。トレースは秘密ではない)。`{ type: "jin.load", … }` は**親からの message だけ**を受ける。親側(エディタの実行パネル)は Phase 5

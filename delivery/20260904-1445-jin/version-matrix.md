@@ -173,7 +173,7 @@ hover の ADK クラス名は `docs/spec/adk-mapping.md` 由来の静的な辞�
 | パッケージ | 宣言 | 入った版 | 備考 |
 |---|---|---|---|
 | lupa | `lupa>=2.8,<3`（`packages/jin-wasm`） | **2.8** | wheel に Lua 5.1 / 5.2 / 5.3 / **5.4.8** / 5.5.1 / LuaJIT 2.0 / 2.1 の 7 本を同梱。**`lupa.lua54` を明示して import する**（既定の `lupa.LuaRuntime` は Lua 5.5.1・probe §B.1）。`register_eval=False` だけでは `python.builtins` が残るので `register_builtins=False` + `globals().python = None`（probe §B.2） |
-| wasmoon | （Python 側では宣言しない。Phase 4 の `apps/player` が `1.16.0` で固定する） | — | Lua 5.4。`global.set(name, null)` は `TypeError`、`undefined` で消す（probe §A.8）。JS 境界を跨ぐ yield は PANIC（probe §A.4） |
+| wasmoon | `apps/player/package.json` の `dependencies` が `1.16.0` で固定（Python 側では宣言しない） | **1.16.0** | Lua 5.4。`global.set(name, null)` は `TypeError`、`undefined` で消す（probe §A.8）。JS 境界を跨ぐ yield は PANIC（probe §A.4）。`new LuaFactory()` を引数無しで呼ぶと unpkg へ fetch するので常に `wasmoon.wasm` の URL を渡す。`Thread.setTimeout`（C の hook）はコルーチンの中で PANIC するので使わず、Lua の `debug.sethook` を `JIN_ARM` / `JIN_HOOK` で掛ける（probe §A.10）。JS→Lua の数値は `Number.isInteger` で integer / float に分かれる（プレリュードが `+ 0.0` で揃える） |
 
 `jin-wasm` は **`jin-core` と `lupa` だけ**に依存する（設計書 §1.2）。`jin-core` / `jin-render` /
 `jin-lsp` は `lupa` に依存しない。命令数の上限（`jin_wasm.runtime.INSTRUCTION_BUDGET`）は
