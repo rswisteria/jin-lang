@@ -118,7 +118,7 @@ jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp  ←  jin-cli
 | LSP 骨格(stdio / ws、デバウンス、last-good、`jin_converter`、`jin/…` 6 種) | **そのまま使う**。`jin/renderSvg` は version で v1 / v2 レンダラへ振る |
 | エディタの殻(SVG ヒットテスト、schema フォーム、5 表示状態、undo/redo、スクラバ) | **そのまま使う**。v2 の `data-jin-kind` を選択の種別に足し、実行パネルを 1 枚足す |
 | `fmt_coord` / 2 色 / 属性のみ SVG / `xml_chars` | **そのまま使う** |
-| モデル・意味検査・診断 | **作り直し**(`jin_core.v2`)。JIN001 / 002 は共通、意味の同じ JIN010 / 011 / 012 / 020 / 060 は**同じ番号を使う**(§6) |
+| モデル・意味検査・診断 | **作り直し**(`jin_core.v2`)。JIN001 / 002 は共通、意味の同じ JIN010 / 011 / 012 / 020 / 022 / 060 は**同じ番号を使う**(§6) |
 | レイアウト規則 | **作り直し**(`jin_render.v2`)。環の半径は v1 と同じ 4 本を使い回す(§7) |
 | コード生成・実行系 | **作り直し**(`jin-wasm`)。v1 の `jin_adk` とは無関係 |
 | CLI | サブコマンドは 9 個のまま。`build` / `run` / `render` が version で振り分ける(§5) |
@@ -205,6 +205,7 @@ circle は v1 と同じ 2 種。**核あり**(`core` を持つ → 実行単位)
           { "do": "cast", "target": "paint" } ] },
         { "name": "paint", "steps": [
           { "do": "cast", "target": "canvas.clear", "args": ["\"#000\""] },
+          { "do": "cast", "target": "canvas.ink",   "args": ["\"#fff\""] },
           { "do": "cast", "target": "canvas.rect",   "args": ["paddle", "172", "40", "4"] },
           { "do": "cast", "target": "canvas.circle", "args": ["ball.x", "ball.y", "3"] },
           { "do": "cast", "target": "canvas.text",   "args": ["\"SCORE \" ++ str(score)", "4", "4"] } ] }
@@ -243,7 +244,8 @@ circle は v1 と同じ 2 種。**核あり**(`core` を持つ → 実行単位)
 
 - `Game` は核なし陣(loop)。`Play` が `finish` すると `Result` へ、`Result` が `finish` すると `exit` 式 `Result.quit` を評価し、偽なら `Play` からやり直す
 - `Play` に入ると核 `begin` が走る。以後、毎 tick `boundary.on` の `tick` → `step(dt)` が走る
-- `step` は **10 ステップ**。描画を `paint` に分けているのは、分けないと 13 ステップになり JIN210(12 超過)で落ちるから。「抽出」のコードアクションがこの分割を機械的に行う
+- `step` は **9 ステップ**、`paint` は **5 ステップ**。描画を `paint` に分けているのは、1 つにまとめると 14 ステップになり JIN210(12 超過)で落ちるから。「抽出」のコードアクションがこの分割を機械的に行う(入れ子の中の個数は別勘定なので、`if` の `then` にあるステップは数えない)
+- `Result.menu` は `tick` の手順だが `params` を持たない。イベントの引数は**前方部分を省略してよい**(§6 JIN221)。`Result` は `ui.button` を使うが `input` の許可を持たない。`ui` は tick の入力スナップショットを自前で読むので `input` は要らない(§3.4)
 - `Result.show` の `wait` は 20 tick 待つ。待っている間も `on tick` は届く(§4.2)ので `menu` は描かれる
 - `Play.score` は `out: true` なので `Result` から読め、`Play` を出ても残る
 - **文字列リテラルの中の `"`** は JSON のエスケープ。式文法側の文字列は `"…"` のみ(`'` は使わない)
@@ -306,7 +308,7 @@ v1 §2.3 と同じ規則。加えて:
 
 ### 3.2 型
 
-`num`(f64)/ `bool` / `str`(コードポイント列)/ `list<T>` / form 名。`num` に整数型は無い(添字は `floor` される)。局所変数は初期化式から推論。`state[].init` は**定数式**(リテラル・型紙コンストラクタ・純関数のみ。JIN250)。
+`num`(f64)/ `bool` / `str`(コードポイント列)/ `list<T>` / form 名。`num` に整数型は無い(添字は `floor` される)。局所変数は初期化式から推論。`state[].init` は**定数式**(リテラル・型紙コンストラクタ・純関数のみ。JIN250)。型紙コンストラクタ `Ball{…}` は**全欄必須**(欠けた欄・余分な欄は JIN202。既定値は v2 では持たない)。
 
 ### 3.3 葉の式文法(`docs/spec/v2/expr.md`)
 
@@ -329,6 +331,7 @@ primary := NUMBER | STRING | "true" | "false" | NAME
 - 文字列は `"…"`、エスケープは JSON と同じ集合。`'` は使わない
 - 短絡評価(`and` / `or`)。`/` は常に浮動小数。`%` は `a - floor(a/b)*b`
 - 比較は同型のみ。`==` は `num` / `bool` / `str` のみ(list / form の構造比較は無い)
+- **戻り値を持つホスト能力(`ui.button` / `random.next` / `input.key` …)は式の中で呼べる。** 評価順は左から右で、`and` / `or` の短絡に従う。表示リストへの追記順もこの評価順(決定性はこの規則に掛かる)
 
 ### 3.4 ホスト能力カタログ(`schemas/abilities.json`)
 
@@ -343,7 +346,7 @@ Pydantic 定義(`jin_wasm.abilities`)から生成し、**補完・型検査・�
 | `random` | `next()` / `range(lo,hi)` | 効果(seed 付き PCG32 の状態を進める) | `num` |
 | `storage` | `get(key)` / `set(key,val)` | v2.1 | `str` |
 
-色は `"#rgb"` / `"#rrggbb"` の文字列。`sprite` の `name` は `stage.assets[]` の名前(JIN205 で未知名を落とす)。**壁時計・`Date` に相当する能力は無い**(決定性)。
+色は `"#rgb"` / `"#rrggbb"` の文字列。`sprite` の `name` は `stage.assets[]` の名前(JIN205 で未知名を落とす)。**壁時計・`Date` に相当する能力は無い**(決定性)。`ui` は tick の入力スナップショットを自前で読むので、`ui` を使う陣に `input` の許可は要らない(JIN230 は `on key` / `on pointer` を受ける陣だけを見る)。
 
 ### 3.5 flow と陣の生存
 
@@ -477,7 +480,7 @@ v2 固有は **JIN2xx** の番号帯。意味が同じものは v1 の番号を�
 | JIN212 | error | summon 先の手順が `wait` を含む(陣を跨いだ待ちは不可) | `emit` に置き換える |
 | JIN213 | error | `break` が `loop` の外にある / `return` の値が `returns` の無い手順にある | |
 | JIN220 | error | `flow.exit` が公開 state 以外を参照している | `out: true` を提案 |
-| JIN221 | error | `on` の `rite` が存在しない / 引数がイベントの形と合わない(`tick` は `(dt: num)`、`key` は `(name: str, down: bool)`、`pointer` は `(p: Pointer)`、`message` は `(name: str)` + `emit` の引数) | 期待する `params` |
+| JIN221 | error | `on` の `rite` が存在しない / 引数がイベントの形と合わない(`tick` は `(dt: num)`、`key` は `(name: str, down: bool)`、`pointer` は `(p: Pointer)`、`message` は `(name: str)` + `emit` の引数、`exit` は `()`)。**手順の `params` はイベントの引数の前方部分でよい**(`tick` の手順が `params` を持たなくても合う。型が合わないときだけ落とす) | 期待する `params` |
 | JIN230 | error | `input` を道具環に持たない陣が `key` / `pointer` イベントを受けている | `addSigil` |
 | JIN240 | warning | 到達不能ステップ(`return` / `finish` / `break` の後) | 削除 |
 | JIN250 | error | `state[].init` が定数式でない | |
@@ -510,9 +513,11 @@ v1 の規律(正方形キャンバス、R=1、12 時から時計回り、`fmt_co
 | `emit` / `transfer` | 相手の陣への破線 |
 | `return` / `finish` / `break` | 環の外へ抜ける短い線 |
 
-`data-jin-kind`(v2、**11 種**。v1 の 9 種とは別集合で、別のテストが固定する):
+`data-jin-kind`(v2、**13 種**。v1 の 9 種とは別集合で、別のテストが固定する。v1 と同じく**描かれたすべての要素**が `data-jin` と `data-jin-kind` を持つ):
 
-`circle` / `core` / `rite` / `sigil` / `state` / `on` / `guard` / `delegate` / `flow-edge` / `step` / `step-edge`
+`stage` / `form` / `circle` / `core` / `rite` / `sigil` / `state` / `on` / `guard` / `delegate` / `flow-edge` / `step` / `step-edge`
+
+`stage` は最外の額縁(1 つ)、`form` は額縁の隅に並ぶ印章(型紙ごとに 1 つ)。
 
 装飾(識別紋章)は v1 の `rune` の代わりに **`core` の手順の正準 JSON の SHA-256** から生成する。トレースのオーバーレイは v1 と同じ(`upto` までに発火した `pointer` を強調色、境界環の外に点)。
 
@@ -550,7 +555,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 決定性 | 同じ `.jin` + seed + 入力ログで 2 回走らせてトレースと表示リストがバイト一致。`parallel` の子の順序を入れ替えても公開 state の系列が一致 |
 | 表示リスト | `examples/paddle` の 60 tick 分のゴールデン(JSONL スナップショット) |
 | パリティ | Playwright 1 本: `dist/index.html` を開き、録画済み `.jinrec` を再生させてトレースを取り出し、`jin run --input` の出力と一致 |
-| レンダラ | SVG スナップショット。11 種の `data-jin-kind` が `examples/paddle` で全部出る。全 pointer がモデルに解決できる |
+| レンダラ | SVG スナップショット。13 種の `data-jin-kind` が `examples/paddle` で全部出る。全 pointer がモデルに解決できる |
 | LSP / エディタ | v1 のスモークに「v2 ファイルを開く → ステップを足す → 保存 → 正準形一致」と「実行パネルで 10 tick 進めてスクラブ」を足す |
 | 契約 | `jin-wasm` が `jin-adk` / `jin-render` を import しない(import-linter)。`apps/player` が Python を import しない(eslint)。ホストが Lua を呼ぶ関数が `boot` / `tick` の 2 つだけ(TS 側を走査) |
 
@@ -572,7 +577,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 10 | 外部コード参照 | **無し**(`ref` は v2 に存在しない)。外部世界はホスト能力カタログだけ | `ref` を足すと v1 の S1 の危険性が v2 にも入る |
 | 11 | 美的制約 | 手順 12 ステップ・入れ子 3 段・記憶環 12・道具環 12 | |
 | 12 | 診断の番号帯 | v2 固有は JIN2xx。意味が同じものは v1 の番号を共有 | |
-| 13 | `data-jin-kind` | v2 は 11 種の別集合 | |
+| 13 | `data-jin-kind` | v2 は 13 種の別集合 | |
 | 14 | エディタからの実行 | 同一オリジン iframe のプレイヤー。`POST /run` は使わない | |
 | 15 | 式の正準化 | v2 では**しない**(文字列のまま保存) | v2.1 で再検討 |
 
@@ -585,7 +590,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 0 | `docs/spec/v2/` 6 本、`examples/` 3 本(手書き)、`wasm-api-probe.md`(Wasmoon / lupa の版・API・yield 制約の実測) | 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める。probe が §1.1 の事実を確定させる |
 | 1 | `jin_core.v1` への移動(公開 API 互換)+ `jin_core.v2`(model / expr / semantic / canonical / ops)+ schema 生成 + CLI の version 振り分け | v1 の全テストが緑のまま。JIN2xx 全部に fixture。examples が `check` / `fmt --check` を通る |
 | 2 | `jin-wasm`(codegen / prelude.lua / abilities カタログ / lupa runtime / `jin run` / `jin build` のバンドル) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑 |
-| 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ) | SVG スナップショットが安定。11 種が `paddle` で全部出る |
+| 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ) | SVG スナップショットが安定。13 種が `paddle` で全部出る |
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る |
 | 5 | LSP(hover / completion の v2)+ エディタ(v2 フォーム・式エディタ・実行パネル・ライブリロード) | 開く → ステップを足す → 保存 → 正準形一致。実行パネルで動く |
 | 6 | デバッグ(録画のスクラブ・state 値の表示・`assert` のバッジ) | `.jinrec` を読んでスクラブするとオーバーレイと記憶環の値が動く |
