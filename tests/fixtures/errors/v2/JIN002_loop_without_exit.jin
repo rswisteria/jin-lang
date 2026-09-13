@@ -1,0 +1,30 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Game",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Main"
+        ]
+      }
+    },
+    {
+      "name": "Main",
+      "core": "main",
+      "rites": [
+        {
+          "name": "main",
+          "steps": []
+        }
+      ]
+    }
+  ]
+}

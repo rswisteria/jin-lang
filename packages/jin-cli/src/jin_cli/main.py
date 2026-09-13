@@ -675,9 +675,19 @@ def fmt(
 
 
 @app.command()
-def schema() -> None:
-    """JSON Schema を標準出力に書く。`schemas/jin.schema.json` とバイト一致する。"""
-    sys.stdout.write(render_schema())
+def schema(
+    version: Annotated[
+        int,
+        typer.Option(
+            "--version", "-v", help="1: schemas/jin.schema.json、2: schemas/jin-v2.schema.json"
+        ),
+    ] = 1,
+) -> None:
+    """JSON Schema を標準出力に書く。コミット済みの schemas/ のファイルとバイト一致する。"""
+    if version not in (1, 2):
+        typer.echo(f"--version は 1 か 2 です: {version}", err=True)
+        raise typer.Exit(code=2)
+    sys.stdout.write(render_schema(version))
 
 
 @app.command()
@@ -723,6 +733,13 @@ def _load_model_or_exit(file: Path) -> JinFile:
     if result.model is None or not result.ok:
         typer.echo(
             "診断に error があるため続行できません（先に jin check を通してください）", err=True
+        )
+        raise typer.Exit(code=1)
+    if not isinstance(result.model, JinFile):
+        # v2（version: 2）の build / run / render は Phase 2 / 3 で入る。黙って v1 として扱わない。
+        typer.echo(
+            "version: 2 の .jin はまだ build / run / render できません（check / fmt / dump は使えます）",
+            err=True,
         )
         raise typer.Exit(code=1)
     return result.model

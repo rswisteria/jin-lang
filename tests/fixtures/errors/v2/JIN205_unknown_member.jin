@@ -1,0 +1,39 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "main",
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.rekt",
+              "args": [
+                "1",
+                "2",
+                "3",
+                "4"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

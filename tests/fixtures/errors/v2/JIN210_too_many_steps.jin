@@ -1,0 +1,94 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "main",
+      "state": [
+        {
+          "name": "count",
+          "type": "num",
+          "init": "0"
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "0"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "1"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "2"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "3"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "4"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "5"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "6"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "7"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "8"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "9"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "10"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "11"
+            },
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "12"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

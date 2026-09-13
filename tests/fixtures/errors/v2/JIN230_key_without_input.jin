@@ -1,0 +1,33 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "main",
+      "rites": [
+        {
+          "name": "main",
+          "steps": []
+        },
+        {
+          "name": "onkey",
+          "steps": []
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "key",
+            "rite": "onkey"
+          }
+        ]
+      }
+    }
+  ]
+}

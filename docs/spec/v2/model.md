@@ -34,7 +34,7 @@
 | `seed` | 任意 | num(整数値、0〜2^32-1)。既定 `0` | 乱数の seed。`jin run --seed` とプレイヤーの seed 欄が上書きできる |
 | `assets` | 任意 | Asset[]。既定 `[]` | `{ "name", "kind": "sprite" \| "sound", "path" }`。`path` は `.jin` からの相対パス |
 
-`width` / `height` / `fps` / `seed` は JSON では数値で書く(`num` 型に整数型は無いが、スキーマは `multipleOf: 1` で整数値を要求する)。
+`width` / `height` / `fps` / `seed` は JSON では**整数**で書く(`num` 型に整数型は無いが、スキーマは `"type": "integer"` で、Pydantic の strict モードは `60.0` を JIN002 にする)。
 
 ## 2. Form(型紙)
 
@@ -198,7 +198,8 @@
 | `list<T>` | `T` の可変長配列。0 始まり |
 | 型紙名 | `forms[]` の名前、または組み込み `Pointer` |
 
-`list<list<num>>` のような入れ子を許す。`type` の文字列は上の文法だけ(空白なし)。
+`list<list<num>>` のような入れ子を許す。`type` の文字列は上の文法だけ(空白なし。文法違反は JIN002)。
+文法は合っているが指す型紙が `forms` にも組み込みにも無いときは **JIN011**(参照解決の一種。設計書 §11 #20)。
 
 ### 5.2 値の等価と既定値
 

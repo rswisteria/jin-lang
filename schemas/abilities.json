@@ -1,0 +1,340 @@
+{
+  "namespaces": [
+    {
+      "name": "canvas",
+      "members": [
+        {
+          "name": "clear",
+          "params": [
+            {
+              "name": "color",
+              "type": "str"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "ink",
+          "params": [
+            {
+              "name": "color",
+              "type": "str"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "rect",
+          "params": [
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "w",
+              "type": "num"
+            },
+            {
+              "name": "h",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "circle",
+          "params": [
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "r",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "line",
+          "params": [
+            {
+              "name": "x1",
+              "type": "num"
+            },
+            {
+              "name": "y1",
+              "type": "num"
+            },
+            {
+              "name": "x2",
+              "type": "num"
+            },
+            {
+              "name": "y2",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "text",
+          "params": [
+            {
+              "name": "s",
+              "type": "str"
+            },
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "sprite",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        }
+      ]
+    },
+    {
+      "name": "input",
+      "members": [
+        {
+          "name": "key",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            }
+          ],
+          "returns": "bool",
+          "kind": "read"
+        },
+        {
+          "name": "pressed",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            }
+          ],
+          "returns": "bool",
+          "kind": "read"
+        },
+        {
+          "name": "pointer",
+          "params": [],
+          "returns": "Pointer",
+          "kind": "read"
+        }
+      ]
+    },
+    {
+      "name": "ui",
+      "members": [
+        {
+          "name": "button",
+          "params": [
+            {
+              "name": "label",
+              "type": "str"
+            },
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "w",
+              "type": "num"
+            },
+            {
+              "name": "h",
+              "type": "num"
+            }
+          ],
+          "returns": "bool",
+          "kind": "effect+read"
+        },
+        {
+          "name": "label",
+          "params": [
+            {
+              "name": "s",
+              "type": "str"
+            },
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        }
+      ]
+    },
+    {
+      "name": "audio",
+      "members": [
+        {
+          "name": "tone",
+          "params": [
+            {
+              "name": "hz",
+              "type": "num"
+            },
+            {
+              "name": "ms",
+              "type": "num"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        },
+        {
+          "name": "play",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            }
+          ],
+          "returns": null,
+          "kind": "effect"
+        }
+      ]
+    },
+    {
+      "name": "random",
+      "members": [
+        {
+          "name": "next",
+          "params": [],
+          "returns": "num",
+          "kind": "state"
+        },
+        {
+          "name": "range",
+          "params": [
+            {
+              "name": "lo",
+              "type": "num"
+            },
+            {
+              "name": "hi",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "kind": "state"
+        }
+      ]
+    }
+  ],
+  "keys": [
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown",
+    "Space",
+    "Enter",
+    "Escape",
+    "Backspace",
+    "Tab",
+    "ShiftLeft",
+    "ShiftRight",
+    "ControlLeft",
+    "ControlRight",
+    "KeyA",
+    "KeyB",
+    "KeyC",
+    "KeyD",
+    "KeyE",
+    "KeyF",
+    "KeyG",
+    "KeyH",
+    "KeyI",
+    "KeyJ",
+    "KeyK",
+    "KeyL",
+    "KeyM",
+    "KeyN",
+    "KeyO",
+    "KeyP",
+    "KeyQ",
+    "KeyR",
+    "KeyS",
+    "KeyT",
+    "KeyU",
+    "KeyV",
+    "KeyW",
+    "KeyX",
+    "KeyY",
+    "KeyZ",
+    "Digit0",
+    "Digit1",
+    "Digit2",
+    "Digit3",
+    "Digit4",
+    "Digit5",
+    "Digit6",
+    "Digit7",
+    "Digit8",
+    "Digit9"
+  ],
+  "pointer": [
+    {
+      "name": "x",
+      "type": "num"
+    },
+    {
+      "name": "y",
+      "type": "num"
+    },
+    {
+      "name": "down",
+      "type": "bool"
+    }
+  ]
+}

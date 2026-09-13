@@ -1,20 +1,89 @@
 {
-  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
   "version": 2,
   "root": "Fib",
-  "stage": { "width": 64, "height": 64 },
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
   "circles": [
-    { "name": "Fib", "core": "main",
-      "state": [ { "name": "answer", "type": "num", "init": "0", "out": true } ],
+    {
+      "name": "Fib",
+      "core": "main",
+      "state": [
+        {
+          "name": "answer",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
       "rites": [
-        { "name": "fib", "params": [ { "name": "n", "type": "num" } ], "returns": "num", "steps": [
-          { "do": "let", "name": "a", "expr": "0" }, { "do": "let", "name": "b", "expr": "1" },
-          { "do": "loop", "kind": "count", "times": "n", "steps": [
-            { "do": "let", "name": "t", "expr": "a + b" },
-            { "do": "set", "target": "a", "expr": "b" }, { "do": "set", "target": "b", "expr": "t" } ] },
-          { "do": "return", "expr": "a" } ] },
-        { "name": "main", "steps": [
-          { "do": "cast", "target": "fib", "args": ["20"], "into": "answer" },
-          { "do": "finish" } ] } ] }
+        {
+          "name": "fib",
+          "params": [
+            {
+              "name": "n",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "let",
+              "name": "a",
+              "expr": "0"
+            },
+            {
+              "do": "let",
+              "name": "b",
+              "expr": "1"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "times": "n",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "t",
+                  "expr": "a + b"
+                },
+                {
+                  "do": "set",
+                  "target": "a",
+                  "expr": "b"
+                },
+                {
+                  "do": "set",
+                  "target": "b",
+                  "expr": "t"
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "a"
+            }
+          ]
+        },
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "fib",
+              "args": [
+                "20"
+              ],
+              "into": "answer"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    }
   ]
 }

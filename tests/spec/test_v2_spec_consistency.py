@@ -4,9 +4,10 @@
 v1 の `test_spec_consistency.py` と同じ手口で、`<!-- machine-readable: <ID> -->` マーカーで囲んだ
 Markdown 表を読み、設計書の対応する表・箇条書きと突き合わせる。
 
-Phase 0 の時点では v2 の実装(`jin_core.v2`)が無いので、ここは**文書同士**と**文書と例**の一致だけを見る。
-Phase 1 以降は `jin check` が version で振り分けるようになり、`examples-v2/` は `examples/` へ移す
-(その時点でこのテストの examples の節は `jin_core.v2` を通す形に置き換える)。
+ここは**文書同士**と**文書と例**の一致を見る。実装との一致（`V2_CODES` / `OPERATIONS` / `STEP_KINDS` /
+カタログ）はこのファイルの各テストが `jin_core.v2` を import して等号で固定し、例が実装を通ることは
+`packages/jin-core/tests/test_v2_model.py` が見る。`examples-v2/` は恒久的に `examples/` の外に置く
+（`examples/` は v1 の契約が「3 本」と数える。設計書 §11 #18）。
 """
 
 from __future__ import annotations
@@ -162,6 +163,9 @@ def test_v2_ops_count_matches_the_design_document() -> None:
     )
     assert spec == design
     assert len(spec) == 32
+    from jin_core.v2.ops import OPERATIONS
+
+    assert list(OPERATIONS) == spec, "jin_core.v2.ops.OPERATIONS の順と ops.md §2 の表を揃える"
 
 
 # ---------------------------------------------------------------- examples

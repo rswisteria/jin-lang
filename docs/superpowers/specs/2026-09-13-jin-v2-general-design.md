@@ -77,8 +77,9 @@
 
 ```
 jin/
-  schemas/jin.schema.json          # v1 と v2 の oneOf(version で判別)。Pydantic から生成
-  schemas/abilities.json           # ホスト能力カタログ。Pydantic から生成(§3.4)
+  schemas/jin.schema.json          # v1(1 バイトも変えない。§11 #16)
+  schemas/jin-v2.schema.json       # v2 のスキーマ(jin_core.v2.model から生成。`jin schema --version 2`)
+  schemas/abilities.json           # ホスト能力カタログ(jin_core.v2.abilities から生成。§3.4 / §11 #19)
   docs/spec/
     v2/model.md                    # v2 モデル仕様
     v2/expr.md                     # 葉の式文法と型規則
@@ -89,18 +90,19 @@ jin/
     v2/diagnostics.md              # JIN2xx(番号帯は v1 と分ける。v1 の diagnostics.md は触らない)
     v2/ops.md                      # v2 のオペレーション(v1 の ops.md は触らない)
   packages/
-    jin-core/src/jin_core/v1/      # 既存のモデル・意味検査・ops を移す(公開 API は互換)
-    jin-core/src/jin_core/v2/      # model / expr(文法・型) / semantic / ops
-    jin-core/src/jin_core/load.py  # version で v1 / v2 へ振り分ける唯一の入口
-    jin-wasm/src/jin_wasm/         # codegen(v2 → JIL)/ prelude.lua / abilities / runtime(lupa)
+    jin-core/src/jin_core/         # v1 のモジュールは動かさない(§11 #17。全パッケージがフルパスで import している)
+    jin-core/src/jin_core/v2/      # model / expr(文法・型) / spans / abilities(カタログの正本) / semantic / ops
+    jin-core/src/jin_core/check.py # root_model_for が version で v1 / v2 へ振り分ける唯一の入口
+    jin-wasm/src/jin_wasm/         # codegen(v2 → JIL)/ prelude.lua / runtime(lupa)。カタログは jin_core.v2.abilities を import
     jin-render/src/jin_render/v2/  # v2 レイアウト
   apps/
     editor/                        # 既存。実行パネル(iframe)と v2 のフォームを足す
     player/                        # 新規。Wasmoon + canvas + 入力 + 音。ビルド物は jin-wasm がバンドルに同梱
-  examples-v2/                     # Phase 1 で jin check が version を振り分けるまでは examples/ の外に置く
-    paddle/paddle.jin              # §2.2 の例(ボールとパドル)  (v1 のテストが `jin check examples` を
-    clicker/clicker.jin            # UI だけのゲーム(ui.button / ui.label)   全走査するため。Phase 1 で examples/ へ移す)
+  examples-v2/                     # 恒久的に examples/ の外(§11 #18。examples/ は v1 の契約が「3 本」と数える)
+    paddle/paddle.jin              # §2.2 の例(ボールとパドル)
+    clicker/clicker.jin            # UI だけのゲーム(ui.button / ui.label)。wait を含むループの実例
     fib/fib.jin                    # 純粋な計算(§2.5)
+  tests/fixtures/errors/v2/        # v2 の診断 fixture(各コードちょうど 1 つ。v1 の走査は非再帰なので混ざらない)
 ```
 
 依存は一方向のまま:
@@ -159,10 +161,10 @@ circle は v1 と同じ 2 種。**核あり**(`core` を持つ → 実行単位)
 
 ```json
 {
-  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
   "version": 2,
   "root": "Game",
-  "stage": { "width": 320, "height": 180, "fps": 60, "seed": 7 },
+  "stage": { "width": 320, "height": 180, "seed": 7 },
   "forms": [
     { "name": "Ball", "fields": [
       { "name": "x", "type": "num" }, { "name": "y", "type": "num" },
@@ -584,6 +586,11 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | 13 | `data-jin-kind` | v2 は 13 種の別集合 | |
 | 14 | エディタからの実行 | 同一オリジン iframe のプレイヤー。`POST /run` は使わない | |
 | 15 | 式の正準化 | v2 では**しない**(文字列のまま保存) | v2.1 で再検討 |
+| 16 | schema のファイル(Phase 1 で確定) | v2 は**別ファイル** `schemas/jin-v2.schema.json`。`jin.schema.json` は 1 バイトも変えない。`jin schema --version 2` で出す | `apps/editor` のフォーム生成がルートの `properties` を直接読むので、ルートを oneOf にすると Phase 5 の前にエディタが壊れる。§1.1 の「oneOf」はこれで置き換える |
+| 17 | `jin_core.v1` への物理移動(Phase 1 で確定) | **しない**。v1 のモジュールはそのまま、`jin_core/v2/` を足すだけ | 全パッケージが `jin_core.<mod>` をフルパスで import しており、移動は 4 パッケージ横断の変更で得るものが無い |
+| 18 | `examples-v2/` の置き場(Phase 1 で確定) | **恒久的に `examples/` の外**。CI は `examples-v2` にも `check` / `fmt --check` を掛ける | `examples/` は「3 本」を等号で数える契約が複数あり、`jin-adk` / `jin-render` のテストが v1 前提で glob している |
+| 19 | ホスト能力カタログの正本(Phase 1 で確定) | `jin_core.v2.abilities`(純データ)。`schemas/abilities.json` はそこから生成し、Phase 2 の `jin_wasm` はそれを import する | `jin_core` は `jin_wasm` を import できず、インストール済みパッケージから `schemas/` も見つけられない。依存方向もこの向きが正しい |
+| 20 | 型文字列が指す型紙の未定義(Phase 1 で確定) | JIN011(参照解決の一種) | 新しい番号を切らない |
 
 ---
 
@@ -592,7 +599,7 @@ v1 と同じく JSON Pointer で対象を指し、逆オペレーションを応
 | Phase | 内容 | 完了条件 |
 |---|---|---|
 | 0 | `docs/spec/v2/` 8 本、`examples-v2/` 3 本(手書き)、`wasm-api-probe.md`(Wasmoon / lupa の版・API・yield 制約の実測)、`tests/spec/test_v2_spec_consistency.py`(設計書と仕様書と例の突合) | 仕様に自己矛盾がない。§2.2 の例が仕様どおりに読める。probe が §1.1 の事実を確定させる |
-| 1 | `jin_core.v1` への移動(公開 API 互換)+ `jin_core.v2`(model / expr / semantic / canonical / ops)+ schema 生成 + CLI の version 振り分け | v1 の全テストが緑のまま。JIN2xx 全部に fixture。examples が `check` / `fmt --check` を通る |
+| 1 | `jin_core.v2`(model / expr / spans / abilities / semantic / ops)+ `jin-v2.schema.json` / `abilities.json` の生成 + `check_text` の version 振り分け + CLI(`schema --version 2`、`build` / `run` / `render` は v2 を明示的に拒む)+ LSP は v2 の診断だけ運ぶ | v1 の全テストが緑のまま。JIN2xx と共有番号の全部に fixture。`examples-v2` が `check` / `fmt --check` を通る。32 件の ops が往復でバイト一致(**実装済み**) |
 | 2 | `jin-wasm`(codegen / prelude.lua / abilities カタログ / lupa runtime / `jin run` / `jin build` のバンドル) | examples 3 本が `jin run --ticks 300` で回り、決定性テストが通る。JIL 禁止語の走査が緑 |
 | 3 | `jin_render.v2`(陣 / 手順 focus / トレースオーバーレイ) | SVG スナップショットが安定。13 種が `paddle` で全部出る |
 | 4 | `apps/player`(Wasmoon ホスト / canvas / 入力 / 音 / `.jinrec` 録画)+ `dist/index.html` | `dist/` をブラウザで開いて `paddle` が遊べる。パリティ(Playwright)が通る |

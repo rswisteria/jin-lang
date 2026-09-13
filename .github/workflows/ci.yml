@@ -80,6 +80,11 @@ jobs:
       - name: Detect JSON Schema drift
         run: uv run jin schema | diff -u schemas/jin.schema.json -
 
+      # Jin v2 の生成物（設計書 §11 #16 / #19）。ツリーを書き換えずに比較する（W-04 と同じ）。
+      # abilities.json のドリフトは packages/jin-core/tests/test_v2_model.py が pytest 側で固定する。
+      - name: Detect Jin v2 schema drift
+        run: uv run jin schema --version 2 | diff -u schemas/jin-v2.schema.json -
+
       # 要件書 §9「examples/**/*.jin が全て validate を通る」
       - name: Check examples
         run: uv run jin check examples
@@ -87,6 +92,10 @@ jobs:
       # NFR-DET-002: examples が正準形であること。
       - name: Check canonical form of examples
         run: uv run jin fmt --check examples
+
+      # Jin v2 の例（examples/ の外に置く理由は設計書 §11 #18）。
+      - name: Check examples-v2
+        run: uv run jin check examples-v2 && uv run jin fmt --check examples-v2
 
       # docs/document-review-agent.md の「動くサンプル」。examples/ の 3 本とは別枠
       # （本数を固定する契約テストがあるので examples/ には足さない）。

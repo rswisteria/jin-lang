@@ -116,6 +116,10 @@ class DocumentStore:
         """
         previous = self._documents.get(uri)
         result: CheckResult = check_text(text, self._file_name(uri))
+        if not isinstance(result.model, JinFile):
+            # v2（version: 2）のモデルは Phase 1 では診断だけを運ぶ。hover / renderSvg / applyOps は
+            # 「モデル無し」として扱う（v2 のレンダラと ops は Phase 3 / 5）。
+            result.model = None
         lines = split_lines(text)
         state = DocumentState(
             uri=uri,

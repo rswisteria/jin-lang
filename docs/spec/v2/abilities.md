@@ -1,8 +1,9 @@
 # Jin v2 ホスト能力カタログ(abilities.md)
 
-> 正典。設計書 §3.4 の実装仕様。実装は Phase 2 の `jin_wasm.abilities`(Pydantic)で、
-> そこから `schemas/abilities.json` を生成する。**補完・型検査(jin-core)・Lua プレリュード・
-> プレイヤーの TS 型**の 4 つが同じカタログを読む。手で 4 か所に書かない。
+> 正典。設計書 §3.4 の実装仕様。実装(正本)は **`jin_core.v2.abilities`**(純データ)で、
+> そこから `schemas/abilities.json` を生成する(設計書 §11 #19)。**補完・型検査(jin-core)・
+> Lua プレリュード(Phase 2 の `jin_wasm`)・プレイヤーの TS 型**の 4 つが同じカタログを読む。
+> 手で 4 か所に書かない。
 
 ## 0. 原則
 
@@ -101,4 +102,9 @@ PCG32(`state`, `inc` の 64 bit 整数 2 つ)。seed は `stage.seed`(CLI の `-
   "keys": [ "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Enter", "Escape", "KeyA", … ] }
 ```
 
-`jin_core.v2.semantic` はこのファイルを**読む**(`jin_core` は `jin_wasm` に依存できないので、生成物の JSON を `schemas/` から読む。v1 で `apps/editor` が `jin.schema.json` を読むのと同じ向き)。生成元は `jin_wasm.abilities`、ドリフトは CI の `scripts/generate_schema.py` が検出する。
+正本は `jin_core.v2.abilities`(`NAMESPACES` / `KEY_NAMES` / `POINTER_FIELDS`)で、`jin_core.v2.semantic` は
+それを直接 import する。`schemas/abilities.json` は `scripts/generate_schema.py` が同じデータから出す生成物で、
+`jin_wasm`(Phase 2)と `apps/player` が読む。ドリフトは `packages/jin-core/tests/test_v2_model.py` と CI が検出する。
+（当初は「`jin_wasm` が生成し `jin_core` が JSON を読む」としていたが、`jin_core` は `jin_wasm` を import できず、
+インストール済みパッケージから `schemas/` も見つけられないので、正本を最下層に置いた。設計書 §11 #19。）
+`pointer` 配列は組み込みの型紙 `Pointer` の欄。

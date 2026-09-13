@@ -1,0 +1,88 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Main",
+      "core": "main",
+      "state": [
+        {
+          "name": "s0",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s1",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s2",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s3",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s4",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s5",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s6",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s7",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s8",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s9",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s10",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s11",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "s12",
+          "type": "num",
+          "init": "0"
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": []
+        }
+      ]
+    }
+  ]
+}

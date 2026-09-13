@@ -22,6 +22,22 @@ from jin_core.model import JinFile
 from jin_core.parser import JinSyntaxError, PointerTable, parse_text
 from jin_core.pointer import is_index_token, loc_to_pointer, parent_of, split_pointer
 from jin_core.resolver import RefResolver
+from jin_core.v2 import semantic as semantic_v2
+from jin_core.v2.model import JinFileV2
+
+#: ルートモデルの型（version で振り分ける）。
+RootModel = JinFile | JinFileV2
+
+
+def root_model_for(document: Any) -> type[JinFile | JinFileV2]:
+    """`version` を見てルートモデルのクラスを返す。**振り分けはここ 1 か所**。
+
+    `version` が無い / 1 / それ以外は v1 のモデルに渡す（v1 の `Literal[1]` が JIN002 を出し、
+    hint に許容値 1 を載せる。2 と書いた人だけが v2 に入る）。
+    """
+    if isinstance(document, dict) and document.get("version") == 2:
+        return JinFileV2
+    return JinFile
 
 
 class JinReadError(Exception):
@@ -64,7 +80,7 @@ class CheckResult:
     diagnostics: list[Diagnostic] = field(default_factory=list)
     value: Any = None
     table: PointerTable | None = None
-    model: JinFile | None = None
+    model: RootModel | None = None
 
     @property
     def ok(self) -> bool:
@@ -104,7 +120,7 @@ def _model_at(pointer: str, document: Any) -> list[type[BaseModel]]:
     判別共用体（tools[]）はソース側の `kind` を見て 1 つに絞る。絞れなければ候補を全部返す。
     モデル定義から動的に辿るので、モデルを変えても追随する（キー名をハードコードしない）。
     """
-    current: list[type[BaseModel]] = [JinFile]
+    current: list[type[BaseModel]] = [root_model_for(document)]
     node = document
     for token in split_pointer(pointer):
         if isinstance(node, list):
@@ -112,8 +128,8 @@ def _model_at(pointer: str, document: Any) -> list[type[BaseModel]]:
                 node = node[int(token)]
             else:
                 return []
-            if len(current) > 1 and isinstance(node, dict) and "kind" in node:
-                current = [c for c in current if _kind_of(c) == node["kind"]] or current
+            if len(current) > 1 and isinstance(node, dict):
+                current = _narrow(current, node)
             continue
 
         nxt: list[type[BaseModel]] = []
@@ -126,15 +142,29 @@ def _model_at(pointer: str, document: Any) -> list[type[BaseModel]]:
         current = nxt
         if isinstance(node, dict) and token in node:
             node = node[token]
-            if isinstance(node, dict) and "kind" in node and len(current) > 1:
-                current = [c for c in current if _kind_of(c) == node["kind"]] or current
+            if isinstance(node, dict) and len(current) > 1:
+                current = _narrow(current, node)
         else:
             return current
     return current
 
 
-def _kind_of(cls: type[BaseModel]) -> str | None:
-    info = cls.model_fields.get("kind")
+#: 判別共用体のタグに使うキー。v1 の tools は `kind`、v2 のステップは `do`。
+_DISCRIMINATORS = ("kind", "do")
+
+
+def _narrow(candidates: list[type[BaseModel]], node: dict[str, Any]) -> list[type[BaseModel]]:
+    """ソース側のタグ値で判別共用体の候補を 1 つに絞る。絞れなければ候補を全部返す。"""
+    for key in _DISCRIMINATORS:
+        if key in node:
+            narrowed = [c for c in candidates if _tag_of(c, key) == node[key]]
+            if narrowed:
+                return narrowed
+    return candidates
+
+
+def _tag_of(cls: type[BaseModel], key: str) -> str | None:
+    info = cls.model_fields.get(key)
     if info is None:
         return None
     args = get_args(info.annotation)
@@ -169,6 +199,11 @@ def _hint_for(error: dict[str, Any], pointer: str, document: Any) -> str:
         token = split_pointer(pointer)[-1] if pointer else ""
         return f"必須キー '{token}' を追加してください"
     if kind == "union_tag_invalid":
+        context = error.get("ctx") or {}
+        tag = context.get("discriminator", "'kind'").strip("'")
+        expected = context.get("expected_tags")
+        if expected:
+            return f"{tag} は {expected} のいずれかです"
         return "kind は tool / builtin / summon のいずれかです"
     context = error.get("ctx") or {}
     if "expected" in context:
@@ -230,16 +265,20 @@ def check_text(text: str, file: str, *, resolver: RefResolver | None = None) -> 
     result.value = parsed.value
     result.table = parsed.table
 
-    # ---- 段 2: スキーマ -----------------------------------------------------------
+    # ---- 段 2: スキーマ（version で v1 / v2 のルートモデルへ振り分ける）-----------------
+    root = root_model_for(parsed.value)
     try:
-        model = JinFile.model_validate(parsed.value)
+        model = root.model_validate(parsed.value)
     except ValidationError as exc:
         result.diagnostics.extend(_schema_diagnostics(exc, parsed.value, parsed.table, file))
         return result
     result.model = model
 
     # ---- 段 3: 意味 ---------------------------------------------------------------
-    result.diagnostics.extend(semantic.analyze(model, parsed.table, file, resolver=resolver))
+    if isinstance(model, JinFileV2):
+        result.diagnostics.extend(semantic_v2.analyze(model, parsed.table, file, source=text))
+    else:
+        result.diagnostics.extend(semantic.analyze(model, parsed.table, file, resolver=resolver))
     return result
 
 
@@ -285,8 +324,10 @@ def models_at(pointer: str, document: Any) -> list[type[BaseModel]]:
 __all__ = [
     "CheckResult",
     "JinReadError",
+    "RootModel",
     "check_file",
     "check_text",
     "models_at",
     "read_source",
+    "root_model_for",
 ]
