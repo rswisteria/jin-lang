@@ -162,6 +162,9 @@ def test_v2_ops_count_matches_the_design_document() -> None:
     )
     assert spec == design
     assert len(spec) == 32
+    from jin_core.v2.ops import OPERATIONS
+
+    assert list(OPERATIONS) == spec, "jin_core.v2.ops.OPERATIONS の順と ops.md §2 の表を揃える"
 
 
 # ---------------------------------------------------------------- examples

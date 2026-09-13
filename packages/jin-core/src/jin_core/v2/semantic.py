@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from jin_core.diagnostics import MAX_ELEMENTS, Diagnostic, Range, severity_of
+from jin_core.diagnostics import MAX_ELEMENTS, Diagnostic, Position, Range, severity_of
 from jin_core.parser import PointerTable
 from jin_core.semantic import _find_cycle, _sorted, close_names
 from jin_core.v2 import abilities
@@ -78,6 +78,8 @@ class _Analyzer:
         self.file = file
         self.lines = source.split("\n") if source is not None else None
         self.out: list[Diagnostic] = []
+        #: 型検査を通った式の AST（pointer → 型注記付きノード）。`rename` の参照追随が読む。
+        self.nodes: dict[str, ex.Node] = {}
         self.circles = {c.name: c for c in model.circles}
         self.forms: dict[str, dict[str, str]] = dict(BUILTIN_FORMS)
         for form in model.forms:
@@ -990,6 +992,7 @@ class _Analyzer:
         result = ex.check_expr(node, scope, expected)
         for issue in result.issues:
             self.emit_at(issue.code, pointer, issue.span, issue.message, issue.hint)
+        self.nodes[pointer] = node
         return result.type
 
 
@@ -1044,6 +1047,18 @@ def analyze(
     return _sorted(analyzer.out)
 
 
+def typed_nodes(model: JinFileV2) -> tuple[dict[str, ex.Node], list[Diagnostic]]:
+    """全ての式の型注記付き AST（pointer → Node）と、その際の診断を返す。
+
+    `rename` の型紙欄追随（docs/spec/v2/ops.md §3）が使う。位置情報は要らないので、
+    対応表は空（診断の range はルートに落ちる）。
+    """
+    table = PointerTable(value_ranges={"": Range(Position(1, 1), Position(1, 1))})
+    analyzer = _Analyzer(model, table, "<memory>", None)
+    analyzer.run()
+    return analyzer.nodes, analyzer.out
+
+
 #: hint を個別に書いていない診断に付ける既定の直し方（要件書 §5「hint は具体的な値」の最低限）。
 _FALLBACK_HINTS: dict[str, str] = {
     "JIN010": "別の名前に変えてください",
@@ -1059,4 +1074,4 @@ def _fallback_hint(code: str) -> str:
     return _FALLBACK_HINTS.get(code, "docs/spec/v2/diagnostics.md を参照")
 
 
-__all__ = ["BUILTIN_FORMS", "EVENT_PARAMS", "MAX_NESTING", "MAX_STEPS", "analyze"]
+__all__ = ["BUILTIN_FORMS", "EVENT_PARAMS", "MAX_NESTING", "MAX_STEPS", "analyze", "typed_nodes"]
