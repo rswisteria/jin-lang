@@ -223,6 +223,34 @@ class _Generator:
                 parts.append(f"'{_json_key(field_name)}' .. {self.serializer(type_text)}(v.f_{j})")
             body = " .. ',' .. ".join(parts) if parts else "''"
             self.out(f"JF[{info.index}] = function(v) return '{{' .. {body} .. '}}' end  -- {name}")
+            if self.debug:
+                self.out(self.form_reader(name, info))
+
+    def reader(self, type_text: str) -> str:
+        """型に対応する resume の読み手の Lua 式（`RN` / `RB` / `RSTR` / `JR[k]` / `RL(...)`）。
+
+        JSON（ホストのテーブル）を型どおりの Lua の値にし、合わなければ nil を返す関数。
+        """
+        head, inner = parse_type(type_text)
+        if head == "list":
+            assert inner is not None
+            return f"RL({self.reader(inner)})"
+        if head in self.forms:
+            return f"JR[{self.forms[head].index}]"
+        return {"num": "RN", "bool": "RB", "str": "RSTR"}.get(head, "RN")
+
+    def form_reader(self, name: str, info: _FormInfo) -> str:
+        """`JR[k]`: 型紙 k の読み手（欄が 1 つでも合わなければ nil）。debug だけに出す。"""
+        reads = " ".join(
+            f"local f_{j} = {self.reader(type_text)}(v[{lua_string(field_name)}])"
+            for field_name, (j, type_text) in info.fields.items()
+        )
+        misses = " or ".join(f"f_{j} == nil" for _, (j, _) in info.fields.items()) or "false"
+        fields = ", ".join(f"f_{j} = f_{j}" for _, (j, _) in info.fields.items())
+        return (
+            f"JR[{info.index}] = function(v) if RREC(v) == nil then return nil end {reads} "
+            f"if {misses} then return nil end return {{ {fields} }} end  -- {name}"
+        ).replace("  if false then", " if false then")
 
     # ---------------------------------------------------------------- 式
     def expr(self, node: ex.Node, ctx: _RiteCtx | None, info: _CircleInfo | None) -> str:
@@ -598,6 +626,28 @@ class _Generator:
                 self.out(f"dump = function() return '{{' .. {dump} .. '}}' end,", 1)
             else:
                 self.out("dump = function() return '{}' end,", 1)
+            # 状態を保った差し替え（runtime.md §1 の manifest.resume・設計書 §11 #42）: 名前で引き、
+            # 形が合う欄だけを写す。公開 state の確定値 P は別に写す（#43）。
+            restores = " ".join(
+                f"do local x = {self.reader(s.type)}(v[{lua_string(s.name)}]) "
+                f"if x ~= nil then S[{i}].k_{j} = x end end"
+                for j, s in enumerate(circle.state)
+            )
+            self.out(f"restore = function(v) {restores} end,".replace("(v)  end", "(v) end"), 1)
+            prestores = " ".join(
+                f"do local x = {self.reader(s.type)}(v[{lua_string(s.name)}]) "
+                f"if x ~= nil then P[{i}].k_{j} = x end end"
+                for j, s in outs
+            )
+            self.out(f"prestore = function(v) {prestores} end,".replace("(v)  end", "(v) end"), 1)
+            if outs:
+                pdump = " .. ',' .. ".join(
+                    f"'{_json_key(s.name)}' .. {self.serializer(s.type)}(P[{i}].k_{j})"
+                    for j, s in outs
+                )
+                self.out(f"pdump = function() return '{{' .. {pdump} .. '}}' end,", 1)
+            else:
+                self.out("pdump = function() return '{}' end,", 1)
         core_index = info.rites[circle.core or ""]
         self.out(
             f"core = R[{i}][{core_index}], core_waits = {_lua_bool(info.waits[circle.core or ''])},",

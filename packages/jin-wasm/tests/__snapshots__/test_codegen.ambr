@@ -70,6 +70,7 @@
   ROOT = 1
   FPS = 60.0
   JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JR[0] = function(v) if RREC(v) == nil then return nil end local f_0 = RN(v["x"]) local f_1 = RN(v["y"]) local f_2 = RB(v["down"]) if f_0 == nil or f_1 == nil or f_2 == nil then return nil end return { f_0 = f_0, f_1 = f_1, f_2 = f_2 } end  -- Pointer
   R[1] = {}
   -- circle 0: Clicker
   R[1][1] = function()  -- grow
@@ -133,6 +134,9 @@
     publish = function() P[1].k_0 = S[1].k_0 end,
     pub = function() return '"Clicker.count":' .. JV(P[1].k_0) end,
     dump = function() return '{' .. '"count":' .. JV(S[1].k_0) .. ',' .. '"rate":' .. JV(S[1].k_1) .. ',' .. '"bonus":' .. JV(S[1].k_2) .. '}' end,
+    restore = function(v) do local x = RN(v["count"]) if x ~= nil then S[1].k_0 = x end end do local x = RN(v["rate"]) if x ~= nil then S[1].k_1 = x end end do local x = RSTR(v["bonus"]) if x ~= nil then S[1].k_2 = x end end end,
+    prestore = function(v) do local x = RN(v["count"]) if x ~= nil then P[1].k_0 = x end end end,
+    pdump = function() return '{' .. '"count":' .. JV(P[1].k_0) .. '}' end,
     core = R[1][1], core_waits = true,
     on = { tick = R[1][2] },
     on_waits = { tick = false },
@@ -151,6 +155,7 @@
   ROOT = 1
   FPS = 60.0
   JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JR[0] = function(v) if RREC(v) == nil then return nil end local f_0 = RN(v["x"]) local f_1 = RN(v["y"]) local f_2 = RB(v["down"]) if f_0 == nil or f_1 == nil or f_2 == nil then return nil end return { f_0 = f_0, f_1 = f_1, f_2 = f_2 } end  -- Pointer
   R[1] = {}
   -- circle 0: Fib
   R[1][1] = function(l_0)  -- fib
@@ -188,6 +193,9 @@
     publish = function() P[1].k_0 = S[1].k_0 end,
     pub = function() return '"Fib.answer":' .. JV(P[1].k_0) end,
     dump = function() return '{' .. '"answer":' .. JV(S[1].k_0) .. '}' end,
+    restore = function(v) do local x = RN(v["answer"]) if x ~= nil then S[1].k_0 = x end end end,
+    prestore = function(v) do local x = RN(v["answer"]) if x ~= nil then P[1].k_0 = x end end end,
+    pdump = function() return '{' .. '"answer":' .. JV(P[1].k_0) .. '}' end,
     core = R[1][2], core_waits = false,
   }
   return { boot = boot, tick = tick }
@@ -200,7 +208,9 @@
   ROOT = 1
   FPS = 60.0
   JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JR[0] = function(v) if RREC(v) == nil then return nil end local f_0 = RN(v["x"]) local f_1 = RN(v["y"]) local f_2 = RB(v["down"]) if f_0 == nil or f_1 == nil or f_2 == nil then return nil end return { f_0 = f_0, f_1 = f_1, f_2 = f_2 } end  -- Pointer
   JF[1] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"vx":' .. JV(v.f_2) .. ',' .. '"vy":' .. JV(v.f_3) .. '}' end  -- Ball
+  JR[1] = function(v) if RREC(v) == nil then return nil end local f_0 = RN(v["x"]) local f_1 = RN(v["y"]) local f_2 = RN(v["vx"]) local f_3 = RN(v["vy"]) if f_0 == nil or f_1 == nil or f_2 == nil or f_3 == nil then return nil end return { f_0 = f_0, f_1 = f_1, f_2 = f_2, f_3 = f_3 } end  -- Ball
   R[2] = {}
   R[3] = {}
   -- circle 1: Play
@@ -328,6 +338,9 @@
     publish = function() P[2].k_2 = S[2].k_2 end,
     pub = function() return '"Play.score":' .. JV(P[2].k_2) end,
     dump = function() return '{' .. '"ball":' .. JF[1](S[2].k_0) .. ',' .. '"paddle":' .. JV(S[2].k_1) .. ',' .. '"score":' .. JV(S[2].k_2) .. '}' end,
+    restore = function(v) do local x = JR[1](v["ball"]) if x ~= nil then S[2].k_0 = x end end do local x = RN(v["paddle"]) if x ~= nil then S[2].k_1 = x end end do local x = RN(v["score"]) if x ~= nil then S[2].k_2 = x end end end,
+    prestore = function(v) do local x = RN(v["score"]) if x ~= nil then P[2].k_2 = x end end end,
+    pdump = function() return '{' .. '"score":' .. JV(P[2].k_2) .. '}' end,
     core = R[2][1], core_waits = false,
     on = { tick = R[2][3] },
     on_waits = { tick = false },
@@ -342,6 +355,9 @@
     publish = function() P[3].k_0 = S[3].k_0 end,
     pub = function() return '"Result.quit":' .. JV(P[3].k_0) end,
     dump = function() return '{' .. '"quit":' .. JV(S[3].k_0) .. '}' end,
+    restore = function(v) do local x = RB(v["quit"]) if x ~= nil then S[3].k_0 = x end end end,
+    prestore = function(v) do local x = RB(v["quit"]) if x ~= nil then P[3].k_0 = x end end end,
+    pdump = function() return '{' .. '"quit":' .. JV(P[3].k_0) .. '}' end,
     core = R[3][1], core_waits = true,
     on = { tick = R[3][2] },
     on_waits = { tick = false },

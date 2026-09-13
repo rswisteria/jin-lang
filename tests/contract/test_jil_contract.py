@@ -32,7 +32,8 @@ SOURCES = sorted(
 IDS = [p.stem for p in SOURCES]
 
 #: 生成部が書き換えてよいプレリュードの局所（プレリュード先頭のコメントと 1:1）。
-PROGRAM_ASSIGNMENTS = {"DEBUG", "ROOT", "FPS", "CIRCLES", "R", "JF"}
+# `JR`（型紙の読み手。resume 用）は debug だけに出る（jil.md §1・設計書 §11 #42）。
+PROGRAM_ASSIGNMENTS = {"DEBUG", "ROOT", "FPS", "CIRCLES", "R", "JF", "JR"}
 
 
 def games():
