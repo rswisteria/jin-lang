@@ -12,7 +12,7 @@ JIL を読む**前**に次を行う（probe §B.2 の実測に基づく）:
 - `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` /
   `collectgarbage` を `None` にし、`string.dump` も消す
 - 命令数の上限（`INSTRUCTION_BUDGET`）を `debug.sethook` の count hook で掛ける。hook は
-  `debug` を消した後も生きる（probe_lupa2.py・2026-09-13 実測）。`arm` はこのモジュールだけが
+  `debug` を消した後も生きる（probe §B.7 の実測）。`arm` はこのモジュールだけが
   握り、Lua のグローバルには置かない。boot と毎 tick の前に掛け直す。上限を超えると
   `{code = "budget"}` がスケジューラの `pcall` に捕まり、`error` 行 + `done = true` になる。
   JSON 直列化の途中で超えたときだけ `LuaError` としてここまで届くので `RunError` にする

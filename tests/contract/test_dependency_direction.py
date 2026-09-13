@@ -124,6 +124,20 @@ def test_import_linter_passes_on_the_real_tree() -> None:
         ),
         # 兄弟の逆向き（`jin_adk` → `jin_render`）も layers 契約が落とす
         ("jin_adk", "trace.py", "import jin_render", "一方向"),
+        # Jin v2 Phase 2 で足した `jin_wasm`（3 兄弟目）も同じ理由で実測する。
+        # `"jin_adk | jin_render | jin_wasm"` の 1 要素から `jin_wasm` が抜けても
+        # 兄弟間の import が通ってしまうだけで全部緑のままになる
+        ("jin_wasm", "codegen.py", "import google.adk", "google-adk"),
+        ("jin_wasm", "codegen.py", "import jin_adk", "一方向"),
+        ("jin_wasm", "runtime.py", "import jin_render", "一方向"),
+        ("jin_adk", "trace.py", "import jin_wasm", "一方向"),
+        ("jin_render", "svg.py", "import jin_wasm", "一方向"),
+        (
+            "jin_wasm",
+            "runtime.py",
+            "from jin_cli.resolver import ImportResolver",
+            "jin_cli.resolver",
+        ),
     ],
 )
 def test_import_linter_actually_bites_on_a_forbidden_import(

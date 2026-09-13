@@ -772,7 +772,11 @@ def _load_model_or_exit(file: Path, *, v2: bool = False) -> JinFile | JinFileV2:
 def build(
     file: Annotated[Path, typer.Argument(help="対象の .jin")],
     out: Annotated[
-        Path, typer.Option("--out", help="出力先ディレクトリ（<out>/<root_name>/ を作る）")
+        Path,
+        typer.Option(
+            "--out",
+            help="出力先ディレクトリ（v1 は <out>/<root_name>/ を作る。v2 は <out>/ 直下に書く）",
+        ),
     ],
     force: Annotated[
         bool, typer.Option("--force", help="既存の生成物（3 ファイル）を上書きする")

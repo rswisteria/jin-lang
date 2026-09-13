@@ -178,5 +178,5 @@ hover の ADK クラス名は `docs/spec/adk-mapping.md` 由来の静的な辞�
 `jin-wasm` は **`jin-core` と `lupa` だけ**に依存する（設計書 §1.2）。`jin-core` / `jin-render` /
 `jin-lsp` は `lupa` に依存しない。命令数の上限（`jin_wasm.runtime.INSTRUCTION_BUDGET`）は
 `debug.sethook` の count hook で掛け、`debug` を nil にした後も hook が生きることを
-`/home/wisteria/.claude/jobs/8e42df6b/tmp/probe_lupa2.py`（2026-09-13）で実測した
+`wasm-api-probe.md` §B.7（2026-09-13。スクリプト抜粋と生出力を転記してある）で実測した
 （`pcall` の中では `{code = "budget"}` として捕まり、外では `LuaError` になる）。

@@ -450,7 +450,7 @@ v1 の `jin run` が持つ危険性(`ref` の import)は v2 に**無い**。JIL 
 
 ```
 { "seq", "tick", "circle", "kind", "name", "pointer", "input", "output" }
-kind: enter | exit | event | rite | cast | set | emit | transfer | wait | finish | assert | frame
+kind: enter | exit | event | rite | cast | set | emit | transfer | wait | finish | assert | error | frame
 ```
 
 `set` は **state の書き込みだけ**を記録する(局所変数は記録しない)。エディタのスクラバは `set` 行を積算して「その tick の記憶環の値」を出す。`frame` 行は §4.3 の表示リスト。`pointer` は発火したステップ / 手順 / 陣の JSON Pointer で、`jin_render.v2` の `data-jin` と同じ鍵。

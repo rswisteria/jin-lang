@@ -20,6 +20,11 @@
   `os.path.commonpath` で確かめ、`O_NOFOLLOW` で開いて通常ファイルであることを見る
 - **中途半端に残さない**: 失敗したら今作ったファイル / 一時ファイル / ディレクトリだけを片付ける
 
+**残存**: asset の `realpath` の検査と `O_NOFOLLOW` の open の間には窓がある（TOCTOU）。
+その間に中間ディレクトリのリンクを差し替えられると、検査を通った別のファイルを読む。
+v1 の `jin check <dir>` / `fmt` の読み取りと同じ種類の残存で、最後の open が symlink 自体を
+辿らないことまでは保証する。**信頼しないディレクトリの `.jin` を `jin build` しない**
+
     guard: _open_out_dir -> os.O_NOFOLLOW
     guard: _open_out_dir -> os.O_DIRECTORY
     guard: _open_for_write -> os.O_EXCL

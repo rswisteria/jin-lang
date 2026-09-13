@@ -156,7 +156,7 @@ jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--trace t.jsonl] [
 - `--trace` は §5 の行(`--debug` を暗黙に立てる)。`--frames` は `frame` 行だけを別ファイルに(トレース無しでも出せる)
 - 標準出力には最後の tick の公開 state を JSON で 1 行出す(`{"Play.score": 3, "Result.quit": true}`)
 - lupa は **`lupa.lua54`** を明示する(lupa 2.8 の既定 `LuaRuntime` は Lua 5.5.1。probe B.1)。`LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True)` で作り、`globals().python = None` と `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` への `None` 代入を**JIL を読む前**に行う(`register_eval=False` だけでは `python.builtins` が残る。probe B.2)。JIL 自体はこれらを使わない(`jil.md`)ので、封じるのは多層防御。`string.dump` も消す
-- **命令数の上限**: `boot` と毎 `tick` の前に `debug.sethook` の count hook を掛け直す(`jin_wasm.runtime.INSTRUCTION_BUDGET` = 10^7。examples-v2 の 1 tick は 1 万命令に満たない。hook は `debug` を nil にした後も生きる・probe_lupa2.py 実測)。超えると `{code = "budget"}` がスケジューラの `pcall` に捕まり `error` 行 + `done = true` になる。`arm` はホスト(Python)だけが握り、Lua のグローバルには置かない(設計書 §11 #24)
+- **命令数の上限**: `boot` と毎 `tick` の前に `debug.sethook` の count hook を掛け直す(`jin_wasm.runtime.INSTRUCTION_BUDGET` = 10^7。examples-v2 の 1 tick は 1 万命令に満たない。hook は `debug` を nil にした後も生きる・`delivery/…/wasm-api-probe.md` §B.7 の実測)。超えると `{code = "budget"}` がスケジューラの `pcall` に捕まり `error` 行 + `done = true` になる。`arm` はホスト(Python)だけが握り、Lua のグローバルには置かない(設計書 §11 #24)
 
 ## 9. バンドル(`jin build`・v2)
 

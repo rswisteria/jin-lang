@@ -270,8 +270,7 @@ def test_jil_forbidden_words_match_the_implementation() -> None:
 def test_trace_kinds_match_the_implementation() -> None:
     """runtime.md §5 の kind（machine-readable）と `jin_wasm.jil.TRACE_KINDS` が同じ列である。
 
-    設計書 §4.7 の列挙は `error` を含まない 12 種（実行時エラーは runtime.md で足した）ので、
-    設計書側は部分集合として見る。
+    設計書 §4.7 の列挙（13 種。`error` は Phase 2 で足した・§11 #22）も同じ列である。
     """
     from jin_wasm.jil import TRACE_FIELDS, TRACE_KINDS
 
@@ -284,7 +283,7 @@ def test_trace_kinds_match_the_implementation() -> None:
     m = re.search(r"^kind: (.+)$", design_text, re.MULTILINE)
     assert m, "設計書 §4.7 に kind の列挙行が無い"
     design = [k.strip() for k in m.group(1).split("|")]
-    assert set(design) <= set(spec)
+    assert design == spec
     fields = re.search(
         r'\{ "seq", "tick", "circle", "kind", "name", "pointer", "input", "output" \}', design_text
     )

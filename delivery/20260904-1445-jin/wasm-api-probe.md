@@ -1103,6 +1103,77 @@ call + convert 50 rows to Python lists: total 35.24 ms, avg 35.2 us; sample ['re
 
 観測: lupa は table を参照のまま返すので呼び出しだけなら約 5 µs、50 行を Python の list に全部変換しても約 35 µs。wasmoon の nested 変換（約 600 µs）とは 1 桁半違う（wasmoon は返却時に必ず深いコピーをする）。
 
+### B.7（追加・Phase 2）lupa の sandbox で `debug` を nil にした後も count hook が生きるか / `table_from(recursive=True)`
+
+Phase 2（2026-09-13）で `jin_wasm.runtime` を書く前に実測した。命令数の上限（設計書 §11 #24）の
+根拠と、ホストが `inputs` を Lua の table として渡せることの根拠。
+
+スクリプト（`probe_lupa2.py` 抜粋）:
+
+```python
+import lupa.lua54 as L
+
+lua = L.LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True)
+g = lua.globals()
+g.python = None
+setup = lua.execute("""
+local sethook = debug.sethook
+local function arm(limit)
+  sethook(function() error({code = "budget", message = "instruction budget exceeded"}) end, "", limit)
+end
+return arm
+""")
+for name in ("load", "loadstring", "dofile", "loadfile", "require", "package", "os", "io", "debug", "collectgarbage"):
+    setattr(g, name, None)
+lua.execute("string.dump = nil")
+print("debug after nil:", lua.eval("type(debug)"), "string.dump:", lua.eval("type(string.dump)"))
+t = lua.table_from({"events": [{"kind": "key", "name": "ArrowLeft", "down": True}],
+                    "keys": {"ArrowLeft": True}, "pointer": {"x": 1.0, "y": 2.0, "down": False}}, recursive=True)
+print("recursive:", lua.eval("function(t) return #t.events, t.events[1].name, t.keys.ArrowLeft, t.pointer.x, math.type(t.pointer.x) end")(t))
+print("empty list:", lua.eval("function(t) return #t end")(lua.table_from([], recursive=True)))
+setup(1000)
+f = lua.eval("function() local ok, e = pcall(function() while true do end end) return ok, type(e) == 'table' and e.code or tostring(e) end")
+print("budget via pcall:", f())
+setup(10**9)
+setup(1000)
+try:
+    lua.eval("(function() while true do end end)()")
+except L.LuaError as e:
+    print("LuaError outside pcall:", str(e)[:80])
+setup(10**9)
+print(lua.eval('string.format("%.17g", 0.1)'), lua.eval('string.format("%.16e", 1/3)'), lua.eval("math.maxinteger"))
+print("utf8:", lua.eval('utf8.len("あいう")'), lua.eval('string.sub("あいう", utf8.offset("あいう", 2), utf8.offset("あいう", 3) - 1)'))
+print("tointeger:", lua.eval("math.tointeger(math.floor(2.7))"), lua.eval("math.type(math.floor(2.7) + 0.0)"))
+print("float mod:", lua.eval("-7.0 % 3.0"), lua.eval("7.0 % -3.0"), lua.eval("math.type(4.0 // 2.0)"))
+print("coroutine.close:", lua.eval("type(coroutine.close)"))
+print("json str return type:", type(lua.eval('"héllo"')))
+```
+
+出力（lupa 2.8 / Lua 5.4.8 / Python 3.14.7）:
+
+```
+debug after nil: nil string.dump: nil
+recursive: (1, 'ArrowLeft', True, 1.0, 'float')
+empty list: 0
+budget via pcall: (False, 'budget')
+LuaError outside pcall:
+0.10000000000000001 3.3333333333333331e-01 9223372036854775807
+utf8: 3 い
+tointeger: 2 float
+float mod: 2.0 -2.0 float
+coroutine.close: function
+json str return type: <class 'str'>
+```
+
+観測:
+
+- **`debug.sethook` を局所に捕まえてから `debug` を nil にしても、count hook は掛かる**（`budget via pcall: (False, 'budget')`）。`arm` はセットアップのチャンクの戻り値として Python 側だけが握り、Lua のグローバルには置かない（`jin_wasm.runtime._SETUP`）。`jin_wasm.runtime.INSTRUCTION_BUDGET` の掛け直しはこの `arm` を boot と毎 tick の前に呼ぶ
+- hook の `error({code = "budget"})` は **`pcall` の中なら table のまま捕まる**。`pcall` の外へ出ると lupa の `LuaError` になり、error 値が table なので `str(e)` は空文字列（上の `LuaError outside pcall:` の行）。`jin_wasm.runtime._lua_message` が `str(e)` ではなく `exc.args[0]` の table から `message` / `code` を読むのはこのため
+- `table_from(..., recursive=True)` は **ネストした dict / list を Lua の table に写す**（`#t.events == 1`、`t.pointer.x` は float のまま）。空 list は `#t == 0`。ホストが `tick(t, inputs)` の `inputs` を渡す経路はこれ 1 本で、`jin_wasm.runtime.LuaHost.tick` が使う
+- `string.format("%.17g", 0.1)` は `0.10000000000000001`、`"%.16e"` は 2 桁の指数（`e-01`）。runtime.md §6 の数値書式（Python の `repr` と同じ配置）は `%.<n>e` の桁を自前で組み直す
+- `math.floor(2.7) + 0.0` は float、`4.0 // 2.0` も float（jil.md §2「整数サブタイプを作る演算を生成しない」の根拠）。`-7.0 % 3.0 == 2.0`（Python と同じ符号規則）
+- `coroutine.close` は Lua 5.4 にある（プレリュードが休止中の陣を捨てるときに使う）
+
 ---
 
 ## 設計に効く要点（実測から言えることだけ）
