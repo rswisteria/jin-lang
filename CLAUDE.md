@@ -123,6 +123,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2.1 | エディタの図の操作（Shift クリックの範囲で `wrapSteps` / `extractRite` を `count` > 1・列を跨ぐステップのドラッグは `removeStep` + `addStep` の合成・陣を陣 / 手順に落として `addDelegate` / `addSigil` の `summon`） | 実装済み |
 | v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
+| v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76 |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
