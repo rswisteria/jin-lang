@@ -120,6 +120,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2.1 | `canvas.text` の ASCII 以外の字形（k6x8ゴシックの 7001 字・JIS X 0208 の全区点・`player.js` に同梱・幅は 1 コードポイント = 6 のまま） | 実装済み |
 | v2.1 | 文字列の順序 `cmp(a, b)`（-1 / 0 / 1・コードポイント順 = UTF-8 のバイト順・プレリュードはバイトを比べて `strcoll` を通さない・jil: 4） | 実装済み |
 | v2.1 | `jin run --storage`（記憶の JSON を起動時に読み・終了時に書き戻す・無ければ空・`--input` があれば録画のヘッダが正で読み書きしない・書き戻しは `_write_atomically`） | 実装済み |
+| v2.1 | エディタの図の操作（Shift クリックの範囲で `wrapSteps` / `extractRite` を `count` > 1・列を跨ぐステップのドラッグは `removeStep` + `addStep` の合成・陣を陣 / 手順に落として `addDelegate` / `addSigil` の `summon`） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -188,6 +189,11 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 12 本が固定する（v2.1 の `storage` を含む）
 - v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
   オペレーション列で、`apply_ops` が undo 順に平らにする
+- **エディタの図の操作は `apps/editor/src/v2/actions.ts` が `EditV2`（`ops` + 適用後に選ぶ要素 `select`）で返す**
+  （ops.md §5・設計書 §11 #52）。範囲選択は選択の鍵 `step` に `count` を足すだけで種別を増やさない。
+  ドラッグは `dropOps` 1 本で、**同じ列は `moveStep`、列を跨ぐ移動は `removeStep` + `addStep` の合成**（2 件目の
+  pointer は `pointerAfterRemoval` で削除後に数え直す）、陣 → 陣 / 手順は `addDelegate` / `addSigil`（`summon`）。
+  33 個目のオペレーションを作らず、`App.tsx` に v2 の op 名を書かない（契約テストが v1 の 19 件に閉じる）
 
 v1 のサブコマンドは 9 つで揃った（`check` / `fmt` / `schema` / `dump` / `build` / `run` /
 `render` / `lsp` / `editor`）。空実装を先に置くと `jin --help` が嘘をつくので、

@@ -10,7 +10,9 @@ import type { JinModel } from "../rpc/protocol";
  * - `on` は `event`（`setOn` が同じ event を置換するので陣内で一意）
  * - `guard` は `assert` の文字列（v1 の `on` に倣う）
  * - `step` は 陣 + 手順名 + **手順内のパス**（`["steps", "0", "then", "1"]`）。ステップは
- *   名前を持たない（`let` の `name` は局所名で、ステップの鍵ではない）ので、パスで持つ
+ *   名前を持たない（`let` の `name` は局所名で、ステップの鍵ではない）ので、パスで持つ。
+ *   Shift クリックの範囲選択（v2.1）は同じ鍵に `count` を足す（`path` は範囲の**先頭**。
+ *   範囲は同じ列の連続する添字に限る・`extendStepRange`）
  * - `flow-edge` は流れの中の陣名（`flow.steps[j]`）
  *
  * 変換は `resolveSelectionV2` **1 本**だけが行う（v1 の `resolveSelection` と同じ規律）。
@@ -68,8 +70,10 @@ export type SelectionV2 =
 			readonly kind: "step";
 			readonly circle: string;
 			readonly rite: string;
-			/** 手順の中のパス。`["steps", "2"]` / `["steps", "0", "then", "1"]`。 */
+			/** 手順の中のパス。`["steps", "2"]` / `["steps", "0", "then", "1"]`。範囲なら先頭。 */
 			readonly path: readonly string[];
+			/** 範囲選択の個数（2 以上）。1 つだけのときは書かない。 */
+			readonly count?: number;
 	  };
 
 export type SelectionKindV2 = SelectionV2["kind"];
@@ -160,9 +164,63 @@ export function resolveSelectionV2(
 			const rite = indexBy(circle["rites"], "name", selection.rite);
 			if (rite < 0) return null;
 			const pointer = `${base}/rites/${rite}/${selection.path.join("/")}`;
-			return valueAt(model, pointer) === null ? null : pointer;
+			// 範囲なら末尾まで揃っていること（はみ出した範囲は解決しない）。
+			const last = rangePointersV2(pointer, selection).at(-1) ?? pointer;
+			return valueAt(model, pointer) === null || valueAt(model, last) === null
+				? null
+				: pointer;
 		}
 	}
+}
+
+/** ステップの選択の個数（範囲でなければ 1）。 */
+export function stepCount(selection: SelectionV2): number {
+	return selection.kind === "step" ? (selection.count ?? 1) : 1;
+}
+
+/**
+ * 解決した pointer（範囲の先頭）→ 範囲に入る全ステップの pointer（ハイライト用）。
+ * 範囲でなければ `[pointer]`。
+ */
+export function rangePointersV2(
+	pointer: string,
+	selection: SelectionV2,
+): readonly string[] {
+	const count = stepCount(selection);
+	if (count <= 1) return [pointer];
+	const parts = pointer.split("/");
+	const parent = parts.slice(0, -1).join("/");
+	const low = Number(parts.at(-1));
+	return Array.from(
+		{ length: count },
+		(_, k) => `${parent}/${String(low + k)}`,
+	);
+}
+
+/**
+ * Shift クリック（v2.1・ops.md §5）: 選択中のステップと、クリックしたステップが**同じ列**なら
+ * 両方を含む連続範囲に広げる。それ以外（列 / 手順が違う・どちらかがステップでない）は
+ * クリックした要素だけを選ぶ。起点は持たない（範囲の内側をクリックしても縮めない）。
+ */
+export function extendStepRange(
+	current: SelectionV2 | null,
+	clicked: SelectionV2 | null,
+): SelectionV2 | null {
+	if (current?.kind !== "step" || clicked?.kind !== "step") return clicked;
+	if (current.circle !== clicked.circle || current.rite !== clicked.rite)
+		return clicked;
+	const parentOf = (path: readonly string[]): string =>
+		path.slice(0, -1).join("/");
+	if (parentOf(current.path) !== parentOf(clicked.path)) return clicked;
+	const currentLow = Number(current.path.at(-1));
+	const at = Number(clicked.path.at(-1));
+	const low = Math.min(currentLow, at);
+	const high = Math.max(currentLow + stepCount(current) - 1, at);
+	const path = [...clicked.path.slice(0, -1), String(low)];
+	const { v2, kind, circle, rite } = clicked;
+	return high > low
+		? { v2, kind, circle, rite, path, count: high - low + 1 }
+		: { v2, kind, circle, rite, path };
 }
 
 /** pointer の値。無ければ `null`。 */

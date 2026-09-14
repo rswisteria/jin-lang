@@ -49,18 +49,22 @@ import {
 	addRite,
 	addState,
 	addStep,
+	dropOps,
+	type EditV2,
 	extractSelectedStep,
-	moveOps,
 	removeSelected,
 	toggleStateOut,
 	wrapSelectedStep,
 } from "./v2/actions";
 import { PropertyPanelV2 } from "./v2/PropertyPanelV2";
 import {
+	extendStepRange,
 	followRenameV2,
+	rangePointersV2,
 	resolveSelectionV2,
 	type SelectionV2,
 	selectionFromPointerV2,
+	stepCount,
 } from "./v2/selection";
 
 /**
@@ -237,6 +241,16 @@ export function App({
 					: resolveSelection(model, selection),
 		[model, selection],
 	);
+	/** 図のハイライト。v2 のステップの範囲選択は範囲の全ステップ（`rangePointersV2`）。 */
+	const selectedPointers = useMemo<readonly string[]>(
+		() =>
+			selectedPointer === null
+				? []
+				: selection !== null && isV2Selection(selection)
+					? rangePointersV2(selectedPointer, selection)
+					: [selectedPointer],
+		[selectedPointer, selection],
+	);
 	/**
 	 * 図に重ねるラベル（Jin v2 Phase 6）: `upto` の位置の記憶環の値と、偽になった `assert`。
 	 * runtime.md §5 の積算（`debug/values.ts`）で、オーバーレイ（発火の強調）ではない。
@@ -255,7 +269,11 @@ export function App({
 	const send = useCallback(
 		async (
 			ops: readonly JinOp[],
-			options?: { readonly record?: boolean },
+			options?: {
+				readonly record?: boolean;
+				/** 適用後に選ぶ要素（`v2/actions.ts` の `EditV2.select`）。書かなければ rename だけ追随する。 */
+				readonly select?: SelectionV2 | null | undefined;
+			},
 		): Promise<void> => {
 			if (ops.length === 0 || model === null) return;
 			setNotice(null);
@@ -272,16 +290,19 @@ export function App({
 				}
 				// rename は選択中の要素の名前を変えるので、3 つ組を新名へ追随させる
 				// （DP-COMMON-16 の cons が名指ししていた箇所）。
+				const select = options?.select;
 				setSelection((current) =>
-					current !== null && isV2Selection(current)
-						? ops.reduce(
-								(acc, op) => followRenameV2(acc, op, model),
-								current as SelectionV2 | null,
-							)
-						: ops.reduce(
-								(acc, op) => followRename(acc, op, model),
-								current as Selection | null,
-							),
+					select !== undefined
+						? select
+						: current !== null && isV2Selection(current)
+							? ops.reduce(
+									(acc, op) => followRenameV2(acc, op, model),
+									current as SelectionV2 | null,
+								)
+							: ops.reduce(
+									(acc, op) => followRename(acc, op, model),
+									current as Selection | null,
+								),
 				);
 				setText(result.text);
 				setDiagnostics(result.diagnostics);
@@ -299,6 +320,18 @@ export function App({
 			}
 		},
 		[api, uri, model, focus, refresh, replay],
+	);
+
+	/** 図の操作 1 回（`EditV2`）を送る。送らなかった理由があれば出す。 */
+	const sendEdit = useCallback(
+		async (edit: EditV2): Promise<void> => {
+			if (edit.ops.length === 0) {
+				if (edit.notice !== undefined) setNotice(edit.notice);
+				return;
+			}
+			await send(edit.ops, { select: edit.select });
+		},
+		[send],
 	);
 
 	const save = useCallback(async (): Promise<void> => {
@@ -528,10 +561,25 @@ export function App({
 		[refresh, diagnostics, replay],
 	);
 
-	/** v2 の pick: `data-jin` の pointer をそのまま要素として解決する（referent 規則は使わない）。 */
+	/**
+	 * v2 の pick: `data-jin` の pointer をそのまま要素として解決する（referent 規則は使わない）。
+	 * Shift を押したままなら、選択中のステップと同じ列の範囲に広げる（`extendStepRange`・v2.1）。
+	 */
 	const pickV2 = useCallback(
-		(target: JinTarget, current: NonNullable<typeof model>): void => {
-			setSelection(selectionFromPointerV2(current, target.pointer));
+		(
+			target: JinTarget,
+			current: NonNullable<typeof model>,
+			extend: boolean,
+		): void => {
+			const picked = selectionFromPointerV2(current, target.pointer);
+			setSelection((previous) =>
+				extend
+					? extendStepRange(
+							previous !== null && isV2Selection(previous) ? previous : null,
+							picked,
+						)
+					: picked,
+			);
 		},
 		[],
 	);
@@ -588,12 +636,12 @@ export function App({
 					<div className="jin-body">
 						<SvgCanvas
 							svg={state.svg}
-							selectedPointer={selectedPointer}
+							selectedPointers={selectedPointers}
 							diagnostics={state.diagnostics}
 							labels={labels}
-							onPick={(target) => {
+							onPick={(target, extend) => {
 								if (isV2) {
-									pickV2(target, state.model);
+									pickV2(target, state.model, extend);
 									return;
 								}
 								const pointer = target.ref ?? target.pointer;
@@ -612,11 +660,12 @@ export function App({
 							}}
 							onMove={(from, to) => {
 								if (isV2) {
-									void send(moveOps(from, to));
+									void sendEdit(dropOps(state.model, from, to));
 									return;
 								}
 								// ドラッグで紋を環上で並べ替える → moveTool（要件書 §7.1）。
 								// 落とした先の紋の添字を目的地にする。**角度はエディタが計算しない**。
+								if (from.kind !== "tool" || to.kind !== "tool") return;
 								const index = Number(to.pointer.split("/").at(-1));
 								if (!Number.isInteger(index)) return;
 								void send([{ op: "moveTool", pointer: from.pointer, index }]);
@@ -708,6 +757,11 @@ export function App({
 
 	const circleOf =
 		selection !== null && "circle" in selection ? selection.circle : null;
+	// 範囲選択中は、包む / 抽出のボタンに個数を出す（何に当たるかを押す前に見せる）。
+	const rangeLabel =
+		selectionV2 !== null && stepCount(selectionV2) > 1
+			? `${String(stepCount(selectionV2))} ステップを`
+			: "";
 
 	return (
 		<main className="jin-app" data-version={isV2 ? "2" : "1"}>
@@ -832,10 +886,10 @@ export function App({
 							disabled={model === null || selectionV2?.kind !== "step"}
 							onClick={() => {
 								if (model === null || selectionV2 === null) return;
-								void send(wrapSelectedStep(model, selectionV2));
+								void sendEdit(wrapSelectedStep(model, selectionV2));
 							}}
 						>
-							if で包む
+							{rangeLabel}if で包む
 						</button>
 						<button
 							type="button"
@@ -843,10 +897,10 @@ export function App({
 							disabled={model === null || selectionV2?.kind !== "step"}
 							onClick={() => {
 								if (model === null || selectionV2 === null) return;
-								void send(extractSelectedStep(model, selectionV2));
+								void sendEdit(extractSelectedStep(model, selectionV2));
 							}}
 						>
-							手順に抽出
+							{rangeLabel}手順に抽出
 						</button>
 						<button
 							type="button"

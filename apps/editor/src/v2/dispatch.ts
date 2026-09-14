@@ -82,6 +82,8 @@ export function schemaForV2(
 				: { type: "object", properties: { steps: items }, required: [] };
 		}
 		case "step": {
+			// 範囲選択（count > 1）にはフォームを出さない（どの 1 つの欄を書くかが決まらない）。
+			if ((selection.count ?? 1) > 1) return null;
 			const steps = resolveRef(root, "#/$defs/Rite")?.properties?.["steps"];
 			return steps === undefined ? null : branchFor(root, steps, value);
 		}
