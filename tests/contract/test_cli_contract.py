@@ -365,3 +365,99 @@ def test_env_with_stubs_puts_the_stubs_first(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setenv("PYTHONPATH", "/existing/one")
     env = env_with_stubs()
     assert env["PYTHONPATH"] == os.pathsep.join([str(STUBS), "/existing/one"])
+
+
+# --------------------------------------------------------------------------------------
+# v1 の陣に問う agent の sigil（runtime.md §11・設計書 §11 #55・Issue #54 / #69）
+# --------------------------------------------------------------------------------------
+AGENT_PROGRAM = REPO_ROOT / "tests" / "fixtures" / "v2-programs" / "agent.jin"
+PIPELINE_V1 = REPO_ROOT / "examples" / "pipeline" / "pipeline.jin"
+
+
+def _agent_world(tmp_path: Path) -> Path:
+    """`agent.jin` と、その `agents/oracle.jin`（= v1 の pipeline・`ref` 無し）を tmp に並べる。"""
+    import shutil
+
+    shutil.copy(AGENT_PROGRAM, tmp_path / "agent.jin")
+    (tmp_path / "agents").mkdir()
+    shutil.copy(PIPELINE_V1, tmp_path / "agents" / "oracle.jin")
+    return tmp_path / "agent.jin"
+
+
+def _rows(path: Path) -> list[dict]:
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+
+
+def test_agent_asks_a_v1_circle_and_the_recording_replays_without_calling_v1(
+    tmp_path: Path,
+) -> None:
+    """Issue #54 の完了条件（実プロセス）:
+
+    1. `jin run --model fake` で `agent.jin` が v1 の pipeline に問い、答え `fake-response` が次の tick の
+       `on message` に届いて公開 state に出る。`--record` が答えを `reply` 行として録画に書く
+    2. その録画を `--input` で再生すると v1 の陣を**呼ばず**（`agents/oracle.jin` を消しても走る・`--model` 無し）、
+       トレースが全行一致する
+    """
+    world = _agent_world(tmp_path)
+    trace = tmp_path / "live.jsonl"
+    record = tmp_path / "live.jinrec"
+    live = _run(
+        "run",
+        str(world),
+        "--model",
+        "fake",
+        "--ticks",
+        "5",
+        "--trace",
+        str(trace),
+        "--record",
+        str(record),
+    )
+    assert live.returncode == 0, live.stderr
+    public = json.loads(live.stdout.strip().splitlines()[-1])
+    assert public == {
+        "Npc.pending": 1,
+        "Npc.answer": "fake-response",
+        "Npc.replies": 1,
+        "Npc.summary": "got:fake-response",
+    }
+    recorded = _rows(record)
+    assert recorded[0]["jinrec"] == 1
+    assert recorded[0]["file"] == "agent.jin"
+    assert recorded[1:] == [{"tick": 1, "kind": "reply", "id": 1, "text": "fake-response"}]
+    live_rows = _rows(trace)
+    assert any(r["kind"] == "emit" and r["output"] is True for r in live_rows)
+
+    (tmp_path / "agents" / "oracle.jin").unlink()  # 再生は v1 を読まない
+    replay_trace = tmp_path / "replay.jsonl"
+    replay = _run("run", str(world), "--input", str(record), "--trace", str(replay_trace))
+    assert replay.returncode == 0, replay.stderr
+    assert json.loads(replay.stdout.strip().splitlines()[-1]) == public
+    assert _rows(replay_trace) == live_rows
+
+
+def test_agent_without_a_host_or_a_recording_is_refused_before_running(tmp_path: Path) -> None:
+    """走らせる前に断る（exit 2）: v1 の `.jin` が無い / 親の外へのリンク / v2 の `.jin`。"""
+    world = _agent_world(tmp_path)
+    oracle = tmp_path / "agents" / "oracle.jin"
+    oracle.unlink()
+    missing = _run("run", str(world), "--model", "fake", "--ticks", "2")
+    assert missing.returncode == 2
+    assert "v1 の .jin がありません" in missing.stderr
+
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.jin"
+    import shutil
+
+    shutil.copy(PIPELINE_V1, outside)
+    oracle.symlink_to(outside)
+    linked = _run("run", str(world), "--model", "fake", "--ticks", "2")
+    assert linked.returncode == 2
+    assert "シンボリックリンク" in linked.stderr
+    oracle.unlink()
+
+    shutil.copy(AGENT_PROGRAM, oracle)
+    v2 = _run("run", str(world), "--model", "fake", "--ticks", "2")
+    assert v2.returncode == 2
+    assert "version: 1 の .jin ではありません" in v2.stderr

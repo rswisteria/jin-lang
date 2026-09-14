@@ -10,7 +10,9 @@
 依存は `jin_core` と `lupa` だけ。`jin_adk` / `jin_render` は兄弟であり import しない
 （import-linter の layers 契約）。ホストが Lua を呼ぶ関数は `boot` / `tick` の 2 つだけで、
 Lua はホストを呼ばない（runtime.md §1）。JIL には `require` も `load` も無く、
-v1 の `jin run` が持つ「`ref` の import = 任意コード実行」の危険性は v2 には無い。
+v1 の `jin run` が持つ「`ref` の import = 任意コード実行」の危険性は、`agent` の sigil を持たない
+v2 には無い（`agent`・runtime.md §11 は `jin_cli` が v1 の陣を走らせる。`jin_wasm` は問いを tick 結果の
+`asks` で出し、答える呼び出し可能を `run_headless(answer=...)` で受けるだけで、v1 を知らない）。
 """
 
 from jin_wasm.jil import JIL_FORBIDDEN, JIL_VERSION, TRACE_KINDS

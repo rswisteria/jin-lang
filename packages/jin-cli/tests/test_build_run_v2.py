@@ -105,11 +105,11 @@ def test_run_reports_a_runtime_error_and_exits_one(tmp_path: Path) -> None:
     "args",
     [
         ("run", FIB, "go"),
-        ("run", FIB, "--model", "fake"),
         ("run", FIB, "--session", "s"),
     ],
 )
 def test_run_rejects_v1_arguments_on_a_v2_file(args) -> None:
+    """`--model fake` は v2 でも受ける（agent の sigil が呼ぶ v1 の陣に効く・runtime.md §11・#69）。"""
     result = invoke(*args)
     assert result.exit_code == 2
     assert "version: 2" in result.stderr
@@ -122,6 +122,7 @@ def test_run_rejects_v1_arguments_on_a_v2_file(args) -> None:
         ("run", PIPELINE, "go", "--ticks", "3"),
         ("run", PIPELINE, "go", "--debug"),
         ("run", PIPELINE, "go", "--storage", "x"),
+        ("run", PIPELINE, "go", "--record", "x"),
         ("build", PIPELINE, "--out", "x", "--debug"),
     ],
 )
