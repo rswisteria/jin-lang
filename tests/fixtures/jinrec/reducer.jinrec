@@ -6,4 +6,6 @@
 {"tick": 2, "kind": "text", "text": "aｱ😀"}
 {"tick": 2, "kind": "key", "name": "ArrowLeft", "down": false}
 {"tick": 3, "kind": "pointer", "x": 12.5, "y": 21, "down": false}
+{"tick": 3, "kind": "reply", "id": 1, "text": "yes"}
 {"tick": 4, "kind": "text", "text": " "}
+{"tick": 4, "kind": "reply", "id": 2, "text": ""}

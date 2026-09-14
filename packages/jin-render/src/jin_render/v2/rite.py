@@ -129,8 +129,11 @@ def place_block(
 
 
 def classify_cast(circle: Circle, target: str) -> str | None:
-    """`cast` の `target` を host / rite / summon に分類する。解決できなければ `None`。"""
-    summons = {sigil.name for sigil in circle.sigils if sigil.kind == "summon"}
+    """`cast` の `target` を host / rite / summon に分類する。解決できなければ `None`。
+
+    `agent`（v1 の陣への問い・v2.1）は summon と同じ分類（陣の外への呼び出し。破線の尾）。
+    """
+    summons = {sigil.name for sigil in circle.sigils if sigil.kind in ("summon", "agent")}
     hosts = {sigil.name for sigil in circle.sigils if sigil.kind == "host"}
     rites = {rite.name for rite in circle.rites}
     if target in summons:

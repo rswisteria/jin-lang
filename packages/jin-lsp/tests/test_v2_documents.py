@@ -314,3 +314,25 @@ def test_a_v2_step_added_through_apply_ops_round_trips_to_canonical_text(state) 
     reparsed = json.loads(result["text"])
     assert reparsed["circles"][1]["rites"][0]["steps"][-1] == {"do": "finish"}
     assert dumps(JinFileV2.model_validate(reparsed)) == result["text"]
+
+
+def test_hover_on_an_agent_sigil_and_its_cast_describes_the_ask(state) -> None:
+    """`agent`（v1 の陣への問い・v2.1・runtime.md §11）: sigil と `cast` の hover が要求 id と答えの形を言う。"""
+    text = (REPO_ROOT / "tests" / "fixtures" / "v2-programs" / "agent.jin").read_text(
+        encoding="utf-8"
+    )
+    uri = "file:///agent.jin"
+    agent_state = DocumentStore().update(uri, text)
+
+    def at(needle: str, inside: str) -> types.Position:
+        for index, line in enumerate(text.splitlines()):
+            if needle in line:
+                return types.Position(line=index, character=line.index(inside) + 1)
+        raise AssertionError(needle)
+
+    found = hover_text(agent_state, at('"file": "agents/oracle.jin"', '"agents/oracle.jin"'))
+    assert "agent `agents/oracle.jin`" in found
+    assert "`oracle(prompt: str) -> num`" in found
+    assert "`on message`" in found
+    found = hover_text(agent_state, at('"target": "oracle"', '"oracle"'))
+    assert "agent `agents/oracle.jin`" in found

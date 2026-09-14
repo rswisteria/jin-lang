@@ -52,6 +52,7 @@ from jin_core.v2.model import (
     Rite,
     SetStep,
     SigilHost,
+    SigilSummon,
     Step,
     TransferStep,
     WaitStep,
@@ -127,7 +128,7 @@ class _CircleInfo:
     circle: Circle
     states: dict[str, tuple[int, str]]  # state 名 → (添字, 型)
     rites: dict[str, int]  # 手順名 → Lua の添字（1 始まり）
-    sigils: dict[str, tuple[str, ...]]  # ("host", ns) | ("summon", circle, rite)
+    sigils: dict[str, tuple[str, ...]]  # ("host", ns) | ("summon", circle, rite) | ("agent", file)
     waits: dict[str, bool] = field(default_factory=dict)
 
 
@@ -180,8 +181,10 @@ class _Generator:
             for sigil in circle.sigils:
                 if isinstance(sigil, SigilHost):
                     sigils[sigil.name] = ("host", sigil.host)
-                else:
+                elif isinstance(sigil, SigilSummon):
                     sigils[sigil.name] = ("summon", sigil.circle, sigil.rite)
+                else:
+                    sigils[sigil.name] = ("agent", sigil.file)
             self.circles[circle.name] = _CircleInfo(
                 index=i + 1,
                 pointer_index=i,
@@ -468,11 +471,23 @@ class _Generator:
         returns: str | None = None
         callee: str
         kind: str
+        prefix: list[str] = []  # 生成側で決まる先頭の引数（agent の ASK だけ）
         if len(parts) == 1 and parts[0] in info.rites:
             rite = info.circle.rites[info.rites[parts[0]] - 1]
             callee = f"R[{ci}][{info.rites[parts[0]]}]"
             returns = rite.returns
             kind = "rite"
+        elif len(parts) == 1 and parts[0] in info.sigils and info.sigils[parts[0]][0] == "agent":
+            # v1 の陣に問う（runtime.md §11）。ASK(ci, sigil 名, sigil の pointer, prompt) → 要求 id
+            position = next(k for k, s in enumerate(info.circle.sigils) if s.name == parts[0])
+            callee = "ASK"
+            prefix = [
+                str(ci),
+                lua_string(parts[0]),
+                lua_string(f"/circles/{info.pointer_index}/sigils/{position}"),
+            ]
+            returns = "num"
+            kind = "agent"
         elif len(parts) == 1 and parts[0] in info.sigils:
             _, target_circle, target_rite = info.sigils[parts[0]]
             other = self.circles[target_circle]
@@ -492,7 +507,7 @@ class _Generator:
         into = self.node(f"{sp}/into") if step.into is not None else None
 
         if not self.debug:
-            args = ", ".join(self.expr(a, ctx, info) for a in arg_nodes)
+            args = ", ".join([*prefix, *(self.expr(a, ctx, info) for a in arg_nodes)])
             call = f"{callee}({args})"
             if into is not None:
                 tmp = ctx.temp("r")
@@ -517,7 +532,7 @@ class _Generator:
         args_json = _json_array(
             [f"{self.serializer(a.type)}({v})" for a, v in zip(arg_nodes, arg_vars, strict=True)]
         )
-        call = f"{callee}({', '.join(arg_vars)})"
+        call = f"{callee}({', '.join([*prefix, *arg_vars])})"
         row_var: str | None = None
         if kind != "rite":
             row_var = ctx.temp("c")

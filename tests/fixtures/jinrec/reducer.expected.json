@@ -1,34 +1,113 @@
 [
   {
-    "events": [{"kind": "key", "name": "ArrowLeft", "down": true}],
-    "keys": {"ArrowLeft": true},
-    "pointer": {"x": 0, "y": 0, "down": false}
+    "events": [
+      {
+        "kind": "key",
+        "name": "ArrowLeft",
+        "down": true
+      }
+    ],
+    "keys": {
+      "ArrowLeft": true
+    },
+    "pointer": {
+      "x": 0.0,
+      "y": 0.0,
+      "down": false
+    }
   },
   {
     "events": [
-      {"kind": "pointer", "x": 10, "y": 20, "down": false},
-      {"kind": "pointer", "x": 12, "y": 20, "down": true}
+      {
+        "kind": "pointer",
+        "x": 10.0,
+        "y": 20.0,
+        "down": false
+      },
+      {
+        "kind": "pointer",
+        "x": 12.0,
+        "y": 20.0,
+        "down": true
+      }
     ],
-    "keys": {"ArrowLeft": true},
-    "pointer": {"x": 12, "y": 20, "down": true}
+    "keys": {
+      "ArrowLeft": true
+    },
+    "pointer": {
+      "x": 12.0,
+      "y": 20.0,
+      "down": true
+    }
   },
   {
     "events": [
-      {"kind": "key", "name": "ArrowRight", "down": true},
-      {"kind": "text", "text": "aｱ😀"},
-      {"kind": "key", "name": "ArrowLeft", "down": false}
+      {
+        "kind": "key",
+        "name": "ArrowRight",
+        "down": true
+      },
+      {
+        "kind": "text",
+        "text": "aｱ😀"
+      },
+      {
+        "kind": "key",
+        "name": "ArrowLeft",
+        "down": false
+      }
     ],
-    "keys": {"ArrowRight": true},
-    "pointer": {"x": 12, "y": 20, "down": true}
+    "keys": {
+      "ArrowRight": true
+    },
+    "pointer": {
+      "x": 12.0,
+      "y": 20.0,
+      "down": true
+    }
   },
   {
-    "events": [{"kind": "pointer", "x": 12.5, "y": 21, "down": false}],
-    "keys": {"ArrowRight": true},
-    "pointer": {"x": 12.5, "y": 21, "down": false}
+    "events": [
+      {
+        "kind": "pointer",
+        "x": 12.5,
+        "y": 21.0,
+        "down": false
+      },
+      {
+        "kind": "reply",
+        "id": 1,
+        "text": "yes"
+      }
+    ],
+    "keys": {
+      "ArrowRight": true
+    },
+    "pointer": {
+      "x": 12.5,
+      "y": 21.0,
+      "down": false
+    }
   },
   {
-    "events": [{"kind": "text", "text": " "}],
-    "keys": {"ArrowRight": true},
-    "pointer": {"x": 12.5, "y": 21, "down": false}
+    "events": [
+      {
+        "kind": "text",
+        "text": " "
+      },
+      {
+        "kind": "reply",
+        "id": 2,
+        "text": ""
+      }
+    ],
+    "keys": {
+      "ArrowRight": true
+    },
+    "pointer": {
+      "x": 12.5,
+      "y": 21.0,
+      "down": false
+    }
   }
 ]

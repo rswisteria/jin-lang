@@ -14,7 +14,7 @@ import { isCleanText } from "./input";
 import type { InputEvent } from "./types";
 
 export const JINREC_VERSION = 1;
-export const EVENT_KINDS = ["key", "pointer", "text"] as const;
+export const EVENT_KINDS = ["key", "pointer", "text", "reply"] as const;
 /** ヘッダに `ticks` が無いときの再生の tick 数（runtime.md §8: `jin run --ticks` の既定と同じ）。 */
 export const DEFAULT_TICKS = 600;
 
@@ -148,6 +148,23 @@ export function parseJinrec(text: string): JinrecResult {
 				);
 			}
 			events.push({ tick, kind: "text", text });
+		} else if (kind === "reply") {
+			// v1 の陣の答え（runtime.md §11）。id は 1 以上の整数、text は空でもよい（text と同じ検査）。
+			const id = row["id"];
+			if (!isInt(id) || id < 1) {
+				return fail(number, "reply の id は 1 以上の整数です");
+			}
+			const text = row["text"];
+			if (typeof text !== "string") {
+				return fail(number, "reply の text は文字列です");
+			}
+			if (!isCleanText(text)) {
+				return fail(
+					number,
+					"reply の text に制御文字や対にならないサロゲートは置けません",
+				);
+			}
+			events.push({ tick, kind: "reply", id, text });
 		} else if (kind === "pointer") {
 			for (const key of ["x", "y"] as const) {
 				if (!isNum(row[key])) {

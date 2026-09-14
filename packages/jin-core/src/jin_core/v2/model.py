@@ -14,10 +14,10 @@ import re
 import typing
 from typing import Annotated, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 from pydantic.fields import FieldInfo
 
-from jin_core.model import MAX_IDENT_LENGTH, Ident, JinModel, Text, Url
+from jin_core.model import MAX_IDENT_LENGTH, Ident, JinModel, Text, Url, _validate_ident
 
 #: v2 の既定スキーマ URL。v1 の `jin.schema.json` とは別ファイル（設計書 §11 #16）。
 DEFAULT_SCHEMA_URL_V2 = "https://xtone.internal/jin/schemas/jin-v2.schema.json"
@@ -50,7 +50,7 @@ EXPR_SCHEMA_MARK = "x-jin-expr"
 Expr = Annotated[Text, Field(json_schema_extra={EXPR_SCHEMA_MARK: True})]
 
 FlowKind = Literal["sequence", "parallel", "loop"]
-SigilKind = Literal["host", "summon"]
+SigilKind = Literal["host", "summon", "agent"]
 LoopKind = Literal["each", "while", "count"]
 EventKind = Literal["tick", "key", "pointer", "message", "exit"]
 AssetKind = Literal["sprite", "sound"]
@@ -139,7 +139,33 @@ class SigilSummon(JinModel):
     rite: Name
 
 
-Sigil = Annotated[SigilHost | SigilSummon, Field(discriminator="kind")]
+#: `agent` の `file`（model.md §3.2・v2.1）: v2 の `.jin` から見た相対パス。`/` 区切りで、`..` の段・
+#: 先頭の `/`・`\` を含まず、`.jin` で終わる。形はここ（schema・JIN002）で落とし、実体が親ディレクトリの
+#: 中に解決できるかは実行時（`jin_cli`・runtime.md §11）が見る。
+#: 段は `.` / `..` 以外の非空文字列（先読みは pydantic-core の regex に無いので段の形で列挙する）。
+_PATH_SEGMENT = r"(?:[^/\\.][^/\\]*|\.[^/\\.][^/\\]*|\.\.[^/\\]+)"
+AGENT_FILE_PATTERN = rf"^(?:{_PATH_SEGMENT}/)*{_PATH_SEGMENT}\.jin$"
+#: `Name` と同じ作り（pattern を schema に出す）。制御文字は `Ident` と同じ検証で落とす。
+AgentFile = Annotated[
+    str,
+    Field(max_length=MAX_IDENT_LENGTH, pattern=AGENT_FILE_PATTERN),
+    AfterValidator(_validate_ident),
+]
+
+
+class SigilAgent(JinModel):
+    """kind: agent → v1 の陣（LLM エージェント）に問う（runtime.md §11・設計書 §11 #55）。
+
+    `cast target=<name> args=[prompt: str] into=<num>` が要求 id を返し、答えは後の tick に
+    自陣の `on message` へ `(name, id, text)` で届く。答えるのはヘッドレスの Python ホストだけ。
+    """
+
+    name: Name
+    kind: Literal["agent"]
+    file: AgentFile
+
+
+Sigil = Annotated[SigilHost | SigilSummon | SigilAgent, Field(discriminator="kind")]
 
 
 class Param(JinModel):

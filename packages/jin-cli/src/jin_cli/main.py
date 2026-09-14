@@ -1057,6 +1057,8 @@ def _run_v2(
             events=events,
             storage=storage,
             on_row=write_row if "trace" in sinks else None,
+            # 録画の再生では v1 の陣に答えない（録画の reply が正・runtime.md §11）。答える側は #69
+            replay=input_path is not None,
         )
         if "frames" in sinks:
             for frame in result.frames:

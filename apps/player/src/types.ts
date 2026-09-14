@@ -71,7 +71,12 @@ export type InputEvent =
 			readonly down: boolean;
 	  }
 	/** 確定した文字列（abilities.md §3 の `input.text`・v2.1）。押下状態には触らない。 */
-	| { readonly kind: "text"; readonly text: string };
+	| { readonly kind: "text"; readonly text: string }
+	/**
+	 * v1 の陣の答え（runtime.md §11・v2.1）。ヘッドレスのホストが積む。ブラウザは積まない（問い
+	 * `asks` には答えない）が、録画の再生では行として通す。押下状態には触らない。
+	 */
+	| { readonly kind: "reply"; readonly id: number; readonly text: string };
 
 /** `tick(t, inputs)` の `inputs`（runtime.md §1.1）。 */
 export interface Inputs {

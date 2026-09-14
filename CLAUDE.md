@@ -121,7 +121,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2.1 | 文字列の順序 `cmp(a, b)`（-1 / 0 / 1・コードポイント順 = UTF-8 のバイト順・プレリュードはバイトを比べて `strcoll` を通さない・jil: 4） | 実装済み |
 | v2.1 | `jin run --storage`（記憶の JSON を起動時に読み・終了時に書き戻す・無ければ空・`--input` があれば録画のヘッダが正で読み書きしない・書き戻しは `_write_atomically`） | 実装済み |
 | v2.1 | エディタの図の操作（Shift クリックの範囲で `wrapSteps` / `extractRite` を `count` > 1・列を跨ぐステップのドラッグは `removeStep` + `addStep` の合成・陣を陣 / 手順に落として `addDelegate` / `addSigil` の `summon`） | 実装済み |
-| v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・ヘッドレスの `jin_cli` だけが答える） | 仕様確定（実装は #68 → #69） |
+| v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・ヘッドレスの `jin_cli` だけが答える） | jin_core / jin_wasm / プレイヤーの読み手は実装済み（#68・jil: 6）。`jin_cli` のホスト（答える側・`--model fake` / `--record`）は #69 |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
@@ -164,9 +164,9 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **JIL は Lua 5.4 の静的サブセット**（`jin_wasm.jil.JIL_FORBIDDEN` は jil.md §2 と等号）。`game.lua` =
   ヘッダ + `prelude.lua`（そのまま連結）+ 生成部 + `return { boot = boot, tick = tick }`。生成部が定義するのは
   `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` / `JR[k]`（型紙の読み手・debug だけ）だけで、
-  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **5**
+  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **6**
   （jil.md §1。v2.1 で `CIRCLES[i]` に `restore` / `prestore` / `pdump`、`tick` 結果に `snapshot` / `resume` が加わって 2、
-  プレリュードに `H.storage` / `F.num`、`tick` 結果に `storage` が加わって 3、プレリュードに `F.cmp` が加わって 4、`H.input.text` と `JS` の制御文字の範囲指定が加わって 5。release の生成部は不変）。
+  プレリュードに `H.storage` / `F.num`、`tick` 結果に `storage` が加わって 3、プレリュードに `F.cmp` が加わって 4、`H.input.text` と `JS` の制御文字の範囲指定が加わって 5、`ASK`（v1 の陣への問い）と入力イベント `reply` の配達・`tick` 結果の `asks`・`snapshot` の `asked` が加わって 6。release の生成部は不変）。
   **名前を Lua の識別子に埋め込まない**（`S[i].k_j` / `R[i][j]` / `f_j` / `l_n`。添字は Lua の 1 始まり、pointer は 0 始まり）。
   `num` は常に float（`160.0`）。`tests/contract/test_jil_contract.py` がプレリュードと全生成物を走査する
 - **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
@@ -188,7 +188,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasm --snapshot-update`
   （`packages/jin-wasm/tests/__snapshots__/`。生成部 3 本 × debug / release と paddle 60 tick のゴールデン）。
   差分を読んでからコミット。examples-v2 が使わない経路（parallel / transfer / emit / key / pointer / wait until /
-  each / summon / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 13 本が固定する（v2.1 の `storage` / `text_input` を含む）
+  each / summon / agent / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 14 本が固定する（v2.1 の `storage` / `text_input` / `agent` を含む）
 - v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
   オペレーション列で、`apply_ops` が undo 順に平らにする
 - **エディタの図の操作は `apps/editor/src/v2/actions.ts` が `EditV2`（`ops` + 適用後に選ぶ要素 `select`）で返す**

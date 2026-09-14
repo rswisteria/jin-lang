@@ -41,6 +41,7 @@ from typing import Any
 from lupa import lua54
 
 from jin_wasm.jil import HOST_ENTRY_POINTS, HOST_HOOK_GLOBALS
+from jin_wasm.jinrec import clean_reply_text
 
 #: JIL を読む前に Lua のグローバルから消す名前（runtime.md §8 / probe §B.2）。
 SANDBOX_REMOVED: tuple[str, ...] = (
@@ -194,6 +195,9 @@ class InputState:
             elif kind == "text":
                 # 確定した文字列（abilities.md §3・v2.1）。押下状態には触らない。
                 rows.append({"kind": "text", "text": str(ev["text"])})
+            elif kind == "reply":
+                # v1 の陣の答え（runtime.md §11・v2.1）。押下状態には触らない。プレリュードが配達する。
+                rows.append({"kind": "reply", "id": int(ev["id"]), "text": str(ev["text"])})
         return {
             "events": rows,
             "keys": dict(self.keys),
@@ -220,6 +224,9 @@ class HeadlessResult:
     ticks: int
     #: 記憶（`storage`・abilities.md §8）の最後の内容。boot に渡した写しに tick ごとの書き込みを順に反映したもの。
     storage: dict[str, str] = field(default_factory=dict)
+    #: v1 の陣の答え（runtime.md §11）。`answer` が返した文字列を配達した tick の `reply` イベント
+    #: `{"tick", "kind": "reply", "id", "text"}` の列（`jin run --record` がそのまま録画に書く）。
+    replies: list[dict[str, Any]] = field(default_factory=list)
 
 
 def apply_storage_writes(store: dict[str, str], result: dict[str, Any]) -> None:
@@ -239,11 +246,19 @@ def run_headless(
     storage: dict[str, str] | None = None,
     on_row: Callable[[dict[str, Any]], None] | None = None,
     budget: int = INSTRUCTION_BUDGET,
+    answer: Callable[[dict[str, Any]], str] | None = None,
+    replay: bool = False,
 ) -> HeadlessResult:
     """`boot` → `tick(0..ticks-1)` を順に呼ぶ。root が done になったら（その tick を含めて）止める。
 
     `events` は `{tick, kind, ...}` の列（録画の本文。tick 昇順・同じ tick は発生順）。
     `storage` は boot に渡す記憶の写し（録画のヘッダの `storage`。無ければ空）。
+
+    `answer` は v1 の陣への問い（tick 結果の `asks`・runtime.md §11）に答える呼び出し可能
+    （`{"id", "circle", "name", "prompt"}` → 答えの文字列）。実装は `jin_cli`（`jin_wasm` は `jin_adk` を
+    知らない）。答えは次の tick の入力イベント `reply` として積み、`HeadlessResult.replies` にも残す。
+    `replay` が真なら（`--input` の再生）問いには**答えない**（録画の `reply` 行が正）。`replay` でも
+    `answer` でもないのに問いが出たら `RunError`。
     """
     by_tick: dict[int, list[dict[str, Any]]] = {}
     for ev in events:
@@ -258,6 +273,7 @@ def run_headless(
     error: str | None = None
     done_tick: int | None = None
     ran = 0
+    replies: list[dict[str, Any]] = []
     for t in range(ticks):
         result = host.tick(t, state.apply(by_tick.get(t, [])))
         ran = t + 1
@@ -268,12 +284,40 @@ def run_headless(
         frames.append({"tick": t, "ops": result["ops"], "audio": result["audio"]})
         public = result.get("public", {})
         apply_storage_writes(store, result)
+        for reply in _answer_asks(result, t, answer=answer, replay=replay):
+            by_tick.setdefault(t + 1, []).append(reply)
+            replies.append(reply)
         if result.get("error") is not None:
             error = str(result["error"])
         if result.get("done"):
             done_tick = t
             break
-    return HeadlessResult(rows, frames, public, error, done_tick, ran, store)
+    return HeadlessResult(rows, frames, public, error, done_tick, ran, store, replies)
+
+
+def _answer_asks(
+    result: dict[str, Any],
+    t: int,
+    *,
+    answer: Callable[[dict[str, Any]], str] | None,
+    replay: bool,
+) -> list[dict[str, Any]]:
+    """tick 結果の `asks` を順に `answer` へ渡し、次の tick に積む `reply` イベントを返す（runtime.md §11）。"""
+    asks = result.get("asks", [])
+    if not asks or replay:
+        return []
+    if answer is None:
+        raise RunError(
+            "v1 の陣への問い（agent）に答えるホストがありません（jin run は jin_cli が答えます。"
+            "録画の再生なら replay=True）"
+        )
+    replies: list[dict[str, Any]] = []
+    for ask in asks:
+        if not isinstance(ask, dict) or not isinstance(ask.get("id"), (int, float)):
+            continue
+        text = clean_reply_text(str(answer(ask)))
+        replies.append({"tick": t + 1, "kind": "reply", "id": int(ask["id"]), "text": text})
+    return replies
 
 
 __all__ = [
