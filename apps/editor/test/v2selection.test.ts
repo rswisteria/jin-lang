@@ -1,7 +1,9 @@
 import { describe as group, expect, test } from "vitest";
 
 import {
+	extendStepRange,
 	followRenameV2,
+	rangePointersV2,
 	resolveSelectionV2,
 	type SelectionV2,
 	selectionFromPointerV2,
@@ -233,5 +235,71 @@ group("v2 の選択の再解決（DP-COMMON-16 の v2 版）", () => {
 				MODEL,
 			),
 		).toBe(state);
+	});
+});
+
+group("ステップの範囲選択（Shift クリック・v2.1）", () => {
+	const at = (...path: string[]): Extract<SelectionV2, { kind: "step" }> => ({
+		v2,
+		kind: "step",
+		circle: "Play",
+		rite: "step",
+		path,
+	});
+
+	test("同じ列の添字なら範囲に広げる（path は先頭、count は個数）", () => {
+		expect(extendStepRange(at("steps", "0"), at("steps", "1"))).toEqual({
+			...at("steps", "0"),
+			count: 2,
+		});
+		// 後ろから前へ広げても先頭が path になる。
+		expect(extendStepRange(at("steps", "1"), at("steps", "0"))).toEqual({
+			...at("steps", "0"),
+			count: 2,
+		});
+		// 範囲の内側を Shift クリックしても縮めない（起点を持たない）。
+		expect(
+			extendStepRange({ ...at("steps", "0"), count: 2 }, at("steps", "0")),
+		).toEqual({ ...at("steps", "0"), count: 2 });
+		// 同じ 1 つを Shift クリックしたら 1 つのまま（count は書かない）。
+		expect(extendStepRange(at("steps", "1"), at("steps", "1"))).toEqual(
+			at("steps", "1"),
+		);
+	});
+
+	test("列が違う・手順が違う・ステップでないなら、クリックした要素だけを選ぶ", () => {
+		const nested = at("steps", "0", "then", "0");
+		expect(extendStepRange(at("steps", "1"), nested)).toBe(nested);
+		expect(extendStepRange(nested, at("steps", "1"))).toEqual(at("steps", "1"));
+		const other: SelectionV2 = { ...at("steps", "1"), rite: "begin" };
+		expect(extendStepRange(other, at("steps", "0"))).toEqual(at("steps", "0"));
+		const rite: SelectionV2 = {
+			v2,
+			kind: "rite",
+			circle: "Play",
+			name: "step",
+		};
+		expect(extendStepRange(rite, at("steps", "0"))).toEqual(at("steps", "0"));
+		expect(extendStepRange(at("steps", "0"), rite)).toBe(rite);
+		expect(extendStepRange(null, at("steps", "0"))).toEqual(at("steps", "0"));
+		expect(extendStepRange(at("steps", "0"), null)).toBeNull();
+	});
+
+	test("範囲の pointer は先頭。範囲が列からはみ出したら解決しない", () => {
+		expect(resolveSelectionV2(MODEL, { ...at("steps", "0"), count: 2 })).toBe(
+			"/circles/1/rites/1/steps/0",
+		);
+		expect(
+			resolveSelectionV2(MODEL, { ...at("steps", "1"), count: 2 }),
+		).toBeNull();
+		expect(
+			rangePointersV2("/circles/1/rites/1/steps/0", {
+				...at("steps", "0"),
+				count: 2,
+			}),
+		).toEqual(["/circles/1/rites/1/steps/0", "/circles/1/rites/1/steps/1"]);
+		expect(
+			rangePointersV2("/circles/1/rites/1/steps/0/then/0", at("steps", "0")),
+		).toEqual(["/circles/1/rites/1/steps/0/then/0"]);
 	});
 });

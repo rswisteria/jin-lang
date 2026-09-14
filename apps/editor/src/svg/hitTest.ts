@@ -57,8 +57,12 @@ function kindOf(element: Element): JinKind | null {
   return null;
 }
 
-/** ドラッグで並べ替えられる種別（v1 の紋 → `moveTool`、v2 の道具 → `moveSigil`、ステップ → `moveStep`）。 */
-export const DRAGGABLE_KINDS: readonly JinKind[] = ["tool", "sigil", "step"];
+/**
+ * ドラッグを始められる種別（v1 の紋 → `moveTool`、v2 の道具 → `moveSigil`、ステップ → `moveStep` /
+ * 列を跨ぐ移動、v2 の陣 / 核 → 陣同士を結ぶ）。落とし先で何をするかは呼び出し側が決める
+ * （v1 は紋の上だけ、v2 は `v2/actions.ts` の `dropOps`）。
+ */
+export const DRAGGABLE_KINDS: readonly JinKind[] = ["tool", "sigil", "step", "circle", "core"];
 
 /** クリックされた要素から、最も近い `data-jin` 付きの祖先を探す。 */
 export function targetOf(element: Element | null): JinTarget | null {

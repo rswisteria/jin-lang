@@ -90,7 +90,8 @@
 Phase 5 の実装(`apps/editor/src/v2/actions.ts` / `dispatch.ts`)では次のとおり:
 
 - `addStep` は「空き位置をクリック」ではなく、ツールバーの「ステップを追加」(パレットで `do` を選ぶ。値は schema の判別共用体から引く)で、選択中のステップの**直後**か、選択 / focus 中の手順の**末尾**に入れる。既定値は参照先を捏造しない(式は空、`emit` / `transfer` の陣名は自陣)
-- 「包む」「抽出」は**選択中の 1 ステップ**(`from` = その添字、`count` = 1)。範囲選択は残存(v2.1)
-- ドラッグの並べ替えは**同じ列の中**だけ(`moveStep` / `moveSigil`)。列を跨ぐ移動と「陣同士を結ぶ」は残存
-- 直接のオペレーションが無い欄は合成で書く(**33 個目を作らない**): 陣の `description` は `removeCircle` + `addCircle`、sigil の `host` / `circle` / `rite` は `removeSigil` + `addSigil`、`on` の `event` は `removeOn` + `setOn`、ステップの `do` は `removeStep` + `addStep`、`delegate` は `removeDelegate` + `addDelegate`。`apply_ops` の原子性(§6)で 2 件が 1 回で当たる
+- 「包む」「抽出」は**選択中のステップ**、または **Shift クリックで選んだ同じ列の連続範囲**(`from` = 先頭の添字、`count` = 個数・v2.1)。範囲は選択の鍵(`step` の 陣 + 手順名 + パス)に `count` を足して持ち(`path` は先頭)、別の列・別の手順・ステップ以外を Shift クリックしたらその 1 つだけを選ぶ。範囲にはフォームを出さず、「削除」は後ろから `removeStep` を並べ、「ステップを追加」は範囲の直後に入れる。包む / 抽出の後は、範囲と置き換わった 1 ステップ(`if` / `cast`)を選ぶ(ステップの選択はパスで持つので、選び直さないと同じ鍵が別のステップを指す)
+- ドラッグは**落とし先のモデルの要素**で決める(`apps/editor/src/v2/actions.ts` の `dropOps`・v2.1)。道具 → 同じ列の道具は `moveSigil`。ステップ → 同じ列のステップ(または手順の外環 / 核。末尾へ)は `moveStep`。**列を跨ぐステップの移動は `removeStep` + `addStep` の合成を 1 回の `applyOps` で送る**(`moveStep` は同じ列の中だけ。2 件目の pointer は削除後のモデルで数え直し、落とした先のステップの添字に入る。自分の子孫の列へは落とさない。空の `then` / `else` は図に要素が無いので落とせない)。移した後はそのステップを選ぶ
+- **陣同士を結ぶ**(v2.1): 陣(外環 / 核)をドラッグして別の陣に落とすと `addDelegate`、手順の小陣に落とすと `addSigil`(`kind: summon`・名前は手順名、使われていれば空き番)。**落とした側が呼ぶ側**で、足した委譲 / 道具を選ぶ。参照の外枠(`data-jin-ref`)に落としたら参照先の陣として扱う。核の有無・閉路・流れの陣に置けないことはサーバの検査(JIN011 / JIN012 / JIN002)に任せ、エディタが断るのは**既にある委譲の重複**(サーバは断らず、同じ名前が 2 つ並ぶ)と**自分自身への落とし**の 2 つだけ。結べるのは同じ図に描かれている陣同士(root か focus の陣と、そこから参照される陣)で、どこからも参照されていない陣は図に無いので結べない(残存)
+- 直接のオペレーションが無い欄は合成で書く(**33 個目を作らない**): 陣の `description` は `removeCircle` + `addCircle`、sigil の `host` / `circle` / `rite` は `removeSigil` + `addSigil`、`on` の `event` は `removeOn` + `setOn`、ステップの `do` は `removeStep` + `addStep`、`delegate` は `removeDelegate` + `addDelegate`。`apply_ops` の原子性(1 件でも失敗したら何も適用しない・`jin_core.v2.ops.apply_ops`)で 2 件が 1 回で当たる
 - `tests/contract/test_editor_contract.py` が `apps/editor/src/v2/` の op 名が §2 の 32 件に閉じることを固定する(v1 の 19 件とは別集合)

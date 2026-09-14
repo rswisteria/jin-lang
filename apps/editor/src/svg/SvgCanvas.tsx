@@ -23,11 +23,13 @@ import {
  */
 export interface SvgCanvasProps {
 	readonly svg: string;
-	readonly selectedPointer: string | null;
+	/** ハイライトする pointer（v2 のステップの範囲選択では複数・無ければ空）。 */
+	readonly selectedPointers: readonly string[];
 	readonly diagnostics: readonly JinDiagnostic[];
 	/** 図に重ねるラベル（pointer の要素の右上に置く）。無ければ空。 */
 	readonly labels: readonly ValueLabel[];
-	readonly onPick: (target: JinTarget) => void;
+	/** `extend` は Shift を押したままのクリック（v2 のステップの範囲選択）。 */
+	readonly onPick: (target: JinTarget, extend: boolean) => void;
 	readonly onOpen: (target: JinTarget) => void;
 	readonly onMove: (from: JinTarget, to: JinTarget) => void;
 	readonly onDiagnostic: (diagnostic: JinDiagnostic) => void;
@@ -73,8 +75,9 @@ export function SvgCanvas(props: SvgCanvasProps): React.JSX.Element {
 				element.removeAttribute("data-jin-stroke-was");
 			}
 		}
-		if (props.selectedPointer !== null) {
-			for (const element of elementsFor(svg, props.selectedPointer)) {
+		for (const pointer of props.selectedPointers) {
+			for (const element of elementsFor(svg, pointer)) {
+				if (element.hasAttribute("data-jin-selected")) continue;
 				element.setAttribute("data-jin-selected", "1");
 				const stroke = element.getAttribute("stroke");
 				if (stroke !== null) {
@@ -87,7 +90,7 @@ export function SvgCanvas(props: SvgCanvasProps): React.JSX.Element {
 		svg.querySelector(`#${OVERLAY_ID}`)?.remove();
 		const badges = buildBadges(svg, props.diagnostics);
 		if (badges !== null) svg.append(badges);
-	}, [props.svg, props.selectedPointer, props.diagnostics]);
+	}, [props.svg, props.selectedPointers, props.diagnostics]);
 
 	// ラベルの位置。SVG / ラベル / 窓の幅が変わるたびに、描かれた要素の矩形から取り直す。
 	const labels = props.labels;
@@ -119,7 +122,7 @@ export function SvgCanvas(props: SvgCanvasProps): React.JSX.Element {
 					}
 				}
 				const target = targetOf(event.target as Element);
-				if (target !== null) props.onPick(target);
+				if (target !== null) props.onPick(target, event.shiftKey);
 			}}
 			onDoubleClick={(event) => {
 				const target = targetOf(event.target as Element);
@@ -139,12 +142,9 @@ export function SvgCanvas(props: SvgCanvasProps): React.JSX.Element {
 				dragging.current = null;
 				if (from === null) return;
 				const to = targetOf(event.target as Element);
-				// 同じ種別の上に落としたときだけ並べ替える（紋 → 紋、ステップ → ステップ）。
-				if (
-					to !== null &&
-					to.kind === from.kind &&
-					to.pointer !== from.pointer
-				) {
+				// 別の要素の上に落としたら渡す。何をするか（並べ替え / 列を跨ぐ移動 / 陣を結ぶ）は
+				// 呼び出し側が落とし先の種別で決める（同じ要素の上なら、ただのクリック）。
+				if (to !== null && to.pointer !== from.pointer) {
 					props.onMove(from, to);
 				}
 			}}

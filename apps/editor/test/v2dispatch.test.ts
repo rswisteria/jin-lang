@@ -13,8 +13,9 @@ import {
 	addRite,
 	addState,
 	addStep,
+	dropOps,
 	extractSelectedStep,
-	moveOps,
+	pointerAfterRemoval,
 	removeSelected,
 	toggleStateOut,
 	wrapSelectedStep,
@@ -479,52 +480,381 @@ group("図の操作 → オペレーション（ops.md §5）", () => {
 			rite: "begin",
 			path: ["steps", "1"],
 		};
-		expect(wrapSelectedStep(MODEL, step)).toEqual([
-			{
-				op: "wrapSteps",
-				pointer: "/circles/1/rites/0/steps",
-				from: 1,
-				count: 1,
-				value: { do: "if", cond: "true" },
-			},
-		]);
-		expect(extractSelectedStep(MODEL, step)).toEqual([
-			{
-				op: "extractRite",
-				pointer: "/circles/1/rites/0/steps",
-				from: 1,
-				count: 1,
-				name: "rite1",
-			},
-		]);
-		const from = {
-			pointer: "/circles/1/rites/0/steps/0",
-			kind: "step" as const,
-			ref: null,
-		};
+		// 包んだ / 抽出した後は、置き換わった 1 ステップ（if / cast）を選ぶ。
+		expect(wrapSelectedStep(MODEL, step)).toEqual({
+			ops: [
+				{
+					op: "wrapSteps",
+					pointer: "/circles/1/rites/0/steps",
+					from: 1,
+					count: 1,
+					value: { do: "if", cond: "true" },
+				},
+			],
+			select: step,
+		});
+		expect(extractSelectedStep(MODEL, step)).toEqual({
+			ops: [
+				{
+					op: "extractRite",
+					pointer: "/circles/1/rites/0/steps",
+					from: 1,
+					count: 1,
+					name: "rite1",
+				},
+			],
+			select: step,
+		});
 		expect(
-			moveOps(from, {
-				pointer: "/circles/1/rites/0/steps/2",
-				kind: "step",
-				ref: null,
-			}),
-		).toEqual([
-			{ op: "moveStep", pointer: "/circles/1/rites/0/steps/0", to: 2 },
-		]);
-		// 列を跨ぐ移動はしない（ops.md §2: removeStep + addStep の合成であって moveStep ではない）。
-		expect(
-			moveOps(from, {
-				pointer: "/circles/1/rites/0/steps/0/then/0",
-				kind: "step",
-				ref: null,
-			}),
-		).toEqual([]);
-		expect(
-			moveOps(
+			dropOps(
+				MODEL,
 				{ pointer: "/circles/1/sigils/0", kind: "sigil", ref: null },
 				{ pointer: "/circles/1/sigils/1", kind: "sigil", ref: null },
 			),
-		).toEqual([{ op: "moveSigil", pointer: "/circles/1/sigils/0", to: 1 }]);
+		).toEqual({
+			ops: [{ op: "moveSigil", pointer: "/circles/1/sigils/0", to: 1 }],
+		});
+	});
+
+	test("範囲選択（count > 1）で包む / 抽出 / 削除 / 直後に足す", () => {
+		const range: SelectionV2 = {
+			v2,
+			kind: "step",
+			circle: "Play",
+			rite: "begin",
+			path: ["steps", "1"],
+			count: 2,
+		};
+		const first: SelectionV2 = {
+			v2,
+			kind: "step",
+			circle: "Play",
+			rite: "begin",
+			path: ["steps", "1"],
+		};
+		expect(wrapSelectedStep(MODEL, range)).toEqual({
+			ops: [
+				{
+					op: "wrapSteps",
+					pointer: "/circles/1/rites/0/steps",
+					from: 1,
+					count: 2,
+					value: { do: "if", cond: "true" },
+				},
+			],
+			select: first,
+		});
+		expect(extractSelectedStep(MODEL, range)).toEqual({
+			ops: [
+				{
+					op: "extractRite",
+					pointer: "/circles/1/rites/0/steps",
+					from: 1,
+					count: 2,
+					name: "rite1",
+				},
+			],
+			select: first,
+		});
+		// 後ろから消す（前から消すと 2 件目の pointer がずれる）。
+		expect(removeSelected(MODEL, range)).toEqual([
+			{ op: "removeStep", pointer: "/circles/1/rites/0/steps/2" },
+			{ op: "removeStep", pointer: "/circles/1/rites/0/steps/1" },
+		]);
+		// 足す位置は範囲の直後。
+		expect(addStep(MODEL, range, null, "wait")).toEqual([
+			{
+				op: "addStep",
+				pointer: "/circles/1/rites/0/steps",
+				index: 3,
+				value: { do: "wait", ticks: "1" },
+			},
+		]);
+		// 範囲がはみ出していたら何も送らない。
+		expect(wrapSelectedStep(MODEL, { ...range, count: 3 })).toEqual({
+			ops: [],
+		});
+		// 範囲にはフォームを出さない（どの 1 つの欄を書くかが決まらない）。
+		expect(fieldsForSelectionV2(ROOT, range, null)).toEqual([]);
+	});
+});
+
+group("ドラッグの落とし先（ops.md §5・v2.1）", () => {
+	const RITE = "/circles/1/rites/0";
+	const NESTED = {
+		...MODEL,
+		circles: [
+			MODEL.circles[0],
+			{
+				...MODEL.circles[1],
+				rites: [
+					{
+						name: "begin",
+						steps: [
+							{ do: "set", target: "score", expr: "0" },
+							{ do: "if", cond: "true", then: [{ do: "finish" }] },
+							{ do: "wait", ticks: "1" },
+						],
+					},
+				],
+			},
+		],
+	};
+	const stepTarget = (path: string) => ({
+		pointer: `${RITE}/${path}`,
+		kind: "step" as const,
+		ref: null,
+	});
+	const stepAt = (...path: string[]): SelectionV2 => ({
+		v2,
+		kind: "step",
+		circle: "Play",
+		rite: "begin",
+		path,
+	});
+
+	test("removeStep で詰まる列の添字だけを 1 つ下げる", () => {
+		expect(pointerAfterRemoval(`${RITE}/steps/3/then`, `${RITE}/steps/0`)).toBe(
+			`${RITE}/steps/2/then`,
+		);
+		// 消した位置より前 / 別の列 / 段の途中の前方一致は変えない。
+		expect(pointerAfterRemoval(`${RITE}/steps/0/then`, `${RITE}/steps/3`)).toBe(
+			`${RITE}/steps/0/then`,
+		);
+		expect(
+			pointerAfterRemoval(`${RITE}/steps/1/then`, `${RITE}/steps/1/then/0`),
+		).toBe(`${RITE}/steps/1/then`);
+		expect(
+			pointerAfterRemoval(`${RITE}/steps/10/then`, `${RITE}/steps/1`),
+		).toBe(`${RITE}/steps/9/then`);
+		expect(
+			pointerAfterRemoval(`${RITE}/steps/1/then`, `${RITE}/steps/10`),
+		).toBe(`${RITE}/steps/1/then`);
+	});
+
+	test("同じ列の中は moveStep（落とした先の添字へ）", () => {
+		expect(
+			dropOps(NESTED, stepTarget("steps/0"), stepTarget("steps/2")),
+		).toEqual({
+			ops: [{ op: "moveStep", pointer: `${RITE}/steps/0`, to: 2 }],
+			select: stepAt("steps", "2"),
+		});
+		// 手順（外環 / 核）に落とすと末尾へ。同じ列なら moveStep のまま。
+		expect(
+			dropOps(NESTED, stepTarget("steps/0"), {
+				pointer: RITE,
+				kind: "circle",
+				ref: null,
+			}),
+		).toEqual({
+			ops: [{ op: "moveStep", pointer: `${RITE}/steps/0`, to: 2 }],
+			select: stepAt("steps", "2"),
+		});
+	});
+
+	test("列を跨ぐ移動は removeStep + addStep の 1 回の合成（2 件目は削除後の pointer）", () => {
+		// 前の兄弟を消すと、落とし先の列の添字が 1 つ詰まる。
+		expect(
+			dropOps(NESTED, stepTarget("steps/0"), stepTarget("steps/1/then/0")),
+		).toEqual({
+			ops: [
+				{ op: "removeStep", pointer: `${RITE}/steps/0` },
+				{
+					op: "addStep",
+					pointer: `${RITE}/steps/0/then`,
+					index: 0,
+					value: { do: "set", target: "score", expr: "0" },
+				},
+			],
+			select: stepAt("steps", "0", "then", "0"),
+		});
+		// 後ろの兄弟からなら詰まらない。
+		expect(
+			dropOps(NESTED, stepTarget("steps/2"), stepTarget("steps/1/then/0")),
+		).toEqual({
+			ops: [
+				{ op: "removeStep", pointer: `${RITE}/steps/2` },
+				{
+					op: "addStep",
+					pointer: `${RITE}/steps/1/then`,
+					index: 0,
+					value: { do: "wait", ticks: "1" },
+				},
+			],
+			select: stepAt("steps", "1", "then", "0"),
+		});
+		// 入れ子から外の列へ。
+		expect(
+			dropOps(NESTED, stepTarget("steps/1/then/0"), stepTarget("steps/2")),
+		).toEqual({
+			ops: [
+				{ op: "removeStep", pointer: `${RITE}/steps/1/then/0` },
+				{
+					op: "addStep",
+					pointer: `${RITE}/steps`,
+					index: 2,
+					value: { do: "finish" },
+				},
+			],
+			select: stepAt("steps", "2"),
+		});
+		// 手順に落とすと末尾へ（index を書かない）。
+		expect(
+			dropOps(NESTED, stepTarget("steps/1/then/0"), {
+				pointer: `${RITE}/name`,
+				kind: "core",
+				ref: null,
+			}),
+		).toEqual({
+			ops: [
+				{ op: "removeStep", pointer: `${RITE}/steps/1/then/0` },
+				{ op: "addStep", pointer: `${RITE}/steps`, value: { do: "finish" } },
+			],
+			select: stepAt("steps", "3"),
+		});
+	});
+
+	test("自分の中へは落とさない・ステップ以外の上には落とさない", () => {
+		expect(
+			dropOps(NESTED, stepTarget("steps/1"), stepTarget("steps/1/then/0")),
+		).toEqual({ ops: [] });
+		expect(
+			dropOps(NESTED, stepTarget("steps/0"), {
+				pointer: "/circles/1/sigils/0",
+				kind: "sigil",
+				ref: null,
+			}),
+		).toEqual({ ops: [] });
+		// 道具は同じ列の道具の上だけ。
+		expect(
+			dropOps(
+				NESTED,
+				{ pointer: "/circles/1/sigils/0", kind: "sigil", ref: null },
+				stepTarget("steps/0"),
+			),
+		).toEqual({ ops: [] });
+	});
+
+	const LINKED = {
+		...MODEL,
+		circles: [
+			MODEL.circles[0],
+			{ ...MODEL.circles[1], delegate: [] },
+			{
+				name: "Result",
+				core: "show",
+				rites: [
+					{ name: "show", steps: [] },
+					{ name: "canvas", steps: [] },
+				],
+			},
+		],
+	};
+	const core = (i: number) => ({
+		pointer: `/circles/${String(i)}/core`,
+		kind: "core" as const,
+		ref: null,
+	});
+
+	test("陣を陣に落とす → addDelegate、手順に落とす → addSigil(summon)", () => {
+		expect(
+			dropOps(LINKED, core(1), {
+				pointer: "/circles/2",
+				kind: "circle",
+				ref: null,
+			}),
+		).toEqual({
+			ops: [
+				{ op: "addDelegate", pointer: "/circles/1/delegate", value: "Result" },
+			],
+			select: { v2, kind: "delegate", circle: "Play", name: "Result" },
+		});
+		// 参照の外枠（`data-jin-ref`）は参照先の陣として扱う。
+		expect(
+			dropOps(
+				LINKED,
+				{ pointer: "/circles/1", kind: "circle", ref: null },
+				{
+					pointer: "/circles/0/flow/steps/0",
+					kind: "circle",
+					ref: "/circles/2",
+				},
+			).ops,
+		).toEqual([
+			{ op: "addDelegate", pointer: "/circles/1/delegate", value: "Result" },
+		]);
+		expect(
+			dropOps(LINKED, core(1), {
+				pointer: "/circles/2/rites/0",
+				kind: "rite",
+				ref: null,
+			}),
+		).toEqual({
+			ops: [
+				{
+					op: "addSigil",
+					pointer: "/circles/1/sigils",
+					value: {
+						name: "show",
+						kind: "summon",
+						circle: "Result",
+						rite: "show",
+					},
+				},
+			],
+			select: { v2, kind: "sigil", circle: "Play", name: "show" },
+		});
+		// 道具の名前は手順名。使われていれば空き番にする（Play には道具 `canvas` がある）。
+		expect(
+			dropOps(LINKED, core(1), {
+				pointer: "/circles/2/rites/1",
+				kind: "rite",
+				ref: null,
+			}).ops,
+		).toEqual([
+			{
+				op: "addSigil",
+				pointer: "/circles/1/sigils",
+				value: {
+					name: "canvas1",
+					kind: "summon",
+					circle: "Result",
+					rite: "canvas",
+				},
+			},
+		]);
+	});
+
+	test("既にある委譲・自分自身・陣でない起点は送らない", () => {
+		const already = dropOps(MODEL, core(1), {
+			pointer: "/circles/0",
+			kind: "circle",
+			ref: null,
+		});
+		expect(already.ops).toEqual([]);
+		expect(already.notice).toContain("Game");
+		expect(
+			dropOps(LINKED, core(1), {
+				pointer: "/circles/1",
+				kind: "circle",
+				ref: null,
+			}),
+		).toEqual({ ops: [] });
+		expect(
+			dropOps(LINKED, core(1), {
+				pointer: "/circles/1/rites/0",
+				kind: "rite",
+				ref: null,
+			}),
+		).toEqual({ ops: [] });
+		// 手順の図の外環（kind circle・pointer は手順）は陣ではない。
+		expect(
+			dropOps(
+				LINKED,
+				{ pointer: "/circles/1/rites/0", kind: "circle", ref: null },
+				{ pointer: "/circles/2", kind: "circle", ref: null },
+			),
+		).toEqual({ ops: [] });
 	});
 });
 

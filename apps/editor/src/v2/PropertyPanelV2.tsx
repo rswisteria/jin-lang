@@ -13,7 +13,12 @@ import {
 } from "./dispatch";
 import { ExprEditor, ExprListEditor } from "./ExprEditor";
 import { lspPositionOf } from "./position";
-import { resolveSelectionV2, type SelectionV2, valueAt } from "./selection";
+import {
+	resolveSelectionV2,
+	type SelectionV2,
+	stepCount,
+	valueAt,
+} from "./selection";
 
 /**
  * Jin v2 のプロパティパネル（設計書 §8）。
@@ -49,6 +54,21 @@ export function PropertyPanelV2(
 			<p className="jin-hint">
 				選択していた要素が見つかりません（削除されたか、名前が変わりました）。
 			</p>
+		);
+	}
+	const count = stepCount(selection);
+	if (count > 1) {
+		// 範囲選択（Shift クリック・v2.1）にはフォームを出さない。範囲に当たる操作だけを案内する。
+		return (
+			<div className="jin-form" data-testid="jin-form">
+				<p className="jin-pointer" data-testid="jin-pointer">
+					{pointer}
+				</p>
+				<p className="jin-hint" data-testid="jin-range">
+					{count} ステップを選んでいます。「if
+					で包む」「手順に抽出」「削除」が範囲全体に当たります。
+				</p>
+			</div>
 		);
 	}
 	const value = valueAt(model, pointer);

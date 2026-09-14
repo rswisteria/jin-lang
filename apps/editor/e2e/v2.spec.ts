@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import {
 	expectServerGone,
@@ -732,3 +732,255 @@ test("storage: 「最初から」でも記憶は続き（runs が 2）、「記�
 		);
 	expect(stored).toEqual({ runs: "1", best: "1", label: "run 1" });
 });
+
+// ======================================================================================
+// 図の操作（ops.md §5・v2.1）: 範囲選択 / 列を跨ぐドラッグ / 陣を結ぶ
+// ======================================================================================
+
+interface SavedStep {
+	readonly do: string;
+	readonly target?: string;
+	readonly then?: readonly SavedStep[];
+}
+
+interface SavedModel {
+	readonly circles: readonly {
+		readonly name: string;
+		readonly delegate?: readonly string[];
+		readonly sigils?: readonly Record<string, unknown>[];
+		readonly rites?: readonly {
+			readonly name: string;
+			readonly steps: readonly SavedStep[];
+		}[];
+	}[];
+}
+
+test("Shift クリックの範囲で抽出・包む（count > 1）", async ({ page }) => {
+	await open(page);
+	const canvas = page.getByTestId("jin-canvas");
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/3"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/paint");
+	const step = (index: string) =>
+		canvas.locator(
+			`[data-jin="/circles/1/rites/3/steps/${index}"][data-jin-kind="step"]`,
+		);
+
+	// 0 をクリック → 1 を Shift クリックで 2 つの範囲。範囲にはフォームを出さず、全部をハイライトする。
+	await clickOn(page, step("0"));
+	await clickOn(page, step("1"), { shift: true });
+	await expect(page.getByTestId("jin-range")).toContainText("2 ステップ");
+	await expect(
+		step("1").and(canvas.locator("[data-jin-selected]")),
+	).not.toHaveCount(0);
+	await expect(page.getByTestId("jin-extract-step")).toHaveText(
+		"2 ステップを手順に抽出",
+	);
+	await page.getByTestId("jin-extract-step").click();
+	// 抽出の後は、範囲と置き換わった cast（範囲の先頭）を選ぶ。
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/3/steps/0",
+	);
+	await expect(step("4")).toHaveCount(0);
+
+	await clickOn(page, step("1"));
+	await clickOn(page, step("2"), { shift: true });
+	await expect(page.getByTestId("jin-range")).toContainText("2 ステップ");
+	await page.getByTestId("jin-wrap-step").click();
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/3/steps/1",
+	);
+	await expect(step("1/then/1")).not.toHaveCount(0);
+
+	const model = await saveAndCheck(page);
+	const play = model.circles[1]!;
+	const paint = play.rites![3]!.steps;
+	expect(paint.map((s) => s.do)).toEqual(["cast", "if", "cast"]);
+	expect(paint[0]!.target).toBe("rite1");
+	expect(paint[1]!.then!.map((s) => s.target)).toEqual([
+		"canvas.rect",
+		"canvas.circle",
+	]);
+	expect(play.rites![4]!.name).toBe("rite1");
+	expect(play.rites![4]!.steps.map((s) => s.target)).toEqual([
+		"canvas.clear",
+		"canvas.ink",
+	]);
+});
+
+test("列を跨ぐドラッグは removeStep + addStep の 1 回の合成", async ({
+	page,
+}) => {
+	await open(page);
+	const canvas = page.getByTestId("jin-canvas");
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/2"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/step");
+	const step = (path: string) =>
+		canvas.locator(
+			`[data-jin="/circles/1/rites/2/steps/${path}"][data-jin-kind="step"]`,
+		);
+
+	// steps/2（ball.x）を steps/4 の then の先頭へ。前の兄弟が消えるので、移った先は steps/3/then/0。
+	await dragOnto(page, step("2"), step("4/then/0"));
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/2/steps/3/then/0",
+	);
+	await expect(step("8")).toHaveCount(0);
+	// 1 回の applyOps なので、元に戻すも 1 回（途中の「消えただけ」の状態を通らない）。
+	await page.getByTestId("jin-undo").click();
+	await expect(step("8")).not.toHaveCount(0);
+	await expect(step("4/then/1")).toHaveCount(0);
+	await page.getByTestId("jin-redo").click();
+	await expect(step("8")).toHaveCount(0);
+
+	const model = await saveAndCheck(page);
+	const steps = model.circles[1]!.rites![2]!.steps;
+	expect(steps).toHaveLength(8);
+	expect(steps[2]!.target).toBe("ball.y");
+	expect(steps[3]!.then!.map((s) => s.target)).toEqual(["ball.x", "ball.vx"]);
+});
+
+test("陣を陣 / 手順に落として結ぶ（addDelegate / addSigil summon）", async ({
+	page,
+}) => {
+	// 根の図は流れの陣（Game）の中に Play と Result を並べて描くので、既定の画面ではスクロールしないと
+	// 両方が同時に入らない。ドラッグは押した点と離す点が同時に画面に要る。
+	await page.setViewportSize({ width: 1920, height: 1600 });
+	await open(page);
+	const canvas = page.getByTestId("jin-canvas");
+	const play = canvas.locator('text[data-jin="/circles/1/core"]');
+	const result = canvas.locator('text[data-jin="/circles/2/core"]');
+
+	// 陣（核）を陣に落とす → 落とした側（Play）の delegate に足し、足した委譲を選ぶ。
+	await dragOnto(page, play, result);
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/delegate/0",
+	);
+	// 同じ委譲はもう一度送らない（サーバは重複を断らず、同じ名前が 2 つ並ぶ）。
+	await dragOnto(page, play, result);
+	await expect(page.getByTestId("jin-notice")).toContainText(
+		"Play は既に Result へ委譲しています",
+	);
+	// 陣を手順の小陣に落とす → summon の道具（名前は手順名）。
+	await dragOnto(
+		page,
+		play,
+		canvas.locator('text[data-jin="/circles/2/rites/1"]'),
+	);
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/sigils/3",
+	);
+
+	const model = await saveAndCheck(page);
+	const circle = model.circles[1]!;
+	expect(circle.delegate).toEqual(["Result"]);
+	expect(circle.sigils!.at(-1)).toEqual({
+		name: "menu",
+		kind: "summon",
+		circle: "Result",
+		rite: "menu",
+	});
+});
+
+/**
+ * 描かれた要素の上で、**その要素自身に当たる**画面上の点（ビューポートの CSS px）。
+ *
+ * 手順の図のステップは弧（`path`）で描かれ、外接矩形の中心が線の上に無い。レイアウトを知らずに
+ * 当てるため、外接矩形の格子点と線の長さに沿った点を順に試し、`elementFromPoint` が
+ * locator の要素のどれかを返す最初の点を使う。
+ */
+async function pointOn(
+	target: Locator,
+	scroll = true,
+): Promise<{ x: number; y: number }> {
+	// 実行パネルのプレイヤーが走っている間、図は 1 秒ごとに描き直される（`LIVE_REFRESH_MS`）。
+	// 掴んだ要素がスクロールの途中で差し替わることがあるので、点が取れるまで取り直す
+	// （座標は描き直しの前後で変わらない）。
+	let found: { x: number; y: number } | null = null;
+	await expect(async () => {
+		found = await pointOnce(target, scroll);
+		expect(found, "要素に当たる点が見つからない").not.toBeNull();
+	}).toPass();
+	return found!;
+}
+
+async function pointOnce(
+	target: Locator,
+	scroll: boolean,
+): Promise<{ x: number; y: number } | null> {
+	await expect(target.first()).toBeAttached();
+	if (scroll) await target.first().scrollIntoViewIfNeeded();
+	return target.evaluateAll((elements) => {
+		const candidates: { x: number; y: number }[] = [];
+		for (const element of elements) {
+			const box = element.getBoundingClientRect();
+			for (const fx of [0.5, 0.25, 0.75]) {
+				for (const fy of [0.5, 0.25, 0.75]) {
+					candidates.push({
+						x: box.left + box.width * fx,
+						y: box.top + box.height * fy,
+					});
+				}
+			}
+			if (element instanceof SVGGeometryElement) {
+				const matrix = element.getScreenCTM();
+				const length = element.getTotalLength();
+				for (let k = 0; matrix !== null && k <= 20; k += 1) {
+					const at = element
+						.getPointAtLength((length * k) / 20)
+						.matrixTransform(matrix);
+					candidates.push({ x: at.x, y: at.y });
+				}
+			}
+		}
+		return (
+			candidates.find((candidate) => {
+				const found = document.elementFromPoint(candidate.x, candidate.y);
+				return found !== null && (elements as Element[]).includes(found);
+			}) ?? null
+		);
+	});
+}
+
+async function clickOn(
+	page: Page,
+	target: Locator,
+	options?: { readonly shift?: boolean },
+): Promise<void> {
+	const point = await pointOn(target);
+	if (options?.shift === true) await page.keyboard.down("Shift");
+	await page.mouse.click(point.x, point.y);
+	if (options?.shift === true) await page.keyboard.up("Shift");
+}
+
+/** 押して、動かして、離す（`SvgCanvas` の onPointerDown / onPointerUp を通す）。 */
+async function dragOnto(page: Page, from: Locator, to: Locator): Promise<void> {
+	// 先に両方を画面に入れてから、**スクロールせずに**点を取り直す（落とし先へのスクロールで
+	// 起点の座標がずれると、押す位置が要素を外れてドラッグが始まらない）。
+	await pointOn(from);
+	await pointOn(to);
+	const start = await pointOn(from, false);
+	const end = await pointOn(to, false);
+	await page.mouse.move(start.x, start.y);
+	await page.mouse.down();
+	await page.mouse.move(end.x, end.y, { steps: 5 });
+	await page.mouse.up();
+}
+
+/** 保存 → `jin fmt` の出力とバイト一致 → `jin check` が通る。保存したモデルを返す。 */
+async function saveAndCheck(page: Page): Promise<SavedModel> {
+	await page.getByTestId("jin-save").click();
+	await expect(page.getByTestId("jin-notice")).toContainText("保存しました");
+	const saved = readFileSync(editor.file);
+	const copy = editor.file.replace(/\.jin$/, "-copy.jin");
+	copyFileSync(editor.file, copy);
+	execFileSync("uv", ["run", "jin", "fmt", copy], { cwd: REPO_ROOT });
+	expect(saved.equals(readFileSync(copy))).toBe(true);
+	execFileSync("uv", ["run", "jin", "check", editor.file], { cwd: REPO_ROOT });
+	return JSON.parse(saved.toString("utf8")) as SavedModel;
+}
