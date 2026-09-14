@@ -1,4 +1,4 @@
--- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 4
+-- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 5
 --
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
@@ -139,8 +139,10 @@ local function esc_char(ch)
   return string.format("\\u%04x", string.byte(ch))
 end
 
+-- 制御文字は範囲で書く（`%c` は C の iscntrl でプロセスのロケールに従い、UTF-8 のロケールでは
+-- 非 ASCII の途中のバイトまで \u00xx にして JSON を壊す。lupa のホストで起きた・v2.1）。
 local function JS(s)
-  return '"' .. string.gsub(s, '[%c"\\]', esc_char) .. '"'
+  return '"' .. string.gsub(s, '[\0-\31\127"\\]', esc_char) .. '"'
 end
 
 local function JN(x)
@@ -329,6 +331,15 @@ H.input = {
     return false
   end,
   pointer = pointer_value,
+  -- この tick に確定した文字列（abilities.md §3・v2.1）。text イベントを発生順につなぐ。無ければ ""。
+  -- 状態を持たない（snapshot / resume に運ぶものが無い）。
+  text = function()
+    local s = ""
+    for _, ev in ipairs(INPUTS.events) do
+      if ev.kind == "text" then s = s .. ev.text end
+    end
+    return s
+  end,
 }
 
 H.ui = {

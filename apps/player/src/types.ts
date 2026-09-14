@@ -69,7 +69,9 @@ export type InputEvent =
 			readonly x: number;
 			readonly y: number;
 			readonly down: boolean;
-	  };
+	  }
+	/** 確定した文字列（abilities.md §3 の `input.text`・v2.1）。押下状態には触らない。 */
+	| { readonly kind: "text"; readonly text: string };
 
 /** `tick(t, inputs)` の `inputs`（runtime.md §1.1）。 */
 export interface Inputs {

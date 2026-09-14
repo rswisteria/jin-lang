@@ -284,8 +284,8 @@ def test_the_jinrec_reader_mirrors_the_python_one() -> None:
 
     reader = read(SRC / "jinrec.ts")
     assert f"export const JINREC_VERSION = {JINREC_VERSION};" in reader
-    assert 'export const EVENT_KINDS = ["key", "pointer"] as const;' in reader
-    assert EVENT_KINDS == ("key", "pointer")
+    assert 'export const EVENT_KINDS = ["key", "pointer", "text"] as const;' in reader
+    assert EVENT_KINDS == ("key", "pointer", "text")  # text は v2.1（abilities.md §3）
     broken = REPO_ROOT / "tests" / "fixtures" / "jinrec" / "broken"
     assert (broken / "broken.expected.json").is_file()
     assert len(list(broken.glob("*.jinrec"))) >= 10

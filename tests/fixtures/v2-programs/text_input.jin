@@ -1,0 +1,108 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 96,
+    "height": 16
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "start",
+      "state": [
+        {
+          "name": "name",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        },
+        {
+          "name": "typed",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "input",
+          "kind": "host",
+          "host": "input"
+        },
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "let",
+              "name": "t",
+              "expr": "input.text()"
+            },
+            {
+              "do": "if",
+              "cond": "len(t) > 0",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "name",
+                  "expr": "name ++ t"
+                },
+                {
+                  "do": "set",
+                  "target": "typed",
+                  "expr": "typed + len(t)"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"Backspace\") and len(name) > 0",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "name",
+                  "expr": "sub(name, 0, len(name) - 1)"
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "name",
+                "1",
+                "4"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    }
+  ]
+}

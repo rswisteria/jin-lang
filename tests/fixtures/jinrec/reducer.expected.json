@@ -15,6 +15,7 @@
   {
     "events": [
       {"kind": "key", "name": "ArrowRight", "down": true},
+      {"kind": "text", "text": "aｱ😀"},
       {"kind": "key", "name": "ArrowLeft", "down": false}
     ],
     "keys": {"ArrowRight": true},
@@ -26,7 +27,7 @@
     "pointer": {"x": 12.5, "y": 21, "down": false}
   },
   {
-    "events": [],
+    "events": [{"kind": "text", "text": " "}],
     "keys": {"ArrowRight": true},
     "pointer": {"x": 12.5, "y": 21, "down": false}
   }

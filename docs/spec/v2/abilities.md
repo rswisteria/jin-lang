@@ -31,6 +31,7 @@
 | `input` | `key` | name: str | bool | read |
 | `input` | `pressed` | name: str | bool | read |
 | `input` | `pointer` | — | Pointer | read |
+| `input` | `text` | — | str | read |
 | `ui` | `button` | label: str, x: num, y: num, w: num, h: num | bool | effect+read |
 | `ui` | `label` | s: str, x: num, y: num | — | effect |
 | `audio` | `tone` | hz: num, ms: num | — | effect |
@@ -66,6 +67,7 @@ tick `t` の入力スナップショットは、ホストが「前の tick の�
 - `key(name)`: `name` のキーが**押下中**なら真
 - `pressed(name)`: この tick に押された(押下遷移があった)なら真。押しっぱなしでは偽
 - `pointer()`: `Pointer{x, y, down}`。`x` / `y` は論理座標(範囲外の値も返す)。`down` は主ボタン押下中
+- `text()`(v2.1): この tick に**確定した**文字列。スナップショットの `text` イベント(runtime.md §1.1 / §7)を発生順につないだもので、無ければ `""`。IME の合成中の文字は含まず、確定したときに 1 つの `text` イベントになる。文字列を保つのはプログラムの `state`(`name = name ++ input.text()`)で、ホストは欄の中身も位置も持たない。消すのは `pressed("Backspace")` などキーで書く(Backspace / Enter は文字にならない。Space は `key` / `pressed` の `Space` と、`text()` の `" "` の両方に出る。文字のキーも同じで、打った文字は `text()` に、押下は `KeyA` などとして `key` / `pressed` に出る)。`len` / `sub` はコードポイントで数え、`canvas.text` は非 ASCII も描く(§2)
 
 キー名は `KeyboardEvent.code` の値(`ArrowLeft` / `Space` / `KeyA` …)。これも `abilities.json` に列挙し、定数リテラルのときは静的に検査する(JIN205)。列挙に無い名前は実行時に常に偽。
 
@@ -78,7 +80,7 @@ tick `t` の入力スナップショットは、ホストが「前の tick の�
 - `button(label, x, y, w, h)`: 枠と `label` を描き、**この tick にポインタの主ボタンが矩形の中で離された**なら真。押下位置が矩形の外だった場合も、離した位置が中なら真(単純化。押下追跡はしない)。判定は `input` と同じスナップショットから行い、`ui` を使う陣に `input` の許可は要らない
 - `label(s, x, y)`: `canvas.text` と同じ描画で、UI の意味付け(将来のアクセシビリティ用)
 
-ホバー表示・フォーカス・キーボード操作は v2 では無い。
+ホバー表示・フォーカス・キーボード操作は v2 では無い。文字の入力欄もウィジェットとしては持たない(v2.1 の文字入力は `input.text()` の読み取りで、欄の中身と描画はプログラムが `state` と `canvas` で持つ・§3)。
 
 ## 5. `audio`
 

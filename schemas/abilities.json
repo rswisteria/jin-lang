@@ -160,6 +160,12 @@
           "params": [],
           "returns": "Pointer",
           "kind": "read"
+        },
+        {
+          "name": "text",
+          "params": [],
+          "returns": "str",
+          "kind": "read"
         }
       ]
     },

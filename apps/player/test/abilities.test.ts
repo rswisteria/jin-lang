@@ -36,14 +36,21 @@ group("abilities.json から引く（コピーを置かない）", () => {
 	});
 
 	test("購読は namespaces で決まる（runtime.md §9）", () => {
-		expect(subscriptions(["canvas"])).toEqual({ keys: false, pointer: false });
+		expect(subscriptions(["canvas"])).toEqual({
+			keys: false,
+			pointer: false,
+			text: false,
+		});
 		expect(subscriptions(["canvas", "ui"])).toEqual({
 			keys: false,
 			pointer: true,
+			text: false,
 		});
+		// 文字（input.text）は input の許可で集める（abilities.md §3・v2.1）。
 		expect(subscriptions(["canvas", "input"])).toEqual({
 			keys: true,
 			pointer: true,
+			text: true,
 		});
 	});
 });

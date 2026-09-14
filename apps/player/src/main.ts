@@ -237,10 +237,17 @@ async function main(): Promise<void> {
 	const status = byId<HTMLSpanElement>("status");
 	const errorBox = byId<HTMLPreElement>("error");
 	const canvas = byId<HTMLCanvasElement>("stage");
+	// 文字と IME を受ける入力欄（abilities.md §3 の input.text）。canvas は文字を受けられない。
+	const textSink = byId<HTMLInputElement>("text");
 
 	let player: Player | null = null;
 	let host: JinHost | null = null;
 	let collector: InputCollector | null = null;
+	/** 入力を受ける要素へフォーカスを戻す（文字を集めるなら入力欄、そうでなければ canvas）。 */
+	const focusStage = (): void => {
+		if (collector !== null) collector.focus();
+		else canvas.focus();
+	};
 	const audio = new AudioOut();
 	const embedded = EMBEDDED;
 	/** 直近の再生 / 読み込みの一言（`jin.status` の `notice`）。 */
@@ -327,6 +334,7 @@ async function main(): Promise<void> {
 			width,
 			height,
 			keyNames: KEY_NAMES,
+			textSink,
 			...subscriptions(source.manifest.namespaces),
 		});
 		collector.attach();
@@ -376,7 +384,7 @@ async function main(): Promise<void> {
 		if (player === null) return;
 		if (player.running) player.pause();
 		else player.start();
-		canvas.focus();
+		focusStage();
 	});
 	stepButton.addEventListener("click", () => player?.step());
 	rebootButton.addEventListener("click", () => {
@@ -384,7 +392,7 @@ async function main(): Promise<void> {
 		const seed = Number.parseInt(seedInput.value, 10);
 		player.reboot(Number.isFinite(seed) ? seed : player.seed);
 		player.start();
-		canvas.focus();
+		focusStage();
 	});
 	recordButton.addEventListener("click", () => {
 		if (player === null) return;
@@ -396,7 +404,7 @@ async function main(): Promise<void> {
 			player.startRecording();
 			player.start();
 		}
-		canvas.focus();
+		focusStage();
 	});
 	exportButton.addEventListener("click", () => {
 		const text = player?.recordingText;
@@ -413,7 +421,7 @@ async function main(): Promise<void> {
 		if (player === null) return;
 		player.forget();
 		player.start();
-		canvas.focus();
+		focusStage();
 	});
 	window.addEventListener("resize", () => {
 		if (player !== null) fitCanvas(canvas, canvas.width, canvas.height);

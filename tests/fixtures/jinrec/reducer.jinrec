@@ -3,5 +3,7 @@
 {"tick": 1, "kind": "pointer", "x": 10, "y": 20, "down": false}
 {"tick": 1, "kind": "pointer", "x": 12, "y": 20, "down": true}
 {"tick": 2, "kind": "key", "name": "ArrowRight", "down": true}
+{"tick": 2, "kind": "text", "text": "aｱ😀"}
 {"tick": 2, "kind": "key", "name": "ArrowLeft", "down": false}
 {"tick": 3, "kind": "pointer", "x": 12.5, "y": 21, "down": false}
+{"tick": 4, "kind": "text", "text": " "}

@@ -70,5 +70,13 @@
   "storage-value-not-str.jinrec": {
     "line": 1,
     "fragment": "文字列"
+  },
+  "text-not-str.jinrec": {
+    "line": 2,
+    "fragment": "空でない文字列"
+  },
+  "text-control.jinrec": {
+    "line": 3,
+    "fragment": "制御文字"
   }
 }

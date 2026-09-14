@@ -70,6 +70,8 @@ NAMESPACES: tuple[Namespace, ...] = (
             _m("key", "name: str", "bool", "read"),
             _m("pressed", "name: str", "bool", "read"),
             _m("pointer", "", "Pointer", "read"),
+            # v2.1（abilities.md §3）: この tick に確定した文字列。状態を持たない読み取り。
+            _m("text", "", "str", "read"),
         ),
     ),
     Namespace(

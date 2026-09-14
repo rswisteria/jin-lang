@@ -191,6 +191,9 @@ class InputState:
                 self.y = float(ev.get("y", self.y))
                 self.down = bool(ev.get("down", self.down))
                 rows.append({"kind": "pointer", "x": self.x, "y": self.y, "down": self.down})
+            elif kind == "text":
+                # 確定した文字列（abilities.md §3・v2.1）。押下状態には触らない。
+                rows.append({"kind": "text", "text": str(ev["text"])})
         return {
             "events": rows,
             "keys": dict(self.keys),
