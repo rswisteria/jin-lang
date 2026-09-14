@@ -121,6 +121,7 @@ def test_run_rejects_v1_arguments_on_a_v2_file(args) -> None:
         ("run", PIPELINE),
         ("run", PIPELINE, "go", "--ticks", "3"),
         ("run", PIPELINE, "go", "--debug"),
+        ("run", PIPELINE, "go", "--storage", "x"),
         ("build", PIPELINE, "--out", "x", "--debug"),
     ],
 )
@@ -129,6 +130,141 @@ def test_v1_files_reject_v2_arguments(args, tmp_path: Path) -> None:
     result = invoke(*args)
     assert result.exit_code == 2
     assert "version" in result.stderr
+
+
+# ---------------------------------------------------------------- run --storage（v2.1・runtime.md §8）
+
+STORAGE = PROGRAMS / "storage.jin"
+
+
+def read_memory(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_run_storage_carries_the_memory_across_runs(tmp_path: Path) -> None:
+    """1 回目は無いファイル（= 空の記憶）から始めて書き、2 回目はそれを読んで runs が 2 になる。"""
+    memory = tmp_path / "memory.json"
+    first = invoke("run", STORAGE, "--ticks", "3", "--storage", memory)
+    assert first.exit_code == 0, first.output
+    assert json.loads(first.stdout.strip())["Only.runs"] == 1
+    # 鍵の昇順・2 字下げ・末尾改行（実行ごとに書く順が違っても同じ字面になる）
+    assert memory.read_text(encoding="utf-8") == (
+        '{\n  "best": "1",\n  "label": "run 1",\n  "runs": "1"\n}\n'
+    )
+    mask = os.umask(0)
+    os.umask(mask)
+    assert memory.stat().st_mode & 0o777 == 0o644 & ~mask  # jin render -o と同じ新規作成のモード
+    second = invoke("run", STORAGE, "--ticks", "3", "--storage", memory)
+    assert second.exit_code == 0, second.output
+    assert json.loads(second.stdout.strip()) == {
+        "Only.runs": 2,
+        "Only.best": 2,
+        "Only.label": "run 1",
+    }
+    assert read_memory(memory) == {"runs": "2", "best": "2", "label": "run 2"}
+
+
+def test_run_storage_passes_an_existing_file_as_the_boot_copy(tmp_path: Path) -> None:
+    """ゲームが触らない鍵も残り、非 ASCII はそのまま書く。"""
+    memory = tmp_path / "memory.json"
+    memory.write_text('{"runs": "4", "best": "9", "note": "あ"}', encoding="utf-8")
+    result = invoke("run", STORAGE, "--ticks", "3", "--storage", memory)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout.strip()) == {
+        "Only.runs": 5,
+        "Only.best": 9,
+        "Only.label": "",
+    }
+    assert read_memory(memory) == {"best": "9", "note": "あ", "runs": "5"}
+    assert '"note": "あ"' in memory.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("[]", "storage はオブジェクトです"),
+        ('{"runs": 3}', "storage の値は文字列です"),
+        ("not json", "JSON として読めません"),
+        ("", "JSON として読めません"),
+    ],
+)
+def test_run_storage_rejects_a_broken_file_before_running(
+    tmp_path: Path, content: str, message: str
+) -> None:
+    memory = tmp_path / "memory.json"
+    memory.write_text(content, encoding="utf-8")
+    result = invoke("run", STORAGE, "--ticks", "3", "--storage", memory)
+    assert result.exit_code == 2, result.output
+    assert message in result.stderr and "memory.json" in result.stderr
+    assert result.stdout == ""  # 走らせていない
+    assert memory.read_text(encoding="utf-8") == content
+    assert "Traceback" not in result.output
+
+
+def test_run_storage_refuses_unsafe_destinations_before_running(tmp_path: Path) -> None:
+    """リンクを辿らない・親ディレクトリが要る・対象の .jin を記憶で上書きしない。どれも走らせる前に exit 2。"""
+    real = tmp_path / "real.json"
+    real.write_text('{"runs": "1"}', encoding="utf-8")
+    link = tmp_path / "link.json"
+    link.symlink_to(real)
+    program = tmp_path / "storage.jin"
+    program.write_text(STORAGE.read_text(encoding="utf-8"), encoding="utf-8")
+    for target, program_path, message in (
+        (link, STORAGE, "シンボリックリンク"),
+        (tmp_path / "missing" / "memory.json", STORAGE, "親ディレクトリ"),
+        (tmp_path, STORAGE, "読めません"),
+        (program, program, "対象の .jin"),
+    ):
+        result = invoke("run", program_path, "--ticks", "3", "--storage", target)
+        assert result.exit_code == 2, (target, result.output)
+        assert message in result.stderr, (target, result.stderr)
+        assert result.stdout == "", target
+    assert real.read_text(encoding="utf-8") == '{"runs": "1"}'
+    assert program.read_text(encoding="utf-8") == STORAGE.read_text(encoding="utf-8")
+
+
+def test_run_storage_is_ignored_with_a_recording(tmp_path: Path) -> None:
+    """`--input` の録画のヘッダの写しが正（再生は記憶を読まず、書き戻さない・abilities.md §8）。"""
+    rec = tmp_path / "rec.jinrec"
+    rec.write_text(
+        dumps_jinrec(
+            {"file": "storage.jin", "seed": 7, "fps": 60, "ticks": 3, "storage": {"runs": "7"}},
+            [],
+        ),
+        encoding="utf-8",
+    )
+    memory = tmp_path / "memory.json"
+    memory.write_text('{"runs": "100"}', encoding="utf-8")
+    result = invoke("run", STORAGE, "--input", rec, "--storage", memory)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout.strip())["Only.runs"] == 8
+    assert "--storage" in result.stderr and "録画" in result.stderr
+    assert memory.read_text(encoding="utf-8") == '{"runs": "100"}'
+    absent = tmp_path / "absent.json"
+    assert invoke("run", STORAGE, "--input", rec, "--storage", absent).exit_code == 0
+    assert not absent.exists()
+
+
+def test_run_storage_writes_back_what_was_written_before_a_runtime_error(tmp_path: Path) -> None:
+    """実行時エラーでも、そこまでの書き込みは書き戻す（プレイヤーは tick ごとに永続化する）。exit は 1。"""
+    model = json.loads(STORAGE.read_text(encoding="utf-8"))
+    step = next(rite for rite in model["circles"][0]["rites"] if rite["name"] == "step")
+    # tick 0 で best / label を書き、tick 1 で添字の範囲外になる。
+    step["steps"].insert(
+        0,
+        {
+            "do": "if",
+            "cond": "best > 0",
+            "then": [{"do": "set", "target": "order", "expr": "[1][5]"}],
+        },
+    )
+    program = tmp_path / "storage_error.jin"
+    program.write_text(json.dumps(model, ensure_ascii=False), encoding="utf-8")
+    memory = tmp_path / "memory.json"
+    result = invoke("run", program, "--ticks", "3", "--storage", memory)
+    assert result.exit_code == 1, result.output
+    assert "実行時エラー" in result.stderr
+    assert read_memory(memory) == {"runs": "1", "best": "1", "label": "run 1"}
 
 
 # ---------------------------------------------------------------- render（Phase 3）
