@@ -87,12 +87,14 @@
 |---|---|---|
 | `host` | `host`(名前空間名) | ホスト能力の名前空間を許可する。式や `cast` から `name.member(...)` で使う |
 | `summon` | `circle`、`rite` | 他の陣の手順を同期呼び出しする。`cast` の `target` に `name` を書く |
+| `agent` | `file`(v1 の `.jin` への相対パス) | v1 の陣(LLM エージェント)に問う(v2.1・runtime.md §11)。`cast` の `target` に `name` を書き、`into` に要求 id(num)を受ける。答えは後の tick に自陣の `on message` へ届く |
 
 <!-- /machine-readable -->
 
 - `name` は陣内一意。`kind: host` の `name` は慣習として `host` と同じにする(例と補完はそうする)が、別名でもよい
 - `host` の値は `docs/spec/v2/abilities.md` の名前空間名(`canvas` / `input` / `ui` / `audio` / `random`)。それ以外は JIN205
 - `summon` の `circle` は核あり陣、`rite` はその陣の手順(JIN011)。**その手順が `wait` を含むと JIN212**(陣を跨いだ待ちは無い)。呼ばれた手順は呼び先の陣の state を読み書きする(呼び先が `entered` でなくてもよい。state は陣ごとに 1 つで、`init` は `entered` のときだけ評価される。未 entered の陣の state は `init` の値)
+- `agent` の `file` は v2 の `.jin` から見た相対パス(区切りは `/`・`..` の段と先頭の `/` を含まない・`.jin` で終わる。形は schema で落とす)。実体は実行時に v2 の `.jin` の親ディレクトリの**中**に解決できなければならない(asset と同じ規則。runtime.md §11)。**ブラウザのプレイヤーは答えを返さない**(問いは出るが届かない。答えるのはヘッドレスの Python ホストだけ)。`cast` の引数は `(prompt: str)` 1 つ、戻り値は要求 id の `num`(1 始まりの通し番号)。答えは `on message` に `(name: str, id: num, text: str)` の形で届く(`name` は sigil 名・§3.5)。式の中では呼べない(summon と同じ JIN202)。閉路グラフには入れない(相手は v1 で、こちらへ戻って来ない)
 - キー順は `name`, `kind`, その種別の追加キー
 
 ### 3.3 Rite(手順環)
@@ -132,7 +134,7 @@
 
 <!-- /machine-readable -->
 
-`cast` の `target` の解決順: 自陣の `rites[].name` → `sigils[]` の `name`(summon はそのまま、host は `name.member`)→ 組み込みの effect(`push` / `removeAt` / `clear`)。`args` は式の配列で、引数の数と型を照合する(JIN202 / JIN205)。
+`cast` の `target` の解決順: 自陣の `rites[].name` → `sigils[]` の `name`(summon と agent はそのまま、host は `name.member`)→ 組み込みの effect(`push` / `removeAt` / `clear`)。`args` は式の配列で、引数の数と型を照合する(JIN202 / JIN205)。
 
 `loop` の `kind` と描画(`docs/spec/v2/layout.md` §3):
 
@@ -158,13 +160,13 @@
 | `tick` | `(dt: num)` | 毎 tick、陣が `active` のとき |
 | `key` | `(name: str, down: bool)` | キーが押された / 離された tick。`input` の許可が要る(JIN230) |
 | `pointer` | `(p: Pointer)` | ポインタが動いた / 押された / 離された tick。`input` の許可が要る(JIN230) |
-| `message` | `(name: str, …emit の args)` | 前 tick に `emit` されたメッセージ |
+| `message` | `(name: str, …emit の args)` | 前 tick に `emit` されたメッセージ。`agent` の答え(v2.1)は `(name: str, id: num, text: str)`(`name` は sigil 名) |
 | `exit` | `()` | 陣が `done` になった直後(同 tick) |
 
 <!-- /machine-readable -->
 
 - 同じ `event` を複数書けない(JIN010)。`message` は `name` で振り分けるので手順の中で `if` する
-- `rite` は自陣の手順名。引数の型が合わなければ JIN221。**手順の `params` はイベント引数の前方部分でよい**(`tick` の手順に `params` が無くてもよい)
+- `rite` は自陣の手順名。引数の型が合わなければ JIN221。**手順の `params` はイベント引数の前方部分でよい**(`tick` の手順に `params` が無くてもよい)。`agent` の sigil を持つ陣の `message` の手順は、引数が `(name: str, id: num, text: str)` の前方部分でなければ JIN221(その陣へ `emit` する側も同じ形に合わせる。JIN202)。`message` の手順が無い陣の答えは捨てる(トレースに `emit` 行が残る・runtime.md §11)
 - `guards[].assert` は bool の式。デバッグビルドで毎 tick の終わり(runtime.md §2 の 5)に評価し、偽ならトレースに `assert` 行を残す。実行は止めない。リリースビルドでは評価しない。`message` は任意
 
 ### 3.6 Delegate(委譲)

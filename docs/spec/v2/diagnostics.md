@@ -46,12 +46,12 @@
 
 ## 2. 各コードの補足
 
-- **JIN202** はひとまとまりの型検査で、次を含む: 演算子の型規則(`expr.md` §2)、`set` / `let` / `into` の代入先と値、`cast` の引数、`return` と `returns`、`if.cond` / `loop.while.cond` / `wait.until` / `guards.assert` / `flow.exit` が bool でない、`loop.each.in` が list でない、`loop.count.times` / `wait.ticks` が num でない、型紙コンストラクタの欄の過不足、空 list リテラルの型が決まらない、式の中で戻り値の無いメンバ / summon を呼んだ
+- **JIN202** はひとまとまりの型検査で、次を含む: 演算子の型規則(`expr.md` §2)、`set` / `let` / `into` の代入先と値、`cast` の引数、`return` と `returns`、`if.cond` / `loop.while.cond` / `wait.until` / `guards.assert` / `flow.exit` が bool でない、`loop.each.in` が list でない、`loop.count.times` / `wait.ticks` が num でない、型紙コンストラクタの欄の過不足、空 list リテラルの型が決まらない、式の中で戻り値の無いメンバ / summon / agent を呼んだ
 - **JIN203** は `陣名.key` で `key` が非公開のとき、自陣を陣名で指したとき、型紙に無い欄を指したときも含む
 - **JIN210** は手順直下の `steps` の個数だけを数える。`if.then` / `if.else` / `loop.steps` の個数はそれぞれ別に 12 まで(同じ JIN210)
 - **JIN211** の深さは手順直下を 0 とし、`if` / `loop` の中が +1。深さ 3 の中に `if` / `loop` を置いた時点でエラー(そのステップの pointer で出す)
 - **JIN212** は「`wait` を直接含む」だけでなく、自陣の `cast` を通じて `wait` に到達する手順を summon したときも含む(到達可能性は静的に閉包を取る)
-- **JIN221** は「手順の `params` がイベント引数の前方部分」の規則(`model.md` §3.5)で判定する。`rite` が存在しないのは JIN011
+- **JIN221** は「手順の `params` がイベント引数の前方部分」の規則(`model.md` §3.5)で判定する。`rite` が存在しないのは JIN011。`agent` の sigil を持つ陣の `message` の手順は `(name: str, id: num, text: str)` の前方部分(v2.1・runtime.md §11)
 - **JIN240** は `return` / `finish` / `break` / `transfer` の後に同じ列に残るステップ。`if` の両枝が抜けるときの後続も対象。warning なので `jin check` の exit は 0
 - **JIN250** の定数式は `model.md` §5.3
 
