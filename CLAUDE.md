@@ -117,6 +117,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2.1 | 状態を保ったライブリロード（`tick` 結果の `snapshot` → `boot` の `manifest.resume`・`jin.load` の `keep`・jil: 2） | 実装済み |
 | v2.1 | `storage`（`get` / `set`・`boot` の `manifest.storage` → `tick` 結果の `storage`・`localStorage`・録画ヘッダの `storage`・式の `num(str)`・jil: 3） | 実装済み |
 | v2.1 | 式の正準化（`canonical.dumps` が `x-jin-expr` の欄を AST から書き戻す・`jin_core.v2.expr.unparse`・読めない式は元のまま） | 実装済み |
+| v2.1 | `canvas.text` の ASCII 以外の字形（k6x8ゴシックの 7001 字・JIS X 0208 の全区点・`player.js` に同梱・幅は 1 コードポイント = 6 のまま） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -286,6 +287,12 @@ Jin v2 Phase 4（`apps/player`）の要点（正典は `docs/spec/v2/runtime.md`
 - **API は記憶で書かない。** Wasmoon の実測は `delivery/20260904-1445-jin/wasm-api-probe.md` §A（1.16.0。§A.10 が Phase 4）
 - ツールチェーンは `apps/editor` と同じ版で完全一致（契約テストが両者の共通 devDependencies を突き合わせる）。
   `pnpm e2e` は Playwright 1.62.0 の chromium（`pnpm exec playwright install chromium`）と `uv sync` 済みの Python が要る
+- **`canvas.text` の ASCII 以外の字形は `src/glyphs.ts`（生成物・手で編集しない）**（v2.1・設計書 §11 #49）。
+  原本は `apps/player/fonts/k6x8/k6x8_gothic.bdf`（改変しない。digest を `scripts/generate_glyphs.py` の
+  `BDF_SHA256` と同じディレクトリの README に固定）。直したら `uv run python scripts/generate_glyphs.py` で
+  再生成する（pytest の `--check` と CI の player ジョブの `--stdout | diff` が 2 重に見る）。ASCII は `src/font.ts` の
+  5×7 のまま、幅は字形によらず 1 コードポイント = 6。字形は `stage.assets` の font にしない（埋め込みのプレイヤーは
+  asset を読めないので、エディタの実行パネルで描けなくなる）
 
 Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点（正典は設計書 §8 / §11 #36〜#38、`docs/spec/v2/ops.md` §5、
 `docs/spec/v2/runtime.md` §10）:
