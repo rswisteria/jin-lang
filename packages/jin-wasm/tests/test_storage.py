@@ -88,6 +88,20 @@ def test_a_broken_storage_copy_is_read_as_empty() -> None:
         assert result["public"]["Only.runs"] == 1, storage
 
 
+def test_cmp_in_the_boot_core_orders_by_code_point() -> None:
+    """expr.md §4.1（v2.1）: 核が `order = cmp("B", "a") + cmp("ｱ", "😀") * 2` を 1 回 set する。
+
+    どちらもコードポイント順で -1 なので -3。ロケールの照合順なら 1 つ目が、UTF-16 のコード単位順なら
+    2 つ目が逆になり、どちらが割れても値が変わる。ブラウザ（Wasmoon）とのパリティは
+    `apps/player/e2e/storage.spec.ts` がトレースの全行一致とこの行の値で見る。
+    """
+    g = game()
+    result = run_headless(g.lua, g.manifest, seed=7, ticks=1)
+    orders = [row for row in result.rows if row["kind"] == "set" and row["name"] == "order"]
+    assert [row["output"] for row in orders] == [-3]
+    assert "Only.order" not in result.public  # out: false（公開 state の検査を増やさない）
+
+
 def test_apply_storage_writes_ignores_malformed_entries() -> None:
     store: dict[str, str] = {"a": "1"}
     apply_storage_writes(store, {"storage": [["a", "2"], ["b"], "x", ["c", 3], ["d", "4"]]})

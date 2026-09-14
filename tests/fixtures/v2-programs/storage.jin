@@ -28,6 +28,11 @@
           "type": "str",
           "init": "\"\"",
           "out": true
+        },
+        {
+          "name": "order",
+          "type": "num",
+          "init": "0"
         }
       ],
       "sigils": [
@@ -68,6 +73,11 @@
               "do": "set",
               "target": "label",
               "expr": "storage.get(\"label\")"
+            },
+            {
+              "do": "set",
+              "target": "order",
+              "expr": "cmp(\"B\", \"a\") + cmp(\"ｱ\", \"😀\") * 2"
             }
           ]
         },

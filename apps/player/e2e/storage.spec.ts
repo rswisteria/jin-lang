@@ -33,6 +33,8 @@ const PROGRAM = join(
 interface Row {
 	readonly seq: number;
 	readonly kind: string;
+	readonly name?: string | null;
+	readonly output?: unknown;
 }
 
 let server: StaticServer;
@@ -118,6 +120,13 @@ test("記憶は localStorage に残って次の起動で続き、録画のヘッ
 		.filter((line) => line.trim() !== "")
 		.map((line) => JSON.parse(line) as Row);
 	expect(browserRows).toEqual(headlessRows);
+	// 核の `order = cmp("B", "a") + cmp("ｱ", "😀") * 2`（expr.md §4.1・v2.1）。Wasmoon でもコードポイント順で
+	// -3（ロケールの照合順なら 1 つ目が、UTF-16 のコード単位順なら 2 つ目が逆になる）。
+	expect(
+		browserRows
+			.filter((row) => row.kind === "set" && row.name === "order")
+			.map((row) => row.output),
+	).toEqual([-3]);
 	// 録画の間に runs は 3 になっている（本物の記憶）。
 	expect(await page.evaluate(() => window.__jinPlayer?.storage())).toEqual({
 		runs: "3",
