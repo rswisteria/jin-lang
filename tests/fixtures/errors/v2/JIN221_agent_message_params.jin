@@ -1,0 +1,50 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Npc",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Npc",
+      "core": "start",
+      "sigils": [
+        {
+          "name": "oracle",
+          "kind": "agent",
+          "file": "oracle.jin"
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": []
+        },
+        {
+          "name": "recv",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "text",
+              "type": "str"
+            }
+          ],
+          "steps": []
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "message",
+            "rite": "recv"
+          }
+        ]
+      }
+    }
+  ]
+}

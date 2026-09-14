@@ -748,6 +748,15 @@ class _Checker:
                         "JIN202", arg_node.span, f"{name} の引数は {want} です（実際 {got}）"
                     )
             return returns
+        sigil = self.scope.sigils.get(name)
+        if sigil is not None and sigil[0] in ("summon", "agent"):
+            # cast でだけ呼べる（diagnostics.md §2 の JIN202「式の中で summon / agent を呼んだ」）
+            self.issue(
+                "JIN202",
+                node.span,
+                f"{sigil[0]} '{name}' は式の中では呼べません。cast で呼んで into に受けます",
+            )
+            return None
         near = _close(name, [*PURE_FUNCTION_NAMES, *self.scope.sigils])
         self.issue(
             "JIN203",
@@ -779,11 +788,11 @@ class _Checker:
                 "sigils に host か summon を宣言してください",
             )
             return None
-        if sigil[0] == "summon":
+        if sigil[0] in ("summon", "agent"):
             self.issue(
                 "JIN202",
                 node.span,
-                f"summon '{base.name}' は式の中では呼べません。cast で呼んで into に受けます",
+                f"{sigil[0]} '{base.name}' は式の中では呼べません。cast で呼んで into に受けます",
             )
             return None
         namespace = abilities.namespace(sigil[1])

@@ -1,7 +1,7 @@
 """入力ログ / 録画 `.jinrec`（runtime.md §7）の読み書き。
 
 JSONL。1 行目はヘッダ `{"jinrec": 1, "file", "seed", "fps", "ticks", ["storage"]}`、以降は
-`{"tick", "kind": "key" | "pointer" | "text", ...}`。`tick` は昇順（同じ tick の複数行は発生順）。
+`{"tick", "kind": "key" | "pointer" | "text" | "reply", ...}`。`tick` は昇順（同じ tick の複数行は発生順）。
 壊れた行は黙って読み飛ばさず、行番号を添えて `JinrecError` にする（`jin_cli.main._read_trace_rows` と同じ規律）。
 """
 
@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import Any
 
 JINREC_VERSION = 1
-#: `text` は v2.1（abilities.md §3）。古い読み手は未知の kind として行番号付きで断るので、版は 1 のまま。
-EVENT_KINDS = ("key", "pointer", "text")
+#: `text` は v2.1（abilities.md §3）、`reply` は v1 の陣の答え（runtime.md §11・v2.1）。
+#: 古い読み手は未知の kind として行番号付きで断るので、版は 1 のまま。
+EVENT_KINDS = ("key", "pointer", "text", "reply")
 
 
 class JinrecError(Exception):
@@ -28,6 +29,25 @@ def is_clean_text(text: str) -> bool:
     の `cleanText`）。サロゲートが残ると Lua の文字列（UTF-8）へ写せない。
     """
     return not any(ord(c) < 0x20 or ord(c) == 0x7F or 0xD800 <= ord(c) <= 0xDFFF for c in text)
+
+
+def clean_reply_text(text: str) -> str:
+    """v1 の陣の答えを `reply` に載せられる形にする（runtime.md §11）。
+
+    改行 / 復帰 / タブは空白 1 つに置き換え（LLM の文は改行を含む。落とすと行が繋がって読めない）、
+    それ以外の制御文字と対にならないサロゲートは落とす。ライブ配達で Lua が見る文字列と録画に
+    残る文字列を同じにするため、正規化は `run_headless` がホストの答えを受けた直後に 1 か所で行う。
+    """
+    out: list[str] = []
+    for c in text:
+        code = ord(c)
+        if c in ("\n", "\r", "\t"):
+            out.append(" ")
+        elif code < 0x20 or code == 0x7F or 0xD800 <= code <= 0xDFFF:
+            continue
+        else:
+            out.append(c)
+    return "".join(out)
 
 
 @dataclass(slots=True)
@@ -143,6 +163,19 @@ def _read_event(
                 f"{path}:{number}: text の text に制御文字や対にならないサロゲートは置けません"
             )
         event["text"] = text
+    elif kind == "reply":
+        # v1 の陣の答え（runtime.md §11）。id は 1 以上の整数、text は空でもよい文字列（text と同じ検査）。
+        if not _is_int(value.get("id")) or value["id"] < 1:
+            raise JinrecError(f"{path}:{number}: reply の id は 1 以上の整数です")
+        text = value.get("text")
+        if not isinstance(text, str):
+            raise JinrecError(f"{path}:{number}: reply の text は文字列です")
+        if not is_clean_text(text):
+            raise JinrecError(
+                f"{path}:{number}: reply の text に制御文字や対にならないサロゲートは置けません"
+            )
+        event["id"] = value["id"]
+        event["text"] = text
     else:
         for key in ("x", "y"):
             if not _is_num(value.get(key)):
@@ -176,6 +209,7 @@ __all__ = [
     "JINREC_VERSION",
     "JinrecError",
     "Recording",
+    "clean_reply_text",
     "dumps_jinrec",
     "is_clean_text",
     "read_jinrec",

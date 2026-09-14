@@ -173,6 +173,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "agent": "#/$defs/SigilAgent",
                 "host": "#/$defs/SigilHost",
                 "summon": "#/$defs/SigilSummon"
               },
@@ -184,6 +185,9 @@
               },
               {
                 "$ref": "#/$defs/SigilSummon"
+              },
+              {
+                "$ref": "#/$defs/SigilAgent"
               }
             ]
           },
@@ -917,6 +921,36 @@
         "expr"
       ],
       "title": "SetStep",
+      "type": "object"
+    },
+    "SigilAgent": {
+      "additionalProperties": false,
+      "description": "kind: agent → v1 の陣（LLM エージェント）に問う（runtime.md §11・設計書 §11 #55）。\n\n`cast target=<name> args=[prompt: str] into=<num>` が要求 id を返し、答えは後の tick に\n自陣の `on message` へ `(name, id, text)` で届く。答えるのはヘッドレスの Python ホストだけ。",
+      "properties": {
+        "name": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "const": "agent",
+          "title": "Kind",
+          "type": "string"
+        },
+        "file": {
+          "maxLength": 128,
+          "pattern": "^(?:(?:[^/\\\\.][^/\\\\]*|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)/)*(?:[^/\\\\.][^/\\\\]*|\\.[^/\\\\.][^/\\\\]*|\\.\\.[^/\\\\]+)\\.jin$",
+          "title": "File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "file"
+      ],
+      "title": "SigilAgent",
       "type": "object"
     },
     "SigilHost": {

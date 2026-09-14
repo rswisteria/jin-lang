@@ -562,3 +562,17 @@ def test_only_initials_and_the_core_rite_name_reach_the_svg() -> None:
 
 def test_accent_is_absent_without_a_trace(paddle: JinFileV2) -> None:
     assert ACCENT not in render(paddle, focus="Play")
+
+
+def test_an_agent_sigil_is_drawn_as_a_glyph_and_its_cast_is_classified_like_a_summon() -> None:
+    """`agent`（v1 の陣への問い・v2.1・設計書 §11 #55）: 紋は sigil 名の頭文字の glyph（入れ子の小陣にしない・
+    相手は v1 で描かない）、手順の図の `cast` は summon と同じ分類（陣の外への呼び出し・破線の尾）。
+    描画は落ちない（layout.md §5）。
+    """
+    model = load_model_v2(PROGRAMS_V2 / "agent.jin")
+    svg = render(model)
+    assert svg.count('data-jin-kind="sigil"') >= 2  # 放射線 + 紋
+    assert 'data-jin="/circles/0/sigils/0"' in svg
+    assert classify_cast(model.circles[0], "oracle") == CAST_SUMMON
+    rite_svg = render(model, focus="Npc/start")
+    assert 'data-jin="/circles/0/rites/0/steps/0"' in rite_svg

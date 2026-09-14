@@ -78,5 +78,17 @@
   "text-control.jinrec": {
     "line": 3,
     "fragment": "制御文字"
+  },
+  "reply-id-not-int.jinrec": {
+    "line": 3,
+    "fragment": "reply の id"
+  },
+  "reply-text-not-str.jinrec": {
+    "line": 2,
+    "fragment": "reply の text"
+  },
+  "reply-text-control.jinrec": {
+    "line": 3,
+    "fragment": "制御文字"
   }
 }

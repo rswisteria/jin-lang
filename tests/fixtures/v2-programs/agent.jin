@@ -1,0 +1,118 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Npc",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Npc",
+      "core": "start",
+      "state": [
+        {
+          "name": "pending",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "answer",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        },
+        {
+          "name": "replies",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "summary",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "oracle",
+          "kind": "agent",
+          "file": "agents/oracle.jin"
+        }
+      ],
+      "rites": [
+        {
+          "name": "start",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "oracle",
+              "args": [
+                "\"What is the password?\""
+              ],
+              "into": "pending"
+            },
+            {
+              "do": "wait",
+              "until": "replies >= 1"
+            },
+            {
+              "do": "set",
+              "target": "summary",
+              "expr": "\"got:\" ++ answer"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "recv",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "id",
+              "type": "num"
+            },
+            {
+              "name": "text",
+              "type": "str"
+            }
+          ],
+          "steps": [
+            {
+              "do": "if",
+              "cond": "name == \"oracle\" and id == pending",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "answer",
+                  "expr": "text"
+                },
+                {
+                  "do": "set",
+                  "target": "replies",
+                  "expr": "replies + 1"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "message",
+            "rite": "recv"
+          }
+        ]
+      }
+    }
+  ]
+}

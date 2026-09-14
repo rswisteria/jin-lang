@@ -36,6 +36,7 @@ from jin_core.v2.model import (
     ReturnStep,
     Rite,
     SetStep,
+    SigilAgent,
     SigilHost,
     SigilSummon,
     Step,
@@ -50,6 +51,9 @@ MAX_STEPS = MAX_ELEMENTS
 MAX_NESTING = 3
 
 #: イベントごとの手順の引数の形（model.md §3.5）。`message` は `name` の後ろが自由。
+#: `agent` の答え（runtime.md §11）が `on message` に届くときの引数の形。
+AGENT_REPLY_PARAMS: tuple[str, ...] = ("str", "num", "str")
+
 EVENT_PARAMS: dict[str, tuple[str, ...]] = {
     "tick": ("num",),
     "key": ("str", "bool"),
@@ -261,8 +265,9 @@ class _Analyzer:
                         f"ホスト能力の名前空間 '{sigil.host}' はありません",
                         "使えるのは " + " / ".join(ns.name for ns in abilities.NAMESPACES),
                     )
-            else:
+            elif isinstance(sigil, SigilSummon):
                 self._summon_ref(f"{base}/sigils/{j}", sigil)
+            # agent（v2.1）: `file` の形は schema、実体は実行時（runtime.md §11）。閉路グラフにも入れない
         for j, rite in enumerate(circle.rites):
             if rite.name in callables:
                 self.emit(
@@ -402,8 +407,10 @@ class _Analyzer:
         for sigil in circle.sigils:
             if isinstance(sigil, SigilHost):
                 sigils[sigil.name] = ("host", sigil.host)
-            else:
+            elif isinstance(sigil, SigilSummon):
                 sigils[sigil.name] = ("summon", sigil.circle, sigil.rite)
+            else:
+                sigils[sigil.name] = ("agent", sigil.file)
         state_types = {s.name: s.type for s in circle.state}
         scope_base = ex.Scope(
             state=state_types,
@@ -464,17 +471,23 @@ class _Analyzer:
                     )
                 target = info.get(on.rite)
                 if target is not None:
-                    self._on_params(f"{base}/boundary/on/{j}", on.event, target)
+                    self._on_params(
+                        f"{base}/boundary/on/{j}",
+                        on.event,
+                        target,
+                        agent=any(isinstance(s, SigilAgent) for s in circle.sigils),
+                    )
             for j, guard in enumerate(circle.boundary.guards):
                 pointer = f"{base}/boundary/guards/{j}/assert"
                 node = self._parse(pointer, guard.assert_)
                 if node is not None:
                     self._check(pointer, node, scope_base, "bool")
 
-    def _on_params(self, pointer: str, event: str, rite: _RiteInfo) -> None:
-        expected = EVENT_PARAMS[event]
+    def _on_params(self, pointer: str, event: str, rite: _RiteInfo, *, agent: bool = False) -> None:
+        # agent の sigil を持つ陣の message の手順は答えの形 (name, id, text) に固定（model.md §3.5・v2.1）
+        expected = AGENT_REPLY_PARAMS if event == "message" and agent else EVENT_PARAMS[event]
         given = [t for _, t in rite.params]
-        if event != "message" and len(given) > len(expected):
+        if (event != "message" or agent) and len(given) > len(expected):
             self.emit(
                 "JIN221",
                 pointer,
@@ -814,6 +827,10 @@ class _Analyzer:
                     return  # JIN011 は名前表で出ている
                 params = [t for _, t in target.params]
                 returns = target.returns
+            elif name in scope.sigils and scope.sigils[name][0] == "agent":
+                # v1 の陣に問う（runtime.md §11）: (prompt: str) → 要求 id（num）
+                params = ["str"]
+                returns = "num"
             elif name in scope.sigils:
                 self.emit(
                     "JIN202",
@@ -855,7 +872,7 @@ class _Analyzer:
                 self.emit(
                     "JIN202",
                     f"{sp}/target",
-                    f"summon '{ns_name}' にメンバはありません。'{ns_name}' だけで呼びます",
+                    f"{sigil[0]} '{ns_name}' にメンバはありません。'{ns_name}' だけで呼びます",
                 )
                 return
             namespace = abilities.namespace(sigil[1])

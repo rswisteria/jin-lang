@@ -38,6 +38,7 @@ from jin_core.v2.model import (
     Circle,
     JinFileV2,
     Rite,
+    SigilAgent,
     SigilHost,
     SigilSummon,
     expr_fields,
@@ -235,7 +236,14 @@ def _circle_hover(circle: Circle) -> str:
     return f"**陣 `{circle.name}`**（`core` も `flow` も無い → JIN022）"
 
 
-def _sigil_hover(model: JinFileV2, sigil: SigilHost | SigilSummon) -> str:
+def _sigil_hover(model: JinFileV2, sigil: SigilHost | SigilSummon | SigilAgent) -> str:
+    if isinstance(sigil, SigilAgent):
+        # v1 の陣に問う（runtime.md §11・v2.1）。答えるのはヘッドレスの Python ホストだけ。
+        return (
+            f"**sigil `{sigil.name}`**（agent `{sigil.file}`・v1 の陣に問う）\n"
+            f"- `{sigil.name}(prompt: str) -> num`（要求 id。答えは `on message` に "
+            f"`({sigil.name}, id: num, text: str)` で届く。ブラウザでは答えが来ない）"
+        )
     if isinstance(sigil, SigilHost):
         namespace = abilities.namespace(sigil.host)
         if namespace is None:
@@ -315,7 +323,7 @@ def _cast_target_hover(model: JinFileV2, circle: Circle, target: str) -> str | N
         if rite.name == name:
             return f"**手順** `{_rite_signature(rite)}`（同じ陣）"
     sigil = sigils.get(name)
-    if isinstance(sigil, SigilSummon):
+    if isinstance(sigil, (SigilSummon, SigilAgent)):
         return _sigil_hover(model, sigil)
     if name in ex.EFFECTS:
         params, _ = ex.EFFECTS[name]

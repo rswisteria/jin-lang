@@ -182,7 +182,7 @@ def test_types_of_well_formed_expressions() -> None:
         ('input.kye("Space")', ["JIN205"]),
         ('input.key("Space", 1)', ["JIN205"]),
         ("input.key(1)", ["JIN202"]),
-        ("helper(1, 2, 3)", ["JIN203"]),
+        ("helper(1, 2, 3)", ["JIN202"]),  # 式の中の summon は cast へ誘導（diagnostics.md §2）
         ("helper.clamp(1)", ["JIN202"]),
         ("input", ["JIN202"]),
         ("input.key", ["JIN202"]),

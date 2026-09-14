@@ -1,4 +1,4 @@
--- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 5
+-- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 6
 --
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
@@ -35,7 +35,7 @@
 -- プレリュードが持つもの:
 --   S[i]（陣 i の state。init が返す表）/ P[i]（公開 state の確定値。他陣は P を読む）
 --   H（ホスト能力: H.canvas / H.input / H.ui / H.audio / H.random / H.storage）/ F（純関数）/ E（効果）
---   AT / SETAT（添字）/ WAIT_TICKS / WAIT_UNTIL / FINISH / TRANSFER / EMIT / STOP
+--   AT / SETAT（添字）/ WAIT_TICKS / WAIT_UNTIL / FINISH / TRANSFER / EMIT / ASK / STOP
 --   T / TS / TR / TRET（トレース。DEBUG のときだけ生成部が呼ぶ）
 --   RN / RB / RSTR / RL / RREC（resume の読み手。num / bool / str / list / レコード。合わなければ nil）
 --   CIRCLES[i].pub = function() return '"Play.score":' .. JN(P[i].k_2) end   -- 公開 state の JSON 断片（tick の戻り値の public）
@@ -56,6 +56,9 @@ local OPS = {}
 local AUDIO = {}
 local TRACE = {}
 local Q = {}          -- 次 tick に配達するメッセージ
+local ASKS = {}       -- この tick に v1 の陣へ出した問い（tick 結果の asks・runtime.md §11）
+local ASKED = 0       -- 問いの通し番号（snapshot に載せる）
+local ASK_MAP = {}    -- 要求 id → { ci, name, pointer }（答えの宛先。未回答の分は差し替えで捨てる）
 local SEQ = 0
 local TICK = -1
 local DONE = false
@@ -626,6 +629,16 @@ local function EMIT(to, name, args, meta)
   Q[#Q + 1] = { to = to, name = name, args = args, meta = meta }
 end
 
+-- v1 の陣に問う（runtime.md §11・agent の sigil）。同期で返るのは要求 id だけ。答えは後の tick の
+-- 入力イベント reply で戻り、deliver が id を出した陣の on message へ配達する。
+local function ASK(ci, name, pointer, prompt)
+  ASKED = ASKED + 1
+  local id = ASKED
+  ASK_MAP[id] = { ci = ci, name = name, pointer = pointer }
+  ASKS[#ASKS + 1] = { id = id, ci = ci, name = name, prompt = prompt }
+  return id + 0.0
+end
+
 ENTER = function(i)
   local c = CIRCLES[i]
   local st = C[i]
@@ -729,8 +742,10 @@ local function snapshot_json()
       .. "}"
   end
   -- PCG32 の状態は 64 bit 整数なので 16 進の文字列で越える（jil.md §5 の例外）。
+  -- asked は v1 の陣への問いの通し番号（runtime.md §11。差し替えても id が続く。未回答の問いは載せない）。
   return '{"seed":' .. JN(SEED) .. ',"tick":' .. JN(TICK) .. ',"seq":' .. JN(SEQ)
     .. ',"rng":' .. JS(string.format("0x%x", RS)) .. ',"done":' .. JB(DONE)
+    .. ',"asked":' .. JN(ASKED)
     .. ',"circles":[' .. table.concat(items, ",") .. "]}"
 end
 
@@ -805,6 +820,7 @@ local function restore_from(resume)
   end
   TICK = math.tointeger(resume.tick) or -1
   SEQ = math.tointeger(resume.seq) or 0
+  ASKED = math.tointeger(resume.asked) or 0
   local rng = RSTR(resume.rng)
   local rs = rng and math.tointeger(tonumber(rng)) or nil
   if rs ~= nil then RS = rs end
@@ -857,6 +873,30 @@ local function deliver()
       local args = { msg.name }
       for k, v in ipairs(msg.args) do args[k + 1] = v end
       RUN(i, c.on.message, c.on_waits.message, args)
+    end
+  end
+  -- v1 の陣の答え（入力イベント reply・runtime.md §11）を、id を出した陣の on message へ (sigil 名, id, text) で。
+  -- id を知らない / 宛先が active でない / on message が無いときは捨てる（emit 行の output が false）。
+  for _, ev in ipairs(INPUTS.events) do
+    if ev.kind == "reply" then
+      local id = math.tointeger(ev.id)
+      local a = id and ASK_MAP[id] or nil
+      local text = RSTR(ev.text) or ""
+      local delivered = false
+      local c = a and CIRCLES[a.ci] or nil
+      if a and is_active(a.ci) and c.on and c.on.message then delivered = true end
+      if DEBUG then
+        ROW("emit", a and a.ci or nil, a and a.name or nil, a and a.pointer or nil,
+          "[" .. JN(id and (id + 0.0) or 0.0) .. "," .. JS(text) .. "]", JB(delivered))
+      end
+      if id then ASK_MAP[id] = nil end
+      if delivered then
+        if DEBUG then
+          ROW("event", a.ci, "message", c.on_ptr.message,
+            "[" .. JS(a.name) .. "," .. JN(id + 0.0) .. "," .. JS(text) .. "]", nil)
+        end
+        RUN(a.ci, c.on.message, c.on_waits.message, { a.name, id + 0.0, text })
+      end
     end
   end
 end
@@ -986,15 +1026,26 @@ local function result()
   else
     parts[4] = ""
   end
-  -- DEBUG だけ: 状態を保った差し替えのための snapshot と、復元の直後 1 回だけの resume。
-  if DEBUG then
-    parts[5] = ',"snapshot":' .. snapshot_json()
-    parts[6] = RESUME_NOTE and (',"resume":' .. resume_note_json()) or ""
+  -- v1 の陣への問いがあった tick だけ（release でも出る。runtime.md §11）。
+  if #ASKS > 0 then
+    local asks = {}
+    for k, a in ipairs(ASKS) do
+      asks[k] = '{"id":' .. JN(a.id + 0.0) .. ',"circle":' .. JS(CIRCLES[a.ci].name)
+        .. ',"name":' .. JS(a.name) .. ',"prompt":' .. JS(a.prompt) .. "}"
+    end
+    parts[5] = ',"asks":[' .. table.concat(asks, ",") .. "]"
   else
     parts[5] = ""
-    parts[6] = ""
   end
-  parts[7] = "}"
+  -- DEBUG だけ: 状態を保った差し替えのための snapshot と、復元の直後 1 回だけの resume。
+  if DEBUG then
+    parts[6] = ',"snapshot":' .. snapshot_json()
+    parts[7] = RESUME_NOTE and (',"resume":' .. resume_note_json()) or ""
+  else
+    parts[6] = ""
+    parts[7] = ""
+  end
+  parts[8] = "}"
   return table.concat(parts)
 end
 
@@ -1016,6 +1067,9 @@ function boot(seed, manifest)
   end
   STORE = {}
   STORE_OUT = {}
+  ASKS = {}
+  ASKED = 0
+  ASK_MAP = {}
   SEQ = 0
   TICK = -1
   DONE = false
@@ -1061,6 +1115,7 @@ function tick(t, inputs)
     local out = result()
     TRACE = {}
     STORE_OUT = {}
+    ASKS = {}
     RESUME_NOTE = nil
     return out
   end
@@ -1073,6 +1128,7 @@ function tick(t, inputs)
   TRACE = {}
   -- boot（核の手順）で書いた分は最初の tick の結果に載せる。空にするのは返した後（TRACE と同じ）。
   STORE_OUT = {}
+  ASKS = {}
   RESUME_NOTE = nil
   return out
 end

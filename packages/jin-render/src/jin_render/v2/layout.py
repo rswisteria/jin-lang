@@ -291,7 +291,8 @@ class _Builder:
                 shapes.text(
                     center,
                     g2.SIGIL_FONT * frame.scale,
-                    shapes.initial(sigil.host),
+                    # host は名前空間名、agent（v2.1）は sigil 名の頭文字（v1 の陣は入れ子に描かない）
+                    shapes.initial(sigil.host if sigil.kind == "host" else sigil.name),
                     pointer,
                     "sigil",
                 )

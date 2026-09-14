@@ -26,16 +26,19 @@ group("parseJinrec は jin_wasm.jinrec.read_jinrec の写し", () => {
 		expect(parsed.recording.ticks).toBe(5);
 		expect(parsed.recording.file).toBe("reducer.jin");
 		expect(parsed.recording.events.map((e) => e.tick)).toEqual([
-			0, 1, 1, 2, 2, 2, 3, 4,
+			0, 1, 1, 2, 2, 2, 3, 3, 4, 4,
 		]);
 		const byTick = eventsByTick(parsed.recording.events, 5);
-		expect(byTick.map((events) => events.length)).toEqual([1, 2, 3, 1, 1]);
+		expect(byTick.map((events) => events.length)).toEqual([1, 2, 3, 2, 2]);
 		expect(byTick[1]).toEqual([
 			{ kind: "pointer", x: 10, y: 20, down: false },
 			{ kind: "pointer", x: 12, y: 20, down: true },
 		]);
 		// 確定した文字列（v2.1）は key の間に発生順のまま並ぶ。
 		expect(byTick[2]?.[1]).toEqual({ kind: "text", text: "aｱ😀" });
+		// v1 の陣の答え（v2.1・runtime.md §11）も行として通る（text は空でもよい）。
+		expect(byTick[3]?.[1]).toEqual({ kind: "reply", id: 1, text: "yes" });
+		expect(byTick[4]?.[1]).toEqual({ kind: "reply", id: 2, text: "" });
 	});
 
 	test("Recorder が書いたものをそのまま読める（往復）", () => {
@@ -90,7 +93,7 @@ group("parseJinrec は jin_wasm.jinrec.read_jinrec の写し", () => {
 
 	test("版と kind の語彙は Python 側と同じ", () => {
 		expect(JINREC_VERSION).toBe(1);
-		expect([...EVENT_KINDS]).toEqual(["key", "pointer", "text"]);
+		expect([...EVENT_KINDS]).toEqual(["key", "pointer", "text", "reply"]);
 	});
 
 	/**

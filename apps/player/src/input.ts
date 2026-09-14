@@ -44,6 +44,9 @@ export class InputReducer {
 			} else if (ev.kind === "text") {
 				// 確定した文字列。押下状態には触らない。
 				rows.push({ kind: "text", text: ev.text });
+			} else if (ev.kind === "reply") {
+				// v1 の陣の答え（runtime.md §11）。押下状態には触らない。プレリュードが配達する。
+				rows.push({ kind: "reply", id: ev.id, text: ev.text });
 			} else {
 				this.x = ev.x;
 				this.y = ev.y;

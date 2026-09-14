@@ -27,7 +27,7 @@
 | `addState` | `/circles/i/state` | `name`、`type`、`init`、`out`、`index` | `removeState` |
 | `removeState` | `/circles/i/state/j` | — | `addState` |
 | `setState` | `/circles/i/state/j` | `type` / `init` / `out` | `setState`(旧値) |
-| `addSigil` | `/circles/i/sigils` | `name`、`kind`、`host` または `circle`+`rite`、`index` | `removeSigil` |
+| `addSigil` | `/circles/i/sigils` | `name`、`kind`、`host` または `circle`+`rite` または `file`(agent・v2.1)、`index` | `removeSigil` |
 | `removeSigil` | `/circles/i/sigils/j` | — | `addSigil` |
 | `moveSigil` | `/circles/i/sigils/j` | `to` | `moveSigil` |
 | `addRite` | `/circles/i/rites` | `name`、`params`、`returns`、`steps`(既定 `[]`)、`index` | `removeRite` |
