@@ -540,6 +540,49 @@ function tickOf(statusText: string | null): number {
 	return Number(m[1]);
 }
 
+/**
+ * 編集モードで Play/step の ArrowLeft の枝の式を書き換える → `jin/applyOps` → 新しい JIL が
+ * `jin.load` で届く。式の欄は**編集モード**にしか無い（呼ぶ側が編集モードにしておく）。
+ */
+async function editStepExpr(page: Page, expr: string): Promise<void> {
+	const canvas = page.getByTestId("jin-canvas");
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/2"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/step");
+	await canvas
+		.locator(
+			'[data-jin="/circles/1/rites/2/steps/0/then/0"][data-jin-kind="step"]',
+		)
+		.first()
+		.click();
+	const field = page.locator("#jin-field-expr");
+	await field.fill(expr);
+	await field.press("Tab");
+	await expect(page.locator("#jin-field-expr")).toHaveValue(expr);
+	await page.getByTestId("jin-focus-clear").click();
+}
+
+/** プレイヤーの e2e の口（`window.__jinPlayer`）から走っているか / 世代を読む。 */
+function playerProbe(page: Page) {
+	const frame = playerFrame(page);
+	const probe = <T>(pick: string): Promise<T> =>
+		frame.evaluate(
+			(name) =>
+				(
+					window as unknown as {
+						__jinPlayer?: Record<string, () => unknown>;
+					}
+				).__jinPlayer?.[name]?.() ?? null,
+			pick,
+		) as Promise<T>;
+	return {
+		running: () => probe<boolean | null>("running"),
+		generation: () => probe<number | null>("generation"),
+	};
+}
+
 test("式を編集しても状態を保って続き（tick / 記憶環の値 / トレースが続く）、外せば最初から（v2.1）", async ({
 	page,
 }) => {
@@ -581,25 +624,7 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 	const editExpr = async (expr: string): Promise<void> => {
 		await page.getByTestId("jin-mode-edit").click();
 		await expect(page.getByTestId("jin-run-panel")).toBeHidden();
-		const canvas = page.getByTestId("jin-canvas");
-		await canvas
-			.locator('text[data-jin="/circles/1/rites/2"]')
-			.first()
-			.dblclick();
-		await expect(page.getByTestId("jin-focus-clear")).toContainText(
-			"Play/step",
-		);
-		await canvas
-			.locator(
-				'[data-jin="/circles/1/rites/2/steps/0/then/0"][data-jin-kind="step"]',
-			)
-			.first()
-			.click();
-		const field = page.locator("#jin-field-expr");
-		await field.fill(expr);
-		await field.press("Tab");
-		await expect(page.locator("#jin-field-expr")).toHaveValue(expr);
-		await page.getByTestId("jin-focus-clear").click();
+		await editStepExpr(page, expr);
 		await page.getByTestId("jin-mode-debug").click();
 		await expect(page.getByTestId("jin-run-panel")).toBeVisible();
 	};
@@ -682,6 +707,90 @@ test("式を編集しても状態を保って続き（tick / 記憶環の値 / �
 	);
 	expect(afterUpto).toBeLessThan((afterTick + 1) * 30);
 });
+test("編集モードでは隠れたプレイヤーを止め、図を描き直さない（Issue #66・設計書 §11 #54）", async ({
+	page,
+}) => {
+	await open(page);
+	const status = page.getByTestId("jin-player-status");
+	const player = playerProbe(page);
+
+	// 1. 開いた直後は編集モード。JIL は届く（tick 0 · 停止）が、隠れている間は走り出さない。
+	await expect(status).toContainText("tick 0 · seed 7 · 停止", {
+		timeout: 30_000,
+	});
+	await page.waitForTimeout(1500);
+	await expect(status).toContainText("tick 0 · seed 7 · 停止");
+	expect(await player.running()).toBe(false);
+
+	// 2. デバッグモードに入ると走り出す。
+	await page.getByTestId("jin-mode-debug").click();
+	await expect(status).toContainText("実行中");
+	await expect
+		.poll(async () => tickOf(await status.textContent()))
+		.toBeGreaterThanOrEqual(20);
+	await expect(page.getByTestId("jin-trace-name")).toContainText("実行パネル");
+
+	// 3. 編集モードに戻ると止まる。止まった知らせで親が 1 回描き直す（それは操作の応答・LSP の往復なので
+	//    着地の時刻は環境次第）。だから「0 回」ではなく**落ち着いたら動かない**を見る: 切り替え直後から
+	//    図の差し替え（`.jin-canvas-svg` の子の入れ替え）を数え、1.5 秒後の値がその後 2.5 秒で増えない
+	//    （走り続けていれば 1 秒に 1 回増える）。tick / upto も動かない。
+	await page.getByTestId("jin-mode-edit").click();
+	const canvas = page.getByTestId("jin-canvas");
+	await canvas.evaluate((node) => {
+		const host = node.querySelector(".jin-canvas-svg");
+		if (host === null) throw new Error(".jin-canvas-svg がありません");
+		const counter = { swaps: 0 };
+		new MutationObserver((records) => {
+			counter.swaps += records.length;
+		}).observe(host, { childList: true });
+		(window as unknown as { __jinSvgSwaps: { swaps: number } }).__jinSvgSwaps =
+			counter;
+	});
+	const swaps = (): Promise<number> =>
+		page.evaluate(
+			() =>
+				(window as unknown as { __jinSvgSwaps: { swaps: number } })
+					.__jinSvgSwaps.swaps,
+		);
+	await expect(page.getByTestId("jin-run-panel")).toBeHidden();
+	await expect(status).toContainText("停止");
+	expect(await player.running()).toBe(false);
+	await page.waitForTimeout(1500);
+	const settled = await swaps();
+	expect(settled).toBeLessThanOrEqual(2);
+	const tick = tickOf(await status.textContent());
+	const upto = await page.getByTestId("jin-upto-value").textContent();
+	await page.waitForTimeout(2500);
+	expect(await swaps()).toBe(settled);
+	await expect(status).toContainText(`tick ${String(tick)} · seed 7 · 停止`);
+	await expect(page.getByTestId("jin-upto-value")).toHaveText(upto ?? "");
+
+	// 4. 走らせたまま編集モードに入り、式を直して（`jin.load` は keep）戻ると、走り出す（世代は同じ）。
+	const generation = await player.generation();
+	await editStepExpr(page, "max(0, paddle - 350 * dt)");
+	await expect(status).toContainText("停止");
+	expect(await player.running()).toBe(false);
+	await page.getByTestId("jin-mode-debug").click();
+	await expect(status).toContainText("実行中");
+	expect(await player.generation()).toBe(generation);
+
+	// 5. 「編集しても状態を保つ」を外して編集モードで式を直すと `jin.load` は最初から（世代が進む）。
+	//    最初からでも、止められている間は走り出さず（tick 0 のまま）、戻ったときに走る。
+	await page.getByTestId("jin-keep-state").uncheck();
+	await page.getByTestId("jin-mode-edit").click();
+	await expect(status).toContainText("停止");
+	await editStepExpr(page, "max(0, paddle - 340 * dt)");
+	await expect.poll(() => player.generation()).toBe((generation ?? 0) + 1);
+	await page.waitForTimeout(1000);
+	await expect(status).toContainText("tick 0 · seed 7 · 停止");
+	expect(await player.running()).toBe(false);
+	await page.getByTestId("jin-mode-debug").click();
+	await expect(status).toContainText("実行中");
+	await expect
+		.poll(async () => tickOf(await status.textContent()))
+		.toBeGreaterThan(0);
+});
+
 test("storage: 「最初から」でも記憶は続き（runs が 2）、「記憶を消す」で空になって 1 に戻る（v2.1）", async ({
 	page,
 }) => {
