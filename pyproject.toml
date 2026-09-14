@@ -8,6 +8,7 @@ dependencies = [
   "jin-adk",
   "jin-render",
   "jin-wasm",
+  "jin-wasmgc",
   "jin-lsp",
   "jin-cli",
 ]
@@ -23,6 +24,7 @@ jin-core = { workspace = true }
 jin-adk = { workspace = true }
 jin-render = { workspace = true }
 jin-wasm = { workspace = true }
+jin-wasmgc = { workspace = true }
 jin-lsp = { workspace = true }
 jin-cli = { workspace = true }
 
@@ -68,7 +70,7 @@ extend-exclude = ["delivery", "docs", ".venv"]
 [tool.importlinter]
 # ADR-004 (DP-COMMON-11): 依存の一方向性を機械で落とす。
 # 契約の正本は design.yaml architecture.dependency_direction.rules の 8 行。
-root_packages = ["jin_core", "jin_adk", "jin_render", "jin_wasm", "jin_lsp", "jin_cli"]
+root_packages = ["jin_core", "jin_adk", "jin_render", "jin_wasm", "jin_wasmgc", "jin_lsp", "jin_cli"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -92,9 +94,12 @@ type = "layers"
 # **Jin v2（Phase 2）で `jin_wasm` を 3 つ目の兄弟として足した**（設計書 §1.2 の
 # `jin-core ← jin-adk | jin-render | jin-wasm ← jin-lsp ← jin-cli`）。`jin_wasm` は `jin_adk` /
 # `jin_render` と互いに import しない。v1 の design.yaml の 8 行は書き換えず、v2 の正本は設計書 §1.2。
+# **Jin v2.1（Issue #53 / #73）で `jin_wasmgc` を `jin_lsp` の兄弟として足した**（jil.md §6.1 の
+# `jin-core ← jin-adk | jin-render | jin-wasm ← jin-lsp | jin-wasmgc ← jin-cli`）。`jin_wasmgc` は
+# `jin_wasm` に依存し `jin_lsp` とは互いに import しない（wasmtime の wheel 31 MB を LSP に乗せない）。
 layers = [
   "jin_cli",
-  "jin_lsp",
+  "jin_lsp | jin_wasmgc",
   "jin_adk | jin_render | jin_wasm",
   "jin_core",
 ]
@@ -105,7 +110,7 @@ type = "forbidden"
 # design.yaml のルール 2 / 4。ADK の語彙が現れてよいのは jin_adk だけ（CLAUDE.md）。
 # 契約名から `google-adk` の語を外さないこと
 # （tests/contract/test_dependency_direction.py::test_import_linter_contracts_are_declared が見ている）。
-source_modules = ["jin_core", "jin_render", "jin_wasm", "jin_lsp"]
+source_modules = ["jin_core", "jin_render", "jin_wasm", "jin_wasmgc", "jin_lsp"]
 forbidden_modules = ["google"]
 
 [[tool.importlinter.contracts]]
@@ -115,7 +120,7 @@ forbidden_modules = ["google"]
 # （tests/contract/test_packaging_contract.py がそれを強制する）。
 name = "任意コード実行の実装は jin_cli.resolver と jin_adk.runtime に閉じる"
 type = "forbidden"
-source_modules = ["jin_core", "jin_adk", "jin_render", "jin_wasm", "jin_lsp"]
+source_modules = ["jin_core", "jin_adk", "jin_render", "jin_wasm", "jin_wasmgc", "jin_lsp"]
 # Phase 2: `jin run` の import 実装 `jin_adk.runtime` も対象（jin_core からは到達させない）。
 # Phase 3: `jin_render` も対象（Phase 4 の `jin/renderSvg` が ws から呼ぶ経路の手前で閉じる）。
 # Phase 4: `jin_lsp` も対象。**これが本命**である。`jin lsp --ws` は WebSocket を

@@ -110,7 +110,7 @@ import sys
 import tempfile
 from importlib.metadata import version as metadata_version
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -138,6 +138,8 @@ from jin_wasm.codegen import generate as generate_game
 from jin_wasm.jinrec import JinrecError, check_storage_copy, dumps_jinrec, read_jinrec
 from jin_wasm.runtime import RunError as WasmRunError
 from jin_wasm.runtime import run_headless
+from jin_wasmgc.assemble import GAME_WASM, assemble
+from jin_wasmgc.runtime import WasmGcRunError, run_headless_wasm
 
 from jin_cli.agents import AgentError, AgentHost
 from jin_cli.editor import EditorError
@@ -796,17 +798,27 @@ def build(
         bool,
         typer.Option("--single", help="（v2）wasm と JIL を埋めた 1 ファイルの index.html を出す"),
     ] = False,
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target",
+            help="（v2）生成系。lua（JIL・既定）か wasm-gc（game.wasm を直接出す・jil.md §6）",
+        ),
+    ] = "lua",
 ) -> None:
     """ADK プロジェクトを生成する（要件書 §3.1）。v2 の .jin なら JIL のバンドルを <out>/ に書く。
 
     既存ファイルは --force なしでは上書きしない。
     """
+    _check_target(target)
     model = _load_model_or_exit(file)
     if isinstance(model, JinFileV2):
-        _build_v2(file, model, out, force=force, debug=debug, single=single)
+        _build_v2(file, model, out, force=force, debug=debug, single=single, target=target)
         raise typer.Exit(code=0)
-    if debug or single:
-        typer.echo("--debug / --single は version: 2 の .jin のためのオプションです", err=True)
+    if debug or single or target != "lua":
+        typer.echo(
+            "--debug / --single / --target は version: 2 の .jin のためのオプションです", err=True
+        )
         raise typer.Exit(code=2)
     try:
         project = generate(model, source_name=file.name)
@@ -955,17 +967,47 @@ def _write_storage_file(path: Path, storage: dict[str, str]) -> None:
         raise StorageFileError(f"{path}: 記憶を書き戻せません（{exc}）") from exc
 
 
+#: `--target`（v2）の値。既定は Lua 経路（jil.md §6.7）。
+TARGETS = ("lua", "wasm-gc")
+
+
+def _check_target(target: str) -> None:
+    if target not in TARGETS:
+        typer.echo(
+            f"--target に指定できるのは {' / '.join(TARGETS)} です（指定値: {_safe(target)}）",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
 def _build_v2(
-    file: Path, model: JinFileV2, out: Path, *, force: bool, debug: bool, single: bool
+    file: Path,
+    model: JinFileV2,
+    out: Path,
+    *,
+    force: bool,
+    debug: bool,
+    single: bool,
+    target: str = "lua",
 ) -> None:
-    """v2: JIL のバンドルを `<out>/` に書く（runtime.md §9）。"""
+    """v2: JIL のバンドルを `<out>/` に書く（runtime.md §9）。
+
+    `target == "wasm-gc"` なら `game.lua` の代わりに `game.wasm`（jil.md §6.8。プレイヤーの同梱と
+    `--single` は #76）。
+    """
+    program: tuple[str, bytes] | None = None
     try:
-        game = generate_game(model, source_name=file.name, debug=debug)
+        game: Any
+        if target == "wasm-gc":
+            game = assemble(model, source_name=file.name, debug=debug)
+            program = (GAME_WASM, game.wasm)
+        else:
+            game = generate_game(model, source_name=file.name, debug=debug)
     except CodegenError as exc:
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
     try:
-        result = write_bundle(game, out, source=file, force=force, single=single)
+        result = write_bundle(game, out, source=file, force=force, single=single, program=program)
     except BundleWriteRefused as exc:
         typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
@@ -995,8 +1037,10 @@ def _run_v2(
     storage_path: Path | None = None,
     record: Path | None = None,
     fake: bool = False,
+    target: str = "lua",
 ) -> None:
-    """v2: lupa で JIL をヘッドレス実行する（runtime.md §8）。
+    """v2: lupa で JIL をヘッドレス実行する（runtime.md §8）。`target == "wasm-gc"` なら wasmtime で
+    `game.wasm` を走らせる（jil.md §6.7。同じ引数・同じ出力）。
 
     標準出力には最後の tick の公開 state を JSON で 1 行出す。実行時エラーは stderr + exit 1
     （トレース / frames はそこまでの分を書く）。任意コード実行は `agent` の sigil があるときだけ
@@ -1051,7 +1095,11 @@ def _run_v2(
             typer.echo(_safe(str(exc)), err=True)
             raise typer.Exit(code=2) from exc
     try:
-        game = generate_game(model, source_name=file.name, debug=debug)
+        game: Any = (
+            assemble(model, source_name=file.name, debug=debug)
+            if target == "wasm-gc"
+            else generate_game(model, source_name=file.name, debug=debug)
+        )
     except CodegenError as exc:
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
@@ -1073,8 +1121,9 @@ def _run_v2(
         sinks["trace"].write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
     try:
-        result = run_headless(
-            game.lua,
+        runner: Any = run_headless_wasm if target == "wasm-gc" else run_headless
+        result = runner(
+            game.wasm if target == "wasm-gc" else game.lua,
             game.manifest,
             seed=seed,
             ticks=ticks,
@@ -1105,7 +1154,7 @@ def _run_v2(
                 )
         for sink in sinks.values():
             sink.finish()
-    except (WasmRunError, AgentError) as exc:
+    except (WasmRunError, WasmGcRunError, AgentError) as exc:
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
     finally:
@@ -1195,6 +1244,13 @@ def run(
             "--input で再生すると v1 の陣を呼ばない）",
         ),
     ] = None,
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target",
+            help="（v2）実行系。lua（lupa・既定）か wasm-gc（wasmtime で game.wasm を走らせる・jil.md §6.7）",
+        ),
+    ] = "lua",
 ) -> None:
     """生成コードを一時ディレクトリに書き出して import し、Runner で実行する。
 
@@ -1209,13 +1265,14 @@ def run(
             err=True,
         )
         raise typer.Exit(code=2)
+    _check_target(target)
     jin_model = _load_model_or_exit(file)
     if isinstance(jin_model, JinFileV2):
         # v2 でも --model fake は受ける（agent の sigil が呼ぶ v1 の陣を FakeLlm で走らせる・runtime.md §8 / §11）
         if prompt is not None or session is not None:
             typer.echo(
                 "version: 2 の .jin に prompt / --session はありません"
-                "（--ticks / --seed / --input / --storage / --frames / --debug / --record を使います）",
+                "（--ticks / --seed / --input / --storage / --frames / --debug / --record / --target を使います）",
                 err=True,
             )
             raise typer.Exit(code=2)
@@ -1231,6 +1288,7 @@ def run(
             storage_path=storage,
             record=record,
             fake=model == "fake",
+            target=target,
         )
         raise typer.Exit(code=0)
     if prompt is None:
@@ -1244,9 +1302,10 @@ def run(
         or frames is not None
         or debug
         or record is not None
+        or target != "lua"
     ):
         typer.echo(
-            "--ticks / --seed / --input / --storage / --frames / --debug / --record は version: 2 の .jin のためのオプションです",
+            "--ticks / --seed / --input / --storage / --frames / --debug / --record / --target は version: 2 の .jin のためのオプションです",
             err=True,
         )
         raise typer.Exit(code=2)

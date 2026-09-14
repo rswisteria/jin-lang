@@ -9,6 +9,7 @@ dependencies = [
   "jin-adk",
   "jin-render",
   "jin-wasm",
+  "jin-wasmgc",
   "jin-lsp",
   "typer>=0.27,<1",
 ]
@@ -21,6 +22,7 @@ jin-core = { workspace = true }
 jin-adk = { workspace = true }
 jin-render = { workspace = true }
 jin-wasm = { workspace = true }
+jin-wasmgc = { workspace = true }
 jin-lsp = { workspace = true }
 
 [build-system]
