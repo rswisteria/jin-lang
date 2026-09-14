@@ -379,6 +379,11 @@ Jin v2.1（状態を保ったライブリロード）の要点（正典は `docs
 - **v2 の実行パネルはモードを切り替えても外さない**（`App.tsx` で `hidden={mode !== "debug"}`）。式の欄は編集モードにしか
   無く、外すと iframe ごとプレイヤーが消える。「編集しても状態を保つ」（`jin-keep-state`・既定 on）は ref で読み、
   切り替えただけでは `jin.load` を送り直さない
+- **隠れている間はプレイヤーを止めておく**（Issue #66・設計書 §11 #54）。`RunPanel` は `hidden` の変化で
+  `jin.control` の `suspend` / `wake` を送るだけで、止める / 起こすの判断はプレイヤー（`main.ts`）が持つ
+  （`suspend` は走っていたかを覚え、止められている間の `jin.load` は走り出さずに保留し、`wake` で走る）。
+  見えないゲームが走ると親が 1 秒ごとに図を描き直し、編集のドラッグと重なる（#64 のフレークの根）。
+  語彙は 7 語のまま。`tests/contract/test_editor_contract.py::test_the_hidden_run_panel_suspends_the_player`
 - 語彙は 7 語のまま（`jin.load` に `keep`、`jin.status` に `generation` の**欄**が増えただけ）。e2e は
   `apps/player/e2e/reload.spec.ts`（Wasmoon 経路で tick / 公開 state / 世代が続き seq が途切れない）と
   `apps/editor/e2e/v2.spec.ts`（走らせて止める → 編集モードで式を直す → 戻ると続く → 外すと世代が進む）

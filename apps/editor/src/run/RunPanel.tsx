@@ -32,7 +32,8 @@ import {
  *
  * プレイヤーとの語彙（runtime.md §10）:
  * - 親 → プレイヤー: `jin.load`（JIL / manifest / keep）、`jin.control`（実行 / 一時停止 / 1 tick /
- *   最初から（seed）/ 録画 / 録画を止める）、`jin.replay`（`.jinrec` のテキストを最初から再生）、
+ *   最初から（seed）/ 録画 / 録画を止める / 記憶を消す / 止める・起こす（`suspend` / `wake`・隠れている間）、
+ *   `jin.replay`（`.jinrec` のテキストを最初から再生）、
  *   `jin.frame`（スクラブ中の画面 = トレースの `frame` 行の表示リスト）
  * - プレイヤー → 親: `jin.trace`（トレース行。tick ごと / 再生では 1 回）、`jin.status`
  *   （状態が変わるたび）、`jin.recording`（録画を止めたときの `.jinrec` のテキスト。書き出しは親）
@@ -59,7 +60,9 @@ export interface RunPanelProps {
 	readonly fileName: string;
 	/**
 	 * 編集モードでは隠す（外さない）。外すと iframe ごとプレイヤーが消えて、編集して戻ったときに
-	 * 状態が続かない。隠れている間も `jin.load` は送る（編集のたびに差し替わる）。
+	 * 状態が続かない。隠れている間も `jin.load` は送る（編集のたびに差し替わる）が、プレイヤーは
+	 * 止めておく（`jin.control` の `suspend` / `wake`・Issue #66）。見えないゲームが走ると親が
+	 * 1 秒ごとに図を描き直し、編集のクリック / ドラッグと重なる。
 	 */
 	readonly hidden?: boolean;
 	readonly onTrace: (rows: readonly TraceRow[]) => void;
@@ -180,6 +183,17 @@ export function RunPanel(props: RunPanelProps): React.JSX.Element {
 		},
 		[],
 	);
+
+	// 隠れている間（編集モード）はプレイヤーを止めておく（Issue #66・設計書 §11 #54）。見えないゲームが
+	// 走り続けると、トレースを受けた親が 1 秒ごとに `jin/renderSvg` を往復して図を差し替え、編集の
+	// クリック / ドラッグが差し替えと重なる。止める / 起こすの判断はプレイヤーが持つ（`suspend` は
+	// 走っていたかを覚え、止められている間の `jin.load` は走り出さず、`wake` で走る）ので、ここは
+	// `hidden` の変化を送るだけ。`control()` を通さない（親の `onControl` に知らせる操作ではない）。
+	const hidden = props.hidden === true;
+	useEffect(() => {
+		if (!loaded) return;
+		post({ type: "jin.control", action: hidden ? "suspend" : "wake" });
+	}, [loaded, hidden, post]);
 
 	// JIL が変わるたび（＝編集のたび）にプレイヤーへ差し替えを送る。
 	// **中身で比べる**（`jil` は文字列、manifest は `jil` の sha256 を鍵にする）。応答のたびに

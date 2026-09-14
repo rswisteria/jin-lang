@@ -254,6 +254,20 @@ async function main(): Promise<void> {
 	let notice: string | null = null;
 	/** 読み込みは直列にする（wasm の起動を待つ間に次の `jin.load` が来ても前の読み込みと重ねない）。 */
 	let loading: Promise<void> = Promise.resolve();
+	/**
+	 * 親（エディタ）に止められているか（`jin.control` の `suspend` / `wake`・Issue #66・設計書 §11 #54）。
+	 * 編集モードで隠れている間は走らない（見えないゲームが走ると、親が 1 秒ごとに図を描き直す）。
+	 * `wakeRunning` は起こされたら走らせるか: `suspend` の時点で走っていた / 止められている間に
+	 * `jin.load` が最初から（走り出すはずだった）のどちらか。`setUp` はこれを消さない（keep で続ける差し替えは
+	 * 前が止められているので `wasRunning` が偽になるが、起こされたら走るべき）。
+	 */
+	let suspended = false;
+	let wakeRunning = false;
+	/** 走らせる。ただし止められている間は保留して、`wake` で走らせる。 */
+	const startUnlessSuspended = (target: Player): void => {
+		if (suspended) wakeRunning = true;
+		else target.start();
+	};
 
 	/** 親（エディタ）へ状態を知らせる。埋め込みでなければ何もしない。 */
 	const postStatus = (): void => {
@@ -366,11 +380,11 @@ async function main(): Promise<void> {
 			notice = wasRecording
 				? `状態を保って差し替えました（tick ${String(current.tick)} から続けます・録画は止めました）`
 				: `状態を保って差し替えました（tick ${String(current.tick)} から続けます）`;
-			if (wasRunning) current.start();
+			if (wasRunning) startUnlessSuspended(current);
 		} else {
 			notice = null;
 			current.reboot();
-			current.start();
+			startUnlessSuspended(current);
 		}
 		seedInput.value = String(current.seed);
 		render();
@@ -441,6 +455,29 @@ async function main(): Promise<void> {
 		} | null;
 		if (data === null || typeof data !== "object") return;
 		if (data.type === "jin.control") {
+			// 止める / 起こす（隠れている間は走らない・Issue #66）。プレイヤーが無くても効く（最初の `jin.load` より
+			// 先に届いても、止められている間の読み込みは走り出さない）。
+			if (data.action === "suspend") {
+				if (!suspended) wakeRunning = player?.running ?? false;
+				suspended = true;
+				player?.pause();
+				render();
+				return;
+			}
+			if (data.action === "wake") {
+				suspended = false;
+				// 走らせるのは読み込みの鎖の後ろで。`jin.load` の await 中（`player` はまだ前のプレイヤー）に
+				// 届くと、前のプレイヤーを起こして `wakeRunning` を消費し、新しいプレイヤーが止まったままになる
+				// （式を直してすぐデバッグモードに戻る、この機能の主経路）。鎖が空ならマイクロタスクで即走る。
+				void loading.then(() => {
+					if (suspended || !wakeRunning) return;
+					player?.start();
+					wakeRunning = false;
+					render();
+				});
+				render();
+				return;
+			}
 			// 親（エディタ）の操作。iframe の中のボタンと同じ関数を呼ぶだけ。
 			if (player === null) return;
 			if (data.action === "start") player.start();

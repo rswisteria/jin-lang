@@ -649,3 +649,33 @@ def test_the_run_panel_can_forget_the_storage() -> None:
     assert 'action === "reboot" || action === "record" || action === "forget"' in app
     spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
     assert 'page.getByTestId("jin-forget").click();' in spec
+
+
+def test_the_hidden_run_panel_suspends_the_player() -> None:
+    """設計書 §11 #54（Issue #66）: 編集モードで隠れている間、プレイヤーは走らない（案 B）。
+
+    - 親（`RunPanel`）は `hidden` が変わるたびに `jin.control` の `suspend` / `wake` を送る（語彙は 7 語のまま・
+      action が 2 つ増えるだけ）。`control()` を通さない（親の `onControl` に知らせる操作ではない）
+    - プレイヤー（`main.ts`）は `suspend` / `wake` を **`player === null` の前で**受ける（最初の `jin.load` より先に
+      届いても効く）。止められている間の `jin.load` は走り出さず、起こされたときに走る（`startUnlessSuspended`）。
+      `setUp` に無条件の `current.start()` を残さない
+    - e2e が「編集モードで操作していない間に図の差し替えが 0 回」を固定する
+    """
+    panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")
+    assert 'action: hidden ? "suspend" : "wake"' in panel
+    assert "}, [loaded, hidden, post]);" in panel
+    assert "}, [loaded, jil, manifestKey]);" in panel  # load の effect は変えない
+    main = (REPO_ROOT / "apps" / "player" / "src" / "main.ts").read_text(encoding="utf-8")
+    control = main[main.index('if (data.type === "jin.control") {') :]
+    control = control[: control.index('if (data.type === "jin.replay") {')]
+    guard = control.index("if (player === null) return;")
+    assert control.index('data.action === "suspend"') < guard
+    assert control.index('data.action === "wake"') < guard
+    set_up = main[main.index("const setUp = async") :]
+    set_up = set_up[: set_up.index("const unlock = ")]
+    assert "current.start()" not in set_up
+    assert set_up.count("startUnlessSuspended(") == 2  # keep で続けるとき / 最初から
+    spec = (EDITOR / "e2e" / "v2.spec.ts").read_text(encoding="utf-8")
+    assert "編集モードでは隠れたプレイヤーを止め、図を描き直さない" in spec
+    runtime = (REPO_ROOT / "docs" / "spec" / "v2" / "runtime.md").read_text(encoding="utf-8")
+    assert "`suspend` / `wake`" in runtime
