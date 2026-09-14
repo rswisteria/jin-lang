@@ -10,6 +10,9 @@ module は import を持たず、線形メモリの外へ出る手段が無い�
 命令数の上限は module の中のカウンタ（jil.md §6.6）で掛けるが、それは #74（Sub-Issue B）で入る。
 それまでは wasmtime の fuel（`consume_fuel`・`FUEL_PER_CALL`）を boot / tick ごとに掛けて、無限ループの
 module を止める（ブラウザには fuel が無い。`wasmgc-api-probe.md` A.3 / A.5）。#74 の後は保険に格下げする。
+**#73 時点の既知の差**: 上限に当たると Lua 経路は tick 結果の `error`（`budget`・runtime.md §8）を持って
+正常に返るが、wasm 経路は fuel の Trap を `WasmGcRunError`（例外）にする。#74 でカウンタが入り、両経路が
+同じ tick に `error` 行を出す形に揃う（jil.md §6.6）。
 """
 
 from __future__ import annotations

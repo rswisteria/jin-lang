@@ -155,6 +155,8 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   文字列は data 区画（生成部は `DATA_BASE` = 128 から。ランタイム部の文字列は [0, 128) に閉じ、契約テストが配置を
   突き合わせる）。`wat_string` は印字可能 ASCII 以外を `\XX` に逃がす。JSON の数値は `$put_jn`（NaN / Infinity は
   文字列として載せる・プレリュードの `JN` と同じ）
+- **`returns` 付きの手順が末尾まで `return` せずに抜ける形は生成の時点で拒む**（Lua は nil を返して次の算術で
+  error 行になるが wasm に nil は無い。Sub-Issue ではなく恒久。JIN213 / JIN202 はこの形を落とさない）
 - `.jin` の `%` は Lua の `luai_nummod`（`$fmod` を b·2^k の引き算で正確に求めてから符号を b に合わせる）。
   `loop count` の回数は f64 のまま比べる（`i32.trunc` は NaN / 巨大な値で trap する）
 - **非対応の構文は `CodegenError` が Sub-Issue を名指しする**（文字列 / list / 型紙 / 純関数 / ホスト能力 / `each` は

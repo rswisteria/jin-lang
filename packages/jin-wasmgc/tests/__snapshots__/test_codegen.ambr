@@ -22,7 +22,7 @@
         )
       )
       (return (local.get $l1))
-      (f64.const 0)
+      (unreachable)
     )
     (func $r0_1 ;; Fib.main
       (local $l0 f64)

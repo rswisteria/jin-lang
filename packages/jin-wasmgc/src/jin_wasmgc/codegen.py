@@ -426,8 +426,17 @@ class _Generator:
             self.out(f"(local {wat} {type_text})", 2)
         self.lines.extend(body)
         if rite.returns is not None:
-            # 末尾まで return しなかった手順（Lua は nil を返す）。型付きの関数には値が要る
-            self.out(_default(rite.returns), 2)
+            # 末尾まで `return` せずに抜ける手順は Lua では nil を返し、`into` の state が nil になって
+            # 次の算術で error 行になる。wasm には nil が無く、黙って既定値を返すと「一致」が汚れるので、
+            # 生成の時点で拒む（Sub-Issue ではなく恒久。JIN213 / JIN202 はこの形を落とさない）
+            if not _exits(rite.steps):
+                raise CodegenError(
+                    f"--target wasm-gc: 手順 {info.circle.name}.{rite.name} は returns を持つのに"
+                    "末尾まで return / finish せずに抜ける経路があります（Lua では nil が返る形）。"
+                    "最後のステップを return にするか、if の両枝で return してください"
+                )
+            # 静的に抜けることを確かめたので、ここには来ない（型付きの関数の末尾には命令が要る）
+            self.out("(unreachable)", 2)
         self.out(")", 1)
 
     def emit_circle(self, info: CircleInfo) -> None:
@@ -534,6 +543,18 @@ class _Generator:
         self.out(f"(global $in_base i32 (i32.const {in_base}))", 1)
         self.out(f'(memory (export "memory") {pages})', 1)
         return "\n".join(self.lines) + "\n"
+
+
+def _exits(steps: list[Step]) -> bool:
+    """ステップ列が必ず抜ける（最後が `return` / `finish` / `transfer`、または両枝が抜ける `if`）か。"""
+    if not steps:
+        return False
+    last = steps[-1]
+    if isinstance(last, (ReturnStep, FinishStep, TransferStep)):
+        return True
+    if isinstance(last, IfStep):
+        return _exits(last.then) and _exits(last.else_)
+    return False
 
 
 def header(source_name: str | None) -> str:

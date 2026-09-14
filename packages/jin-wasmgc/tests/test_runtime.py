@@ -257,8 +257,15 @@ def test_negative_zero_and_specials_format_like_lua() -> None:
 # ---------------------------------------------------------------- trap（生成系の不備・未実装）は名指しの WasmGcRunError
 
 
-def test_an_infinite_loop_is_stopped_by_fuel_until_the_counter_lands() -> None:
+def test_an_infinite_loop_raises_until_the_counter_lands_while_lua_reports_an_error_row() -> None:
+    """#73 時点の既知の差: Lua は `error`（budget）を持って正常に返り、wasm は fuel の Trap で例外になる。
+
+    #74 で module 内のカウンタが入ると、両経路が同じ tick に同じ `error` を出す形に揃う（jil.md §6.6）。
+    """
     steps = [{"do": "loop", "kind": "while", "cond": "true", "steps": []}]
+    lua_game = generate_lua(program([], steps), source_name="t.jin")
+    lua = run_headless(lua_game.lua, lua_game.manifest, seed=0, ticks=1, budget=100_000)
+    assert lua.error is not None and "命令数の上限" in lua.error
     game = assemble(program([], steps))
     with pytest.raises(WasmGcRunError, match="#74") as info:
         run_headless_wasm(game.wasm, game.manifest, seed=0, ticks=1, fuel=1_000_000)
@@ -270,6 +277,25 @@ def test_a_non_integer_number_traps_with_the_sub_issue_named() -> None:
     game = assemble(program(state, [{"do": "finish"}]))
     with pytest.raises(WasmGcRunError, match="#74"):
         run_headless_wasm(game.wasm, game.manifest, seed=0, ticks=1)
+
+
+def test_a_typed_rite_that_can_fall_off_the_end_is_refused() -> None:
+    """Lua は nil を返す形。wasm は黙って既定値を返せないので生成の時点で拒む（恒久・Sub-Issue ではない）。"""
+    from jin_wasm.program import CodegenError
+
+    half = {
+        "name": "half",
+        "params": [{"name": "x", "type": "num"}],
+        "returns": "num",
+        "steps": [{"do": "if", "cond": "x > 0", "then": [{"do": "return", "expr": "x"}]}],
+    }
+    state = [{"name": "a", "type": "num", "init": "0", "out": True}]
+    steps = [{"do": "cast", "target": "half", "args": ["1"], "into": "a"}, {"do": "finish"}]
+    with pytest.raises(CodegenError, match="nil"):
+        assemble(program(state, steps, [half]))
+    # 両枝で return すれば通る
+    half["steps"][0]["else"] = [{"do": "return", "expr": "0 - x"}]
+    assert assert_same(program(state, steps, [half])).public == {"T.a": 1}
 
 
 def test_a_module_with_an_import_is_refused() -> None:
