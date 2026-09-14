@@ -81,9 +81,15 @@ body {
   background: #fef2f2;
   color: #7f1d1d;
 }
+/* 図の文字（`<text>`）を選択させない（Issue #64）。図の上のドラッグは押したまま文字をなぞるので、
+   既定では選択が残り、次に選択の上を押すと Chromium（Linux）が選択文字の標準ドラッグ（`dragstart`）を
+   始めて `pointercancel` になり、`pointerup` が届かず操作が効かない（実測）。描き直しがあると
+   選択は消えるので、描き直さない操作（重複を断る通知だけ）の次のドラッグで起きる。
+   **描画の変更ではない**（下の `pointer-events` と同じく、ブラウザの既定の振る舞いだけを変える）。 */
 .jin-canvas svg {
   max-width: 100%;
   height: auto;
+  user-select: none;
 }
 /* レンダラの SVG は **すべて `fill="none"` の線画**である（`docs/spec/layout.md`）。
    既定の `pointer-events: visiblePainted` では 1 px の線の上しか当たらず、

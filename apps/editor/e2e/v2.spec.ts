@@ -970,6 +970,9 @@ async function dragOnto(page: Page, from: Locator, to: Locator): Promise<void> {
 	await page.mouse.down();
 	await page.mouse.move(end.x, end.y, { steps: 5 });
 	await page.mouse.up();
+	// 図の文字をなぞっても選択は残らない（Issue #64）。残ると、次にその上を押したとき
+	// Chromium（Linux）が選択文字の標準ドラッグを始め、`pointerup` が届かず操作が効かない。
+	expect(await page.evaluate(() => String(window.getSelection()))).toBe("");
 }
 
 /** 保存 → `jin fmt` の出力とバイト一致 → `jin check` が通る。保存したモデルを返す。 */
