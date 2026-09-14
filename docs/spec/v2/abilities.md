@@ -126,4 +126,5 @@ PCG32(`state`, `inc` の 64 bit 整数 2 つ)。seed は `stage.seed`(CLI の `-
 次の `boot` まで見えない。録画(`.jinrec`)のヘッダは録画の `boot` に渡した写しを `storage` に持ち、
 `jin run --input` はそれを `manifest.storage` に渡す(runtime.md §7)。録画の**再生**はヘッダの写しで `boot` し、
 書き込みを**永続化しない**(履歴の再実行であって、利用者の本物の記憶を上書きしない)。
+ヘッドレスで実行をまたいで記憶を続けるには `jin run --storage <file.json>`(runtime.md §8。起動時に読み、終了時に書き戻す。`--input` と一緒なら使わない)。
 値の大きさに上限は置かない(`localStorage` の quota はホストの事情)。文字列を数に戻すには expr.md §4.1 の `num`。

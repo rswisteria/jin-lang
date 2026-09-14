@@ -84,11 +84,23 @@ def _read_header(path: Path, number: int, value: dict[str, Any], out: Recording)
         raise JinrecError(f"{path}:{number}: ヘッダの ticks は 0 以上です")
     storage = value.get("storage")
     if storage is not None:
-        if not isinstance(storage, dict):
-            raise JinrecError(f"{path}:{number}: ヘッダの storage はオブジェクトです")
-        if not all(isinstance(v, str) for v in storage.values()):
-            raise JinrecError(f"{path}:{number}: ヘッダの storage の値は文字列です")
-        out.storage = dict(storage)
+        try:
+            out.storage = check_storage_copy(storage, where="ヘッダの storage")
+        except TypeError as exc:
+            raise JinrecError(f"{path}:{number}: {exc}") from exc
+
+
+def check_storage_copy(value: object, *, where: str) -> dict[str, str]:
+    """記憶の写し（abilities.md §8）の形を検査する。JSON の object で、値はすべて文字列。
+
+    録画のヘッダの `storage` と `jin run --storage` のファイル（runtime.md §8）が同じ規則で読む。
+    `where` は文言の主語（`ヘッダの storage はオブジェクトです`）。違反は `TypeError`。
+    """
+    if not isinstance(value, dict):
+        raise TypeError(f"{where} はオブジェクトです")
+    if not all(isinstance(v, str) for v in value.values()):
+        raise TypeError(f"{where} の値は文字列です")
+    return dict(value)
 
 
 def _read_event(

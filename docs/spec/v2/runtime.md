@@ -186,15 +186,19 @@ JSONL。1 行目はヘッダ。
 - `tick` は昇順(同じ tick の複数行は発生順)。`ticks` はヘッダに書いた総 tick 数(`jin run --ticks` の既定値になる)
 - プレイヤーは「録画」で seed と入力を集めてこの形で書き出す。`jin run --input rec.jinrec` は同じ tick に同じイベントを渡す
 - `keys` / `pointer` の押下状態はイベントから再構成する(ログには載せない)
-- `storage`(任意・v2.1)は録画の `boot` に渡した記憶の写し(abilities.md §8)。object で値はすべて文字列。書き手は非空のときだけ最後に書き、`jin run --input` はこれを `manifest.storage` に渡す。無ければ空。版は 1 のまま(任意欄の追加)
+- `storage`(任意・v2.1)は録画の `boot` に渡した記憶の写し(abilities.md §8)。object で値はすべて文字列。書き手は非空のときだけ最後に書き、`jin run --input` はこれを `manifest.storage` に渡す。無ければ空。版は 1 のまま(任意欄の追加)。`--input` と `--storage` を一緒に指定したら録画のヘッダが正で、`--storage` は読みも書きもしない(§8)
 
 ## 8. ヘッドレス実行(`jin run`・v2)
 
 ```
-jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--trace t.jsonl] [--frames f.jsonl] [--debug]
+jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--storage memory.json] [--trace t.jsonl] [--frames f.jsonl] [--debug]
 ```
 
 - `--ticks` の既定は `--input` があればそのヘッダの `ticks`、無ければ 600。`--seed` の既定は `--input` のヘッダの `seed`、無ければ `stage.seed`。root が `done` になったら(その tick を含めて)止める
+- `--storage`(v2.1・設計書 §11 #51)は記憶(abilities.md §8)のファイル。起動時に読んで `manifest.storage` に渡し(**無ければ空**。1 回目の実行)、終了時に最後の記憶(写しに書き込みを順に反映したもの)を同じファイルへ書き戻す。形は JSON の object で値はすべて文字列(録画のヘッダの `storage` と同じ検査・`jin_wasm.jinrec.check_storage_copy`)。書き出しは鍵の昇順・2 字下げ・末尾改行。**実行時エラーでもそこまでの書き込みは書き戻す**(プレイヤーは tick ごとに永続化する)
+  - `--input` と一緒なら録画のヘッダの写しが正で、`--storage` は**読みも書きもせず** stderr に 1 行知らせる(再生は記憶を上書きしない)
+  - 走らせる前に断る(exit 2): 読めない・JSON でない・形が違う・シンボリックリンク・親ディレクトリが無い・対象の `.jin` と同じファイル
+  - 書き戻しは `jin render -o` と同じ規律(同じディレクトリの一時ファイルから `os.replace`・リンクを拒む・新規は 0644 & ~umask・既存のモードは引き継ぐ)で、書けなければ診断 1 行で exit 1
 - 実行時エラー(§5 の `error`)は stderr に 1 行出して **exit 1**(トレース / frames はそこまでの分を書く)
 - `--trace` は §5 の行(`--debug` を暗黙に立てる)。`--frames` は `frame` 行だけを別ファイルに(トレース無しでも出せる)
 - 標準出力には最後の tick の公開 state を JSON で 1 行出す(`{"Play.score": 3, "Result.quit": true}`)

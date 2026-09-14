@@ -69,8 +69,15 @@ ADK が cancel を握って正常復帰するため「応答の無い function_c
 `jin build` は `<out>/` に `game.lua` / `game.manifest.json` / `assets/` を書く。asset の実体は
 `.jin` の親ディレクトリの中に閉じ、リンクを辿らない（`jin_wasm.bundle`）。`--trace` / `--frames` は
 v1 と同じ `_open_trace` + `_LazyTruncateSink` を通す（**新しい書き込み経路を作らない**）。
+`--storage`（v2.1・runtime.md §8）の書き戻しも `jin render -o` と同じ `_write_atomically(allow_create=True)` を
+通す。`_check_storage_destination` が走らせる前に見るリンク / 対象の `.jin` / 親の有無は文言のための
+早期判定で、リンクへの防御として効いているのは `_write_atomically` の `os.replace` と `Path(path).is_symlink`。
+「対象の `.jin` と同じ」だけは `_write_svg` と同じく二層目の無い実効防御である。
 `jin render` も同じ `_load_model_or_exit` で `JinFileV2` を受け取り、`jin_render.render`（version で
 `jin_render.v2` へ振り分ける純関数）へ渡すだけである。**新しい経路は無い**。
+
+    guard: _write_storage_file -> _write_atomically(path,text,allow_create=True)
+    guard: _check_storage_destination -> path.resolve()==source.resolve()
 
 ## `guard:` 記法（security review R-2 の再発防止）
 
@@ -124,7 +131,7 @@ from jin_wasm.bundle import WriteRefused as BundleWriteRefused
 from jin_wasm.bundle import write_bundle
 from jin_wasm.codegen import CodegenError
 from jin_wasm.codegen import generate as generate_game
-from jin_wasm.jinrec import JinrecError, read_jinrec
+from jin_wasm.jinrec import JinrecError, check_storage_copy, read_jinrec
 from jin_wasm.runtime import RunError as WasmRunError
 from jin_wasm.runtime import run_headless
 
@@ -437,7 +444,7 @@ def _new_file_mode() -> int:
 def _write_atomically(path: Path, text: str, *, allow_create: bool = False) -> None:
     """同じディレクトリに一時ファイルを作ってから `os.replace` で差し替える。
 
-    `allow_create=True`（`jin render -o` の新規作成）のときだけ、対象がまだ無くても
+    `allow_create=True`（`jin render -o` と `jin run --storage` の新規作成）のときだけ、対象がまだ無くても
     書ける。既定（`fmt`）は従来どおり「対象が在ること」を前提にする。
 
     直接 `write_text` すると、書き込み中に落ちたときに**内容が切り詰められたファイル**が
@@ -878,6 +885,71 @@ class _LazyTruncateSink:
         self._handle.close()
 
 
+class StorageFileError(Exception):
+    """`--storage` のファイルを読めない / 置けない / 書けない（1 行の診断にする。トレースバックを出さない）。"""
+
+
+def _check_storage_destination(path: Path, source: Path) -> None:
+    """`--storage` の置き場所を走らせる前に検査する（runtime.md §8）。
+
+    走らせてから書き戻しで断ると記憶だけが失われたように見えるので、分かる失敗は先に言う。
+    リンクと親の有無は文言のための早期判定で、書き戻しの `_write_atomically` が同じものを競合なしで拒む。
+    「対象の `.jin` と同じ」は二層目の無い実効防御（`_write_svg` と同じ）。
+
+    guard: _check_storage_destination -> path.is_symlink
+    guard: _check_storage_destination -> path.resolve()==source.resolve()
+    """
+    if path.is_symlink():
+        raise StorageFileError(f"{path}: シンボリックリンクなので記憶の読み書きに使いません")
+    if path.resolve() == source.resolve():
+        raise StorageFileError(f"{path}: 対象の .jin と同じファイルです（記憶で上書きしません）")
+    if not path.parent.is_dir():
+        raise StorageFileError(f"{path}: 親ディレクトリがありません")
+
+
+def _read_storage_file(path: Path) -> dict[str, str]:
+    """`--storage` のファイルを記憶の写しとして読む。**無ければ空**（1 回目の実行）。
+
+    形の検査は録画のヘッダの `storage` と同じ（`jin_wasm.jinrec.check_storage_copy`）。BOM は読み飛ばす
+    （`read_jinrec` と同じ）。
+    """
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except FileNotFoundError:
+        return {}
+    except OSError as exc:
+        raise StorageFileError(f"{path}: 読めません（{exc.strerror or exc}）") from exc
+    except UnicodeDecodeError as exc:
+        raise StorageFileError(f"{path}: 読めません（UTF-8 ではありません）") from exc
+    try:
+        value = json.loads(text)
+    except ValueError as exc:
+        raise StorageFileError(
+            f"{path}: JSON として読めません（{getattr(exc, 'msg', exc)}）。"
+            "{} を書くかファイルを消してください"
+        ) from exc
+    try:
+        return check_storage_copy(value, where="storage")
+    except TypeError as exc:
+        raise StorageFileError(f"{path}: {exc}") from exc
+
+
+def _write_storage_file(path: Path, storage: dict[str, str]) -> None:
+    """最後の記憶を `--storage` へ書き戻す（鍵の昇順・2 字下げ・末尾改行）。
+
+    `jin render -o` と同じ経路: 同じディレクトリの一時ファイルから `os.replace`、リンクは拒み、
+    新規作成は `_new_file_mode()`（0644 & ~umask）、既存のモードは引き継ぐ。トレース（0600）と違って
+    中身はツール引数ではなくゲームの記憶で、置き場所は利用者が名指ししたファイルである。
+
+    guard: _write_storage_file -> _write_atomically(path,text,allow_create=True)
+    """
+    text = json.dumps(storage, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    try:
+        _write_atomically(path, text, allow_create=True)
+    except WriteRefused as exc:
+        raise StorageFileError(f"{path}: 記憶を書き戻せません（{exc}）") from exc
+
+
 def _build_v2(
     file: Path, model: JinFileV2, out: Path, *, force: bool, debug: bool, single: bool
 ) -> None:
@@ -908,11 +980,14 @@ def _run_v2(
     trace: Path | None,
     frames: Path | None,
     debug: bool,
+    storage_path: Path | None = None,
 ) -> None:
     """v2: lupa で JIL をヘッドレス実行する（runtime.md §8）。
 
     標準出力には最後の tick の公開 state を JSON で 1 行出す。実行時エラーは stderr + exit 1
     （トレース / frames はそこまでの分を書く）。任意コード実行は無い（モジュール docstring）。
+    `storage_path`（`--storage`）は起動時に読んで boot に渡し、終了時に最後の記憶を書き戻す
+    （実行時エラーでも書き戻す）。`--input` があれば録画のヘッダの写しが正で、読みも書きもしない。
     """
     events: list[dict] = []
     storage: dict[str, str] | None = None
@@ -928,6 +1003,21 @@ def _run_v2(
             ticks = recording.ticks
         if seed is None:
             seed = recording.seed
+        if storage_path is not None:
+            # 再生は履歴の再実行で、利用者の記憶を読みも書きもしない（abilities.md §8・設計書 §11 #51）。
+            typer.echo(
+                "--storage は使いません: --input の録画のヘッダの記憶で boot し、"
+                "再生の書き込みは書き戻しません（runtime.md §8）",
+                err=True,
+            )
+            storage_path = None
+    if storage_path is not None:
+        try:
+            _check_storage_destination(storage_path, file)
+            storage = _read_storage_file(storage_path)
+        except StorageFileError as exc:
+            typer.echo(_safe(str(exc)), err=True)
+            raise typer.Exit(code=2) from exc
     if ticks is None:
         ticks = 600
     if ticks < 0:
@@ -984,6 +1074,13 @@ def _run_v2(
     _echo_or_exit(json.dumps(result.public, ensure_ascii=False))
     done = f"、tick {result.done_tick} で done" if result.done_tick is not None else ""
     typer.echo(f"{result.ticks} tick 走らせました（seed {seed}{done}）", err=True)
+    if storage_path is not None:
+        # 実行時エラーでも、そこまでの書き込みは書き戻す（プレイヤーは tick ごとに永続化する）。
+        try:
+            _write_storage_file(storage_path, result.storage)
+        except StorageFileError as exc:
+            typer.echo(_safe(str(exc)), err=True)
+            raise typer.Exit(code=1) from exc
     if result.error is not None:
         typer.echo(f"{_safe(str(file))}: 実行時エラー: {_safe(result.error)}", err=True)
         raise typer.Exit(code=1)
@@ -1041,6 +1138,14 @@ def run(
         bool,
         typer.Option("--debug", help="（v2）デバッグビルドで走らせる（--trace は暗黙に立てる）"),
     ] = False,
+    storage: Annotated[
+        Path | None,
+        typer.Option(
+            "--storage",
+            help="（v2）記憶（storage）の JSON。起動時に読み（無ければ空）、終了時に最後の記憶を"
+            "書き戻す。--input と一緒なら録画のヘッダが正で、読みも書きもしない",
+        ),
+    ] = None,
 ) -> None:
     """生成コードを一時ディレクトリに書き出して import し、Runner で実行する。
 
@@ -1060,7 +1165,7 @@ def run(
         if prompt is not None or session is not None or model is not None:
             typer.echo(
                 "version: 2 の .jin に prompt / --session / --model はありません"
-                "（--ticks / --seed / --input / --frames / --debug を使います）",
+                "（--ticks / --seed / --input / --storage / --frames / --debug を使います）",
                 err=True,
             )
             raise typer.Exit(code=2)
@@ -1073,14 +1178,22 @@ def run(
             trace=trace,
             frames=frames,
             debug=debug,
+            storage_path=storage,
         )
         raise typer.Exit(code=0)
     if prompt is None:
         typer.echo("version: 1 の .jin には最初の利用者メッセージ（prompt）が要ります", err=True)
         raise typer.Exit(code=2)
-    if ticks is not None or seed is not None or input_ is not None or frames is not None or debug:
+    if (
+        ticks is not None
+        or seed is not None
+        or input_ is not None
+        or storage is not None
+        or frames is not None
+        or debug
+    ):
         typer.echo(
-            "--ticks / --seed / --input / --frames / --debug は version: 2 の .jin のためのオプションです",
+            "--ticks / --seed / --input / --storage / --frames / --debug は version: 2 の .jin のためのオプションです",
             err=True,
         )
         raise typer.Exit(code=2)
