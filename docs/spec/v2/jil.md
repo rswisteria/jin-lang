@@ -123,20 +123,21 @@ wasm-GC の `struct` / `array` / `func` に落とせる条件である。Lua 側
 
 ### 6.2 ホスト境界(runtime.md §1 の wasm 版)
 
-意味は runtime.md §1 のまま(ホストが呼ぶのは `boot` / `tick` の 2 つ・module はホストを呼ばない・import は空)。
+意味は runtime.md §1 のまま(意味論を持つのは `boot` / `tick` の 2 つ・module はホストを呼ばない・import は空)。
 wasm-GC の `array` / `struct` はホストから読めないので、**引数も戻り値も UTF-8 の JSON 1 本を線形メモリで越える**。
+そのためホストが呼ぶ export は **3 つ**(`input` はメモリの受け渡しだけで意味論を持たない)。
 
 | export | 形 | 意味 |
 |---|---|---|
 | `memory` | `(memory (export "memory") …)` | 入りと出の JSON を置く線形メモリ |
-| `input(n: i32) -> i32` | 引数 n バイトの入力域を確保しその先頭を返す(足りなければ `memory.grow`) | ホストはここに JSON を書いてから `boot` / `tick` を呼ぶ |
-| `boot(n: i32) -> i32` | 入力域の先頭 n バイト = `{"seed": <num>, "manifest": {…}}` | runtime.md §1 の `boot(seed, manifest)`。戻りは結果の長さ(`boot` の結果は `{}` か `error` だけ) |
-| `tick(n: i32) -> i32` | 入力域の先頭 n バイト = `{"t": <num>, "inputs": {…}}` | runtime.md §1 の `tick(t, inputs)`。戻りは結果の長さ |
-| `output() -> i32` | 直前の `boot` / `tick` が書いた結果の先頭 | ホストは `[output(), output() + 戻り値)` を UTF-8 で読む |
+| `input(n: i32) -> i32` | 引数 n バイトの入力域を確保しその先頭を返す(足りなければ `memory.grow`) | ホストはここに JSON を書いてから `boot` / `tick` を呼ぶ。**`memory.grow` が起きると JS の `memory.buffer` は別オブジェクトになる**(前の `ArrayBuffer` は detach。probe A.5)ので、書く直前に取り直す |
+| `boot(n: i32)` | 入力域の先頭 n バイト = `{"seed": <num>, "manifest": {…}}` | runtime.md §1 の `boot(seed, manifest)`。**結果は無い**(Lua と同じ。核の手順のエラーや上限超過は最初の `tick` の結果の `error` に載る。プレリュードの `protected` と同じ) |
+| `tick(n: i32) -> (i32, i32)` | 入力域の先頭 n バイト = `{"t": <num>, "inputs": {…}}` | runtime.md §1 の `tick(t, inputs)`。戻りは結果の `(先頭, 長さ)` の多値(wasmtime-py は list、JS は Array で受かる。probe A.5)。ホストはその範囲を UTF-8 で読む |
 
 - 結果の JSON は runtime.md §1.2 と**同じ鍵・同じ順・同じ書式**(`ops` / `audio` / `trace` / `done` / `error` / `public` /
   `storage` / `asks` / `snapshot` / `resume`)。プレリュードの `JS` と同じエスケープの範囲(制御文字は `\u00XX`・`/` は
   逃がさない)、数値は runtime.md §6
+- 結果は `tick` の次の呼び出し(`input` を含む)まで有効。ホストは読み終えてから次を呼ぶ(Lua の戻り値の文字列と同じ寿命)
 - `manifest` の読み手は 1 つ(`storage` / `resume` / `stage` / `assets` を同じ JSON の読み手で読む)。**形が合わない値は
   Lua 側の `RREC` / `RN` / `RB` / `RSTR` / `RL` と同じく nil 相当(init のまま)**。PCG32 の 64 bit 状態は `"0x…"` の
   16 進文字列で越える(§5 の唯一の例外はそのまま。module の中では `i64`)
@@ -173,7 +174,8 @@ wasm-GC の `array` / `struct` はホストから読めないので、**引数�
   試して最短を選ぶ。wasm に `printf` は無いので **module の中に最短往復表現の変換を書く**(多倍長の dragon4 相当。表を
   持つ Ryu は使わない)。ホストへ export して任せることは**しない**(tick あたり何十回も境界を越え、ホストごとに実装が
   分かれてパリティの根拠が消える)。`packages/jin-wasm/tests/test_prelude.py` の非整数 700 件を**共有 fixture**にして
-  両経路で同じ文字列になることを固定する
+  両経路で同じ文字列になることを固定する。fixture には **2 の冪の境界(丸め区間が非対称になる値)と非正規化数**を含める
+  (`%.{p}e` を p = 0…16 で試す方式と最短往復表現が分かれ得るのはそこなので、境界を含まない一致は証拠にならない)
 - JSON の書き手(`JS` 相当)と読み手(§6.2)
 - PCG32(runtime.md §4。状態は `i64`)
 - スケジューラ(runtime.md §2 の 1〜7 の順序・flow・transfer・emit の配達・`wait` の再開・`asks` と `reply`・guard の評価)
@@ -202,8 +204,9 @@ wasm には hook が無く、wasmtime の fuel はブラウザに無い(probe A.
 
 - 上限の値は同じ `10^7`、`error` 行の `code` / `message` も同じ文(`budget` / 「命令数の上限 10000000 を超えました（無限ループ？）」)。
   数える単位が「Lua の VM 命令」から「戻り辺と呼び出し」に変わるので、**上限に当たる tick の中で何回目のループで
-  止まったかは同じでなくてよい**。同じ tick で同じ `error` 行が出ればよい(パリティの fixture は上限に当たらないものだけ。
-  当たるものは「同じ tick で同じ行」だけを見る)
+  止まったかは同じでなくてよい**。契約は「両経路が**同じ tick で止まり**、release の結果の `error`(文)と `done` が一致する」
+  こと。debug では止まるまでに出る `set` 行の数が違うので、`error` 行の `output`(文)だけを比べ、`seq` / `pointer` と
+  直前の行は比べない。§6.7 のパリティの fixture は上限に当たらないものだけ
 - ヘッドレスの wasmtime は加えて fuel を保険に掛けてよい(module が止まらないのは生成系のバグ。§6.2)
 
 ### 6.7 ヘッドレス実行とパリティ

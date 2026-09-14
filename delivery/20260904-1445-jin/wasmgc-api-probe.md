@@ -3,7 +3,7 @@
 計測日: 2026-09-15。作業ディレクトリ `/home/wisteria/.claude/jobs/3ab877a1/tmp/gc`（git リポジトリの外）。
 Python 3.14.7 / uv 0.12.10（`uv run --with wasmtime python <script>`）、Node v22.16.0（V8 12.4.254.21）、
 Playwright 1.62.0 の chromium-1234（`~/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome --version`）。
-すべての値はこのディレクトリのスクリプト（`probe.py` / `probe2.py` / `probe3.py` / `probe2.mjs`）を実行して得た生出力から転記した。推測値は無い。
+すべての値はこのディレクトリのスクリプト（`probe.py` / `probe2.py` / `probe3.py` / `probe4.py` / `probe2.mjs` / `probe4.mjs`）を実行して得た生出力から転記した。推測値は無い。
 
 目的は設計書 §4.1 の表の「直接 wasm-GC 出力」行に残っていた **△ wasmtime（GC 対応の確認要）** を実測で埋め、
 jil.md §6 を「含み」から仕様に書き換えるための事実を固定すること。
@@ -19,9 +19,11 @@ jil.md §6 を「含み」から仕様に書き換えるための事実を固定
 | GC の有効化 | **既定の `wasmtime.Config()` で instantiate と実行が通る。** `Config` に `wasm_gc` / `wasm_function_references` / `wasm_reference_types` という属性は**無い**（`hasattr` すべて False。GC は既定で有効） |
 | 文字列の入り（ホスト → wasm） | ホストが線形メモリに UTF-8 を `Memory.write(store, bytes, ptr)` で置き、`boot(ptr, len)` が読む。非 ASCII（`あいう😀`）を含む 58 バイトが同じ長さで届く |
 | 文字列の出（wasm → ホスト） | `tick` が線形メモリに JSON を書いて長さを返し、ホストが `Memory.read(store, 0, n)` で読む。`{"pc":1}` が届く |
-| 往復コスト | `tick` 呼び出し + `read`（8 バイト）で **14 µs/回**（1 万回平均。lupa の table 変換 35 µs、Wasmoon の JSON 文字列 35.5 µs より速い） |
+| 往復コスト | `tick` 呼び出し + `read`（8 バイト）で **14 µs/回**（1 万回平均。`wasm-api-probe.md` の 35 µs は 50 行 × 5 値のペイロードなので比較にならない。境界が律速でないことの目安） |
 | 状態機械の再開 | `struct` に持った `pc` を `br_table` で選ぶ最小形が動く（`tick` 0 → `pc` 1、1 → 2、以後 2 のまま）。`wait` の変換の足場 |
-| fuel（命令数の上限に相当） | `Config().consume_fuel = True` + `Store.set_fuel(1000)` で `boot` が 15、`tick` が 45 消費（`get_fuel` 985 → 940）。**wasmtime だけの機能でブラウザには無い**ので上限には使わない（下の判断） |
+| fuel（命令数の上限に相当） | `Config().consume_fuel = True` + `Store.set_fuel(1000)` で `boot` が 15、`tick` が 45 消費（`get_fuel` 985 → 940）。無限ループは `wasmtime.Trap`「all fuel consumed by WebAssembly」で止まる（A.5）。**wasmtime だけの機能でブラウザには無い**ので上限には使わない（下の判断） |
+| 多値の戻り | `(result i32 i32)` の `tick` が wasmtime-py では `[0, 2]`（list）、Node では `[0,2]`（Array）で受かる。結果の `(ptr, len)` を 1 回の呼び出しで返せる |
+| `memory.grow` と JS の buffer | `input(n)` が `memory.grow` すると Node では前の `ArrayBuffer` が detach され `byteLength` 0 になる（`memory.buffer` は別オブジェクト）。**書く直前に `memory.buffer` を取り直す** |
 | Node（V8 12.4）で同じ binary | `WebAssembly.instantiate` で同じ `probe2.wasm` が instantiate され、`boot` / `tick` が同じ値を返す |
 | Chromium の版 | Playwright 1.62.0 の chromium-1234 = **Google Chrome for Testing 151.0.7922.34**（wasm-GC は Chrome 119 で出荷済み。設計書 §0） |
 
@@ -72,7 +74,7 @@ fuel after boot 985
 fuel after tick 940
 ```
 
-`consume_fuel` は wasmtime のエンジン側の機能で、ブラウザの `WebAssembly` には対応物が無い。両ホストで同じ tick に
+消費量はここで測れた。上限での停止は A.5 で確かめた。`consume_fuel` は wasmtime のエンジン側の機能で、ブラウザの `WebAssembly` には対応物が無い。両ホストで同じ tick に
 同じ `error` 行を出すには module の中で数えるしかないので、命令数の上限は **生成部が戻り辺と呼び出しに埋めるカウンタ**で
 掛ける（jil.md §6.6）。fuel はヘッドレスの保険（生成系のバグで module が止まらないとき）にだけ使える。
 
@@ -82,6 +84,27 @@ fuel after tick 940
 $ for i in 1 2; do uv run --with wasmtime python -c "...wat2wasm(WAT)... sha256"; done
 dacac3440f4a61cd3966dcfffd81e1e72493cb5e78aff3dcde8edbd591d7d741
 dacac3440f4a61cd3966dcfffd81e1e72493cb5e78aff3dcde8edbd591d7d741
+```
+
+### A.5 多値の戻り・`memory.grow`・fuel 切れ
+
+```
+$ uv run --with wasmtime python probe4.py
+input -> 1024 memory pages 2
+boot -> None
+tick -> [0, 2]
+exception wasmtime._trap Trap | wasm trap: all fuel consumed by WebAssembly
+fuel left 0
+```
+
+`probe4.py` の WAT: `input(n)` は 1024 + n がメモリを超えたら `memory.grow`、`boot(n)` は結果なし、`tick(n)` は `(result i32 i32)` で
+`(ptr, len)` を返す。`tick(1)` は `(loop $l (br $l))` の無限ループで、`set_fuel(10_000)` の store では `Trap` で止まる。
+
+```
+$ node probe4.mjs
+input -> 1024 buffer detached after grow: 0 -> 131072 same object: false
+boot -> undefined
+tick -> [0,2]
 ```
 
 ## B. Node / Chromium
@@ -114,9 +137,9 @@ Google Chrome for Testing 151.0.7922.34
 
 1. **WAT を出して `wasmtime.wat2wasm` で束ねる**（A.1 / A.4）。自前の binary writer を書かず、`wasm-tools` のような外部の実行ファイルも足さない。
    Lua 生成系と同じ「テキストを出す生成系」になるので、スナップショットと契約テストの手口をそのまま使える
-2. **入りも出も UTF-8 の JSON 1 本を線形メモリで越える**（A.2 / B.1）。wasm-GC の `array` / `struct` はホストから読めない。
+2. **入りも出も UTF-8 の JSON 1 本を線形メモリで越える**（A.2 / A.5 / B.1）。`tick` は `(ptr, len)` の多値で返し、`boot` は結果を持たない（Lua 経路と同じく核のエラーは最初の `tick` の結果に載る）。wasm-GC の `array` / `struct` はホストから読めない。
    `manifest.resume`（任意の JSON）と `manifest.storage` を受けるには汎用の JSON の読み手が module に要るので、`seed` / `t` / `inputs` も
-   同じ読み手で読む方が経路が 1 本になる。往復 14 µs は Lua 経路より速い
+   同じ読み手で読む方が経路が 1 本になる。往復 14 µs（8 バイト）は境界が律速にならない目安
 3. **ヘッドレスは wasmtime で走らせる**（A.1）。既定の `Config()` で足りる。wheel は 31 MB あるので、`jin_lsp` が import する
    `jin_wasm` の必須依存には**足さず**、新しい兄弟パッケージ `jin-wasmgc` に置く
-4. **命令数の上限は module の中のカウンタ**（A.3）。fuel はブラウザに無い
+4. **命令数の上限は module の中のカウンタ**（A.3 / A.5）。fuel はブラウザに無い。ヘッドレスでは生成系のバグで module が止まらないときの保険にだけ掛ける
