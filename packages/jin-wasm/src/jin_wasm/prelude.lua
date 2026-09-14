@@ -1,4 +1,4 @@
--- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 3
+-- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 4
 --
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
@@ -441,6 +441,22 @@ F.num = function(s)
   local v = tonumber(s)
   if v == nil or v ~= v or v == math.huge or v == -math.huge then return 0.0 end
   return v + 0.0
+end
+-- 文字列の順序（expr.md §4.1・v2.1）。-1 / 0 / 1 をコードポイント順（= UTF-8 のバイト順）で返す。
+-- Lua の文字列の `<` は strcoll を通ってプロセスのロケールの照合順に従い、lupa（Python のプロセス）と
+-- Wasmoon で揃う保証が無いので使わず、バイトを 1 つずつ比べる。
+F.cmp = function(a, b)
+  if a == b then return 0.0 end
+  local la, lb = #a, #b
+  for i = 1, math.min(la, lb) do
+    local x, y = string.byte(a, i), string.byte(b, i)
+    if x ~= y then
+      if x < y then return -1.0 end
+      return 1.0
+    end
+  end
+  if la < lb then return -1.0 end
+  return 1.0
 end
 
 local function index_of(list, i)

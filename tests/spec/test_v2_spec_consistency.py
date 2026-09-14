@@ -277,6 +277,22 @@ def test_paddle_step_counts_are_as_the_design_document_says() -> None:
     assert merged > step_limit
 
 
+def test_pure_functions_match_the_implementation() -> None:
+    """expr.md §4.1 の純関数の表（machine-readable）と `jin_core.v2.expr` が同じ名前の集合で、
+    固定の引数を持つ関数（`PURE_FUNCTIONS`）は引数と戻りの型まで一致する（v2.1 の `num` / `cmp` を含む）。
+    """
+    from jin_core.v2.expr import PURE_FUNCTION_NAMES, PURE_FUNCTIONS
+
+    header, *body = table_rows(machine_block(SPEC_V2 / "expr.md", "pure-functions"))
+    assert header[:3] == ["名前", "引数", "戻り"]
+    spec = {first_code_span(row[0]): row for row in body}
+    assert set(spec) == set(PURE_FUNCTION_NAMES)
+    assert len(body) == len(PURE_FUNCTION_NAMES)
+    for name, (params, returns) in PURE_FUNCTIONS.items():
+        assert spec[name][1] == ", ".join(params), name
+        assert spec[name][2] == returns, name
+
+
 # ---------------------------------------------------------------- JIL / トレース（Phase 2）
 
 

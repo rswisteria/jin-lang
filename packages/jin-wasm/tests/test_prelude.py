@@ -215,6 +215,30 @@ def test_str_sub_contains(prelude, prelude_and_runtime) -> None:
     assert prelude.F.atan2(1.0, 0.0) == math.atan2(1.0, 0.0)
 
 
+@pytest.mark.parametrize(
+    ("a", "b", "expected"),
+    [
+        ("a", "a", 0.0),
+        ("", "", 0.0),
+        ("あいう", "あいう", 0.0),
+        ("a", "b", -1.0),
+        ("B", "a", -1.0),  # コードポイント順（ロケールの照合順なら a が先）
+        ("", "a", -1.0),
+        ("ab", "abc", -1.0),  # 前方一致は短い方が先
+        ("z", "あ", -1.0),  # ASCII は非 ASCII より先
+        ("あ", "い", -1.0),
+        ("ｱ", "😀", -1.0),  # U+FF71 < U+1F600（UTF-16 のコード単位順なら 0xFF71 > 0xD83D で逆）
+        ("�", "\U00010000", -1.0),
+        ("a\x00b", "a\x00c", -1.0),  # NUL を含んでも途中で打ち切らない
+    ],
+)
+def test_cmp_orders_strings_by_code_point(prelude, a: str, b: str, expected: float) -> None:
+    """expr.md §4.1（v2.1）: `cmp(a, b)` はコードポイント順で -1 / 0 / 1（浮動小数）。"""
+    got = prelude.F.cmp(a, b)
+    assert got == expected and isinstance(got, float), (a, b, got)
+    assert prelude.F.cmp(b, a) == -expected, (b, a)
+
+
 def test_index_and_effects(prelude, prelude_and_runtime) -> None:
     from lupa import lua54
 

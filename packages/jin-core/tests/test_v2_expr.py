@@ -156,6 +156,9 @@ def test_types_of_well_formed_expressions() -> None:
     assert type_of("Ball{x: 1, y: 2, vx: 3, vy: 4}") == "Ball"
     assert type_of("-score % 2 == 0") == "bool"
     assert type_of("flag == false") == "bool"
+    # v2.1: 文字列の順序は純関数 cmp（-1 / 0 / 1）。比較演算子の規則（文法の cmp）とは別物
+    assert type_of('cmp(names[0], "あ")') == "num"
+    assert type_of('cmp("a", "b") < 0') == "bool"
 
 
 @pytest.mark.parametrize(
@@ -197,6 +200,9 @@ def test_types_of_well_formed_expressions() -> None:
         ("len(1)", ["JIN202"]),
         ("str(ball)", ["JIN202"]),
         ('contains(xs, "a")', ["JIN202"]),
+        ('cmp(1, "b")', ["JIN202"]),
+        ('cmp("a")', ["JIN202"]),
+        ('"a" < "b"', ["JIN202", "JIN202"]),
         ("push(xs, 1)", ["JIN202"]),
         ("dt(1)", ["JIN202"]),
         ("foo(1)", ["JIN203"]),

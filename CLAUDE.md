@@ -118,6 +118,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2.1 | `storage`（`get` / `set`・`boot` の `manifest.storage` → `tick` 結果の `storage`・`localStorage`・録画ヘッダの `storage`・式の `num(str)`・jil: 3） | 実装済み |
 | v2.1 | 式の正準化（`canonical.dumps` が `x-jin-expr` の欄を AST から書き戻す・`jin_core.v2.expr.unparse`・読めない式は元のまま） | 実装済み |
 | v2.1 | `canvas.text` の ASCII 以外の字形（k6x8ゴシックの 7001 字・JIS X 0208 の全区点・`player.js` に同梱・幅は 1 コードポイント = 6 のまま） | 実装済み |
+| v2.1 | 文字列の順序 `cmp(a, b)`（-1 / 0 / 1・コードポイント順 = UTF-8 のバイト順・プレリュードはバイトを比べて `strcoll` を通さない・jil: 4） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
