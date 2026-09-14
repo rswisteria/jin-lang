@@ -1,17 +1,18 @@
 /**
  * 固定ビットマップ書体（abilities.md §2 `canvas.text`: 1 文字 6×8 論理単位・等幅）。
  *
- * 字形は 5×7 を 6×8 の枠に左上詰めで置く（右 1 列と下 1 行は字間）。ASCII（U+0020〜U+007E）だけを
- * 持ち、それ以外のコードポイントは □ で描く（設計書 §11 #33: JIS X 0208 の字形は Phase 4 では
- * 持たない。幅は 1 コードポイント = 6 で、プレリュードの `len(s) * 6` と一致する）。
+ * ASCII（U+0020〜U+007E）は下の表の 5×7 を 6×8 の枠に左上詰めで置く（右 1 列と下 1 行は字間）。
+ * それ以外のコードポイントは k6x8ゴシックの字形（`glyphs.ts`・JIS X 0208 の全区点を含む 7001 字。
+ * 罫線などは右端の列と下端の行まで使う）で、そこにも無いものは □ で描く（設計書 §11 #33 / #49）。
+ * 幅は字形によらず 1 コードポイント = 6 で、プレリュードの `len(s) * 6` と一致する。
  *
- * 各字形は 5 バイト（列ごと・bit0 が最上段）を 10 桁の 16 進で書く。字形の正誤はパリティに
- * 影響しない（トレースは表示リストの op と引数だけを持ち、画素は持たない）。
+ * ASCII の各字形は 5 バイト（列ごと・bit0 が最上段）を 10 桁の 16 進で書く（`glyphs.ts` の 6 バイトと
+ * 同じ向き）。字形の正誤はパリティに影響しない（トレースは表示リストの op と引数だけを持ち、画素は持たない）。
  */
+import { BITMAPS, CODEPOINTS } from "./glyphs";
+
 export const CELL_WIDTH = 6;
 export const CELL_HEIGHT = 8;
-const GLYPH_WIDTH = 5;
-const GLYPH_HEIGHT = 7;
 
 const GLYPHS: readonly string[] = [
 	"0000000000", // space
@@ -111,16 +112,42 @@ const GLYPHS: readonly string[] = [
 	"0804081008", // ~
 ];
 
-/** ASCII の外（と未定義）に使う □。 */
+/** ASCII の外で k6x8 にも無いコードポイントに使う □。 */
 const BOX = "7F4141417F";
 
+function decode(base64: string): Uint8Array {
+	return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
+/** k6x8 の字形（1 字 6 バイト）と、コードポイント → 字形の番号。 */
+const K6X8_BITMAPS = decode(BITMAPS);
+const K6X8_INDEX: ReadonlyMap<number, number> = (() => {
+	const bytes = decode(CODEPOINTS);
+	const index = new Map<number, number>();
+	for (let i = 0; i * 2 < bytes.length; i++) {
+		index.set(((bytes[i * 2] ?? 0) << 8) | (bytes[i * 2 + 1] ?? 0), i);
+	}
+	return index;
+})();
+
+/** 6×8 の枠の 6 列（bit0 が最上段）。 */
 function columns(codePoint: number): readonly number[] {
-	const index = codePoint - 0x20;
-	const hex =
-		index >= 0 && index < GLYPHS.length ? (GLYPHS[index] ?? BOX) : BOX;
+	const ascii = codePoint - 0x20;
+	if (ascii >= 0 && ascii < GLYPHS.length)
+		return hexColumns(GLYPHS[ascii] ?? BOX);
+	const glyph = K6X8_INDEX.get(codePoint);
+	if (glyph === undefined) return hexColumns(BOX);
+	return Array.from(
+		K6X8_BITMAPS.subarray(glyph * CELL_WIDTH, (glyph + 1) * CELL_WIDTH),
+	);
+}
+
+function hexColumns(hex: string): readonly number[] {
 	const out: number[] = [];
-	for (let i = 0; i < GLYPH_WIDTH; i++) {
-		out.push(parseInt(hex.slice(i * 2, i * 2 + 2), 16));
+	for (let i = 0; i < CELL_WIDTH; i++) {
+		out.push(
+			i * 2 < hex.length ? parseInt(hex.slice(i * 2, i * 2 + 2), 16) : 0,
+		);
 	}
 	return out;
 }
@@ -139,9 +166,9 @@ export function* pixels(
 		const codePoint = ch.codePointAt(0) ?? 0;
 		if (codePoint !== 0x20) {
 			const cols = columns(codePoint);
-			for (let col = 0; col < GLYPH_WIDTH; col++) {
+			for (let col = 0; col < CELL_WIDTH; col++) {
 				const bits = cols[col] ?? 0;
-				for (let row = 0; row < GLYPH_HEIGHT; row++) {
+				for (let row = 0; row < CELL_HEIGHT; row++) {
 					if ((bits >> row) & 1) yield [cx + col, y + row];
 				}
 			}
