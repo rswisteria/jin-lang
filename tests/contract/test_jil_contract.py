@@ -120,7 +120,7 @@ def test_header_names_the_source_and_the_jil_version(path: Path) -> None:
 
 
 def test_the_prelude_does_not_use_locale_dependent_character_classes() -> None:
-    """Lua の `%c` は C の `iscntrl` でプロセスのロケールに従う（v2.1 で見つけた・jil.md §2）。
+    """Lua の `%c` は C の `iscntrl` でプロセスのロケールに従う（v2.1 で見つけた・jil.md §1）。
 
     UTF-8 のロケールで動く lupa のホストでは、非 ASCII の途中のバイトが制御文字に数えられて
     `JS` が `\\u00xx` に書き換え、tick 結果の JSON が壊れた（ブラウザの Wasmoon は C ロケールなので割れない）。

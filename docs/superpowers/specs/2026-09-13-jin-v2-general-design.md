@@ -346,7 +346,7 @@ Pydantic 定義(`jin_wasm.abilities`)から生成し、**補完・型検査・�
 | 名前空間 | メンバ(v2) | 純 / 効果 | 戻り |
 |---|---|---|---|
 | `canvas` | `clear(color)` / `ink(color)` / `rect(x,y,w,h)` / `circle(x,y,r)` / `line(x1,y1,x2,y2)` / `text(s,x,y)` / `sprite(name,x,y)` | 効果(表示リストへ追記) | — |
-| `input` | `key(name)`(押下中)/ `pressed(name)`(この tick に押された)/ `pointer()` | 純(tick の入力スナップショットを読む) | `bool` / `Pointer{x,y,down}` |
+| `input` | `key(name)`(押下中)/ `pressed(name)`(この tick に押された)/ `pointer()` / `text()`(この tick に確定した文字列。v2.1 で実装・§11 #53) | 純(tick の入力スナップショットを読む) | `bool` / `Pointer{x,y,down}` / `str` |
 | `ui` | `button(label,x,y,w,h)` / `label(s,x,y)` | 効果 + 純(描いて、この tick に離されたら真) | `bool` / — |
 | `audio` | `tone(hz,ms)` / `play(name)` | 効果(音リストへ追記) | — |
 | `random` | `next()` / `range(lo,hi)` | 効果(seed 付き PCG32 の状態を進める) | `num` |

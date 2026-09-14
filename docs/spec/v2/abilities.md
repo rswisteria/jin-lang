@@ -67,7 +67,7 @@ tick `t` の入力スナップショットは、ホストが「前の tick の�
 - `key(name)`: `name` のキーが**押下中**なら真
 - `pressed(name)`: この tick に押された(押下遷移があった)なら真。押しっぱなしでは偽
 - `pointer()`: `Pointer{x, y, down}`。`x` / `y` は論理座標(範囲外の値も返す)。`down` は主ボタン押下中
-- `text()`(v2.1): この tick に**確定した**文字列。スナップショットの `text` イベント(runtime.md §1.1 / §7)を発生順につないだもので、無ければ `""`。IME の合成中の文字は含まず、確定したときに 1 つの `text` イベントになる。文字列を保つのはプログラムの `state`(`name = name ++ input.text()`)で、ホストは欄の中身も位置も持たない。消すのは `pressed("Backspace")` などキーで書く(Backspace / Enter は文字にならない)。`len` / `sub` はコードポイントで数え、`canvas.text` は非 ASCII も描く(§2)
+- `text()`(v2.1): この tick に**確定した**文字列。スナップショットの `text` イベント(runtime.md §1.1 / §7)を発生順につないだもので、無ければ `""`。IME の合成中の文字は含まず、確定したときに 1 つの `text` イベントになる。文字列を保つのはプログラムの `state`(`name = name ++ input.text()`)で、ホストは欄の中身も位置も持たない。消すのは `pressed("Backspace")` などキーで書く(Backspace / Enter は文字にならない。Space は `key` / `pressed` の `Space` と、`text()` の `" "` の両方に出る。文字のキーも同じで、打った文字は `text()` に、押下は `KeyA` などとして `key` / `pressed` に出る)。`len` / `sub` はコードポイントで数え、`canvas.text` は非 ASCII も描く(§2)
 
 キー名は `KeyboardEvent.code` の値(`ArrowLeft` / `Space` / `KeyA` …)。これも `abilities.json` に列挙し、定数リテラルのときは静的に検査する(JIN205)。列挙に無い名前は実行時に常に偽。
 
