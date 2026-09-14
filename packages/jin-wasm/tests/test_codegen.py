@@ -270,6 +270,26 @@ def test_transfer_pauses_the_delegator_until_the_delegate_is_done() -> None:
     assert main_ticks == [0, 1, 4, 5]
 
 
+def test_input_text_concatenates_the_text_committed_in_the_tick() -> None:
+    """abilities.md §3（v2.1）: `input.text()` はこの tick に確定した文字列を発生順につなぐ。無ければ ""。
+
+    確定した文字列は key イベントとは別の `text` イベントで届き、押下状態（`keys` / `pointer`）には触らない。
+    非 ASCII もそのまま運ばれ、`len` はコードポイントで数える。
+    """
+    events = [
+        {"tick": 0, "kind": "text", "text": "ab"},
+        {"tick": 0, "kind": "key", "name": "Backspace", "down": True},
+        {"tick": 0, "kind": "text", "text": "c"},
+        {"tick": 1, "kind": "key", "name": "Backspace", "down": False},
+        {"tick": 2, "kind": "text", "text": "日本😀"},
+    ]
+    result = run("text_input", ticks=4, events=events)
+    assert result.error is None
+    # tick 0: "ab" と "c" をつないでから Backspace で 1 文字消す。tick 1 / 3 は何も確定していない。
+    assert public_series(result, "Only.name") == ["abc", "ab", "ab日本😀"]
+    assert result.public == {"Only.name": "ab日本😀", "Only.typed": 6}
+
+
 def test_emit_is_delivered_on_the_next_tick() -> None:
     result = run("emit_message", ticks=3)
     assert result.public == {"Receiver.got": 42, "Receiver.text": "hi"}

@@ -232,6 +232,13 @@ def test_abilities_catalog_namespaces() -> None:
     ]
 
 
+def test_input_text_reads_the_text_committed_in_the_tick() -> None:
+    """abilities.md §3（v2.1）: `input.text() -> str`。状態を持たない読み取り（`pressed` と同じ種別）。"""
+    member = next(ns for ns in NAMESPACES if ns.name == "input").member("text")
+    assert member is not None
+    assert (member.params, member.returns, member.kind) == ((), "str", "read")
+
+
 # ---------------------------------------------------------------- examples-v2
 
 

@@ -54,9 +54,11 @@ export function op(name: string): string {
 export function subscriptions(namespaces: readonly string[]): {
 	keys: boolean;
 	pointer: boolean;
+	text: boolean;
 } {
 	const input = namespaces.includes("input");
 	// `ui.button` はポインタの離しを見る（abilities.md §4）ので `ui` だけでもポインタは集める。
 	const ui = namespaces.includes("ui");
-	return { keys: input, pointer: input || ui };
+	// `input.text` の文字は `input` の許可で集める（abilities.md §3・v2.1）。
+	return { keys: input, pointer: input || ui, text: input };
 }

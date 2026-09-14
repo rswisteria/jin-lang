@@ -15,7 +15,15 @@
  * - `blur` では押下中のキーをすべて `down: false` として**記録してから**離す（押しっぱなしを残さない）
  * - ポインタは主ボタンだけ。座標は論理座標（stage の幅 / 高さに写し、整数に切り捨て、枠内に留める）。
  *   移動は tick の中で最後の 1 つに畳むが、down → up の遷移は残す（`ui.button` の離しが見る）
- * - `namespaces` に `input` が無ければキーを集めない。`ui` も無ければポインタも集めない（runtime.md §9）
+ * - `namespaces` に `input` が無ければキーも文字も集めない。`ui` も無ければポインタも集めない（runtime.md §9）
+ *
+ * ## 文字（`input.text`・abilities.md §3・v2.1）
+ *
+ * canvas は文字も IME も受けられないので、画面に見えない 1 行の入力欄（`textSink`）にフォーカスを置く。
+ * 値は**確定するたびに**取り出して `text` イベントにし、空にする: 合成中でない `input` と `compositionend`
+ * の 2 つで、どちらが後に来ても値はもう空なので二重にならない（`event.data` はブラウザによって違うので読まない）。
+ * IME の合成中のキー（`isComposing` / `key === "Process"`）は集めない（どの `code` が来るかは IME と OS による）。
+ * 入力欄からのキーは集めるが既定動作を止めない（止めると文字が入らない）。
  */
 import type { InputEvent, Inputs } from "./types";
 
@@ -33,6 +41,9 @@ export class InputReducer {
 				if (ev.down) this.keys.set(ev.name, true);
 				else this.keys.delete(ev.name);
 				rows.push({ kind: "key", name: ev.name, down: ev.down });
+			} else if (ev.kind === "text") {
+				// 確定した文字列。押下状態には触らない。
+				rows.push({ kind: "text", text: ev.text });
 			} else {
 				this.x = ev.x;
 				this.y = ev.y;
@@ -50,12 +61,35 @@ export class InputReducer {
 	}
 }
 
+/** 文字入力に置けない文字か（制御文字 U+0000〜U+001F / U+007F と、対にならないサロゲート）。 */
+function unfit(ch: string): boolean {
+	const cp = ch.codePointAt(0) ?? 0;
+	return cp < 0x20 || cp === 0x7f || (cp >= 0xd800 && cp <= 0xdfff);
+}
+
+/** `jin_wasm.jinrec.is_clean_text` の写し（`.jinrec` の読み手が使う）。 */
+export function isCleanText(text: string): boolean {
+	for (const ch of text) if (unfit(ch)) return false;
+	return true;
+}
+
+/** 置けない文字を落とす（集め手が入力欄の値に使う。サロゲートの対はコードポイント単位で残る）。 */
+export function cleanText(text: string): string {
+	let out = "";
+	for (const ch of text) if (!unfit(ch)) out += ch;
+	return out;
+}
+
 export interface CollectorOptions {
 	readonly width: number;
 	readonly height: number;
 	readonly keyNames: ReadonlySet<string>;
 	readonly keys: boolean;
 	readonly pointer: boolean;
+	/** `input.text` のために文字を集めるか（`input` を購読するとき）。 */
+	readonly text: boolean;
+	/** 文字と IME を受ける入力欄。`text` が偽か、これが無ければ文字は集めない。 */
+	readonly textSink: HTMLInputElement | null;
 }
 
 interface Pending {
@@ -83,22 +117,31 @@ export class InputCollector {
 			window.addEventListener(name, handler);
 			this.listeners.push(() => window.removeEventListener(name, handler));
 		};
-		const onTarget = <K extends keyof HTMLElementEventMap>(
+		const onElement = <K extends keyof HTMLElementEventMap>(
+			element: HTMLElement,
 			name: K,
 			handler: (ev: HTMLElementEventMap[K]) => void,
 		) => {
-			this.target.addEventListener(name, handler);
-			this.listeners.push(() => this.target.removeEventListener(name, handler));
+			element.addEventListener(name, handler);
+			this.listeners.push(() => element.removeEventListener(name, handler));
 		};
 		if (this.options.keys) {
 			on("keydown", (ev) => this.keyDown(ev));
 			on("keyup", (ev) => this.keyUp(ev));
 		}
 		if (this.options.pointer) {
-			onTarget("pointerdown", (ev) => this.pointer(ev, "down"));
-			onTarget("pointermove", (ev) => this.pointer(ev, "move"));
-			onTarget("pointerup", (ev) => this.pointer(ev, "up"));
-			onTarget("pointercancel", (ev) => this.pointer(ev, "up"));
+			onElement(this.target, "pointerdown", (ev) => this.pointer(ev, "down"));
+			onElement(this.target, "pointermove", (ev) => this.pointer(ev, "move"));
+			onElement(this.target, "pointerup", (ev) => this.pointer(ev, "up"));
+			onElement(this.target, "pointercancel", (ev) => this.pointer(ev, "up"));
+		}
+		const sink = this.sink();
+		if (sink !== null) {
+			onElement(sink, "input", (ev) => {
+				if ((ev as { isComposing?: boolean }).isComposing !== true)
+					this.takeText(sink);
+			});
+			onElement(sink, "compositionend", () => this.takeText(sink));
 		}
 		on("blur", () => this.releaseAll());
 	}
@@ -106,6 +149,11 @@ export class InputCollector {
 	detach(): void {
 		for (const off of this.listeners) off();
 		this.listeners.length = 0;
+	}
+
+	/** 入力を受ける要素にフォーカスを移す（文字を集めるなら入力欄、そうでなければ canvas）。 */
+	focus(): void {
+		(this.sink() ?? this.target).focus({ preventScroll: true });
 	}
 
 	/** この tick のイベントを発生順に返し、溜まりを空にする。押下状態は次の tick へ持ち越す。 */
@@ -153,14 +201,32 @@ export class InputCollector {
 	private lastX = 0;
 	private lastY = 0;
 
+	private sink(): HTMLInputElement | null {
+		return this.options.text ? this.options.textSink : null;
+	}
+
+	private isSink(target: EventTarget | null): boolean {
+		const sink = this.sink();
+		return sink !== null && target === sink;
+	}
+
+	/** 入力欄に溜まった確定文字列を 1 つの `text` イベントにして、値を空にする。 */
+	private takeText(sink: HTMLInputElement): void {
+		const text = cleanText(sink.value);
+		sink.value = "";
+		if (text !== "") this.push({ kind: "text", text }, false);
+	}
+
 	private keyDown(ev: KeyboardEvent): void {
+		if (ev.isComposing || ev.key === "Process") return;
+		const fromSink = this.isSink(ev.target);
 		if (
 			ev.repeat ||
 			!this.options.keyNames.has(ev.code) ||
-			this.isFormControl(ev.target)
+			(!fromSink && this.isFormControl(ev.target))
 		)
 			return;
-		ev.preventDefault();
+		if (!fromSink) ev.preventDefault();
 		if (this.held.has(ev.code)) return;
 		this.held.add(ev.code);
 		this.push({ kind: "key", name: ev.code, down: true }, false);
@@ -168,7 +234,7 @@ export class InputCollector {
 
 	private keyUp(ev: KeyboardEvent): void {
 		if (!this.held.has(ev.code)) return;
-		ev.preventDefault();
+		if (!this.isSink(ev.target)) ev.preventDefault();
 		this.held.delete(ev.code);
 		this.push({ kind: "key", name: ev.code, down: false }, false);
 	}
@@ -181,7 +247,7 @@ export class InputCollector {
 		this.lastY = y;
 		if (phase === "down") {
 			this.pointerDown = true;
-			this.target.focus();
+			this.focus();
 			ev.preventDefault();
 			this.push({ kind: "pointer", x, y, down: true }, false);
 		} else if (phase === "up") {

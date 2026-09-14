@@ -119,6 +119,19 @@ def test_header_names_the_source_and_the_jil_version(path: Path) -> None:
     assert lines[2] == f"-- jin: 2  jil: {JIL_VERSION}"
 
 
+def test_the_prelude_does_not_use_locale_dependent_character_classes() -> None:
+    """Lua の `%c` は C の `iscntrl` でプロセスのロケールに従う（v2.1 で見つけた・jil.md §2）。
+
+    UTF-8 のロケールで動く lupa のホストでは、非 ASCII の途中のバイトが制御文字に数えられて
+    `JS` が `\\u00xx` に書き換え、tick 結果の JSON が壊れた（ブラウザの Wasmoon は C ロケールなので割れない）。
+    文字列を運ぶ `input.text` で表に出たので、範囲で書くことを固定する。
+    """
+    code = "\n".join(
+        line for line in prelude_source().splitlines() if not line.lstrip().startswith("--")
+    )
+    assert "%c" not in code
+
+
 def test_the_prelude_declares_its_jil_version() -> None:
     assert f"jil: {JIL_VERSION}" in prelude_source().split("\n", 1)[0]
 

@@ -10,10 +10,11 @@
  * 既知の差: JSON の `5.0` は Python では float（整数の欄で拒む）だが JS では `5` と区別できない
  * （`JSON.parse` が同じ数になる）。録画の書き手は整数を `5` と書くので実用上は当たらない。
  */
+import { isCleanText } from "./input";
 import type { InputEvent } from "./types";
 
 export const JINREC_VERSION = 1;
-export const EVENT_KINDS = ["key", "pointer"] as const;
+export const EVENT_KINDS = ["key", "pointer", "text"] as const;
 /** ヘッダに `ticks` が無いときの再生の tick 数（runtime.md §8: `jin run --ticks` の既定と同じ）。 */
 export const DEFAULT_TICKS = 600;
 
@@ -135,6 +136,18 @@ export function parseJinrec(text: string): JinrecResult {
 				return fail(number, "key の down は真偽値です");
 			}
 			events.push({ tick, kind: "key", name: row["name"], down: row["down"] });
+		} else if (kind === "text") {
+			const text = row["text"];
+			if (typeof text !== "string" || text === "") {
+				return fail(number, "text の text は空でない文字列です");
+			}
+			if (!isCleanText(text)) {
+				return fail(
+					number,
+					"text の text に制御文字や対にならないサロゲートは置けません",
+				);
+			}
+			events.push({ tick, kind: "text", text });
 		} else if (kind === "pointer") {
 			for (const key of ["x", "y"] as const) {
 				if (!isNum(row[key])) {

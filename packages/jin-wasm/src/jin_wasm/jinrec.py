@@ -1,7 +1,7 @@
 """入力ログ / 録画 `.jinrec`（runtime.md §7）の読み書き。
 
 JSONL。1 行目はヘッダ `{"jinrec": 1, "file", "seed", "fps", "ticks", ["storage"]}`、以降は
-`{"tick", "kind": "key" | "pointer", ...}`。`tick` は昇順（同じ tick の複数行は発生順）。
+`{"tick", "kind": "key" | "pointer" | "text", ...}`。`tick` は昇順（同じ tick の複数行は発生順）。
 壊れた行は黙って読み飛ばさず、行番号を添えて `JinrecError` にする（`jin_cli.main._read_trace_rows` と同じ規律）。
 """
 
@@ -13,11 +13,21 @@ from pathlib import Path
 from typing import Any
 
 JINREC_VERSION = 1
-EVENT_KINDS = ("key", "pointer")
+#: `text` は v2.1（abilities.md §3）。古い読み手は未知の kind として行番号付きで断るので、版は 1 のまま。
+EVENT_KINDS = ("key", "pointer", "text")
 
 
 class JinrecError(Exception):
     """`.jinrec` の契約違反（`path:line: 理由`）。"""
+
+
+def is_clean_text(text: str) -> bool:
+    """文字入力として運べる文字だけか（制御文字 U+0000〜U+001F / U+007F と対にならないサロゲートを含まない）。
+
+    プレイヤーの集め手は入力欄の値からこれらを落としてから `text` イベントにする（`apps/player/src/input.ts`
+    の `cleanText`）。サロゲートが残ると Lua の文字列（UTF-8）へ写せない。
+    """
+    return not any(ord(c) < 0x20 or ord(c) == 0x7F or 0xD800 <= ord(c) <= 0xDFFF for c in text)
 
 
 @dataclass(slots=True)
@@ -124,6 +134,15 @@ def _read_event(
             raise JinrecError(f"{path}:{number}: key の down は真偽値です")
         event["name"] = value["name"]
         event["down"] = value["down"]
+    elif kind == "text":
+        text = value.get("text")
+        if not isinstance(text, str) or text == "":
+            raise JinrecError(f"{path}:{number}: text の text は空でない文字列です")
+        if not is_clean_text(text):
+            raise JinrecError(
+                f"{path}:{number}: text の text に制御文字や対にならないサロゲートは置けません"
+            )
+        event["text"] = text
     else:
         for key in ("x", "y"):
             if not _is_num(value.get(key)):
@@ -158,5 +177,6 @@ __all__ = [
     "JinrecError",
     "Recording",
     "dumps_jinrec",
+    "is_clean_text",
     "read_jinrec",
 ]
