@@ -121,7 +121,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
 | v2.1 | 文字列の順序 `cmp(a, b)`（-1 / 0 / 1・コードポイント順 = UTF-8 のバイト順・プレリュードはバイトを比べて `strcoll` を通さない・jil: 4） | 実装済み |
 | v2.1 | `jin run --storage`（記憶の JSON を起動時に読み・終了時に書き戻す・無ければ空・`--input` があれば録画のヘッダが正で読み書きしない・書き戻しは `_write_atomically`） | 実装済み |
 | v2.1 | エディタの図の操作（Shift クリックの範囲で `wrapSteps` / `extractRite` を `count` > 1・列を跨ぐステップのドラッグは `removeStep` + `addStep` の合成・陣を陣 / 手順に落として `addDelegate` / `addSigil` の `summon`） | 実装済み |
-| v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・ヘッドレスの `jin_cli` だけが答える） | jin_core / jin_wasm / プレイヤーの読み手は実装済み（#68・jil: 6）。`jin_cli` のホスト（答える側・`--model fake` / `--record`）は #69 |
+| v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
@@ -169,7 +169,7 @@ Jin v2 の Phase 2 で 6 つ目の `jin-wasm`（`jin-core` と `lupa` だけに�
   プレリュードに `H.storage` / `F.num`、`tick` 結果に `storage` が加わって 3、プレリュードに `F.cmp` が加わって 4、`H.input.text` と `JS` の制御文字の範囲指定が加わって 5、`ASK`（v1 の陣への問い）と入力イベント `reply` の配達・`tick` 結果の `asks`・`snapshot` の `asked` が加わって 6。release の生成部は不変）。
   **名前を Lua の識別子に埋め込まない**（`S[i].k_j` / `R[i][j]` / `f_j` / `l_n`。添字は Lua の 1 始まり、pointer は 0 始まり）。
   `num` は常に float（`160.0`）。`tests/contract/test_jil_contract.py` がプレリュードと全生成物を走査する
-- **`jin run`（v2）は任意コードを実行しない**。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
+- **`jin run`（v2）は `agent` の sigil が無ければ任意コードを実行しない**（`agent` は下の「危険性」の段）。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、
   `register_builtins=False` + `python` テーブルと `load` / `os` / `io` / `debug` … を nil にしてから JIL を読む。
   命令数の上限（`INSTRUCTION_BUDGET` = 10^7 / boot と tick ごと）は `debug.sethook` の count hook。
   **Lua の hook はスレッドごと**なので、ホストは JIL を読む前に `JIN_ARM()` / `JIN_HOOK(co)` の 2 つの
@@ -569,6 +569,12 @@ import し、その生成コードが `ref` のモジュールを import する�
   **名指しされた symlink は従来どおり読む**（走査が範囲を越えるのが問題であって、ユーザーが指したものではない）。
   飛ばしたことは 1 行出す。**残存**: 判定と読み取りの間には窓がある（TOCTOU）。`fmt` の書き込みは
   下位の `O_NOFOLLOW` / `os.replace` が競合なしで拒むが、読み取りにはその段が無い
+- **v2 の `.jin` に `agent` の sigil があると、`jin run`（v2）はその v1 の `.jin` を v1 と同じ経路で走らせる**
+  （`jin_cli.agents.AgentHost` → `jin_adk.runtime.run_model`。runtime.md §11・設計書 §11 #55）。つまり v1 の `ref` の
+  import = S1 が v2 の `jin run` にも入る。`--model fake` でも `ref` は import される。`file` は対象の `.jin` の
+  親ディレクトリの中に閉じ（リンクと外を拒む・`resolve_agent_file`）、`--input`（録画の再生）では v1 を呼ばない。
+  **`agent` を持つ `.jin` も、自分が中身（v1 側も）を確認したものにだけ `jin run` する**。`jin_wasm` は v1 を
+  知らず（`run_headless(answer=...)` で答える呼び出し可能を受けるだけ）、ブラウザのプレイヤーは答えない
 - 既定（`--resolve` なし）では import は一切行わない。JIN040 が出ないだけで、他の診断は全部出る
 - `--resolve` の import は **`ref` 1 件ごとに子プロセス**（`python -P -m jin_cli.resolver <ref>`）で行い、
   **30 秒**でタイムアウトする（ADR-018 / DP-JIN-RESOLVE-ISOLATION-01・値の根拠は `docs/spec/diagnostics.md` §2.1）。

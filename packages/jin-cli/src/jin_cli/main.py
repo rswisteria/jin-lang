@@ -61,11 +61,15 @@ ADK が cancel を握って正常復帰するため「応答の無い function_c
 
     guard: _write_svg -> _write_atomically(path,text,allow_create=True)
 
-## `jin build` / `jin run`（Jin v2）は任意コードを実行しない
+## `jin build` / `jin run`（Jin v2）は `agent` の sigil が無ければ任意コードを実行しない
 
 `version: 2` の `.jin` は `jin_wasm` へ振り分ける（`_load_model_or_exit` が `JinFileV2` を返す）。
 `jin run` は JIL（`require` も `load` も持たない Lua の静的サブセット）を `lupa.lua54` の
 サンドボックスで走らせるだけで、`ref` の import も `sys.path` の操作も無い（`jin_wasm.runtime`）。
+**例外は `sigils[].kind = agent`（v2.1・runtime.md §11・設計書 §11 #55）**: 問いに答えるために
+`jin_cli.agents.AgentHost` が v1 の `.jin` を v1 の `run` と同じ経路（`jin_adk.runtime.run_model`）で
+走らせるので、その `.jin` の `ref` が import される（`--model fake` でも）。`--input`（録画の再生）では
+v1 を呼ばない。`file` は対象の `.jin` の親ディレクトリの中に閉じる（`jin_cli.agents.resolve_agent_file`）。
 `jin build` は `<out>/` に `game.lua` / `game.manifest.json` / `assets/` を書く。asset の実体は
 `.jin` の親ディレクトリの中に閉じ、リンクを辿らない（`jin_wasm.bundle`）。`--trace` / `--frames` は
 v1 と同じ `_open_trace` + `_LazyTruncateSink` を通す（**新しい書き込み経路を作らない**）。
@@ -131,10 +135,11 @@ from jin_wasm.bundle import WriteRefused as BundleWriteRefused
 from jin_wasm.bundle import write_bundle
 from jin_wasm.codegen import CodegenError
 from jin_wasm.codegen import generate as generate_game
-from jin_wasm.jinrec import JinrecError, check_storage_copy, read_jinrec
+from jin_wasm.jinrec import JinrecError, check_storage_copy, dumps_jinrec, read_jinrec
 from jin_wasm.runtime import RunError as WasmRunError
 from jin_wasm.runtime import run_headless
 
+from jin_cli.agents import AgentError, AgentHost
 from jin_cli.editor import EditorError
 from jin_cli.editor import serve as editor_serve
 from jin_cli.resolver import RESOLVE_TIMEOUT_SECONDS, SubprocessResolver
@@ -968,6 +973,13 @@ def _build_v2(
         _echo_or_exit(f"書き出しました: {_safe(str(path))}")
     for note in result.notes:
         typer.echo(_safe(note), err=True)
+    if any(sigil.kind == "agent" for circle in model.circles for sigil in circle.sigils):
+        # ブラウザのプレイヤーは v1 の陣に答えない（runtime.md §11。答えるのはヘッドレスの jin run だけ）
+        typer.echo(
+            "agent の sigil があります: ブラウザのプレイヤーは v1 の陣に答えません"
+            "（問いは出ますが届きません。reply 入りの録画の再生はできます・runtime.md §11）",
+            err=True,
+        )
 
 
 def _run_v2(
@@ -981,11 +993,15 @@ def _run_v2(
     frames: Path | None,
     debug: bool,
     storage_path: Path | None = None,
+    record: Path | None = None,
+    fake: bool = False,
 ) -> None:
     """v2: lupa で JIL をヘッドレス実行する（runtime.md §8）。
 
     標準出力には最後の tick の公開 state を JSON で 1 行出す。実行時エラーは stderr + exit 1
-    （トレース / frames はそこまでの分を書く）。任意コード実行は無い（モジュール docstring）。
+    （トレース / frames はそこまでの分を書く）。任意コード実行は `agent` の sigil があるときだけ
+    （モジュール docstring・runtime.md §11。`AgentHost` が v1 の陣を走らせる。`--input` があれば呼ばない）。
+    `record`（`--record`）は走らせた入力と v1 の答え（`reply` 行）を `.jinrec` の形で書く。
     `storage_path`（`--storage`）は起動時に読んで boot に渡し、終了時に最後の記憶を書き戻す
     （実行時エラーでも書き戻す）。`--input` があれば録画のヘッダの写しが正で、読みも書きもしない。
     """
@@ -1026,13 +1042,21 @@ def _run_v2(
     if seed is None:
         seed = model.stage.seed
     debug = debug or trace is not None
+    # v1 の陣に答えるホスト（runtime.md §11）。録画の再生では作らない（呼ばない）。走らせる前に検査する。
+    host: AgentHost | None = None
+    if input_path is None:
+        try:
+            host = AgentHost.prepare(file, model, fake=fake, extra_sys_path=[os.getcwd()])
+        except AgentError as exc:
+            typer.echo(_safe(str(exc)), err=True)
+            raise typer.Exit(code=2) from exc
     try:
         game = generate_game(model, source_name=file.name, debug=debug)
     except CodegenError as exc:
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
     sinks: dict[str, _LazyTruncateSink] = {}
-    for label, path in (("trace", trace), ("frames", frames)):
+    for label, path in (("trace", trace), ("frames", frames), ("record", record)):
         if path is None:
             continue
         try:
@@ -1057,9 +1081,23 @@ def _run_v2(
             events=events,
             storage=storage,
             on_row=write_row if "trace" in sinks else None,
-            # 録画の再生では v1 の陣に答えない（録画の reply が正・runtime.md §11）。答える側は #69
+            # 録画の再生では v1 の陣に答えない（録画の reply が正・runtime.md §11）
+            answer=host.answer if host is not None else None,
             replay=input_path is not None,
         )
+        if "record" in sinks:
+            # 走らせた入力（--input の行）と v1 の答え（reply 行）を §7 の形で。tick 順は安定ソート
+            # （同じ tick では入力が先）。ヘッダの storage は boot に渡した写し（非空のときだけ）。
+            header: dict[str, object] = {
+                "file": file.name,
+                "seed": seed,
+                "fps": model.stage.fps,
+                "ticks": result.ticks,
+            }
+            if storage:
+                header["storage"] = dict(storage)
+            recorded = sorted([*events, *result.replies], key=lambda ev: int(ev["tick"]))
+            sinks["record"].write(dumps_jinrec(header, recorded))
         if "frames" in sinks:
             for frame in result.frames:
                 sinks["frames"].write(
@@ -1067,7 +1105,7 @@ def _run_v2(
                 )
         for sink in sinks.values():
             sink.finish()
-    except WasmRunError as exc:
+    except (WasmRunError, AgentError) as exc:
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
         raise typer.Exit(code=1) from exc
     finally:
@@ -1110,7 +1148,8 @@ def run(
         str | None,
         typer.Option(
             "--model",
-            help="（v1）fake を指定すると FakeLlm（固定応答・ネットワーク不要）に差し替える。"
+            help="fake を指定すると FakeLlm（固定応答・ネットワーク不要）に差し替える（v1。v2 では agent の "
+            "sigil が呼ぶ v1 の陣に効く・runtime.md §11）。"
             "省略時は .jin の core のモデルをそのまま使う（API キーが要る）",
         ),
     ] = None,
@@ -1148,6 +1187,14 @@ def run(
             "書き戻す。--input と一緒なら録画のヘッダが正で、読みも書きもしない",
         ),
     ] = None,
+    record: Annotated[
+        Path | None,
+        typer.Option(
+            "--record",
+            help="（v2）走らせた入力と v1 の陣の答え（reply 行）を .jinrec の形で書く（runtime.md §11。"
+            "--input で再生すると v1 の陣を呼ばない）",
+        ),
+    ] = None,
 ) -> None:
     """生成コードを一時ディレクトリに書き出して import し、Runner で実行する。
 
@@ -1164,10 +1211,11 @@ def run(
         raise typer.Exit(code=2)
     jin_model = _load_model_or_exit(file)
     if isinstance(jin_model, JinFileV2):
-        if prompt is not None or session is not None or model is not None:
+        # v2 でも --model fake は受ける（agent の sigil が呼ぶ v1 の陣を FakeLlm で走らせる・runtime.md §8 / §11）
+        if prompt is not None or session is not None:
             typer.echo(
-                "version: 2 の .jin に prompt / --session / --model はありません"
-                "（--ticks / --seed / --input / --storage / --frames / --debug を使います）",
+                "version: 2 の .jin に prompt / --session はありません"
+                "（--ticks / --seed / --input / --storage / --frames / --debug / --record を使います）",
                 err=True,
             )
             raise typer.Exit(code=2)
@@ -1181,6 +1229,8 @@ def run(
             frames=frames,
             debug=debug,
             storage_path=storage,
+            record=record,
+            fake=model == "fake",
         )
         raise typer.Exit(code=0)
     if prompt is None:
@@ -1193,9 +1243,10 @@ def run(
         or storage is not None
         or frames is not None
         or debug
+        or record is not None
     ):
         typer.echo(
-            "--ticks / --seed / --input / --storage / --frames / --debug は version: 2 の .jin のためのオプションです",
+            "--ticks / --seed / --input / --storage / --frames / --debug / --record は version: 2 の .jin のためのオプションです",
             err=True,
         )
         raise typer.Exit(code=2)
