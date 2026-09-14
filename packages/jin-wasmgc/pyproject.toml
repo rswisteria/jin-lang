@@ -1,0 +1,29 @@
+[project]
+name = "jin-wasmgc"
+version = "0.1.0"
+description = "Jin v2 → wasm-GC を直接出す第 2 の生成系（jin build / jin run --target wasm-gc）と wasmtime によるヘッドレス実行"
+requires-python = ">=3.12"
+# jin-wasmgc は jin-core / jin-wasm / wasmtime に依存する（jil.md §6.1・設計書 §11 #56）。
+# jin-lsp とは**兄弟**（import-linter の layers 契約 `"jin_lsp | jin_wasmgc"`）。jin-wasm の解析
+# （型付き AST の歩き方・wait の閉包・manifest・bundle の書き出し）を再利用し、再実装しない。
+# wasmtime の版の根拠: delivery/20260904-1445-jin/wasmgc-api-probe.md（2026-09-15 実測。48.0.0 が
+# 既定の Config() で wasm-GC を wat2wasm で束ねて実行できる）。`jin_wasmgc.TARGET_WASMTIME_VERSION` と
+# 入っている版が違うと tests/contract/test_wasmgc_version_contract.py が赤くなる。
+# **`jin-wasm` の必須依存に wasmtime を足さない**（wheel 31 MB が jin-lsp のインストールに乗る）。
+dependencies = [
+  "jin-core",
+  "jin-wasm",
+  "wasmtime>=48,<49",
+]
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+jin-wasm = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# `runtime.wat` はパッケージディレクトリの中にあるので wheel に入る（`prelude.lua` と同じ）。
+packages = ["src/jin_wasmgc"]

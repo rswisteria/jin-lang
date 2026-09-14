@@ -123,7 +123,9 @@ def test_run_rejects_v1_arguments_on_a_v2_file(args) -> None:
         ("run", PIPELINE, "go", "--debug"),
         ("run", PIPELINE, "go", "--storage", "x"),
         ("run", PIPELINE, "go", "--record", "x"),
+        ("run", PIPELINE, "go", "--target", "wasm-gc"),
         ("build", PIPELINE, "--out", "x", "--debug"),
+        ("build", PIPELINE, "--out", "x", "--target", "wasm-gc"),
     ],
 )
 def test_v1_files_reject_v2_arguments(args, tmp_path: Path) -> None:
@@ -131,6 +133,87 @@ def test_v1_files_reject_v2_arguments(args, tmp_path: Path) -> None:
     result = invoke(*args)
     assert result.exit_code == 2
     assert "version" in result.stderr
+
+
+# ---------------------------------------------------------------- --target wasm-gc（jil.md §6・Issue #53 / #73）
+
+
+def test_run_with_the_wasm_gc_target_prints_the_same_public_state() -> None:
+    lua = invoke("run", FIB, "--target", "lua")
+    wasm = invoke("run", FIB, "--target", "wasm-gc")
+    assert wasm.exit_code == 0, wasm.output
+    assert wasm.stdout == lua.stdout and json.loads(wasm.stdout) == {"Fib.answer": 6765}
+    assert "tick 0 で done" in wasm.stderr
+
+
+def test_run_with_the_wasm_gc_target_writes_frames(tmp_path: Path) -> None:
+    frames = tmp_path / "f.jsonl"
+    result = invoke("run", FIB, "--target", "wasm-gc", "--ticks", "3", "--frames", frames)
+    assert result.exit_code == 0, result.output
+    assert [json.loads(line) for line in frames.read_text(encoding="utf-8").splitlines()] == [
+        {"tick": 0, "ops": [], "audio": []}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("args", "issue"),
+    [
+        (("run", FIB, "--target", "wasm-gc", "--debug"), "#75"),
+        (("run", FIB, "--target", "wasm-gc", "--trace", "x"), "#75"),
+        (("run", PADDLE, "--target", "wasm-gc"), "#75"),
+        (("build", PADDLE, "--target", "wasm-gc", "--out", "x"), "#75"),
+        (("build", FIB, "--target", "wasm-gc", "--out", "x", "--single"), "#76"),
+    ],
+)
+def test_the_wasm_gc_target_refuses_what_later_sub_issues_add(
+    args, issue: str, tmp_path: Path
+) -> None:
+    args = [tmp_path / a if a == "x" else a for a in args]
+    result = invoke(*args)
+    assert result.exit_code == 1, result.output
+    assert issue in result.stderr
+
+
+@pytest.mark.parametrize("command", ["run", "build"])
+def test_an_unknown_target_is_refused(command: str, tmp_path: Path) -> None:
+    extra = ("--out", tmp_path / "x") if command == "build" else ()
+    result = invoke(command, FIB, "--target", "js", *extra)
+    assert result.exit_code == 2
+    assert "lua / wasm-gc" in result.stderr
+
+
+def test_build_with_the_wasm_gc_target_writes_game_wasm_and_a_target_manifest(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from jin_wasm import bundle
+
+    synced = tmp_path / "player"
+    synced.mkdir()
+    for name in bundle.PLAYER_FILES:
+        (synced / name).write_bytes(b"x")
+    monkeypatch.setattr(bundle, "PLAYER_DIR", synced)
+    out = tmp_path / "dist"
+    result = invoke("build", FIB, "--target", "wasm-gc", "--out", out)
+    assert result.exit_code == 0, result.output
+    # プレイヤーが同梱されていても書かない（WasmGcHost の配線は #76）
+    assert sorted(p.name for p in out.iterdir()) == ["game.manifest.json", "game.wasm"]
+    assert (out / "game.wasm").read_bytes()[:4] == b"\0asm"
+    manifest = json.loads((out / "game.manifest.json").read_text(encoding="utf-8"))
+    assert manifest["target"] == "wasm-gc" and "jil" not in manifest
+    assert (
+        manifest["wasm"]
+        == __import__("hashlib").sha256((out / "game.wasm").read_bytes()).hexdigest()
+    )
+    again = invoke("build", FIB, "--target", "wasm-gc", "--out", out)
+    assert again.exit_code == 1 and "--force" in again.stderr
+
+
+def test_the_lua_manifest_does_not_grow_a_target_key(tmp_path: Path) -> None:
+    """jil.md §6.8: `target` が無ければ `"lua"`。Lua 経路の manifest は 1 バイトも変えない。"""
+    out = tmp_path / "dist"
+    assert invoke("build", FIB, "--out", out).exit_code == 0
+    manifest = json.loads((out / "game.manifest.json").read_text(encoding="utf-8"))
+    assert "target" not in manifest and "wasm" not in manifest and "jil" in manifest
 
 
 # ---------------------------------------------------------------- run --storage（v2.1・runtime.md §8）

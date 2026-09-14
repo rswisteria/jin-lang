@@ -33,7 +33,7 @@ UTF-8 のまま）。`.jin` 由来の文字列**値**が Lua の式へ流れる�
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from jin_core.v2 import abilities
@@ -41,7 +41,6 @@ from jin_core.v2 import expr as ex
 from jin_core.v2.model import (
     BreakStep,
     CastStep,
-    Circle,
     EmitStep,
     FinishStep,
     IfStep,
@@ -51,21 +50,25 @@ from jin_core.v2.model import (
     ReturnStep,
     Rite,
     SetStep,
-    SigilHost,
-    SigilSummon,
     Step,
     TransferStep,
     WaitStep,
     parse_type,
 )
-from jin_core.v2.semantic import BUILTIN_FORMS, typed_nodes
 
 from jin_wasm.jil import JIL_VERSION
 from jin_wasm.prelude import prelude_source
+from jin_wasm.program import (
+    CircleInfo,
+    CodegenError,
+    FormInfo,
+    Program,
+    analyze,
+    manifest_base,
+)
 
-
-class CodegenError(Exception):
-    """生成できない（診断に error が残っている、など）。利用者向けの文で伝える。"""
+# 解析（型付き AST・添字・wait の閉包・manifest の共通部）は `jin_wasm.program` にあり、
+# wasm-GC の生成系（`jin_wasmgc.codegen`・v2.1 Issue #53）と共有する。ここは Lua を出す側だけ。
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,25 +119,8 @@ def _lua_bool(value: bool) -> str:
 
 
 @dataclass(slots=True)
-class _FormInfo:
-    index: int  # JF の添字（Pointer = 0、forms は 1 始まり）
-    fields: dict[str, tuple[int, str]]  # 欄名 → (添字, 型)
-
-
-@dataclass(slots=True)
-class _CircleInfo:
-    index: int  # Lua の添字（1 始まり）
-    pointer_index: int  # JSON Pointer の添字（0 始まり）
-    circle: Circle
-    states: dict[str, tuple[int, str]]  # state 名 → (添字, 型)
-    rites: dict[str, int]  # 手順名 → Lua の添字（1 始まり）
-    sigils: dict[str, tuple[str, ...]]  # ("host", ns) | ("summon", circle, rite) | ("agent", file)
-    waits: dict[str, bool] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
 class _RiteCtx:
-    info: _CircleInfo
+    info: CircleInfo
     rite: Rite
     rite_index: int
     locals: dict[str, str]  # 局所名 → l_n
@@ -157,44 +143,10 @@ class _Generator:
     def __init__(self, model: JinFileV2, *, debug: bool) -> None:
         self.model = model
         self.debug = debug
-        nodes, diagnostics = typed_nodes(model)
-        errors = [d for d in diagnostics if d.severity == "error"]
-        if errors:
-            first = errors[0]
-            raise CodegenError(
-                f"診断に error があるため生成できません（{first.code} {first.pointer}: {first.message}）。"
-                "先に jin check を通してください"
-            )
-        self.nodes = nodes
-        self.forms: dict[str, _FormInfo] = {
-            "Pointer": _FormInfo(
-                0, {n: (j, t) for j, (n, t) in enumerate(BUILTIN_FORMS["Pointer"].items())}
-            )
-        }
-        for k, form in enumerate(model.forms, start=1):
-            self.forms[form.name] = _FormInfo(
-                k, {f.name: (j, f.type) for j, f in enumerate(form.fields)}
-            )
-        self.circles: dict[str, _CircleInfo] = {}
-        for i, circle in enumerate(model.circles):
-            sigils: dict[str, tuple[str, ...]] = {}
-            for sigil in circle.sigils:
-                if isinstance(sigil, SigilHost):
-                    sigils[sigil.name] = ("host", sigil.host)
-                elif isinstance(sigil, SigilSummon):
-                    sigils[sigil.name] = ("summon", sigil.circle, sigil.rite)
-                else:
-                    sigils[sigil.name] = ("agent", sigil.file)
-            self.circles[circle.name] = _CircleInfo(
-                index=i + 1,
-                pointer_index=i,
-                circle=circle,
-                states={s.name: (j, s.type) for j, s in enumerate(circle.state)},
-                rites={r.name: j + 1 for j, r in enumerate(circle.rites)},
-                sigils=sigils,
-            )
-        for info in self.circles.values():
-            info.waits = _waits(info.circle)
+        program: Program = analyze(model)
+        self.nodes = program.nodes
+        self.forms: dict[str, FormInfo] = program.forms
+        self.circles: dict[str, CircleInfo] = program.circles
         self.lines: list[str] = []
 
     # ---------------------------------------------------------------- 出力
@@ -242,7 +194,7 @@ class _Generator:
             return f"JR[{self.forms[head].index}]"
         return {"num": "RN", "bool": "RB", "str": "RSTR"}.get(head, "RN")
 
-    def form_reader(self, name: str, info: _FormInfo) -> str:
+    def form_reader(self, name: str, info: FormInfo) -> str:
         """`JR[k]`: 型紙 k の読み手（欄が 1 つでも合わなければ nil）。debug だけに出す。"""
         reads = " ".join(
             f"local f_{j} = {self.reader(type_text)}(v[{lua_string(field_name)}])"
@@ -256,7 +208,7 @@ class _Generator:
         ).replace("  if false then", " if false then")
 
     # ---------------------------------------------------------------- 式
-    def expr(self, node: ex.Node, ctx: _RiteCtx | None, info: _CircleInfo | None) -> str:
+    def expr(self, node: ex.Node, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
         if isinstance(node, ex.Number):
             return lua_number(node.value)
         if isinstance(node, ex.String):
@@ -290,7 +242,7 @@ class _Generator:
             return "{ " + ", ".join(self.expr(item, ctx, info) for item in node.items) + " }"
         raise CodegenError(f"式の形 {type(node).__name__} は生成できません")  # pragma: no cover
 
-    def name(self, name: str, ctx: _RiteCtx | None, info: _CircleInfo | None) -> str:
+    def name(self, name: str, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
         if ctx is not None and name in ctx.locals:
             return ctx.locals[name]
         if info is not None and name in info.states:
@@ -298,7 +250,7 @@ class _Generator:
             return f"S[{info.index}].k_{j}"
         raise CodegenError(f"識別子 '{name}' を解決できません")
 
-    def field(self, node: ex.FieldAccess, ctx: _RiteCtx | None, info: _CircleInfo | None) -> str:
+    def field(self, node: ex.FieldAccess, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
         base = node.obj
         if isinstance(base, ex.Name):
             is_value = (ctx is not None and base.name in ctx.locals) or (
@@ -314,7 +266,7 @@ class _Generator:
         j, _ = self.forms[obj_type].fields[node.name]
         return f"{self.expr(base, ctx, info)}.f_{j}"
 
-    def call(self, node: ex.Call, ctx: _RiteCtx | None, info: _CircleInfo | None) -> str:
+    def call(self, node: ex.Call, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
         args = ", ".join(self.expr(a, ctx, info) for a in node.args)
         callee = node.callee
         if isinstance(callee, ex.Name):
@@ -580,7 +532,7 @@ class _Generator:
         self.out("end", indent)
 
     # ---------------------------------------------------------------- 手順と陣
-    def emit_rite(self, info: _CircleInfo, rite: Rite, j: int) -> None:
+    def emit_rite(self, info: CircleInfo, rite: Rite, j: int) -> None:
         ctx = _RiteCtx(info=info, rite=rite, rite_index=j, locals={})
         params = [ctx.new_local(p.name) for p in rite.params]
         pointer = f"/circles/{info.pointer_index}/rites/{j - 1}"
@@ -601,7 +553,7 @@ class _Generator:
         self.steps(rite.steps, f"{pointer}/steps", ctx, 1)
         self.out("end")
 
-    def emit_circle(self, info: _CircleInfo) -> None:
+    def emit_circle(self, info: CircleInfo) -> None:
         circle = info.circle
         i = info.index
         pi = info.pointer_index
@@ -756,39 +708,6 @@ def _json_array(items: list[str]) -> str:
     return "'[' .. " + " .. ',' .. ".join(items) + " .. ']'"
 
 
-def _waits(circle: Circle) -> dict[str, bool]:
-    """手順ごとに「wait を含む（自陣の手順への cast を辿って）」か。semantic の JIN212 と同じ閉包。"""
-    direct: dict[str, bool] = {}
-    casts: dict[str, set[str]] = {}
-    names = {r.name for r in circle.rites}
-    for rite in circle.rites:
-        direct[rite.name] = False
-        casts[rite.name] = set()
-        for step in _walk(rite.steps):
-            if isinstance(step, WaitStep):
-                direct[rite.name] = True
-            elif isinstance(step, CastStep) and step.target in names:
-                casts[rite.name].add(step.target)
-    changed = True
-    while changed:
-        changed = False
-        for name in names:
-            if not direct[name] and any(direct[c] for c in casts[name]):
-                direct[name] = True
-                changed = True
-    return direct
-
-
-def _walk(steps: list[Step]):
-    for step in steps:
-        yield step
-        if isinstance(step, IfStep):
-            yield from _walk(step.then)
-            yield from _walk(step.else_)
-        elif isinstance(step, LoopStep):
-            yield from _walk(step.steps)
-
-
 def _header(source_name: str | None) -> str:
     """`game.lua` の先頭 3 行。`.jin` のファイル名も入力なので Lua のリテラルを通す。
 
@@ -813,22 +732,8 @@ def generate(
         + program
         + "return { boot = boot, tick = tick }\n"
     )
-    namespaces = sorted(
-        {s.host for c in model.circles for s in c.sigils if isinstance(s, SigilHost)}
-    )
-    manifest = {
-        "file": source_name,
-        "stage": {
-            "width": model.stage.width,
-            "height": model.stage.height,
-            "fps": model.stage.fps,
-            "seed": model.stage.seed,
-        },
-        "namespaces": namespaces,
-        "assets": [{"name": a.name, "kind": a.kind, "path": a.path} for a in model.stage.assets],
-        "debug": debug,
-        "jil": hashlib.sha256(lua.encode("utf-8")).hexdigest(),
-    }
+    manifest = manifest_base(model, source_name=source_name, debug=debug)
+    manifest["jil"] = hashlib.sha256(lua.encode("utf-8")).hexdigest()
     return GeneratedGame(lua=lua, manifest=manifest, debug=debug)
 
 

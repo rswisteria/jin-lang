@@ -11,6 +11,9 @@
 `--single` は `index.html` **1 本**だけを書く（`player.js` をインラインにし、JIL / manifest / wasm（base64）を
 `window.JIN_BUNDLE` に埋める。runtime.md §9）。asset は埋められないので、`assets` があれば拒む（設計書 §11 #34）。
 
+`--target wasm-gc`（jil.md §6.8・v2.1 Issue #53）は `program=("game.wasm", bytes)` で本体ファイルを差し替える。
+そのときはプレイヤーのビルド物を書かず（`WasmGcHost` の配線は #76）、`--single` も拒む。書き出しの規律は同じ。
+
 プレイヤーのビルド物は `jin_wasm/player/`（gitignore。`scripts/sync_player.py` が `apps/player/dist` から複製する。
 wheel には入る）。
 
@@ -51,8 +54,20 @@ import os
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Protocol
 
 from jin_wasm.codegen import GeneratedGame
+
+
+class Bundleable(Protocol):
+    """`write_bundle` が読む生成物の形（`GeneratedGame` と `jin_wasmgc.assemble.GeneratedWasm`）。"""
+
+    @property
+    def manifest(self) -> dict[str, Any]: ...
+
+    @property
+    def debug(self) -> bool: ...
+
 
 TMP_SUFFIX = ".jin-tmp"
 GAME_LUA = "game.lua"
@@ -255,14 +270,23 @@ class _Plan:
 
 
 def write_bundle(
-    game: GeneratedGame,
+    game: GeneratedGame | Bundleable,
     out: Path,
     *,
     source: Path,
     force: bool = False,
     single: bool = False,
+    program: tuple[str, bytes] | None = None,
 ) -> BundleResult:
-    """バンドルを `<out>/` に書く。`single` は `<out>/index.html` 1 本（プレイヤーの同梱が要る）。"""
+    """バンドルを `<out>/` に書く。`single` は `<out>/index.html` 1 本（プレイヤーの同梱が要る）。
+
+    `program` は本体ファイルの差し替え `(ファイル名, バイト列)`（`--target wasm-gc` の `game.wasm`。
+    jil.md §6.8）。与えたときは `game.lua` を書かず、プレイヤーのビルド物も書かない（#76 で配線する）。
+    """
+    if program is not None and single:
+        raise WriteRefused(
+            "--single の wasm-gc 版は #76（Sub-Issue D）で入ります。--single 無しで書き出してください"
+        )
     if single and not player_available():
         raise WriteRefused(
             "--single はプレイヤー（index.html / player.js / wasmoon.wasm）を埋め込みます。"
@@ -292,7 +316,9 @@ def write_bundle(
             plans_assets.append((fd, basename))
             asset["path"] = f"{ASSETS_DIR}/{basename}"
         manifest_text = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
-        lua_bytes = game.lua.encode("utf-8")
+        program_name, program_bytes = (
+            program if program is not None else (GAME_LUA, game.lua.encode("utf-8"))
+        )
         manifest_bytes = manifest_text.encode("utf-8")
 
         out = Path(out)
@@ -312,7 +338,7 @@ def write_bundle(
                         )
                     )
                 else:
-                    plans.append(_Plan(out_fd, GAME_LUA, lua_bytes, out / GAME_LUA))
+                    plans.append(_Plan(out_fd, program_name, program_bytes, out / program_name))
                     plans.append(_Plan(out_fd, GAME_MANIFEST, manifest_bytes, out / GAME_MANIFEST))
                     if plans_assets:
                         assets_fd, assets_created = _open_subdir(
@@ -322,7 +348,9 @@ def write_bundle(
                             plans.append(
                                 _Plan(assets_fd, basename, fd, out / ASSETS_DIR / basename)
                             )
-                    if player_available():
+                    if program is not None:
+                        pass  # wasm-gc: プレイヤーは #76 で `WasmGcHost` を配線してから同梱する
+                    elif player_available():
                         for name in PLAYER_FILES:
                             plans.append(
                                 _Plan(out_fd, name, (PLAYER_DIR / name).read_bytes(), out / name)
