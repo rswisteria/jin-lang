@@ -31,6 +31,8 @@ inputs = {
 
 `events` には確定した文字列の `{kind="text", text="名前"}`(v2.1・abilities.md §3 の `input.text`)も並ぶ。押下状態(`keys` / `pointer`)には触らず、プレリュードは状態を持たずに `text()` の呼び出しのたびに `events` を読むだけなので、snapshot / resume(§1.3)に運ぶものは増えない。プレイヤーは canvas の上に置いた見えない 1 行の入力欄にフォーカスを置き、合成中でない `input` と `compositionend` のたびに値を取り出して空にし、制御文字と対にならないサロゲートを落としてから積む。IME の合成中のキー(`isComposing` / `key == "Process"`)は集めない。
 
+`events` には v1 の陣の答え `{kind="reply", id=1, text="…"}`(v2.1・§11)も並ぶ。`id` は `agent` の `cast` が返した要求 id、`text` は答えの文字列(`text` イベントと同じく制御文字と対にならないサロゲートを含まない。空でもよい)。押下状態には触らず、プレリュードは §2 の 1 で配達するだけ。ヘッドレスのホストが積む(録画の再生ではログの行)。ブラウザは積まない(§10)。
+
 ### 1.2 結果テーブル
 
 ```
@@ -41,6 +43,7 @@ inputs = {
   error = nil,       -- 実行時エラーの文(§5 の error 行と同じ。リリースビルドでも出る。無ければ null)
   public = { … },    -- 公開 state の確定値 { "Play.score": 3, "Result.quit": true }(jin run が標準出力に出す)
   storage = { {"runs", "3"}, … },  -- 記憶への書き込みの一覧(書き込みがあった tick だけ。release でも出る。abilities.md §8)
+  asks = { { id = 1, circle = "Npc", name = "oracle", prompt = "…" }, … },  -- v1 の陣への問い(問いがあった tick だけ。release でも出る。§11)
   snapshot = { … },  -- デバッグビルドだけ。次の boot の manifest.resume にそのまま渡せる状態(§1.3)
   resume = { … } }   -- デバッグビルドだけ。manifest.resume 付きで boot した直後の 1 回だけ(§1.3)
 ```
@@ -48,7 +51,8 @@ inputs = {
 `error` と `public` は Phase 2 で足した(設計書 §11 #22)。リリースビルドにはトレースが無いので、
 実行時エラーの理由と最後の公開 state を返す口がここしか無い。`snapshot` と `resume` は v2.1 で足した
 (設計書 §11 #42〜#44)。`storage` も v2.1(設計書 §11 #45〜#47。`boot` の核で書いた分は最初の `tick` の結果に載る)。
-キーの順は `ops` / `audio` / `trace` / `done` / `error` / `public` / `storage` / `snapshot` / `resume`。
+`asks` は v2.1 の `agent`(§11。問いがあった tick だけ・`storage` の直後)。
+キーの順は `ops` / `audio` / `trace` / `done` / `error` / `public` / `storage` / `asks` / `snapshot` / `resume`。
 
 ### 1.3 状態を保った差し替え(`manifest.resume`・v2.1)
 
@@ -89,7 +93,7 @@ tick から列が分かれる。リリースビルドには `snapshot` が無い
 
 固定タイムステップ `dt = 1 / stage.fps`。tick `t` で次を**この順**に行う。「陣の順」とは陣木の深さ優先・`flow.steps` の配列順・`transfer` のスタックは先頭(委譲先)だけ、である。
 
-1. **配達**: 前 tick に `emit` されたメッセージを、`emit` の実行順に、宛先の `on message` の手順へ配達する。宛先が `active` でなければ捨てる(トレースに `emit` 行は残る)
+1. **配達**: 前 tick に `emit` されたメッセージを、`emit` の実行順に、宛先の `on message` の手順へ配達する。宛先が `active` でなければ捨てる(トレースに `emit` 行は残る)。続けて `events` の `reply`(§1.1・v2.1)を発生順に、その要求 id を出した `agent` の sigil を持つ陣の `on message` へ `(sigil 名, id, text)` で配達する(§11。宛先が `active` でない / `on message` が無い / id を知らないときは捨てる)
 2. **再開**: `wait` 中の手順を陣の順に再開する。`ticks` は残数を 1 減らして 0 なら再開、`until` は式を評価して真なら再開。再開した手順が再び `wait` したら次 tick へ
 3. **イベント**: `active` な各陣へ、陣の順に、`events` の `key` / `pointer` を発生順に配り、最後に `tick(dt)` を配る。1 つの陣の中では `on` の手順を**その順**で走らせる。手順の中で `finish` したら、その陣への残りの配達は行わない
 4. **確定**: `out: true` の state を確定する(二重バッファ。他の陣が読む `Play.score` は、この段までは**前 tick の確定値**)。未 `entered` の陣(summon で書かれた state)も確定する。加えて陣が `entered` になった直後(`init` の値)と `done` になった直後(`finish` の書き込み)にもその陣だけ確定する(設計書 §11 #27)
@@ -149,7 +153,7 @@ root が `done` になったら `tick` は `done = true` を返し、以後は�
 | `rite` | 手順を起動する直前(核 / cast / summon / 配達) | `/circles/i/rites/j` | 引数 / 戻り値(`return` 時に埋める。行は tick の終わりに直列化するので、`wait` で tick を跨いだ手順の戻り値は `null` のまま) |
 | `cast` | `cast` ステップの実行(ホスト能力・summon・effect)。**呼び出しの前**に積み、戻り値は呼び出しの後に埋める(list の効果で引数が変わる前の値が載り、実行時エラーの `pointer` がこのステップになる) | ステップの pointer | 評価済み引数 / 戻り値 |
 | `set` | **state** への代入(局所は記録しない) | ステップの pointer(`cast … into` なら `cast` 行とは別に `set` 行) | — / 新しい値 |
-| `emit` | `emit` ステップ(行を積むのは**配達の tick の 1**。`seq` と `tick` は配達時のもの) | ステップの pointer | 引数 / 配達されたか(`true` / `false`) |
+| `emit` | `emit` ステップ(行を積むのは**配達の tick の 1**。`seq` と `tick` は配達時のもの)。v1 の陣の答えの配達(§11)も同じ行(circle は sigil を持つ陣・name は sigil 名・pointer は `/circles/i/sigils/j`・input は `[id, text]`) | ステップの pointer | 引数 / 配達されたか(`true` / `false`) |
 | `transfer` | `transfer` ステップ | ステップの pointer | 委譲先 / — |
 | `wait` | 手順が中断した / 再開した | ステップの pointer | `{"ticks": n}` または `{"until": true}` / `"suspend"` または `"resume"` |
 | `finish` | `finish` ステップ | ステップの pointer | — / — |
@@ -189,12 +193,13 @@ JSONL。1 行目はヘッダ。
 - プレイヤーは「録画」で seed と入力を集めてこの形で書き出す。`jin run --input rec.jinrec` は同じ tick に同じイベントを渡す
 - `keys` / `pointer` の押下状態はイベントから再構成する(ログには載せない)
 - `{ "tick": 12, "kind": "text", "text": "名前" }`(v2.1)は確定した文字列(abilities.md §3 の `input.text`)。`text` は空でない文字列で、制御文字(U+0000〜U+001F・U+007F)と対にならないサロゲートを含まない。押下状態には触らない。**版は 1 のまま**: 読み手はすべてこのリポジトリにあり、古い読み手は未知の `kind` を行番号付きで断る(黙って読み飛ばさない)ので、版を上げて既存の録画を読めなくする理由が無い
+- `{ "tick": 13, "kind": "reply", "id": 1, "text": "…" }`(v2.1・§11)は v1 の陣の答え。`id` は 1 以上の整数、`text` は文字列(`text` イベントと同じ検査。空でもよい)。押下状態には触らない。ヘッドレスの `jin run --record` が書き、`jin run --input` はこれを同じ tick に配達して v1 の陣を**呼ばない**。プレイヤーも読める(再生は LLM を呼ばないので、ヘッドレスの録画をブラウザで見られる)。版は 1 のまま(`text` と同じ規律)
 - `storage`(任意・v2.1)は録画の `boot` に渡した記憶の写し(abilities.md §8)。object で値はすべて文字列。書き手は非空のときだけ最後に書き、`jin run --input` はこれを `manifest.storage` に渡す。無ければ空。版は 1 のまま(任意欄の追加)。`--input` と `--storage` を一緒に指定したら録画のヘッダが正で、`--storage` は読みも書きもしない(§8)
 
 ## 8. ヘッドレス実行(`jin run`・v2)
 
 ```
-jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--storage memory.json] [--trace t.jsonl] [--frames f.jsonl] [--debug]
+jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--storage memory.json] [--trace t.jsonl] [--frames f.jsonl] [--debug] [--model fake] [--record out.jinrec]
 ```
 
 - `--ticks` の既定は `--input` があればそのヘッダの `ticks`、無ければ 600。`--seed` の既定は `--input` のヘッダの `seed`、無ければ `stage.seed`。root が `done` になったら(その tick を含めて)止める
@@ -203,6 +208,7 @@ jin run game.jin [--ticks N] [--seed S] [--input rec.jinrec] [--storage memory.j
   - 走らせる前に断る(exit 2): 読めない・JSON でない・形が違う・シンボリックリンク・親ディレクトリが無い・対象の `.jin` と同じファイル
   - 書き戻しは `jin render -o` と同じ規律(同じディレクトリの一時ファイルから `os.replace`・リンクを拒む・新規は 0644 & ~umask・既存のモードは引き継ぐ)で、書けなければ診断 1 行で exit 1
 - 実行時エラー(§5 の `error`)は stderr に 1 行出して **exit 1**(トレース / frames はそこまでの分を書く)
+- `--model fake` / `--record`(v2.1・§11)は `agent` の sigil のためのもの。`--model fake` は v1 の陣を `FakeLlm`(固定応答・ネットワーク不要)で走らせる(無ければ v1 の `jin run` と同じく `.jin` の `core` の実モデル)。`--record` は走らせた入力(`--input` の行)と v1 の答え(`reply` 行)を §7 の形で書く(`--trace` と同じ書き込みの規律)。`--input` があるときは v1 の陣を**呼ばない**(録画の答えが正)
 - `--trace` は §5 の行(`--debug` を暗黙に立てる)。`--frames` は `frame` 行だけを別ファイルに(トレース無しでも出せる)
 - 標準出力には最後の tick の公開 state を JSON で 1 行出す(`{"Play.score": 3, "Result.quit": true}`)
 - lupa は **`lupa.lua54`** を明示する(lupa 2.8 の既定 `LuaRuntime` は Lua 5.5.1。probe B.1)。`LuaRuntime(register_eval=False, register_builtins=False, unpack_returned_tuples=True)` で作り、`globals().python = None` と `load` / `loadstring` / `dofile` / `loadfile` / `require` / `package` / `os` / `io` / `debug` / `collectgarbage` への `None` 代入を**JIL を読む前**に行う(`register_eval=False` だけでは `python.builtins` が残る。probe B.2)。JIL 自体はこれらを使わない(`jil.md`)ので、封じるのは多層防御。`string.dump` も消す
@@ -244,3 +250,17 @@ dist/
 - **埋め込みのデバッグ**(Phase 6・設計書 §8 / §11 #39〜#41): 親は `{ type: "jin.replay", text }` で `.jinrec` の生のテキストを渡す。プレイヤーは `src/jinrec.ts`(`jin_wasm.jinrec.read_jinrec` の写し。壊れた行は同じ行番号で断る)で読み、ヘッダの seed で `boot` し直して tick 0 からヘッダの `ticks` まで、`tick == t` の行を**同じ reducer**に通す(§8 と同じ手順・同じトレース。`apps/player/e2e/replay.spec.ts` が全行一致を見る)。root が `done` になったらそこで止まり、終わったら**止まったまま**(そこからスクラブ / 1 tick)。再生の間に届いた実入力は捨て、トレースは最後に 1 回 `jin.trace` で流す。`{ type: "jin.frame", ops }` は表示リストを描くだけ(止まっている間だけ・Lua は呼ばない)。状態が変わるたびに `{ type: "jin.status", loaded, tick, seed, running, done, error, recording, recordedEvents, generation, notice }` を、`jin.control` の `stop`(録画を止める)には `{ type: "jin.recording", text, seed, ticks }` を親へ送る(書き出しは親)。`jin.control` の `record` は seed を受けて `boot` し直して走り出し、`reboot` も seed を受ける。親とプレイヤーの語彙は `jin.load` / `jin.control` / `jin.replay` / `jin.frame`(親から)と `jin.trace` / `jin.status` / `jin.recording`(親へ)の 7 語で、`tests/contract/test_editor_contract.py` が両側から抜いた集合の等号で固定する
 - **状態を保った差し替え**(v2.1・設計書 §11 #42〜#44): `jin.load` の `keep` が真で tick が進んでいれば(終わっていなければ)、新しい JIL のホストを作り、前のプレイヤーの直近の `snapshot` を `manifest.resume` に付けて `boot` する(`Player.resumeFrom`。ホストが呼ぶ Lua の関数は `boot` / `tick` のまま)。tick / seed / reducer / 押下状態(`InputCollector.adopt`。押したままのキーを引き継がないと離しの `down: false` が出ない)/ トレース / 直近の画面と公開 state を引き継ぎ、走っていたなら走らせ続ける。録画は止める。root が照合できず `resume.mode == "fresh"` ならその tick を捨てて `reboot`(tick 0 から。行は流さない)。読み込みは直列(wasm の起動を待つ間に次の `jin.load` が来ても重ねない)。`jin.status` の **`generation`** は `boot` し直すたび(最初から / 録画 / `keep` 無しの差し替え / `fresh`)に増え、続けたときは変わらない。親はこれで行を捨てるかを決める(`seq` が 0 に戻るので。録画の再生では `reboot` の知らせが行の一括より先に届くので、再生の行は残る)。復元の知らせは `notice`。**Wasmoon は JS の `null` を Lua に積めない**(proxy の userdata が欄を読んだ瞬間に PANIC でエンジンごと落ちる・probe §A.11)ので、`boot` に渡す manifest は `withoutNulls` で `null` を欄ごと落とす(核なし陣の `state` / `delegate` が `null`。Lua 側は無い欄を `nil` として読む)
 - **記憶**(`storage`・abilities.md §8・v2.1・設計書 §11 #45〜#47): プレイヤー(`Player.store`・`Map`)がホストの記憶の写しを持ち、**すべての `boot`**(最初から / 録画 / 差し替え / 再生)で `manifest.storage` に渡す。tick の戻り値の `storage`(書き込みの一覧)を順に写しへ反映し、`localStorage` の `jin.storage:<manifest.file>` に JSON の object で丸ごと書き戻す(読めない・書けないときは落とさず、その実行の間だけ覚える)。録画は `boot` に渡した写しをヘッダに書く。**再生はヘッダの写しから始まるスクラッチに書き、永続化しない**(次の `reboot` で本物に戻る)。差し替えで続けるときは前のプレイヤーの写しを引き継ぐ。「記憶を消す」(`jin.control` の `forget`・iframe の中のボタン)は空にして `boot` し直す(親からは止めたまま)。`__jinPlayer.storage()` / `forget()` は e2e の口。埋め込み(エディタ)と `--single` は別オリジンなので混ざらない
+
+## 11. v1 の陣を呼ぶ Python ホスト(v2.1・`agent`)
+
+v2 の陣は `sigils[].kind = agent`(model.md §3.2)で v1 の `.jin`(Google ADK 上の LLM エージェント)に**問える**。
+設計書 §11 #55。ホスト境界(§1)は変えない: Lua はホストを呼ばず、問いは tick の**戻り値**で出て、答えは次以降の tick の**入力**で戻る。
+
+- **問い**: `cast target=<sigil 名> args=[prompt] into=<id>`。プレリュードは問いを `asks` に積み(`{ id, circle, name, prompt }`。`id` は boot からの 1 始まりの通し番号・`circle` は sigil を持つ陣・`name` は sigil 名)、`id` を返す。同期的に返るのは id だけで、答えは待たない(`wait` と `on message` で受ける)。DEBUG では `cast` 行(input は `[prompt]`・output は id)
+- **答え**: ホストは tick 結果の `asks` を順に処理し、答え `text` を **`{kind="reply", id, text}` として次の tick(`t + 1`)の `events` に積む**(§1.1)。プレリュードは §2 の 1 でそれを、id を出した陣の `on message` へ `(name = sigil 名, id, text)` の形で配達する(`emit` 行を残す。§5)。id を知らない・宛先が `active` でない・`on message` が無いときは捨てる(`emit` 行の output が `false`)
+- **v1 の走らせ方**(ヘッドレスの `jin run` だけ・実装は `jin_cli`): `file` を v2 の `.jin` の親ディレクトリの中に解決し(外に出る・リンク・無い・`version: 1` でない・`jin check` が通らないなら走らせる前に exit 2)、`jin_adk.runtime.run_model`(v1 の `jin run` と同じ経路。`ref` の import・cwd の `sys.path` 窓・`SystemExit` の扱いも同じ)に `prompt` を最初の利用者メッセージとして渡す。問いごとに新しいセッション(state は問いをまたいで続かない)。答えは v1 のトレースの `final` 行の output(最後のモデル応答・str)、`final` 行が無ければ `""`。v1 の実行が失敗したら §8 の実行時エラーと同じく stderr 1 行 + exit 1。`--model fake` なら `FakeLlm`(`"fake-response"`)
+- **決定性と録画**(§4 / §7): 答えは再現しないので、録画は答えを**入力として**持つ(`reply` 行)。`jin run --record` が書き、`--input` の再生は v1 の陣を呼ばずログの `reply` をそのまま配達する。録画に無い問いには答えが来ない(その手順は待ち続ける)
+- **snapshot / resume**(§1.3): 要求 id の通し番号は snapshot に載せる(差し替えても id が続く。`test_resume` の「途切れずに走らせた列と一致」を保つため)。未回答の問い(id → 陣の対応)は未配達の `emit` と同じく捨てる
+- **`jin_wasm` は v1 を知らない**: `run_headless` は「問いに答える呼び出し可能」を引数で受けるだけで、`jin_adk` を import しない(層の契約)。答える実装は `jin_cli`(両方を知る唯一の層)。呼び出し可能が無いのに `asks` が出たら `RunError`
+- **ブラウザ**(§10 / 設計書 §11 #55): プレイヤーは `asks` を無視する(答えは来ない。`jin build` は agent を含む `.jin` に stderr で 1 行知らせる)。`reply` を含む録画の**再生**はできる(答えは録画にある)。エディタの実行パネルも同じ
+- **危険性**: `agent` を持つ v2 の `.jin` を `jin run` すると、その v1 の `.jin` の `ref` が import される(v1 の `jin run` と同じ S1)。「v2 の `jin run` は任意コードを実行しない」は **`agent` の sigil を持たない v2** について成り立つ。`--model fake` でも `ref` は import される
