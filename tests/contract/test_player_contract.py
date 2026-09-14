@@ -395,3 +395,121 @@ def test_the_player_owns_the_storage_copy_and_never_persists_a_replay() -> None:
     spec = read(PLAYER / "e2e" / "storage.spec.ts")
     assert "expect(browserRows).toEqual(headlessRows);" in spec
     assert 'window.localStorage.getItem("jin.storage:storage.jin")' in spec
+
+
+# ---------------------------------------------------------------- 書体（abilities.md §2・v2.1・設計書 §11 #49）
+
+FONT_DIR = PLAYER / "fonts" / "k6x8"
+FONT_BDF = FONT_DIR / "k6x8_gothic.bdf"
+GLYPHS_TS = SRC / "glyphs.ts"
+
+
+def _glyph_table() -> dict[int, bytes]:
+    """`glyphs.ts` の 2 本の base64 を読む（コードポイントは 2 バイト big-endian、字形は 6 バイト）。"""
+    import base64
+
+    text = read(GLYPHS_TS)
+    blobs = {}
+    for name in ("CODEPOINTS", "BITMAPS"):
+        found = re.search(rf'export const {name} =\s*"([A-Za-z0-9+/=]*)";', text)
+        assert found is not None, f"glyphs.ts に {name} が無い"
+        blobs[name] = base64.b64decode(found.group(1))
+    codepoints = [
+        int.from_bytes(blobs["CODEPOINTS"][i : i + 2], "big")
+        for i in range(0, len(blobs["CODEPOINTS"]), 2)
+    ]
+    assert codepoints == sorted(set(codepoints)), "コードポイントが昇順・重複なしでない"
+    assert len(blobs["BITMAPS"]) == 6 * len(codepoints)
+    return {cp: blobs["BITMAPS"][6 * i : 6 * i + 6] for i, cp in enumerate(codepoints)}
+
+
+def _bdf_cells() -> dict[int, bytes]:
+    """BDF を生成スクリプトとは独立に読み、6×8 の枠（列ごと・bit0 が最上段）に置く。"""
+    cells: dict[int, bytes] = {}
+    ascent = 0
+    codepoint = width = height = x_off = y_off = 0
+    lines = iter(FONT_BDF.read_text(encoding="ascii").splitlines())
+    for line in lines:
+        head, _, rest = line.partition(" ")
+        if head == "FONT_ASCENT":
+            ascent = int(rest)
+        elif head == "ENCODING":
+            codepoint = int(rest)
+        elif head == "BBX":
+            width, height, x_off, y_off = map(int, rest.split())
+        elif head == "BITMAP":
+            columns = [0] * 6
+            span = (width + 7) // 8 * 8
+            for row in range(height):
+                bits = int(next(lines), 16)
+                for col in range(width):
+                    if bits >> (span - 1 - col) & 1:
+                        columns[x_off + col] |= 1 << (ascent - (y_off + height) + row)
+            cells[codepoint] = bytes(columns)
+    return cells
+
+
+def _sjis_decoded(ku: int, ten: int) -> str | None:
+    """JIS X 0208 の区点を Shift_JIS に写して cp932 で読む（euc_jp と対応先が割れる区点がある）。"""
+    lead = (ku + 257) // 2 if ku <= 62 else (ku + 385) // 2
+    trail = (ten + 63 + (ten >= 64)) if ku % 2 else ten + 158
+    try:
+        return bytes([lead, trail]).decode("cp932")
+    except UnicodeDecodeError:
+        return None
+
+
+def test_the_glyph_data_is_generated_from_the_bundled_bdf() -> None:
+    """`glyphs.ts` は `scripts/generate_glyphs.py` の生成物（手で編集しない）。CI の diff と 2 重の網。"""
+    import subprocess
+    import sys
+
+    check = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "generate_glyphs.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+    assert "scripts/generate_glyphs.py" in read(GLYPHS_TS)
+    ci = read(REPO_ROOT / ".github" / "workflows" / "ci.yml")
+    assert (
+        "uv run python scripts/generate_glyphs.py --stdout | diff -u apps/player/src/glyphs.ts -"
+        in ci
+    )
+
+
+def test_the_glyphs_are_every_non_ascii_glyph_of_k6x8_gothic() -> None:
+    """ASCII は `font.ts` の 5×7 のまま。それ以外は k6x8 ゴシックの字形を**全部**そのまま持つ。"""
+    cells = _bdf_cells()
+    assert len(cells) == 7096
+    assert _glyph_table() == {cp: cell for cp, cell in cells.items() if cp > 0x7E}
+
+
+def test_the_glyphs_cover_jis_x_0208_in_both_unicode_mappings() -> None:
+    """JIS X 0208 の全区点を、euc_jp（JIS 流）と cp932（Windows 流）の両方の対応先で持つ。"""
+    table = _glyph_table()
+    missing = []
+    for ku in range(1, 95):
+        for ten in range(1, 95):
+            try:
+                euc = bytes([0xA0 + ku, 0xA0 + ten]).decode("euc_jp")
+            except UnicodeDecodeError:
+                continue
+            for ch in {euc, _sjis_decoded(ku, ten) or euc}:
+                if ord(ch) not in table:
+                    missing.append((ku, ten, f"U+{ord(ch):04X}"))
+    assert missing == []
+
+
+def test_the_font_source_keeps_its_license_and_digest() -> None:
+    """k6x8 は自由なライセンス（改変の有無・商用を問わず利用・複製・再配布できる）。出典と原本の digest を残す。"""
+    import hashlib
+
+    license_text = (FONT_DIR / "k6x8.txt").read_text(encoding="utf-8")
+    assert "Unlimited permission is granted to use, copy, and distribute them" in license_text
+    digest = hashlib.sha256(FONT_BDF.read_bytes()).hexdigest()
+    assert digest in read(FONT_DIR / "README.md")
+    header = read(GLYPHS_TS).split("*/", 1)[0]
+    for needle in ("Copyright (C) 2000-2023 Num Kadoma", digest, "Unlimited permission is granted"):
+        assert needle in header, needle

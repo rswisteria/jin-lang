@@ -268,6 +268,13 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # canvas.text の ASCII 以外の字形（abilities.md §2・設計書 §11 #49）。src/glyphs.ts は
+      # apps/player/fonts/k6x8/k6x8_gothic.bdf からの生成物で、ツリーを書き換えずに比較する（W-04 と同じ）。
+      # pytest 側は tests/contract/test_player_contract.py が `--check` で固定する（2 重の網）。
+      - name: Detect glyph data drift
+        working-directory: .
+        run: uv run python scripts/generate_glyphs.py --stdout | diff -u apps/player/src/glyphs.ts -
+
       - name: Lint
         run: pnpm lint
 

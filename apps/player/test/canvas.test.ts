@@ -1,7 +1,7 @@
 import { describe as group, expect, test } from "vitest";
 
 import { DRAWABLE_OPS, Renderer, type Surface } from "../src/canvas";
-import { CELL_WIDTH, pixels, textWidth } from "../src/font";
+import { CELL_HEIGHT, CELL_WIDTH, pixels, textWidth } from "../src/font";
 
 /** 呼び出しを記録するだけの Surface（jsdom には 2D コンテキストが無い）。 */
 function recording(): { surface: Surface; calls: string[] } {
@@ -59,10 +59,60 @@ group("Renderer（表示リスト → canvas）", () => {
 		expect(b.slice(a.length)).toEqual(a.map(([x, y]) => [x + CELL_WIDTH, y]));
 		expect(textWidth("abc")).toBe(18);
 		expect(textWidth("あい")).toBe(12); // コードポイント単位（プレリュードの len と同じ）
-		// ASCII の外は □（点が出る）
-		expect([...pixels("あ", 0, 0)].length).toBeGreaterThan(0);
+		expect(textWidth("漢\u{1F600}")).toBe(12); // BMP 外も 1 コードポイント = 6
 		// 空白は何も塗らない
 		expect([...pixels(" ", 0, 0)]).toEqual([]);
+	});
+
+	test("ASCII の外は k6x8 の字形（JIS X 0208 を含む）で描き、字形が無いものだけ □", () => {
+		const box = [...pixels("\uE000", 0, 0)]; // 私用領域: k6x8 に無い
+		expect(box.length).toBeGreaterThan(0);
+		expect([...pixels("\u{1F600}", 0, 0)]).toEqual(box); // BMP 外も □
+		// 〜/～ と −/－ は euc_jp と cp932 で JIS X 0208 の同じ区点が別のコードポイントになる組
+		for (const ch of [
+			"あ",
+			"ア",
+			"漢",
+			"字",
+			"〜",
+			"～",
+			"−",
+			"－",
+			"￥",
+			"ｱ",
+		]) {
+			const glyph = [...pixels(ch, 0, 0)];
+			expect(glyph.length, ch).toBeGreaterThan(0);
+			expect(glyph, ch).not.toEqual(box);
+		}
+		expect([...pixels("あ", 0, 0)]).not.toEqual([...pixels("い", 0, 0)]);
+		// 全角空白は何も塗らない
+		expect([...pixels("\u3000", 0, 0)]).toEqual([]);
+	});
+
+	test("k6x8 の字形は 6×8 の枠に収まり、罫線は右端の列と下端の行まで使う", () => {
+		let index = 0;
+		for (const ch of "漢字かなカナ─│┼╋■◆￥ｱ") {
+			const left = index * CELL_WIDTH;
+			for (const [x, y] of pixels(ch, left, 3)) {
+				expect(x - left, ch).toBeGreaterThanOrEqual(0);
+				expect(x - left, ch).toBeLessThan(CELL_WIDTH);
+				expect(y - 3, ch).toBeGreaterThanOrEqual(0);
+				expect(y - 3, ch).toBeLessThan(CELL_HEIGHT);
+			}
+			index++;
+		}
+		expect([...pixels("─", 0, 0)].some(([x]) => x === CELL_WIDTH - 1)).toBe(
+			true,
+		);
+		expect([...pixels("│", 0, 0)].some(([, y]) => y === CELL_HEIGHT - 1)).toBe(
+			true,
+		);
+		const one = [...pixels("漢", 0, 0)];
+		const two = [...pixels("漢漢", 0, 0)];
+		expect(two.slice(one.length)).toEqual(
+			one.map(([x, y]) => [x + CELL_WIDTH, y]),
+		);
 	});
 
 	test("button は枠を描き、label を中央に置く", () => {
