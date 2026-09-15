@@ -586,6 +586,7 @@ uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同�
 uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同上（Phase 6・デバッグモード）
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
+cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-paddle-demo.gif / .mp4）を撮り直す（台本は demo/v2-paddle.spec.ts・要 ffmpeg と apps/player の dist）
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）
