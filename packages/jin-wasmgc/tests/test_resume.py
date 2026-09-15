@@ -133,7 +133,7 @@ def test_resume_with_a_value_of_the_wrong_shape_keeps_the_init_value() -> None:
     after = next(c for c in first["snapshot"]["circles"] if c["name"] == "Play")
     assert after["state"]["paddle"] == 11
     assert after["state"]["score"] == 0
-    assert after["state"]["ball"]["x"] != True  # noqa: E712  # init の値から 1 tick 進んだ数値
+    assert after["state"]["ball"]["x"] != True  # init の値から 1 tick 進んだ数値
 
 
 def test_resume_drops_unknown_circles_and_falls_back_to_a_fresh_boot_when_the_root_is_missing() -> (
