@@ -707,6 +707,9 @@ def _check_error_parity(
         model = program(state, [], [rite], forms=forms, on=[{"event": "tick", "rite": "step"}])
     lua, wasm = raw_ticks(model, ticks=3)
     assert wasm == lua, steps
+    # debug でも同じ: 範囲外の代入先に set 行は出ず、error 行の pointer は直前の行のもの（Lua の unwind と同じ）
+    lua_d, wasm_d = raw_ticks(model, ticks=3, debug=True)
+    assert wasm_d == lua_d, steps
     result = json.loads(wasm[0 if where == "boot" else 1])
     assert result["error"].startswith("添字 ") and "は範囲外です" in result["error"], steps
     assert result["public"]["T.a"] == 1 and result["public"]["T.s"] == "init", steps

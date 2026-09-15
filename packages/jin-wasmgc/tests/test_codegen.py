@@ -1,4 +1,4 @@
-"""codegen（v2 → WAT）: スナップショット・非対応の構文の拒み方・決定性・module の形（jil.md §6）。
+"""codegen（v2 → WAT）: スナップショット・全 fixture の生成・決定性・module の形（jil.md §6）。
 
 スナップショットは `__snapshots__/test_codegen.ambr`（syrupy）。生成部の形を変えたら
 `uv run pytest packages/jin-wasmgc --snapshot-update` で更新し、**差分を読んでから**コミットする。
@@ -255,9 +255,7 @@ def test_only_rites_that_can_wait_get_a_frame() -> None:
     assert "$W" not in fib and "$prog_resume" in fib
 
 
-def test_the_single_wait_target_refuses_nothing_but_names_the_next_sub_issue_for_the_player() -> (
-    None
-):
+def test_every_example_and_fixture_generates_in_debug_too() -> None:
     """#75 で生成できない構文は無くなった（プレイヤー同梱と --single は #76・CLI 側が断る）。"""
     for name in [*EXAMPLE_NAMES, *PROGRAM_NAMES]:
         generate_program(load(fixture_path(name)), debug=True)

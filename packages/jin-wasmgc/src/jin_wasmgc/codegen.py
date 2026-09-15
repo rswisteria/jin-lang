@@ -702,6 +702,10 @@ class _Generator:
             self.out(f"(struct.set $F{k} {j} {self.expr(target.obj, ctx, info)} {value})", indent)
         else:
             raise CodegenError("代入先の形が分かりません")  # pragma: no cover
+        if _contains_index(target):
+            # 代入先の添字が範囲外（`set xs[9] = …` / `set balls[5].x = …`）は代入の中で ERR が立つ。Lua は SETAT の
+            # error で手順を抜けて set 行を積まないので、行の前に見て返る（次のステップへも進まない）
+            self.out(f"(if (global.get $ERRED) (then {self.early_return(ctx)}))", indent)
         root = ex.place_root(target)
         if (
             self.debug
@@ -818,9 +822,6 @@ class _Generator:
             target = node(f"{sp}/target")
             value = self.value(node(f"{sp}/expr"), ctx, indent, target.type)
             self.assign(target, value, ctx, sp, indent)
-            if _contains_index(target):
-                # 代入先の添字が範囲外（`set xs[9] = …`）でも ERR は代入の中で立つ。次のステップへ進まない
-                self.out(f"(if (global.get $ERRED) (then {self.early_return(ctx)}))", indent)
             return
         if isinstance(step, LetStep):
             value_node = node(f"{sp}/expr")
