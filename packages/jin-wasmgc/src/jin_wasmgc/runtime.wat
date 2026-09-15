@@ -2685,8 +2685,9 @@
   (func $cst (param $i i32) (result i32) (call $cget (global.get $CST) (local.get $i)))
   (func $is_active (param $i i32) (result i32)
     (i32.and (i32.eq (call $cst (local.get $i)) (i32.const 1)) (i32.eqz (call $cget (global.get $CPAUSED) (local.get $i)))))
-  ;; STOP(i): done か休止中（生成部が cast の直後に見る）
-  (func $stop (param $i i32) (result i32) (i32.eqz (call $is_active (local.get $i))))
+  ;; STOP(i): done か休止中（生成部が cast の直後に見る）。idle は止めない（summon の呼び先は未 entered でもよい。Issue #87）
+  (func $stop (param $i i32) (result i32)
+    (i32.or (i32.eq (call $cst (local.get $i)) (i32.const 2)) (call $cget (global.get $CPAUSED) (local.get $i))))
 
   (func $lr_reset (param $l (ref null $Lr)) (struct.set $Lr 1 (local.get $l) (i32.const 0)))
 
