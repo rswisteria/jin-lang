@@ -35,10 +35,16 @@ export interface RunningEditor {
 	stop(): Promise<boolean>;
 }
 
-/** 一時ディレクトリに `.jin` を置き、`jin editor --no-browser` を起動して URL を読む。 */
-export async function startEditor(source: string): Promise<RunningEditor> {
+/**
+ * 一時ディレクトリに `.jin` を置き、`jin editor --no-browser` を起動して URL を読む。
+ * `name` は置くファイル名（既定 `smoke.jin`。README の動画は `paddle.jin` を渡して画面に出る名前を実物に合わせる）。
+ */
+export async function startEditor(
+	source: string,
+	name = "smoke.jin",
+): Promise<RunningEditor> {
 	const dir = mkdtempSync(join(tmpdir(), "jin-editor-e2e-"));
-	const file = join(dir, "smoke.jin");
+	const file = join(dir, name);
 	writeFileSync(file, source, "utf8");
 
 	const child = spawn("uv", ["run", "jin", "editor", file, "--no-browser"], {
