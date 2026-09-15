@@ -97,6 +97,24 @@ def test_numstr_matches_python_repr_for_random_values(prelude) -> None:
         assert prelude.NUMSTR(x) == expected_numstr(x), x
 
 
+def test_numstr_matches_the_shared_fixture(prelude) -> None:
+    """`tests/fixtures/numbers.jsonl`（`scripts/generate_number_fixture.py`）は Lua 経路の出力が正で、wasm-GC 経路
+    （`packages/jin-wasmgc/tests/test_numbers.py`）が同じ文字列を出すことを固定する共有 fixture（jil.md §6.4）。
+    repr との差は 2 の冪（往復の区間が非対称な値）だけ（`%.{p}e` の探索の既知の差）。
+    """
+    from pathlib import Path
+
+    fixture = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "numbers.jsonl"
+    rows = [json.loads(line) for line in fixture.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) >= 700
+    for row in rows:
+        x = float.fromhex(row["hex"])
+        assert prelude.NUMSTR(x) == row["str"], row
+        assert row["repr"] == expected_numstr(x), row
+        if row["str"] != row["repr"]:
+            assert abs(x) == 2.0 ** math.floor(math.log2(abs(x))), row
+
+
 def test_numstr_special_values(prelude) -> None:
     assert prelude.NUMSTR(float("nan")) == "NaN"
     assert prelude.NUMSTR(float("inf")) == "Infinity"
