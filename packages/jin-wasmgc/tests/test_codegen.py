@@ -1,4 +1,4 @@
-"""codegen（v2 → WAT）: スナップショット・非対応の構文の拒み方・決定性・module の形（jil.md §6）。
+"""codegen（v2 → WAT）: スナップショット・全 fixture の生成・決定性・module の形（jil.md §6）。
 
 スナップショットは `__snapshots__/test_codegen.ambr`（syrupy）。生成部の形を変えたら
 `uv run pytest packages/jin-wasmgc --snapshot-update` で更新し、**差分を読んでから**コミットする。
@@ -15,7 +15,6 @@ import pytest
 from jin_core.check import check_file, check_text
 from jin_core.v2.model import JinFileV2
 from jin_wasm.jil import JIL_VERSION
-from jin_wasm.program import CodegenError
 from jin_wasmgc.assemble import GAME_WASM, TARGET, assemble, runtime_source
 from jin_wasmgc.codegen import DATA_BASE, generate_program, wat_number, wat_string
 from jin_wasmgc.runtime import EXPORTS
@@ -89,8 +88,23 @@ def test_wat_string_escapes_everything_but_printable_ascii(text: str, expected: 
 # ---------------------------------------------------------------- スナップショットと決定性
 
 
-def test_fib_program_snapshot(snapshot) -> None:
-    assert generate_program(load(FIB)) == snapshot
+EXAMPLE_NAMES = ["fib", "paddle", "clicker"]
+PROGRAM_NAMES = sorted(p.stem for p in PROGRAMS.glob("*.jin"))
+
+
+def fixture_path(name: str) -> Path:
+    return (
+        (EXAMPLES / name / f"{name}.jin")
+        if (EXAMPLES / name).is_dir()
+        else PROGRAMS / f"{name}.jin"
+    )
+
+
+@pytest.mark.parametrize("name", EXAMPLE_NAMES)
+@pytest.mark.parametrize("debug", [True, False], ids=["debug", "release"])
+def test_program_snapshot(name: str, debug: bool, snapshot) -> None:
+    """生成部のスナップショット（Lua 側と同じ 3 本 × debug / release。wait の状態機械の形は仕様にせずここで固定する）。"""
+    assert generate_program(load(fixture_path(name)), debug=debug) == snapshot
 
 
 def test_two_assemblies_are_byte_identical() -> None:
@@ -210,41 +224,38 @@ def test_names_appear_only_in_the_data_section() -> None:
     assert "$S0" in program and "$r0_0" in program and "$l0" in program
 
 
-# ---------------------------------------------------------------- 非対応の構文は Sub-Issue を名指しして拒む
+# ---------------------------------------------------------------- 全 fixture が両ビルドで assemble できる（#75）
 
 
-@pytest.mark.parametrize(
-    ("name", "issue"),
-    [
-        ("paddle", "#75"),  # flow
-        ("clicker", "#75"),  # 核が wait を含む
-        ("emit_message", "#75"),
-        ("wait_until", "#75"),
-        ("transfer", "#75"),
-        ("summon", "#75"),
-        ("agent", "#75"),
-    ],
-)
-def test_unsupported_programs_name_the_sub_issue(name: str, issue: str) -> None:
-    path = (
-        (EXAMPLES / name / f"{name}.jin")
-        if (EXAMPLES / name).is_dir()
-        else PROGRAMS / f"{name}.jin"
-    )
-    with pytest.raises(CodegenError, match=issue):
-        generate_program(load(path))
-
-
-def test_debug_build_is_refused_until_sub_issue_c() -> None:
-    with pytest.raises(CodegenError, match="#75"):
-        generate_program(load(FIB), debug=True)
-
-
-@pytest.mark.parametrize(
-    "name",
-    ["key_pointer", "storage", "text_input", "each_list", "bad_color", "runtime_error_index"],
-)
-def test_the_sub_issue_b_fixtures_assemble(name: str) -> None:
-    game = assemble(load(PROGRAMS / f"{name}.jin"), source_name=f"{name}.jin")
+@pytest.mark.parametrize("name", [*EXAMPLE_NAMES, *PROGRAM_NAMES])
+@pytest.mark.parametrize("debug", [True, False], ids=["debug", "release"])
+def test_every_example_and_fixture_assembles(name: str, debug: bool) -> None:
+    game = assemble(load(fixture_path(name)), source_name=f"{name}.jin", debug=debug)
     module = Module(Engine(), game.wasm)
     assert module.imports == [] and {e.name for e in module.exports} == set(EXPORTS)
+    assert game.manifest["debug"] is debug
+
+
+def test_release_generates_no_trace_rows_and_debug_does() -> None:
+    release = generate_program(load(fixture_path("paddle")))
+    debug = generate_program(load(fixture_path("paddle")), debug=True)
+    assert "(call $row " not in release and "(global $DEBUG i32 (i32.const 0))" in release
+    assert "(call $row " in debug and "(global $DEBUG i32 (i32.const 1))" in debug
+    assert "$restore" not in release and "$restore1" in debug  # resume の読み手は debug だけ
+
+
+def test_only_rites_that_can_wait_get_a_frame() -> None:
+    """wait の閉包（`jin_wasm.program.rite_waits`）に入る手順だけが `$W<i>_<j>` のフレームと `$r<i>_<j>w` になる。"""
+    program = generate_program(load(fixture_path("clicker")))
+    assert (
+        "(type $W0_0 (struct" in program and "(func $r0_0w (param $fr (ref $W0_0))" in program
+    )  # grow
+    assert "$W0_1" not in program and "(func $r0_1 " in program  # screen は普通の関数
+    fib = generate_program(load(FIB))
+    assert "$W" not in fib and "$prog_resume" in fib
+
+
+def test_every_example_and_fixture_generates_in_debug_too() -> None:
+    """#75 で生成できない構文は無くなった（プレイヤー同梱と --single は #76・CLI 側が断る）。"""
+    for name in [*EXAMPLE_NAMES, *PROGRAM_NAMES]:
+        generate_program(load(fixture_path(name)), debug=True)

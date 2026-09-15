@@ -133,7 +133,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 | v2.1 | エディタの図の操作（Shift クリックの範囲で `wrapSteps` / `extractRite` を `count` > 1・列を跨ぐステップのドラッグは `removeStep` + `addStep` の合成・陣を陣 / 手順に落として `addDelegate` / `addSigil` の `summon`） | 実装済み |
 | v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
-| v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75〜#76 は未着手） |
+| v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 は未着手） |
 
 ### Jin v2.1（`--target wasm-gc`・`jin-wasmgc`）の要点（正典は `docs/spec/v2/jil.md` §6・設計書 §11 #56・`wasmgc-api-probe.md`）
 
@@ -177,18 +177,31 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   error 行になるが wasm に nil は無い。Sub-Issue ではなく恒久。JIN213 / JIN202 はこの形を落とさない）
 - `.jin` の `%` は Lua の `luai_nummod`（`$fmod` を b·2^k の引き算で正確に求めてから符号を b に合わせる）。
   `loop count` の回数は f64 のまま比べる（`i32.trunc` は NaN / 巨大な値で trap する）
-- **非対応の構文は `CodegenError` が Sub-Issue を名指しする**（`wait` / `emit` / `transfer` / flow / root 以外の陣の
-  `on` / summon / agent / debug は #75、プレイヤーと `--single` は #76）。`on key` / `on pointer` / `on tick` の配達は
-  root だけ生成部の `$prog_dispatch` が持つ（#75 で ORDER に広げる）。
+- **スケジューラはランタイム部が陣の添字で持ち、生成部は「添字 → 陣ごとの関数」の振り分けを出す**（Issue #75）。
+  陣の生存（status / paused / pending / cursor / delegate / published）は `runtime.wat` の配列（boot で `$N` の
+  大きさに確保。ランタイム部の global は後ろに来る生成部の `$N` を定数式で参照できない）、tick の手順（配達 / 再開 /
+  イベント / 確定 / 検査 / 進行・`ADVANCE_LIMIT` 1000）/ `ORDER` / `ENTER` / `FINISH` / `TRANSFER` / `EMIT` / `ASK` /
+  `snapshot` / `restore_from` / `repair_flows` はプレリュードの写し。生成部が出す `$prog_*`（`flow` / `child` / `init` /
+  `publish` / `core` / `has_on` / `on_*` / `deliver` / `reply` / `resume` / `until` / `name` / `find` / `guards` / `dump` /
+  `restore` …）の一覧は `runtime.wat` の先頭コメント。`event` / `rite` / `cast` / `set` / `transfer` / `finish` / `assert`
+  行は生成部が、`enter` / `exit` / `emit` / `wait` / `error` / `frame` 行はランタイム部が積む（`$row`。kind は番号）
+- **`wait` は早送りの状態機械**（jil.md §6.5）: 閉包に入る手順だけ局所をフレーム `$W<i>_<j>` に持ち上げ、
+  `$r<i>_<j>w(frame)` が毎 tick 先頭から `pc` まで早送りする（`if` の cond は評価せず再開点の枝へ・再開点を含まない
+  loop は loop ごと飛ばす・含む loop はヘッダを飛ばす）。`until` は最も内側のフレームで評価（`$u<n>`）。
+  **早送り中に再開点を含まない loop に入ると抜けられない**（ヘッダを飛ばすため。`test_wait_ticks_and_until_inside_loops…`
+  が固定する）
+- **`jin_wasmgc.runtime.run_headless_wasm` は `answer` / `replay` を `jin_wasm.runtime.answer_asks` で処理する**
+  （v1 の陣への問いの答えを次の tick の `reply` に積む実装は 1 つ。再実装しない）
+- 生成できない構文は無くなった。プレイヤー同梱と `--single` は #76（CLI が名指しして断る）。
   release の manifest は共通部 + `target: "wasm-gc"` + `wasm`（sha256）で `jil` は無い。**Lua 経路の manifest に
   `target` は足さない**（無ければ `"lua"`）。`--target wasm-gc` の `jin build` はプレイヤーのビルド物を書かない
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasmgc --snapshot-update`
-  （`packages/jin-wasmgc/tests/__snapshots__/`・fib の release）。パリティは `tests/contract/test_wasmgc_parity.py`
-  （`jin run --target lua` と `--target wasm-gc` を実プロセスで走らせる。A は fib の標準出力、B は `key_pointer` /
-  `storage` / `text_input` / `each_list` / `bad_color` / `runtime_error_index` の release `--frames` のバイト一致 +
-  実行時エラーの行）。単体では `packages/jin-wasmgc/tests/test_runtime.py` が**生の tick 結果の文字列**を Lua と
-  比べる（`json.loads` を通すと 1 / 1.0 とエスケープの違いが消える）。ランタイム部の内側は `tests/conftest.py` の
-  `Probe`（test だけの export を足した module）で叩く
+  （`packages/jin-wasmgc/tests/__snapshots__/`・Lua 側と同じ 3 本 × debug / release）。パリティは
+  `tests/contract/test_wasmgc_parity.py`（`jin run --target lua` と `--target wasm-gc` を実プロセスで走らせ、17 本
+  × release / debug の `--frames` / `--trace` のバイト一致 + 実行時エラーの行 + `paddle-v2.jsonl` の全行一致）。
+  単体では `packages/jin-wasmgc/tests/test_runtime.py` が**生の tick 結果の文字列**（trace / snapshot / asks 込み）を
+  Lua と比べる（`json.loads` を通すと 1 / 1.0 とエスケープの違いが消える）。ランタイム部の内側は `tests/conftest.py` の
+  `Probe`（test だけの export を足した module）で叩く。resume は `packages/jin-wasmgc/tests/test_resume.py`
 
 ### Jin v2（汎用ビジュアル言語・wasm 実行）の要点
 
@@ -536,7 +549,7 @@ uv run jin fmt --check examples           # examples が正準形か
 uv run jin check examples-v2 && uv run jin fmt --check examples-v2   # Jin v2 の例（examples/ の外に置く。設計書 §11 #18）
 uv run jin schema --version 2             # Jin v2 の JSON Schema（CI が schemas/jin-v2.schema.json と diff する）
 uv run jin run examples-v2/paddle/paddle.jin --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # Jin v2 のヘッドレス実行（lupa。標準出力は最後の公開 state）
-uv run jin run tests/fixtures/v2-programs/storage.jin --target wasm-gc --ticks 5 --frames /tmp/f.jsonl --storage /tmp/m.json   # 同（wasm-GC を wasmtime で。#74 時点は wait / flow / emit の無い陣）
+uv run jin run examples-v2/paddle/paddle.jin --target wasm-gc --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # 同（wasm-GC を wasmtime で。trace / frames は Lua 経路とバイト一致）
 uv run python scripts/generate_number_fixture.py --check   # 数値の書式の共有 fixture（tests/fixtures/numbers.jsonl）がずれていないか
 uv run jin build examples-v2/fib/fib.jin --target wasm-gc --out /tmp/dist-gc   # game.wasm + game.manifest.json（target: "wasm-gc"。プレイヤーは #76）
 uv run jin run tests/fixtures/v2-programs/storage.jin --ticks 3 --storage /tmp/memory.json   # 同（記憶を実行をまたいで読み書き。2 回目は runs が 2）

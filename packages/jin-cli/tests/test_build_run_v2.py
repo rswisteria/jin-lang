@@ -155,13 +155,36 @@ def test_run_with_the_wasm_gc_target_writes_frames(tmp_path: Path) -> None:
     ]
 
 
+def test_run_wasm_gc_writes_the_same_trace_and_frames_as_lua(tmp_path: Path) -> None:
+    """`--target wasm-gc --debug --trace --frames`（#75）: Lua 経路とバイト一致し、標準出力も同じ。"""
+    outputs = {}
+    for target in ("lua", "wasm-gc"):
+        trace = tmp_path / f"{target}.t.jsonl"
+        frames = tmp_path / f"{target}.f.jsonl"
+        result = invoke(
+            "run",
+            PADDLE,
+            "--target",
+            target,
+            "--ticks",
+            "4",
+            "--seed",
+            "3",
+            "--trace",
+            trace,
+            "--frames",
+            frames,
+        )
+        assert result.exit_code == 0, result.output
+        outputs[target] = (result.stdout, trace.read_bytes(), frames.read_bytes())
+    assert outputs["wasm-gc"] == outputs["lua"]
+    rows = [json.loads(line) for line in outputs["wasm-gc"][1].decode("utf-8").splitlines()]
+    assert rows[0]["kind"] == "enter" and rows[0]["seq"] == 0 and rows[-1]["kind"] == "frame"
+
+
 @pytest.mark.parametrize(
     ("args", "issue"),
     [
-        (("run", FIB, "--target", "wasm-gc", "--debug"), "#75"),
-        (("run", FIB, "--target", "wasm-gc", "--trace", "x"), "#75"),
-        (("run", PADDLE, "--target", "wasm-gc"), "#75"),
-        (("build", PADDLE, "--target", "wasm-gc", "--out", "x"), "#75"),
         (("build", FIB, "--target", "wasm-gc", "--out", "x", "--single"), "#76"),
     ],
 )
