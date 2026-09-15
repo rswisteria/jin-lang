@@ -8,7 +8,7 @@
 /** 表示リスト / 音リストの 1 要素 `[op, ...args]`（abilities.md §2 / §5）。 */
 export type Op = readonly [string, ...(string | number)[]];
 
-/** `game.manifest.json`（`jin_wasm.codegen` が書く）。 */
+/** `game.manifest.json`（`jin_wasm.codegen` / `jin_wasmgc.assemble` が書く）。 */
 export interface Manifest {
 	readonly file: string;
 	readonly stage: {
@@ -24,7 +24,15 @@ export interface Manifest {
 		readonly path: string;
 	}[];
 	readonly debug: boolean;
-	readonly jil: string;
+	/** JIL の sha256（Lua 経路だけ）。 */
+	readonly jil?: string;
+	/**
+	 * 生成系（jil.md §6.8・v2.1 Issue #53）。無ければ `"lua"`（`game.lua` を Wasmoon で）、`"wasm-gc"` なら
+	 * `game.wasm` を `WasmGcHost` で走らせる。`Player` はどちらかを知らない。
+	 */
+	readonly target?: "lua" | "wasm-gc";
+	/** `game.wasm` の sha256（wasm-gc だけ）。 */
+	readonly wasm?: string;
 	/**
 	 * 状態を保った差し替え（runtime.md §1）: 直前の `tick` 結果の `snapshot` をそのまま渡すと、`boot` は
 	 * 陣を名前で照合して状態を続ける。`game.manifest.json` には無く、プレイヤーが差し替えのときにだけ足す。
@@ -117,10 +125,16 @@ export interface TickResult {
 	readonly resume?: ResumeNote;
 }
 
-/** `--single` が `index.html` に埋める束（runtime.md §9）。 */
-export interface SingleBundle {
-	readonly jil: string;
-	readonly manifest: Manifest;
-	/** `wasmoon.wasm` の base64。 */
-	readonly wasm: string;
-}
+/** `--single` が `index.html` に埋める束（runtime.md §9・jil.md §6.8）。Lua 経路は JIL + Wasmoon、wasm-gc は `game.wasm`。 */
+export type SingleBundle =
+	| {
+			readonly jil: string;
+			readonly manifest: Manifest;
+			/** `wasmoon.wasm` の base64。 */
+			readonly wasm: string;
+	  }
+	| {
+			readonly manifest: Manifest;
+			/** `game.wasm` の base64。 */
+			readonly game: string;
+	  };

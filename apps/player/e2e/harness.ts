@@ -104,8 +104,15 @@ export function buildPaddleWithPlayer(): { dir: string; dist: string } {
 	return buildWithPlayer(PADDLE);
 }
 
-/** 任意の v2 の `.jin` を `jin build --debug` して、プレイヤーの 3 ファイルを隣に置く。 */
-export function buildWithPlayer(jinFile: string): {
+/**
+ * 任意の v2 の `.jin` を `jin build --debug` して、プレイヤーの 3 ファイルを隣に置く。
+ * `extra` は `jin build` へ足す引数（`--target wasm-gc` など）。wasm-gc でも `wasmoon.wasm` を置くのは
+ * 「置いてあっても読まない」ことを見るため（`jin build` 自身は wasm-gc で書かない・jil.md §6.8）。
+ */
+export function buildWithPlayer(
+	jinFile: string,
+	extra: readonly string[] = [],
+): {
 	dir: string;
 	dist: string;
 } {
@@ -119,7 +126,7 @@ export function buildWithPlayer(jinFile: string): {
 	const dir = mkdtempSync(join(tmpdir(), "jin-player-e2e-"));
 	const dist = join(dir, "dist");
 	mkdirSync(dist);
-	jin(["build", jinFile, "--out", dist, "--debug"]);
+	jin(["build", jinFile, "--out", dist, "--debug", ...extra]);
 	for (const name of PLAYER_FILES) {
 		copyFileSync(join(PLAYER_DIST, name), join(dist, name));
 	}

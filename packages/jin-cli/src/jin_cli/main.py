@@ -992,8 +992,8 @@ def _build_v2(
 ) -> None:
     """v2: JIL のバンドルを `<out>/` に書く（runtime.md §9）。
 
-    `target == "wasm-gc"` なら `game.lua` の代わりに `game.wasm`（jil.md §6.8。プレイヤーの同梱と
-    `--single` は #76）。
+    `target == "wasm-gc"` なら `game.lua` の代わりに `game.wasm`（jil.md §6.8。プレイヤーは `index.html` /
+    `player.js` だけ・`--single` は `game.wasm` を base64 で埋める）。
     """
     program: tuple[str, bytes] | None = None
     try:

@@ -193,6 +193,67 @@ def test_bundle_single_writes_one_index_html_with_everything_embedded(
     assert base64.b64decode(bundle["wasm"]) == b"\x00asm\x01\x00\x00\x00"
 
 
+class _WasmGame:
+    """`jin_wasmgc.assemble.GeneratedWasm` の形（`Bundleable`）。jin-wasm のテストは jin_wasmgc を import しない。"""
+
+    def __init__(self) -> None:
+        self.manifest = {
+            **{k: v for k, v in game().manifest.items() if k != "jil"},
+            "target": "wasm-gc",
+            "wasm": "0" * 64,
+        }
+        self.debug = False
+
+
+WASM_BYTES = b"\x00asm\x01\x00\x00\x00\x00game"
+
+
+def test_bundle_with_a_program_writes_the_player_without_wasmoon(
+    tmp_path: Path, fake_player: Path
+) -> None:
+    """jil.md §6.8: wasm-gc のバンドルは `game.wasm` + プレイヤー（`wasmoon.wasm` は書かない）。"""
+    out = tmp_path / "dist"
+    result = write_bundle(_WasmGame(), out, source=FIB, program=("game.wasm", WASM_BYTES))
+    assert [p.name for p in result.written] == [
+        "game.wasm",
+        "game.manifest.json",
+        "index.html",
+        "player.js",
+    ]
+    assert result.notes == []
+    assert (out / "game.wasm").read_bytes() == WASM_BYTES
+    assert not (out / "wasmoon.wasm").exists() and not (out / "game.lua").exists()
+    manifest = json.loads((out / "game.manifest.json").read_text(encoding="utf-8"))
+    assert manifest["target"] == "wasm-gc" and "jil" not in manifest
+
+
+def test_bundle_with_a_program_notes_the_missing_player(tmp_path: Path, no_player: Path) -> None:
+    result = write_bundle(
+        _WasmGame(), tmp_path / "dist", source=FIB, program=("game.wasm", WASM_BYTES)
+    )
+    assert [p.name for p in result.written] == ["game.wasm", "game.manifest.json"]
+    assert result.notes and "sync_player.py" in result.notes[0]
+
+
+def test_bundle_single_with_a_program_embeds_the_game_bytes(
+    tmp_path: Path, fake_player: Path
+) -> None:
+    """jil.md §6.8: `--single` の wasm-gc 版は `JIN_BUNDLE = { manifest, game: base64 }`（`jil` も `wasmoon.wasm` も無い）。"""
+    out = tmp_path / "dist"
+    result = write_bundle(
+        _WasmGame(), out, source=FIB, single=True, program=("game.wasm", WASM_BYTES)
+    )
+    assert [p.name for p in result.written] == ["index.html"]
+    html = (out / "index.html").read_text(encoding="utf-8")
+    assert 'console.log("player", window.JIN_BUNDLE);' in html
+    start = html.index("window.JIN_BUNDLE = ") + len("window.JIN_BUNDLE = ")
+    end = html.index(";</script>", start)
+    bundle = json.loads(html[start:end])
+    assert set(bundle) == {"manifest", "game"}
+    assert bundle["manifest"]["target"] == "wasm-gc"
+    assert base64.b64decode(bundle["game"]) == WASM_BYTES
+
+
 def test_bundle_single_cannot_be_closed_early_by_a_script_tag_in_the_jil(
     tmp_path: Path, fake_player: Path
 ) -> None:

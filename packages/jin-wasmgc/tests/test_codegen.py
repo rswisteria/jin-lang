@@ -181,7 +181,7 @@ def test_runtime_strings_stay_below_the_program_data_base() -> None:
     assert max(off + len(raw) for off, raw in segments.items()) <= DATA_BASE
     for expected in (b"NaN", b"Infinity", b"true", b"false", b"null", b'{"ops":[', b'],"audio":['):
         assert expected in segments.values(), expected
-    # 番地 + 長さの組はすべて data 区画の文字列（手で振った定数がずれていない）
+    # 番地 + 長さの組はすべて data 区画の文字列（生成器が振った番地が、生成物の中で辻褄が合っている）
     pairs = re.findall(
         r"\(call \$(?:puts|mem_str) \(i32\.const (\d+)\) \(i32\.const (\d+)\)\)", source
     )
@@ -195,6 +195,31 @@ def test_runtime_strings_stay_below_the_program_data_base() -> None:
             length,
         )
     assert "$put_jn" in source  # 生成部の pub_i が呼ぶ JSON の数値（JN 相当）
+
+
+def test_runtime_wat_is_generated_from_its_parts() -> None:
+    """`runtime.wat` は `scripts/generate_runtime_wat.py` の生成物（手で編集しない）。CI の diff と 2 重の網。"""
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[3]
+    check = subprocess.run(
+        [sys.executable, str(repo / "scripts" / "generate_runtime_wat.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+    assert "scripts/generate_runtime_wat.py" in runtime_source()
+    # 生成器の DATA_BASE は codegen.DATA_BASE と手で揃えた重複（生成器は jin_wasmgc を import しない）
+    script = (repo / "scripts" / "generate_runtime_wat.py").read_text(encoding="utf-8")
+    assert f"DATA_BASE = {DATA_BASE}\n" in script
+    assert (repo / "packages" / "jin-wasmgc" / "runtime" / "strings.json").is_file()
+    ci = (repo / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert (
+        "uv run python scripts/generate_runtime_wat.py --stdout "
+        "| diff -u packages/jin-wasmgc/src/jin_wasmgc/runtime.wat -"
+    ) in ci
 
 
 def test_program_data_starts_at_the_base_and_the_input_area_follows() -> None:

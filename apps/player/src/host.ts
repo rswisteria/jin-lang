@@ -22,10 +22,37 @@
  * エンジンごと落ちる。probe §A.11）。`manifest` に載る `snapshot`（状態を保った差し替え・
  * runtime.md §1）は核なし陣の `state` / `delegate` が `null` なので、`boot` に渡す前に
  * `null` を欄ごと落として `nil` に見せる（`withoutNulls`）。
+ *
+ * ## wasm-GC（`WasmGcHost`・jil.md §6.2・v2.1 Issue #53 / #76）
+ *
+ * `--target wasm-gc` の `game.wasm` は import を持たず（ホストを呼ばない）、export は `memory` / `input(n)` /
+ * `boot(n)` / `tick(n) -> (ptr, len)` の 4 つ。引数も戻りも UTF-8 の JSON 1 本を線形メモリで越える:
+ * `TextEncoder` で先にバイト列を作り → `input(n)` で入力域をもらい → **その後に** `memory.buffer` を取って書く
+ * （`input` が `memory.grow` すると前の `ArrayBuffer` は detach される。probe A.5）→ `boot` / `tick` を呼ぶ →
+ * `tick` の `(ptr, len)` を `TextDecoder` で読んで `JSON.parse`。結果は次の呼び出しまでしか有効でないので
+ * 読み終えてから次を呼ぶ。実行時のエラーは module の中で `error` 行になって返るので、wasm の trap
+ * （`WebAssembly.RuntimeError`）は生成系のバグであり `HostError` で止める。サンドボックスの手続きは無い
+ * （消すグローバルも hook も無い。上限は module 内のカウンタ・jil.md §6.6）。
+ * `Player` はどちらのホストかを知らない（`Host`）。
  */
 import { LuaFactory, type LuaEngine } from "wasmoon";
 
 import type { Inputs, Manifest, TickResult } from "./types";
+
+/** `Player` が呼ぶホストの口（runtime.md §1）。Wasmoon の `JinHost` と wasm-GC の `WasmGcHost` が同じ形を持つ。 */
+export interface Host {
+	boot(seed: number, manifest: Manifest): void;
+	tick(t: number, inputs: Inputs): TickResult;
+	close(): void;
+}
+
+/** wasm-GC の module がホストに見せる export（jil.md §6.2。`jin_wasmgc.runtime.EXPORTS` と同じ 4 つ）。 */
+export const WASMGC_EXPORTS: readonly string[] = [
+	"memory",
+	"input",
+	"boot",
+	"tick",
+];
 
 /** JIL を読む前に消すグローバル（runtime.md §8 / §10。`jin_wasm.runtime.SANDBOX_REMOVED` と同じ）。 */
 export const SANDBOX_REMOVED: readonly string[] = [
@@ -89,7 +116,7 @@ function message(error: unknown): string {
 }
 
 /** 1 本の JIL を読み、`boot` / `tick` だけを呼ぶ。 */
-export class JinHost {
+export class JinHost implements Host {
 	private constructor(private readonly lua: LuaEngine) {}
 
 	/**
@@ -174,4 +201,105 @@ export class JinHost {
 	close(): void {
 		this.lua.global.close();
 	}
+}
+
+interface WasmGcExports {
+	readonly memory: WebAssembly.Memory;
+	input(n: number): number;
+	boot(n: number): void;
+	tick(n: number): unknown;
+}
+
+/** 1 本の `game.wasm` を instantiate し、`boot` / `tick` を JSON の詰め替えで呼ぶ（jil.md §6.2）。 */
+export class WasmGcHost implements Host {
+	private readonly encoder = new TextEncoder();
+	private readonly decoder = new TextDecoder("utf-8", { fatal: true });
+
+	private constructor(private readonly exports: WasmGcExports) {}
+
+	/** @param game `game.wasm` のバイト列（fetch の `arrayBuffer()` か、`--single` の base64 を戻したもの） */
+	static async create(game: BufferSource): Promise<WasmGcHost> {
+		let instance: WebAssembly.Instance;
+		try {
+			// import は空（module はホストを呼ばない・jil.md §6.2）。CompileError / LinkError もここで受ける
+			({ instance } = await WebAssembly.instantiate(game, {}));
+		} catch (error) {
+			throw new HostError(`game.wasm を読めません: ${message(error)}`);
+		}
+		const exports = instance.exports as Record<string, unknown>;
+		const missing = WASMGC_EXPORTS.filter((name) => !(name in exports));
+		if (missing.length > 0) {
+			throw new HostError(
+				`game.wasm に export ${missing.join(" / ")} がありません（jil.md §6.2）`,
+			);
+		}
+		if (
+			!(exports["memory"] instanceof WebAssembly.Memory) ||
+			typeof exports["input"] !== "function" ||
+			typeof exports["boot"] !== "function" ||
+			typeof exports["tick"] !== "function"
+		) {
+			throw new HostError(
+				"game.wasm の export memory / input / boot / tick の形が違います（jil.md §6.2）",
+			);
+		}
+		return new WasmGcHost(exports as unknown as WasmGcExports);
+	}
+
+	/**
+	 * JSON を入力域に書いて `fn(n)` を呼ぶ。バイト列を先に作り、`input(n)` の**後**に `memory.buffer` を取る
+	 * （`input` が `memory.grow` すると前の buffer は detach される。probe A.5）。
+	 */
+	private call<T>(fn: (n: number) => T, payload: unknown, label: string): T {
+		const bytes = this.encoder.encode(JSON.stringify(payload));
+		try {
+			const ptr = this.exports.input(bytes.length);
+			new Uint8Array(this.exports.memory.buffer, ptr, bytes.length).set(bytes);
+			return fn(bytes.length);
+		} catch (error) {
+			throw new HostError(`${label} に失敗しました: ${message(error)}`);
+		}
+	}
+
+	boot(seed: number, manifest: Manifest): void {
+		this.call(this.exports.boot, { seed: Math.trunc(seed), manifest }, "boot");
+	}
+
+	tick(t: number, inputs: Inputs): TickResult {
+		const returned = this.call(
+			this.exports.tick,
+			{ t: Math.trunc(t), inputs },
+			`tick ${t}`,
+		);
+		if (
+			!Array.isArray(returned) ||
+			returned.length !== 2 ||
+			!returned.every((v) => Number.isInteger(v) && v >= 0)
+		) {
+			throw new HostError(
+				`tick ${t} の戻り値が (先頭, 長さ) ではありません（${JSON.stringify(returned)}）`,
+			);
+		}
+		const [ptr, length] = returned as [number, number];
+		let text: string;
+		try {
+			text = this.decoder.decode(
+				new Uint8Array(this.exports.memory.buffer, ptr, length),
+			);
+		} catch (error) {
+			throw new HostError(
+				`tick ${t} の戻り値を UTF-8 として読めません: ${message(error)}`,
+			);
+		}
+		try {
+			return JSON.parse(text) as TickResult;
+		} catch (error) {
+			throw new HostError(
+				`tick ${t} の戻り値を JSON として読めません: ${message(error)}`,
+			);
+		}
+	}
+
+	/** 手放すだけ（instance は GC に任せる）。 */
+	close(): void {}
 }
