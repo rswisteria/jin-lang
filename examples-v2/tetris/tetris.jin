@@ -762,6 +762,41 @@
           ]
         },
         {
+          "name": "paintColor",
+          "params": [
+            {
+              "name": "c",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "200",
+              "steps": [
+                {
+                  "do": "if",
+                  "cond": "board[i] == c + 1",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "canvas.rect",
+                      "args": [
+                        "8 + i % 10 * 8",
+                        "8 + floor(i / 10) * 8",
+                        "7",
+                        "7"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "paintBoard",
           "steps": [
             {
@@ -808,35 +843,21 @@
             {
               "do": "loop",
               "kind": "count",
-              "name": "i",
-              "times": "200",
+              "name": "c",
+              "times": "7",
               "steps": [
                 {
-                  "do": "let",
-                  "name": "v",
-                  "expr": "board[i]"
+                  "do": "cast",
+                  "target": "canvas.ink",
+                  "args": [
+                    "colors[c]"
+                  ]
                 },
                 {
-                  "do": "if",
-                  "cond": "v != 0",
-                  "then": [
-                    {
-                      "do": "cast",
-                      "target": "canvas.ink",
-                      "args": [
-                        "colors[v - 1]"
-                      ]
-                    },
-                    {
-                      "do": "cast",
-                      "target": "canvas.rect",
-                      "args": [
-                        "8 + i % 10 * 8",
-                        "8 + floor(i / 10) * 8",
-                        "7",
-                        "7"
-                      ]
-                    }
+                  "do": "cast",
+                  "target": "paintColor",
+                  "args": [
+                    "c"
                   ]
                 }
               ]

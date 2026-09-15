@@ -626,11 +626,11 @@
       end
     end
     do
-      R[2][9]()
+      R[2][10]()
       if STOP(2) then return end
     end
     do
-      R[2][10]()
+      R[2][11]()
       if STOP(2) then return end
     end
   end
@@ -669,110 +669,123 @@
       if STOP(2) then return end
     end
   end
-  R[2][9] = function()  -- paintBoard
-    local rr_ = TR(2, "paintBoard", "/circles/1/rites/8", '[]')
+  R[2][9] = function(l_0)  -- paintColor
+    local rr_ = TR(2, "paintColor", "/circles/1/rites/8", '[' .. JV(l_0) .. ']')
     do
-      local a_1 = "#101418"
-      local c_2 = T("cast", 2, "canvas.clear", "/circles/1/rites/8/steps/0", '[' .. JV(a_1) .. ']', nil)
-      H.canvas.clear(a_1)
-    end
-    do
-      local a_3 = "#2a3340"
-      local c_4 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/1", '[' .. JV(a_3) .. ']', nil)
-      H.canvas.ink(a_3)
-    end
-    do
-      local a_5, a_6, a_7, a_8 = 6.0, 6.0, 84.0, 164.0
-      local c_9 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/2", '[' .. JV(a_5) .. ',' .. JV(a_6) .. ',' .. JV(a_7) .. ',' .. JV(a_8) .. ']', nil)
-      H.canvas.rect(a_5, a_6, a_7, a_8)
-    end
-    do
-      local a_10 = "#000"
-      local c_11 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/3", '[' .. JV(a_10) .. ']', nil)
-      H.canvas.ink(a_10)
-    end
-    do
-      local a_12, a_13, a_14, a_15 = 8.0, 8.0, 80.0, 160.0
-      local c_16 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/4", '[' .. JV(a_12) .. ',' .. JV(a_13) .. ',' .. JV(a_14) .. ',' .. JV(a_15) .. ']', nil)
-      H.canvas.rect(a_12, a_13, a_14, a_15)
-    end
-    do
-      local n_17 = math.floor(200.0)
-      for i_18 = 0, n_17 - 1 do
-        local l_0 = i_18 + 0.0
-        local l_1 = AT(S[2].k_0, l_0)
-        if (l_1 ~= 0.0) then
+      local n_1 = math.floor(200.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_1 = i_2 + 0.0
+        if (AT(S[2].k_0, l_1) == (l_0 + 1.0)) then
           do
-            local a_19 = AT(S[2].k_10, (l_1 - 1.0))
-            local c_20 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/5/steps/1/then/0", '[' .. JV(a_19) .. ']', nil)
-            H.canvas.ink(a_19)
-          end
-          do
-            local a_21, a_22, a_23, a_24 = (8.0 + ((l_0 % 10.0) * 8.0)), (8.0 + (F.floor((l_0 / 10.0)) * 8.0)), 7.0, 7.0
-            local c_25 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/5/steps/1/then/1", '[' .. JV(a_21) .. ',' .. JV(a_22) .. ',' .. JV(a_23) .. ',' .. JV(a_24) .. ']', nil)
-            H.canvas.rect(a_21, a_22, a_23, a_24)
-          end
-        end
-      end
-    end
-    local l_2 = S[2].k_1.f_0
-    local l_3 = S[2].k_1.f_1
-    do
-      local a_26 = AT(S[2].k_10, l_2)
-      local c_27 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/8", '[' .. JV(a_26) .. ']', nil)
-      H.canvas.ink(a_26)
-    end
-    do
-      local n_28 = math.floor(4.0)
-      for i_29 = 0, n_28 - 1 do
-        local l_4 = i_29 + 0.0
-        local l_5 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0)))
-        local l_6 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0) + 1.0)))
-        if (l_6 >= 0.0) then
-          do
-            local a_30, a_31, a_32, a_33 = (8.0 + (l_5 * 8.0)), (8.0 + (l_6 * 8.0)), 7.0, 7.0
-            local c_34 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/9/steps/2/then/0", '[' .. JV(a_30) .. ',' .. JV(a_31) .. ',' .. JV(a_32) .. ',' .. JV(a_33) .. ']', nil)
-            H.canvas.rect(a_30, a_31, a_32, a_33)
+            local a_3, a_4, a_5, a_6 = (8.0 + ((l_1 % 10.0) * 8.0)), (8.0 + (F.floor((l_1 / 10.0)) * 8.0)), 7.0, 7.0
+            local c_7 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/0/steps/0/then/0", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ',' .. JV(a_5) .. ',' .. JV(a_6) .. ']', nil)
+            H.canvas.rect(a_3, a_4, a_5, a_6)
           end
         end
       end
     end
   end
-  R[2][10] = function()  -- paintPanel
-    local rr_ = TR(2, "paintPanel", "/circles/1/rites/9", '[]')
+  R[2][10] = function()  -- paintBoard
+    local rr_ = TR(2, "paintBoard", "/circles/1/rites/9", '[]')
+    do
+      local a_1 = "#101418"
+      local c_2 = T("cast", 2, "canvas.clear", "/circles/1/rites/9/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.clear(a_1)
+    end
+    do
+      local a_3 = "#2a3340"
+      local c_4 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/1", '[' .. JV(a_3) .. ']', nil)
+      H.canvas.ink(a_3)
+    end
+    do
+      local a_5, a_6, a_7, a_8 = 6.0, 6.0, 84.0, 164.0
+      local c_9 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/2", '[' .. JV(a_5) .. ',' .. JV(a_6) .. ',' .. JV(a_7) .. ',' .. JV(a_8) .. ']', nil)
+      H.canvas.rect(a_5, a_6, a_7, a_8)
+    end
+    do
+      local a_10 = "#000"
+      local c_11 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/3", '[' .. JV(a_10) .. ']', nil)
+      H.canvas.ink(a_10)
+    end
+    do
+      local a_12, a_13, a_14, a_15 = 8.0, 8.0, 80.0, 160.0
+      local c_16 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/4", '[' .. JV(a_12) .. ',' .. JV(a_13) .. ',' .. JV(a_14) .. ',' .. JV(a_15) .. ']', nil)
+      H.canvas.rect(a_12, a_13, a_14, a_15)
+    end
+    do
+      local n_17 = math.floor(7.0)
+      for i_18 = 0, n_17 - 1 do
+        local l_0 = i_18 + 0.0
+        do
+          local a_19 = AT(S[2].k_10, l_0)
+          local c_20 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/5/steps/0", '[' .. JV(a_19) .. ']', nil)
+          H.canvas.ink(a_19)
+        end
+        do
+          local a_21 = l_0
+          R[2][9](a_21)
+          if STOP(2) then return end
+        end
+      end
+    end
+    local l_1 = S[2].k_1.f_0
+    local l_2 = S[2].k_1.f_1
+    do
+      local a_22 = AT(S[2].k_10, l_1)
+      local c_23 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/8", '[' .. JV(a_22) .. ']', nil)
+      H.canvas.ink(a_22)
+    end
+    do
+      local n_24 = math.floor(4.0)
+      for i_25 = 0, n_24 - 1 do
+        local l_3 = i_25 + 0.0
+        local l_4 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0)))
+        local l_5 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0) + 1.0)))
+        if (l_5 >= 0.0) then
+          do
+            local a_26, a_27, a_28, a_29 = (8.0 + (l_4 * 8.0)), (8.0 + (l_5 * 8.0)), 7.0, 7.0
+            local c_30 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/9/steps/2/then/0", '[' .. JV(a_26) .. ',' .. JV(a_27) .. ',' .. JV(a_28) .. ',' .. JV(a_29) .. ']', nil)
+            H.canvas.rect(a_26, a_27, a_28, a_29)
+          end
+        end
+      end
+    end
+  end
+  R[2][11] = function()  -- paintPanel
+    local rr_ = TR(2, "paintPanel", "/circles/1/rites/10", '[]')
     do
       local a_1 = "#c8d0dc"
-      local c_2 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/0", '[' .. JV(a_1) .. ']', nil)
+      local c_2 = T("cast", 2, "canvas.ink", "/circles/1/rites/10/steps/0", '[' .. JV(a_1) .. ']', nil)
       H.canvas.ink(a_1)
     end
     do
       local a_3, a_4, a_5 = "SCORE", 100.0, 8.0
-      local c_6 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/1", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ',' .. JV(a_5) .. ']', nil)
+      local c_6 = T("cast", 2, "canvas.text", "/circles/1/rites/10/steps/1", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ',' .. JV(a_5) .. ']', nil)
       H.canvas.text(a_3, a_4, a_5)
     end
     do
       local a_7, a_8, a_9 = F.str(S[2].k_3), 100.0, 18.0
-      local c_10 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/2", '[' .. JV(a_7) .. ',' .. JV(a_8) .. ',' .. JV(a_9) .. ']', nil)
+      local c_10 = T("cast", 2, "canvas.text", "/circles/1/rites/10/steps/2", '[' .. JV(a_7) .. ',' .. JV(a_8) .. ',' .. JV(a_9) .. ']', nil)
       H.canvas.text(a_7, a_8, a_9)
     end
     do
       local a_11, a_12, a_13 = "LINES", 100.0, 36.0
-      local c_14 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/3", '[' .. JV(a_11) .. ',' .. JV(a_12) .. ',' .. JV(a_13) .. ']', nil)
+      local c_14 = T("cast", 2, "canvas.text", "/circles/1/rites/10/steps/3", '[' .. JV(a_11) .. ',' .. JV(a_12) .. ',' .. JV(a_13) .. ']', nil)
       H.canvas.text(a_11, a_12, a_13)
     end
     do
       local a_15, a_16, a_17 = F.str(S[2].k_4), 100.0, 46.0
-      local c_18 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/4", '[' .. JV(a_15) .. ',' .. JV(a_16) .. ',' .. JV(a_17) .. ']', nil)
+      local c_18 = T("cast", 2, "canvas.text", "/circles/1/rites/10/steps/4", '[' .. JV(a_15) .. ',' .. JV(a_16) .. ',' .. JV(a_17) .. ']', nil)
       H.canvas.text(a_15, a_16, a_17)
     end
     do
       local a_19, a_20, a_21 = "NEXT", 100.0, 64.0
-      local c_22 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/5", '[' .. JV(a_19) .. ',' .. JV(a_20) .. ',' .. JV(a_21) .. ']', nil)
+      local c_22 = T("cast", 2, "canvas.text", "/circles/1/rites/10/steps/5", '[' .. JV(a_19) .. ',' .. JV(a_20) .. ',' .. JV(a_21) .. ']', nil)
       H.canvas.text(a_19, a_20, a_21)
     end
     do
       local a_23 = AT(S[2].k_10, S[2].k_2)
-      local c_24 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/6", '[' .. JV(a_23) .. ']', nil)
+      local c_24 = T("cast", 2, "canvas.ink", "/circles/1/rites/10/steps/6", '[' .. JV(a_23) .. ']', nil)
       H.canvas.ink(a_23)
     end
     do
@@ -781,7 +794,7 @@
         local l_0 = i_26 + 0.0
         do
           local a_27, a_28, a_29, a_30 = (100.0 + (AT(S[2].k_9, (((S[2].k_2 * 16.0) + l_0) * 2.0)) * 8.0)), (76.0 + (AT(S[2].k_9, ((((S[2].k_2 * 16.0) + l_0) * 2.0) + 1.0)) * 8.0)), 7.0, 7.0
-          local c_31 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/7/steps/0", '[' .. JV(a_27) .. ',' .. JV(a_28) .. ',' .. JV(a_29) .. ',' .. JV(a_30) .. ']', nil)
+          local c_31 = T("cast", 2, "canvas.rect", "/circles/1/rites/10/steps/7/steps/0", '[' .. JV(a_27) .. ',' .. JV(a_28) .. ',' .. JV(a_29) .. ',' .. JV(a_30) .. ']', nil)
           H.canvas.rect(a_27, a_28, a_29, a_30)
         end
       end
@@ -1262,9 +1275,9 @@
       R[2][8]()
       if STOP(2) then return end
     end
-    R[2][9]()
-    if STOP(2) then return end
     R[2][10]()
+    if STOP(2) then return end
+    R[2][11]()
     if STOP(2) then return end
   end
   R[2][7] = function()  -- fall
@@ -1290,39 +1303,48 @@
     R[2][4]()
     if STOP(2) then return end
   end
-  R[2][9] = function()  -- paintBoard
+  R[2][9] = function(l_0)  -- paintColor
+    do
+      local n_1 = math.floor(200.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_1 = i_2 + 0.0
+        if (AT(S[2].k_0, l_1) == (l_0 + 1.0)) then
+          H.canvas.rect((8.0 + ((l_1 % 10.0) * 8.0)), (8.0 + (F.floor((l_1 / 10.0)) * 8.0)), 7.0, 7.0)
+        end
+      end
+    end
+  end
+  R[2][10] = function()  -- paintBoard
     H.canvas.clear("#101418")
     H.canvas.ink("#2a3340")
     H.canvas.rect(6.0, 6.0, 84.0, 164.0)
     H.canvas.ink("#000")
     H.canvas.rect(8.0, 8.0, 80.0, 160.0)
     do
-      local n_1 = math.floor(200.0)
+      local n_1 = math.floor(7.0)
       for i_2 = 0, n_1 - 1 do
         local l_0 = i_2 + 0.0
-        local l_1 = AT(S[2].k_0, l_0)
-        if (l_1 ~= 0.0) then
-          H.canvas.ink(AT(S[2].k_10, (l_1 - 1.0)))
-          H.canvas.rect((8.0 + ((l_0 % 10.0) * 8.0)), (8.0 + (F.floor((l_0 / 10.0)) * 8.0)), 7.0, 7.0)
-        end
+        H.canvas.ink(AT(S[2].k_10, l_0))
+        R[2][9](l_0)
+        if STOP(2) then return end
       end
     end
-    local l_2 = S[2].k_1.f_0
-    local l_3 = S[2].k_1.f_1
-    H.canvas.ink(AT(S[2].k_10, l_2))
+    local l_1 = S[2].k_1.f_0
+    local l_2 = S[2].k_1.f_1
+    H.canvas.ink(AT(S[2].k_10, l_1))
     do
       local n_3 = math.floor(4.0)
       for i_4 = 0, n_3 - 1 do
-        local l_4 = i_4 + 0.0
-        local l_5 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0)))
-        local l_6 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0) + 1.0)))
-        if (l_6 >= 0.0) then
-          H.canvas.rect((8.0 + (l_5 * 8.0)), (8.0 + (l_6 * 8.0)), 7.0, 7.0)
+        local l_3 = i_4 + 0.0
+        local l_4 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0)))
+        local l_5 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0) + 1.0)))
+        if (l_5 >= 0.0) then
+          H.canvas.rect((8.0 + (l_4 * 8.0)), (8.0 + (l_5 * 8.0)), 7.0, 7.0)
         end
       end
     end
   end
-  R[2][10] = function()  -- paintPanel
+  R[2][11] = function()  -- paintPanel
     H.canvas.ink("#c8d0dc")
     H.canvas.text("SCORE", 100.0, 8.0)
     H.canvas.text(F.str(S[2].k_3), 100.0, 18.0)
