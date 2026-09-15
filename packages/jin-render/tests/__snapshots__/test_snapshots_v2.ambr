@@ -75,6 +75,65 @@
   
   '''
 # ---
+# name: test_example_svg_snapshot[othello]
+  '''
+  <svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+    <g data-jin="/stage" data-jin-kind="stage" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+      <path data-jin="/stage" data-jin-kind="stage" d="M 28.000 28.000 L 972.000 28.000 L 972.000 972.000 L 28.000 972.000 Z"/>
+      <text data-jin="/stage" data-jin-kind="stage" x="500.000" y="14.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">224×176 @30</text>
+    </g>
+    <g data-jin="/circles/0" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+      <path data-jin="/circles/0/flow" data-jin-kind="flow-edge" d="M 500.000 360.960 L 500.000 592.000 M 490.000 572.000 L 500.000 592.000 L 510.000 572.000"/>
+      <path data-jin="/circles/0/flow" data-jin-kind="flow-edge" d="M 500.000 592.000 L 500.000 360.960 M 510.000 380.960 L 500.000 360.960 L 490.000 380.960"/>
+      <path data-jin="/circles/0/flow/exit" data-jin-kind="flow-edge" d="M 500.000 480.000 L 520.000 500.000 L 500.000 520.000 L 480.000 500.000 Z"/>
+      <g data-jin="/circles/0/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/1">
+        <circle data-jin="/circles/0/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/1" cx="500.000" cy="280.000" r="80.960"/>
+        <g data-jin="/circles/1" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/1/flow/steps/0" data-jin-kind="flow-edge" data-jin-ref="/circles/2" cx="500.000" cy="218.400" r="3.360"/>
+          <circle data-jin="/circles/1/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/3" cx="553.347" cy="310.800" r="3.360"/>
+          <circle data-jin="/circles/1/flow/steps/2" data-jin-kind="flow-edge" data-jin-ref="/circles/4" cx="446.653" cy="310.800" r="3.360"/>
+        </g>
+      </g>
+      <g data-jin="/circles/0/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/5">
+        <circle data-jin="/circles/0/flow/steps/1" data-jin-kind="flow-edge" data-jin-ref="/circles/5" cx="500.000" cy="720.000" r="128.000"/>
+        <g data-jin="/circles/5" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+          <circle data-jin="/circles/5" data-jin-kind="circle" cx="500.000" cy="720.000" r="39.200"/>
+          <circle data-jin="/circles/5" data-jin-kind="circle" cx="500.000" cy="720.000" r="61.600"/>
+          <circle data-jin="/circles/5" data-jin-kind="circle" cx="500.000" cy="720.000" r="84.000"/>
+          <circle data-jin="/circles/5" data-jin-kind="circle" cx="500.000" cy="720.000" r="106.400"/>
+          <line data-jin="/circles/5/sigils/0" data-jin-kind="sigil" x1="500.000" y1="706.560" x2="500.000" y2="665.120"/>
+          <line data-jin="/circles/5/sigils/1" data-jin-kind="sigil" x1="500.000" y1="733.440" x2="500.000" y2="774.880"/>
+          <line data-jin="/circles/5/core" data-jin-kind="core" x1="500.000" y1="706.560" x2="500.000" y2="688.640"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="500.000" cy="720.000" r="13.440"/>
+          <text data-jin="/circles/5/core" data-jin-kind="core" x="500.000" y="720.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="5.040" text-anchor="middle" dominant-baseline="central">show</text>
+          <circle data-jin="/circles/5/sigils/0" data-jin-kind="sigil" cx="500.000" cy="658.400" r="6.720"/>
+          <text data-jin="/circles/5/sigils/0" data-jin-kind="sigil" x="500.000" y="658.400" stroke="none" fill="#000000" font-family="sans-serif" font-size="6.720" text-anchor="middle" dominant-baseline="central">C</text>
+          <circle data-jin="/circles/5/sigils/1" data-jin-kind="sigil" cx="500.000" cy="781.600" r="6.720"/>
+          <text data-jin="/circles/5/sigils/1" data-jin-kind="sigil" x="500.000" y="781.600" stroke="none" fill="#000000" font-family="sans-serif" font-size="6.720" text-anchor="middle" dominant-baseline="central">U</text>
+          <circle data-jin="/circles/5/rites/0" data-jin-kind="rite" cx="500.000" cy="680.800" r="7.840"/>
+          <text data-jin="/circles/5/rites/0" data-jin-kind="rite" x="500.000" y="680.800" stroke="none" fill="#000000" font-family="sans-serif" font-size="6.720" text-anchor="middle" dominant-baseline="central">S</text>
+          <circle data-jin="/circles/5/rites/1" data-jin-kind="rite" cx="533.948" cy="739.600" r="7.840"/>
+          <text data-jin="/circles/5/rites/1" data-jin-kind="rite" x="533.948" y="739.600" stroke="none" fill="#000000" font-family="sans-serif" font-size="6.720" text-anchor="middle" dominant-baseline="central">M</text>
+          <circle data-jin="/circles/5/rites/2" data-jin-kind="rite" cx="466.052" cy="739.600" r="7.840"/>
+          <text data-jin="/circles/5/rites/2" data-jin-kind="rite" x="466.052" y="739.600" stroke="none" fill="#000000" font-family="sans-serif" font-size="6.720" text-anchor="middle" dominant-baseline="central">S</text>
+          <path data-jin="/circles/5/state/0" data-jin-kind="state" d="M 505.600 630.400 L 505.600 641.600 L 494.400 641.600 L 494.400 630.400 Z"/>
+          <path data-jin="/circles/5/state/0" data-jin-kind="state" d="M 503.584 632.416 L 503.584 639.584 L 496.416 639.584 L 496.416 632.416 Z"/>
+          <path data-jin="/circles/5/boundary/on/0" data-jin-kind="on" d="M 500.000 608.000 L 505.600 613.600 L 500.000 619.200 L 494.400 613.600 Z"/>
+          <text data-jin="/circles/5/boundary/on/0" data-jin-kind="on" x="500.000" y="613.600" stroke="none" fill="#000000" font-family="sans-serif" font-size="4.480" text-anchor="middle" dominant-baseline="central">T</text>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="496.076" cy="697.385" r="1.805" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="527.850" cy="701.391" r="1.946" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="501.512" cy="689.231" r="1.871" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="479.108" cy="704.506" r="1.445" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="493.021" cy="694.779" r="1.555" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="470.772" cy="728.866" r="1.937" stroke="none" fill="#000000"/>
+          <circle data-jin="/circles/5/core" data-jin-kind="core" cx="496.990" cy="744.402" r="1.568" stroke="none" fill="#000000"/>
+        </g>
+      </g>
+    </g>
+  </svg>
+  
+  '''
+# ---
 # name: test_example_svg_snapshot[paddle]
   '''
   <svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">

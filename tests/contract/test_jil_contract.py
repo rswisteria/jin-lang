@@ -25,7 +25,8 @@ from jin_wasm.prelude import prelude_source
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCES = sorted(
     [
-        *(REPO_ROOT / "examples-v2").rglob("*.jin"),
+        # examples-v2 の直下の `.jin` だけ（`othello/agents/rival.jin` は v1 の陣で JIL にはならない）
+        *(REPO_ROOT / "examples-v2").glob("*/*.jin"),
         *(REPO_ROOT / "tests/fixtures/v2-programs").glob("*.jin"),
     ]
 )

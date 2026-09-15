@@ -1,0 +1,21 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
+  "version": 1,
+  "root": "Rival",
+  "circles": [
+    {
+      "name": "Rival",
+      "core": "gemini-2.5-flash",
+      "instruction": {
+        "rune": "You are the O player in a game of Othello (Reversi). The user message shows the board (columns a-h from left, rows 1-8 from top; X is the opponent, O is you, . is empty) and the list of your legal moves. Choose the strongest legal move. Reply with exactly one move in the form d3 and nothing else."
+      },
+      "state": [
+        {
+          "name": "move",
+          "type": "str",
+          "out": true
+        }
+      ]
+    }
+  ]
+}

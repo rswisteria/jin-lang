@@ -34,6 +34,7 @@ v2 のサンプルは `examples-v2/` にあります。
 - [Fib](examples-v2/fib/fib.jin)：記憶環と手順だけの最小構成。`jin run` の標準出力に公開 state が出ます。
 - [Paddle](examples-v2/paddle/paddle.jin)：矢印キーでパドルを動かす。陣の `flow`（Play → Result のループ）、`wait` を含む手順、`audio` の例。
 - [Clicker](examples-v2/clicker/clicker.jin)：`ui.button` で押すボタンと `random`、`wait` で待つ手順の例。
+- [Othello](examples-v2/othello/othello.jin)：相手が **v1 の陣（LLM エージェント）** のオセロ。`agent` の道具で隣の [`agents/rival.jin`](examples-v2/othello/agents/rival.jin) に盤面と合法手を問い、答え（`d3` のような座標）を読んで打つ。ブラウザのプレイヤーは問いに答えないので、そこでは 2 秒待って内蔵の AI（取れる石が最多の手）が代わりに打つ。盤面の規則は `Board` 陣に置き、`Play` から `summon` で呼ぶ。
 - [Tetris](examples-v2/tetris/tetris.jin)：10×20 の盤面を `list<num>` で持ち、型紙 `Piece` と 7 種のミノの表、`wait` で刻む重力、`random`、行消去を組み合わせたゲーム。上の動画の題材。 9 段階で作り上げるプログラミング入門教材は [テトリスを作りながらプログラミングを学ぶ](docs/tetris-tutorial.md) を参照。
 
 v2 の実行パネルはプレイヤー（`apps/player`）のビルド物を使うので、[エディタの実行方法](#エディタの実行方法) のセットアップに加えてプレイヤーもビルドしてから開きます。
@@ -50,6 +51,9 @@ uv run jin run examples-v2/paddle/paddle.jin --ticks 300 --trace /tmp/t.jsonl   
 uv run jin run examples-v2/paddle/paddle.jin --target wasm-gc --ticks 300 --trace /tmp/w.jsonl   # wasm-GC（wasmtime）。トレースは Lua と一致
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist          # game.lua + プレイヤー（静的サーバで開ける）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/single --single   # index.html 1 本
+echo '{"auto": "1"}' > /tmp/auto.json
+uv run jin run examples-v2/othello/othello.jin --model fake --storage /tmp/auto.json --ticks 400 --record /tmp/othello.jinrec   # LLM（fake）対 内蔵 AI。記憶 auto で X を自動にし、答えは録画の reply 行に残る
+uv run jin run examples-v2/othello/othello.jin --storage /tmp/auto.json --ticks 400 --record /tmp/othello.jinrec   # 実モデル（v1 と同じ環境変数で Gemini など）。録画はエディタの実行パネルで再生できる
 ```
 
 仕様は [設計書](docs/superpowers/specs/2026-09-13-jin-v2-general-design.md) と [`docs/spec/v2/`](docs/spec/v2/) にあります。動画は `cd apps/editor && pnpm demo` で撮り直せます（Playwright の収録を ffmpeg で GIF / MP4 に変換します）。

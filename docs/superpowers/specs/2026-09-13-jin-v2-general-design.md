@@ -103,6 +103,7 @@ jin/
     clicker/clicker.jin            # UI だけのゲーム(ui.button / ui.label)。wait を含むループの実例
     fib/fib.jin                    # 純粋な計算(§2.5)
     tetris/tetris.jin              # 後から足した 4 本目(10×20 の盤面を list<num> で持つ・型紙 Piece・wait の重力・random・行消去。README の動画の題材)
+    othello/othello.jin            # 後から足した 5 本目(相手が v1 の陣 = LLM のオセロ。agent の sigil・parallel の flow・summon・storage。agents/rival.jin が v1 側。答えを待つ上限は 60 tick = 2 秒(`Play.aiTurn` の `wait until`。ブラウザは答えないので必ず満了して内蔵 AI が打ち、ヘッドレスの答えは次 tick に来るので満了しない。人が「考えている間」と感じる長さとして決めた値)
   tests/fixtures/errors/v2/        # v2 の診断 fixture(各コードちょうど 1 つ。v1 の走査は非再帰なので混ざらない)
 ```
 

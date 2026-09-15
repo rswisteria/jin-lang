@@ -243,7 +243,7 @@ def test_input_text_reads_the_text_committed_in_the_tick() -> None:
 
 
 def test_there_are_four_v2_examples() -> None:
-    assert [p.stem for p in EXAMPLES_V2] == ["clicker", "fib", "paddle", "tetris"]
+    assert [p.stem for p in EXAMPLES_V2] == ["clicker", "fib", "othello", "paddle", "tetris"]
 
 
 @pytest.mark.parametrize("path", EXAMPLES_V2, ids=[p.stem for p in EXAMPLES_V2])

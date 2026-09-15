@@ -820,6 +820,13 @@ ALL_EVENTS = {
         {"tick": 70, "kind": "pointer", "x": 140, "y": 70, "down": True},
         {"tick": 71, "kind": "pointer", "x": 140, "y": 70, "down": False},
     ],
+    "othello": [
+        {"tick": 2, "kind": "pointer", "x": 64, "y": 48, "down": True},
+        {"tick": 3, "kind": "pointer", "x": 64, "y": 48, "down": False},
+        {"tick": 5, "kind": "reply", "id": 1, "text": "I take c3."},
+        {"tick": 10, "kind": "pointer", "x": 32, "y": 48, "down": True},
+        {"tick": 11, "kind": "pointer", "x": 32, "y": 48, "down": False},
+    ],
     "tetris": [
         {"tick": 4, "kind": "key", "name": "ArrowLeft", "down": True},
         {"tick": 5, "kind": "key", "name": "ArrowLeft", "down": False},
@@ -842,6 +849,7 @@ ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + [
     "paddle",
     "clicker",
     "tetris",
+    "othello",
 ]
 EXAMPLES = REPO_ROOT / "examples-v2"
 
@@ -857,7 +865,7 @@ def any_path(name: str) -> Path:
 @pytest.mark.parametrize("name", ALL_PROGRAMS)
 def test_every_program_gives_the_same_debug_tick_text_as_lua(name: str) -> None:
     """18 本すべての debug の tick 結果（trace / snapshot / asks / storage を含む JSON）が文字列で一致する。"""
-    ticks = {"paddle": 40, "clicker": 80, "tetris": 60}.get(name, 6)
+    ticks = {"paddle": 40, "clicker": 80, "tetris": 60, "othello": 40}.get(name, 6)
     lua, wasm = raw_ticks(
         load(any_path(name)),
         ticks=ticks,
