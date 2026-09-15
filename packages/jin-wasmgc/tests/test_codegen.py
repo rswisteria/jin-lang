@@ -211,6 +211,9 @@ def test_runtime_wat_is_generated_from_its_parts() -> None:
     )
     assert check.returncode == 0, check.stdout + check.stderr
     assert "scripts/generate_runtime_wat.py" in runtime_source()
+    # 生成器の DATA_BASE は codegen.DATA_BASE と手で揃えた重複（生成器は jin_wasmgc を import しない）
+    script = (repo / "scripts" / "generate_runtime_wat.py").read_text(encoding="utf-8")
+    assert f"DATA_BASE = {DATA_BASE}\n" in script
     assert (repo / "packages" / "jin-wasmgc" / "runtime" / "strings.json").is_file()
     ci = (repo / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert (
