@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+  <g data-jin="/stage" data-jin-kind="stage" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <path data-jin="/stage" data-jin-kind="stage" d="M 28.000 28.000 L 972.000 28.000 L 972.000 972.000 L 28.000 972.000 Z"/>
+    <text data-jin="/stage" data-jin-kind="stage" x="500.000" y="14.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">176×176 @30</text>
+    <path data-jin="/forms/0" data-jin-kind="form" d="M 38.000 38.000 L 66.000 38.000 L 66.000 66.000 L 38.000 66.000 Z"/>
+    <text data-jin="/forms/0" data-jin-kind="form" x="52.000" y="52.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">P</text>
+  </g>
+  <g data-jin="/circles/0/rites/7" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <circle data-jin="/circles/0/rites/7" data-jin-kind="circle" cx="500.000" cy="500.000" r="380.000"/>
+    <circle data-jin="/circles/0/rites/7" data-jin-kind="circle" cx="500.000" cy="500.000" r="300.000"/>
+    <circle data-jin="/circles/0/rites/7" data-jin-kind="circle" cx="500.000" cy="500.000" r="220.000"/>
+    <path data-jin="/circles/0/rites/7/steps/0" data-jin-kind="step-edge" d="M 512.000 140.785 L 817.090 669.215 M 798.429 656.895 L 817.090 669.215 L 815.750 646.895"/>
+    <path data-jin="/circles/0/rites/7/steps/1" data-jin-kind="step-edge" d="M 805.090 690.000 L 194.910 690.000 M 214.910 680.000 L 194.910 690.000 L 214.910 700.000"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/0" data-jin-kind="step-edge" d="M 791.275 471.541 L 763.975 626.365 M 757.600 604.932 L 763.975 626.365 L 777.296 608.405"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/1" data-jin-kind="step-edge" d="M 741.423 665.427 L 620.991 766.481 M 629.884 745.965 L 620.991 766.481 L 642.740 761.286"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/1/then/0" data-jin-kind="step-edge" d="M 685.062 620.684 L 613.534 760.540 M 613.738 738.180 L 613.534 760.540 L 631.544 747.287"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/2" data-jin-kind="step-edge" d="M 624.845 772.883 L 806.851 699.025 M 792.079 715.811 L 806.851 699.025 L 784.559 697.279"/>
+    <path data-jin="/circles/0/rites/7/steps/1" data-jin-kind="step" d="M 825.786 666.228 L 798.746 471.677"/>
+    <path data-jin="/circles/0/rites/7/steps/1" data-jin-kind="step" d="M 806.851 699.025 L 624.845 772.883"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/1" data-jin-kind="step" d="M 739.023 638.000 L 700.918 616.000"/>
+    <circle data-jin="/circles/0/rites/7/name" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+    <text data-jin="/circles/0/rites/7/name" data-jin-kind="core" x="500.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="18.000" text-anchor="middle" dominant-baseline="central">hardDrop</text>
+    <path data-jin="/circles/0/rites/7/steps/0" data-jin-kind="step" d="M 512.000 108.000 L 512.000 132.000 L 488.000 132.000 L 488.000 108.000 Z"/>
+    <path data-jin="/circles/0/rites/7/steps/1" data-jin-kind="step" d="M 829.090 670.000 L 846.410 700.000 L 811.769 700.000 Z"/>
+    <circle data-jin="/circles/0/rites/7/steps/1/steps/0" data-jin-kind="step" cx="795.442" cy="447.906" r="20.000"/>
+    <line data-jin="/circles/0/rites/7/steps/1/steps/0" data-jin-kind="step" x1="775.746" y1="451.379" x2="748.172" y2="456.241"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/1" data-jin-kind="step" d="M 759.808 630.000 L 779.808 650.000 L 759.808 670.000 L 739.808 650.000 Z"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/1/then/0" data-jin-kind="step" d="M 690.526 610.000 L 714.774 624.000 M 718.774 617.072 L 710.774 630.928"/>
+    <path data-jin="/circles/0/rites/7/steps/1/steps/2" data-jin-kind="step" d="M 590.653 807.542 L 576.972 769.954 L 614.559 756.274 L 628.240 793.861 Z"/>
+    <circle data-jin="/circles/0/rites/7/steps/2" data-jin-kind="step" cx="170.910" cy="690.000" r="20.000"/>
+    <line data-jin="/circles/0/rites/7/steps/2" data-jin-kind="step" x1="188.231" y1="680.000" x2="212.480" y2="666.000"/>
+  </g>
+<g data-tutorial="labels"><text x="500.000" y="86.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">1</text><text x="858.535" y="707.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2</text><text x="828.926" y="442.002" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2.1</text><text x="789.252" y="667.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2.2</text><text x="661.081" y="593.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2.2t1</text><text x="614.235" y="813.857" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2.3</text><text x="141.465" y="707.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">3</text></g>
+</svg>

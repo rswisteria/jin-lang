@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+  <g data-jin="/stage" data-jin-kind="stage" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <path data-jin="/stage" data-jin-kind="stage" d="M 28.000 28.000 L 972.000 28.000 L 972.000 972.000 L 28.000 972.000 Z"/>
+    <text data-jin="/stage" data-jin-kind="stage" x="500.000" y="14.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">176×176 @30</text>
+    <path data-jin="/forms/0" data-jin-kind="form" d="M 38.000 38.000 L 66.000 38.000 L 66.000 66.000 L 38.000 66.000 Z"/>
+    <text data-jin="/forms/0" data-jin-kind="form" x="52.000" y="52.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">P</text>
+  </g>
+  <g data-jin="/circles/0/rites/5" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <circle data-jin="/circles/0/rites/5" data-jin-kind="circle" cx="500.000" cy="500.000" r="380.000"/>
+    <circle data-jin="/circles/0/rites/5" data-jin-kind="circle" cx="500.000" cy="500.000" r="300.000"/>
+    <circle data-jin="/circles/0/rites/5" data-jin-kind="circle" cx="500.000" cy="500.000" r="220.000"/>
+    <path data-jin="/circles/0/rites/5/steps/0/steps/0" data-jin-kind="step-edge" d="M 500.000 176.000 L 500.000 144.000 M 510.000 164.000 L 500.000 144.000 L 490.000 164.000"/>
+    <path data-jin="/circles/0/rites/5/steps/0" data-jin-kind="step" d="M 500.000 144.000 L 500.000 176.000"/>
+    <path data-jin="/circles/0/rites/5/steps/0/steps/0" data-jin-kind="step" d="M 500.000 224.000 L 500.000 256.000"/>
+    <circle data-jin="/circles/0/rites/5/name" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+    <text data-jin="/circles/0/rites/5/name" data-jin-kind="core" x="500.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="18.000" text-anchor="middle" dominant-baseline="central">paintCo…</text>
+    <path data-jin="/circles/0/rites/5/steps/0" data-jin-kind="step" d="M 500.000 100.000 L 517.321 130.000 L 482.679 130.000 Z"/>
+    <path data-jin="/circles/0/rites/5/steps/0/steps/0" data-jin-kind="step" d="M 500.000 180.000 L 520.000 200.000 L 500.000 220.000 L 480.000 200.000 Z"/>
+    <circle data-jin="/circles/0/rites/5/steps/0/steps/0/then/0" data-jin-kind="step" cx="500.000" cy="280.000" r="20.000"/>
+    <line data-jin="/circles/0/rites/5/steps/0/steps/0/then/0" data-jin-kind="step" x1="500.000" y1="260.000" x2="500.000" y2="232.000"/>
+  </g>
+<g data-tutorial="labels"><text x="500.000" y="86.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">1</text><text x="500.000" y="166.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">1.1</text><text x="500.000" y="314.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">1.1t1</text></g>
+</svg>

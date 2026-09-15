@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+  <g data-jin="/stage" data-jin-kind="stage" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <path data-jin="/stage" data-jin-kind="stage" d="M 28.000 28.000 L 972.000 28.000 L 972.000 972.000 L 28.000 972.000 Z"/>
+    <text data-jin="/stage" data-jin-kind="stage" x="500.000" y="14.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">176×176 @30</text>
+  </g>
+  <g data-jin="/circles/0/rites/1" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <circle data-jin="/circles/0/rites/1" data-jin-kind="circle" cx="500.000" cy="500.000" r="380.000"/>
+    <path data-jin="/circles/0/rites/1/steps/0" data-jin-kind="step-edge" d="M 521.623 130.413 L 775.473 252.661 M 753.114 252.993 L 775.473 252.661 L 761.792 234.973"/>
+    <path data-jin="/circles/0/rites/1/steps/1" data-jin-kind="step-edge" d="M 802.436 286.472 L 865.132 561.160 M 850.932 543.886 L 865.132 561.160 L 870.431 539.436"/>
+    <path data-jin="/circles/0/rites/1/steps/2" data-jin-kind="step-edge" d="M 855.509 603.322 L 679.840 823.604 M 684.491 801.733 L 679.840 823.604 L 700.128 814.202"/>
+    <path data-jin="/circles/0/rites/1/steps/3" data-jin-kind="step-edge" d="M 640.876 842.368 L 359.124 842.368 M 379.124 832.368 L 359.124 842.368 L 379.124 852.368"/>
+    <path data-jin="/circles/0/rites/1/steps/4" data-jin-kind="step-edge" d="M 320.160 823.604 L 144.491 603.322 M 164.779 612.724 L 144.491 603.322 L 149.143 625.193"/>
+    <path data-jin="/circles/0/rites/1/steps/5" data-jin-kind="step-edge" d="M 134.868 561.160 L 197.564 286.472 M 202.862 308.196 L 197.564 286.472 L 183.364 303.745"/>
+    <circle data-jin="/circles/0/rites/1/name" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+    <text data-jin="/circles/0/rites/1/name" data-jin-kind="core" x="500.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="18.000" text-anchor="middle" dominant-baseline="central">paint</text>
+    <circle data-jin="/circles/0/rites/1/steps/0" data-jin-kind="step" cx="500.000" cy="120.000" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/0" data-jin-kind="step" x1="500.000" y1="100.000" x2="500.000" y2="72.000"/>
+    <circle data-jin="/circles/0/rites/1/steps/1" data-jin-kind="step" cx="797.096" cy="263.074" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/1" data-jin-kind="step" x1="812.733" y1="250.604" x2="834.624" y2="233.146"/>
+    <circle data-jin="/circles/0/rites/1/steps/2" data-jin-kind="step" cx="870.473" cy="584.558" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/2" data-jin-kind="step" x1="889.971" y1="589.008" x2="917.269" y2="595.239"/>
+    <circle data-jin="/circles/0/rites/1/steps/3" data-jin-kind="step" cx="664.876" cy="842.368" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/3" data-jin-kind="step" x1="673.553" y1="860.388" x2="685.702" y2="885.615"/>
+    <circle data-jin="/circles/0/rites/1/steps/4" data-jin-kind="step" cx="335.124" cy="842.368" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/4" data-jin-kind="step" x1="326.447" y1="860.388" x2="314.298" y2="885.615"/>
+    <circle data-jin="/circles/0/rites/1/steps/5" data-jin-kind="step" cx="129.527" cy="584.558" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/5" data-jin-kind="step" x1="110.029" y1="589.008" x2="82.731" y2="595.239"/>
+    <circle data-jin="/circles/0/rites/1/steps/6" data-jin-kind="step" cx="202.904" cy="263.074" r="20.000"/>
+    <line data-jin="/circles/0/rites/1/steps/6" data-jin-kind="step" x1="187.267" y1="250.604" x2="165.376" y2="233.146"/>
+  </g>
+<g data-tutorial="labels"><text x="500.000" y="86.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">1</text><text x="823.678" y="241.875" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2</text><text x="903.620" y="592.124" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">3</text><text x="679.628" y="873.001" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">4</text><text x="320.372" y="873.001" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">5</text><text x="96.380" y="592.124" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">6</text><text x="176.322" y="241.875" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">7</text></g>
+</svg>

@@ -567,6 +567,7 @@ uv run jin run examples-v2/paddle/paddle.jin --target wasm-gc --ticks 300 --trac
 uv run python scripts/generate_number_fixture.py --check   # 数値の書式の共有 fixture（tests/fixtures/numbers.jsonl）がずれていないか
 uv run jin build examples-v2/fib/fib.jin --target wasm-gc --out /tmp/dist-gc   # game.wasm + game.manifest.json（target: "wasm-gc"）+ 同梱していれば index.html / player.js（--single も可）
 uv run python scripts/generate_runtime_wat.py --check   # jin_wasmgc/runtime.wat が部品（packages/jin-wasmgc/runtime/）からの生成物とずれていないか
+uv run python scripts/generate_tutorial_figures.py --check   # docs/tetris-tutorial.md の図（docs/images/tutorial/*.svg + ステップの表）が段階サンプルからの生成物とずれていないか（--check 無しで書き直す）
 uv run jin run tests/fixtures/v2-programs/storage.jin --ticks 3 --storage /tmp/memory.json   # 同（記憶を実行をまたいで読み書き。2 回目は runs が 2）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json + 同梱していれば index.html / player.js / wasmoon.wasm）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/single --single   # 同（index.html 1 本。要 sync_player）
@@ -622,8 +623,11 @@ uv run jin editor examples-v2/paddle/paddle.jin --no-browser          # Jin v2 �
   テストは `jin_adk` を import できないのでこれを読む（実行結果との突合は `tests/contract/test_render_contract.py`）
 - `docs/samples/tetris/` — 入門教材 `docs/tetris-tutorial.md` の段階サンプル 9 本（`01-canvas` … `09-tetris`。**最終段は
   `examples-v2/tetris/tetris.jin` とバイト一致**なので tetris.jin を直したら `09-tetris.jin` も同じに直す）。
-  `tests/contract/test_docs_tetris_tutorial.py` が check / fmt / 90 tick の実行 / 本文の ```json 抜粋（`<!-- excerpt: … -->`
-  の直後）がサンプルの一部であること / 12 ステップ・3 段の上限を見る。`examples-v2/` の本数（4 本）には数えない
+  `tests/contract/test_docs_tetris_tutorial.py` が check / fmt / 90 tick の実行 / 本文の図がサンプルからの生成物と一致すること /
+  12 ステップ・3 段の上限を見る。`examples-v2/` の本数（4 本）には数えない。**本文のコード例は JSON ではなく図**:
+  `<!-- figure: <段階> <陣/手順> -->` … `<!-- /figure -->` の間（`jin render` の手順の図に番号ラベルを重ねた
+  `docs/images/tutorial/*.svg` + 番号 → 記号 → Do → 内容の表）は `uv run python scripts/generate_tutorial_figures.py`
+  の生成物で手で編集しない（`--check` を pytest が呼ぶ。ラベルの位置はレンダラの `place_block` / `geo.point` で求める）
 
 ## 書くときの約束
 

@@ -36,10 +36,10 @@ STAGES = [
     "09-tetris",
 ]
 
-#: 本文の抜粋の目印。この行の直後の ```json ブロックが、名指しされたファイルの一部であることを見る。
-EXCERPT = re.compile(
-    r"<!-- excerpt: (docs/samples/tetris/[\w.-]+\.jin) -->\n```json\n(.*?)```", re.DOTALL
-)
+#: 本文の図の目印。この行から `<!-- /figure -->` までは `scripts/generate_tutorial_figures.py` の生成物。
+FIGURE = re.compile(r"<!-- figure: ([\w-]+) ([^\n]+?) -->\n(.*?)<!-- /figure -->", re.DOTALL)
+GENERATOR = REPO_ROOT / "scripts" / "generate_tutorial_figures.py"
+IMAGES = REPO_ROOT / "docs" / "images" / "tutorial"
 
 
 def _jin(*args: str) -> subprocess.CompletedProcess[str]:
@@ -144,18 +144,38 @@ def test_each_stage_only_adds_to_the_previous_one() -> None:
         previous = current
 
 
-def test_the_excerpts_in_the_guide_are_copied_from_the_samples() -> None:
-    """本文の ```json 抜粋（`<!-- excerpt: … -->` の直後）が、名指しされたサンプルの一部である。
+def test_the_figures_in_the_guide_are_generated_from_the_samples() -> None:
+    """本文の図（`<!-- figure: … -->` の直後の SVG + ステップの一覧）が生成器の出力と一致する。
 
-    サンプルは正準形なので、コピーした抜粋なら行頭の空白を除いて一致する。字面がずれたら
-    サンプルを直した人が本文も直す（入門教材は抜粋の字面が命）。
+    教材はビジュアル言語のコード例を JSON ではなく `jin render` の図で示す。図は記号だけで式を持たないので、
+    生成器が番号のラベルと「番号 → 記号 → Do → 内容」の表を足す。サンプルを直したら
+    `uv run python scripts/generate_tutorial_figures.py` で図と本文を作り直す（`--check` がここ）。
     """
+    run = subprocess.run(
+        [sys.executable, "-P", str(GENERATOR), "--check"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        env=child_env(),
+        check=False,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+
+
+def test_every_figure_names_a_stage_and_an_existing_image() -> None:
+    """figure ブロックは段階ごとに 1 つ以上あり、参照する SVG が実在し、生成物の印を持つ。"""
     text = GUIDE.read_text(encoding="utf-8")
-    excerpts = EXCERPT.findall(text)
-    assert len(excerpts) >= len(STAGES), f"抜粋が少なすぎる: {len(excerpts)} 個"
-    for rel, body in excerpts:
-        source = _squash((REPO_ROOT / rel).read_text(encoding="utf-8"))
-        assert _squash(body) in source, f"{rel} に無い抜粋:\n{body}"
+    figures = FIGURE.findall(text)
+    assert len(figures) >= len(STAGES), f"図が少なすぎる: {len(figures)} 個"
+    stages_with_figures = {stage for stage, _, _ in figures}
+    assert stages_with_figures == set(STAGES)
+    for stage, spec, body in figures:
+        assert "手で編集しない" in body, (stage, spec)
+        images = re.findall(r'<img src="images/tutorial/([\w.-]+\.svg)"', body)
+        assert images, (stage, spec)
+        for name in images:
+            assert (IMAGES / name).exists(), name
+    assert "```json" not in text, "教材は JSON のコード例を持たない（図に置き換えた）"
 
 
 def test_the_stage_files_stay_within_the_language_limits_the_guide_teaches() -> None:

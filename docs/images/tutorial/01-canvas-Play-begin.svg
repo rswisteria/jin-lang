@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+  <g data-jin="/stage" data-jin-kind="stage" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <path data-jin="/stage" data-jin-kind="stage" d="M 28.000 28.000 L 972.000 28.000 L 972.000 972.000 L 28.000 972.000 Z"/>
+    <text data-jin="/stage" data-jin-kind="stage" x="500.000" y="14.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">176×176 @30</text>
+  </g>
+  <g data-jin="/circles/0/rites/0" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <path data-jin="/circles/0/rites/0" data-jin-kind="circle" d="M 552.886 123.698 C 750.525 151.474 892.996 327.412 879.074 526.507 C 865.152 725.603 699.581 880.000 500.000 880.000 C 300.419 880.000 134.848 725.603 120.926 526.507 C 107.004 327.412 249.475 151.474 447.114 123.698"/>
+    <path data-jin="/circles/0/rites/0/steps/0" data-jin-kind="step-edge" d="M 500.000 132.000 L 500.000 868.000 M 490.000 848.000 L 500.000 868.000 L 510.000 848.000"/>
+    <circle data-jin="/circles/0/rites/0/name" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+    <text data-jin="/circles/0/rites/0/name" data-jin-kind="core" x="500.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="18.000" text-anchor="middle" dominant-baseline="central">begin</text>
+    <path data-jin="/circles/0/rites/0/steps/0" data-jin-kind="step" d="M 450.454 147.465 L 443.774 99.932 M 549.546 147.465 L 556.226 99.932"/>
+    <path data-jin="/circles/0/rites/0/steps/1" data-jin-kind="step" d="M 500.000 880.000 L 500.000 908.000 M 508.000 908.000 L 492.000 908.000 M 508.000 900.000 L 492.000 900.000"/>
+  </g>
+<g data-tutorial="labels"><text x="500.000" y="86.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">1</text><text x="500.000" y="914.000" font-size="22.000" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#c0392b" stroke="#fff" stroke-width="7.700" paint-order="stroke">2</text></g>
+</svg>
