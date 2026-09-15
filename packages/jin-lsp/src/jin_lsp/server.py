@@ -47,6 +47,10 @@ logger = logging.getLogger(__name__)
 #: NFR-PERF-001 の計測にデバウンス値が混ざる）。
 DEBOUNCE_SECONDS = 0.15
 
+#: ws の 1 メッセージの上限（バイト）。`websockets` の既定 1 MiB は `jin/renderSvg` のトレース（録画の再生で
+#: 最大 60000 行・tetris のように 1 行が数百バイトになる .jin では数十 MB）に足りない。64 MiB。
+WS_MAX_MESSAGE_BYTES = 64 * 1024 * 1024
+
 #: 起動トークンを stderr に出すときの前置き。`jin editor`（Phase 5）はこの行を読む。
 TOKEN_PREFIX = "jin-lsp token: "
 
@@ -149,6 +153,11 @@ class JinLanguageServer(LanguageServer):
         同時に複数の接続を張ることは想定していない（`protocol` の writer が
         1 本しかないので、後から繋いだ側に応答が寄る）。ローカルの 1 ブラウザが
         相手という前提は `jin lsp --ws` と同じである。
+
+        **1 メッセージの上限は `WS_MAX_MESSAGE_BYTES`**（既定の 1 MiB ではない）。エディタは
+        `jin/renderSvg` にトレース行を丸ごと載せる（録画の再生は `MAX_REPLAY_ROWS` = 60000 行まで・
+        設計書 §11 #41）ので、1 MiB のままだと数千行で `websockets` が 1009 で接続を閉じ、
+        エディタは「表示できません: Connection is disposed」になる（tetris の録画で実測）。
         """
         from websockets.asyncio.server import serve
 
@@ -162,7 +171,12 @@ class JinLanguageServer(LanguageServer):
             )
 
         async def run() -> None:
-            async with await serve(handle, host, port) as server:  # type: ignore[arg-type]
+            async with await serve(
+                handle,  # type: ignore[arg-type]
+                host,
+                port,
+                max_size=WS_MAX_MESSAGE_BYTES,
+            ) as server:
                 await server.serve_forever()
 
         try:
@@ -485,6 +499,7 @@ __all__ = [
     "DEBOUNCE_SECONDS",
     "KNOWN_CODES",
     "TOKEN_PREFIX",
+    "WS_MAX_MESSAGE_BYTES",
     "JinLanguageServer",
     "create_server",
     "main",
