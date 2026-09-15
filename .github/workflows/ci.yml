@@ -312,11 +312,17 @@ jobs:
           test -f /tmp/jin-paddle-dist/player.js && test -f /tmp/jin-paddle-dist/wasmoon.wasm
           uv run jin build examples-v2/paddle/paddle.jin --out /tmp/jin-paddle-single --single
           test "$(ls /tmp/jin-paddle-single)" = "index.html"
+          # wasm-gc（jil.md §6.8・Issue #76）: game.wasm + index.html / player.js（wasmoon.wasm は書かない）。--single も
+          uv run jin build examples-v2/paddle/paddle.jin --target wasm-gc --out /tmp/jin-paddle-gc
+          test -f /tmp/jin-paddle-gc/game.wasm && test -f /tmp/jin-paddle-gc/player.js && test ! -e /tmp/jin-paddle-gc/wasmoon.wasm
+          uv run jin build examples-v2/paddle/paddle.jin --target wasm-gc --out /tmp/jin-paddle-gc-single --single
+          test "$(ls /tmp/jin-paddle-gc-single)" = "index.html"
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
       # パリティ層: 実ブラウザで録画 → jin run --input → トレース全行一致。--single も開く。
+      # wasm-gc（e2e/wasmgc.spec.ts）は game.wasm を WasmGcHost で走らせ、両経路の jin run --input と全行一致を見る。
       - name: Parity (Playwright)
         run: pnpm e2e
 

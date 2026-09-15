@@ -271,8 +271,10 @@ def test_ci_runs_the_player_gates() -> None:
         "scripts/sync_player.py",
         "JIN_REQUIRE_PLAYER",
         "--single",
+        "--target wasm-gc",
     ):
         assert needle in job, f"player ジョブに {needle} が無い"
+    assert (PLAYER / "e2e" / "wasmgc.spec.ts").is_file()
 
 
 def test_the_embedded_player_waits_for_the_parent_instead_of_fetching() -> None:
