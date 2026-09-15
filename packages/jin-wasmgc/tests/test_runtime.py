@@ -1164,6 +1164,70 @@ def test_guards_summon_and_emit_rows_match_lua() -> None:
     assert results[-1]["public"]["Main.text"] == "abababab2"
 
 
+def test_summon_into_a_done_circle_runs_the_nested_cast_to_the_end() -> None:
+    """中断検査は「この呼び出しで active でなくなった」ときだけ巻き戻す（Issue #89）。
+
+    Lib は parallel の 1 つ目で boot に finish している（done）。Main が summon する Lib.double は
+    自陣の bump を cast してから return する。呼ぶ前から done なので入れ子の cast の後で打ち切らない。
+    """
+    lib = core_circle(
+        "Lib",
+        [{"name": "calls", "type": "num", "init": "0", "out": True}],
+        [
+            {"name": "stop", "steps": [{"do": "finish"}]},
+            {"name": "bump", "steps": [{"do": "set", "target": "calls", "expr": "calls + 1"}]},
+            {
+                "name": "double",
+                "params": [{"name": "n", "type": "num"}],
+                "returns": "num",
+                "steps": [{"do": "cast", "target": "bump"}, {"do": "return", "expr": "n * 2"}],
+            },
+        ],
+    )
+    main = core_circle(
+        "Main",
+        [{"name": "result", "type": "num", "init": "0", "out": True}],
+        [
+            {
+                "name": "main",
+                "steps": [
+                    {"do": "cast", "target": "dbl", "args": ["21"], "into": "result"},
+                    {"do": "finish"},
+                ],
+            }
+        ],
+        sigils=[{"name": "dbl", "kind": "summon", "circle": "Lib", "rite": "double"}],
+    )
+    root = {"name": "Root", "flow": {"kind": "parallel", "steps": ["Lib", "Main"]}}
+    results = assert_same_text(circles_doc(root, lib, main, root="Root"), ticks=2)
+    rows = [r for res in results for r in res["trace"]]
+    exits = [(r["tick"], r["name"]) for r in rows if r["kind"] == "exit"]
+    assert exits == [(-1, "Lib"), (-1, "Main")]  # Lib は Main の核より先に done
+    assert results[-1]["public"] == {"Lib.calls": 1, "Main.result": 42}
+    rites = [(r["circle"], r["name"], r["output"]) for r in rows if r["kind"] == "rite"]
+    assert ("Lib", "double", 42) in rites and ("Lib", "bump", None) in rites
+
+
+def test_an_exit_handler_can_cast_its_own_rites_and_continue() -> None:
+    """FINISH は status を done にしてから on exit を走らせる。exit の手順の中の自陣への cast の後も
+    残りのステップが走る（呼ぶ前から done なので巻き戻さない。Issue #89）。"""
+    state = [
+        {"name": "a", "type": "num", "init": "0", "out": True},
+        {"name": "b", "type": "num", "init": "0", "out": True},
+    ]
+    rites = [
+        {"name": "mark", "steps": [{"do": "set", "target": "a", "expr": "1"}]},
+        {
+            "name": "bye",
+            "steps": [{"do": "cast", "target": "mark"}, {"do": "set", "target": "b", "expr": "2"}],
+        },
+    ]
+    model = program(state, [{"do": "finish"}], rites, on=[{"event": "exit", "rite": "bye"}])
+    results = assert_same_text(model, ticks=2)
+    sets = [(r["name"], r["output"]) for res in results for r in res["trace"] if r["kind"] == "set"]
+    assert sets == [("a", 1), ("b", 2)]
+
+
 def test_a_budget_hit_inside_a_waiting_rite_stops_both_paths_in_the_same_tick() -> None:
     main = {
         "name": "main",

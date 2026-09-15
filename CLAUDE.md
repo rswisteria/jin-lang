@@ -143,7 +143,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 - **`game.wasm` = ヘッダ 3 行 + `(module` + `jin_wasmgc/runtime.wat`（ランタイム部。プレリュードに相当・**生成物**）+
   生成部 + `)` を `wasmtime.wat2wasm` で束ねたもの**（`jin_wasmgc.assemble`）。自前の binary writer も `wasm-tools`
   も無い。`wat2wasm` は bytearray を返すので `bytes` にしてから bundle へ渡す。`jil` の版は Lua 経路と共有
-  （ヘッダ `;; jin: 2  jil: 6  target: wasm-gc`）
+  （ヘッダ `;; jin: 2  jil: 7  target: wasm-gc`）
 - **ホストが呼ぶ export は `input(n)` / `boot(n)` / `tick(n) -> (ptr, len)` の 3 つ**（`jin_wasmgc.runtime.WasmGcHost`）。
   引数は `{"seed", "manifest"}` / `{"t", "inputs"}` の JSON を線形メモリに書き、`tick` の結果を読む。`boot` に結果は
   無い。**instantiate も fuel を消費する**ので `Instance()` の前に `set_fuel` する。プレイヤー側は `apps/player/src/host.ts`
@@ -254,9 +254,9 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 - **JIL は Lua 5.4 の静的サブセット**（`jin_wasm.jil.JIL_FORBIDDEN` は jil.md §2 と等号）。`game.lua` =
   ヘッダ + `prelude.lua`（そのまま連結）+ 生成部 + `return { boot = boot, tick = tick }`。生成部が定義するのは
   `DEBUG` / `ROOT` / `FPS` / `CIRCLES[i]` / `R[i][j]` / `JF[k]` / `JR[k]`（型紙の読み手・debug だけ）だけで、
-  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **6**
+  プレリュード先頭のコメントと 1:1（`tests/contract/test_jil_contract.py` の `PROGRAM_ASSIGNMENTS`）。JIL の版は **7**
   （jil.md §1。v2.1 で `CIRCLES[i]` に `restore` / `prestore` / `pdump`、`tick` 結果に `snapshot` / `resume` が加わって 2、
-  プレリュードに `H.storage` / `F.num`、`tick` 結果に `storage` が加わって 3、プレリュードに `F.cmp` が加わって 4、`H.input.text` と `JS` の制御文字の範囲指定が加わって 5、`ASK`（v1 の陣への問い）と入力イベント `reply` の配達・`tick` 結果の `asks`・`snapshot` の `asked` が加わって 6。release の生成部は不変）。
+  プレリュードに `H.storage` / `F.num`、`tick` 結果に `storage` が加わって 3、プレリュードに `F.cmp` が加わって 4、`H.input.text` と `JS` の制御文字の範囲指定が加わって 5、`ASK`（v1 の陣への問い）と入力イベント `reply` の配達・`tick` 結果の `asks`・`snapshot` の `asked` が加わって 6、プレリュードに `LIVE` が加わり `STOP(i, live)` が「この呼び出しで active でなくなった」ときだけ真になって 7（Issue #87 / #89。生成部が自陣の手順への `cast` の前に `LIVE(i)` を局所に取る。release の生成部が動いた唯一の版）。**自陣の手順への `cast` の直後の中断検査は「呼ぶ前の生存」との比較**で、呼ぶ前から active でない陣（未 entered の summon の呼び先・done の陣・`on exit` の中）は止めない）。
   **名前を Lua の識別子に埋め込まない**（`S[i].k_j` / `R[i][j]` / `f_j` / `l_n`。添字は Lua の 1 始まり、pointer は 0 始まり）。
   `num` は常に float（`160.0`）。`tests/contract/test_jil_contract.py` がプレリュードと全生成物を走査する
 - **`jin run`（v2）は `agent` の sigil が無ければ任意コードを実行しない**（`agent` は下の「危険性」の段）。`lupa.lua54` を明示し（既定の `LuaRuntime` は Lua 5.5.1）、

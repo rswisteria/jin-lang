@@ -177,10 +177,11 @@
   R[1][2] = function()  -- main
     local rr_ = TR(1, "main", "/circles/0/rites/1", '[]')
     do
-      local a_1 = 20.0
-      local r_2 = R[1][1](a_1)
-      if STOP(1) then return end
-      S[1].k_0 = r_2
+      local a_2 = 20.0
+      local w_1 = LIVE(1)
+      local r_3 = R[1][1](a_2)
+      if STOP(1, w_1) then return end
+      S[1].k_0 = r_3
       TS(1, "answer", "/circles/0/rites/1/steps/0", JV(S[1].k_0))
     end
     T("finish", 1, nil, "/circles/0/rites/1/steps/1", nil, nil)
@@ -250,8 +251,9 @@
     S[3].k_4 = (-1.0)
     TS(3, "lastMove", "/circles/2/rites/1/steps/6", JV(S[3].k_4))
     do
+      local w_8 = LIVE(3)
       R[3][3]()
-      if STOP(3) then return end
+      if STOP(3, w_8) then return end
     end
   end
   R[3][3] = function()  -- count
@@ -307,21 +309,22 @@
         local l_3 = i_3 + 0.0
         local l_4 = 0.0
         do
-          local a_4, a_5, a_6, a_7, a_8 = l_0, l_1, AT(S[3].k_5, (l_3 * 2.0)), AT(S[3].k_5, ((l_3 * 2.0) + 1.0)), l_2
-          local r_9 = R[3][4](a_4, a_5, a_6, a_7, a_8)
-          if STOP(3) then return end
-          l_4 = r_9
+          local a_5, a_6, a_7, a_8, a_9 = l_0, l_1, AT(S[3].k_5, (l_3 * 2.0)), AT(S[3].k_5, ((l_3 * 2.0) + 1.0)), l_2
+          local w_4 = LIVE(3)
+          local r_10 = R[3][4](a_5, a_6, a_7, a_8, a_9)
+          if STOP(3, w_4) then return end
+          l_4 = r_10
         end
         if (l_4 > 0.0) then
-          local r_10 = true
-          TRET(rr_, JV(r_10))
-          do return r_10 end
+          local r_11 = true
+          TRET(rr_, JV(r_11))
+          do return r_11 end
         end
       end
     end
-    local r_11 = false
-    TRET(rr_, JV(r_11))
-    do return r_11 end
+    local r_12 = false
+    TRET(rr_, JV(r_12))
+    do return r_12 end
   end
   R[3][6] = function(l_0, l_1, l_2)  -- gain
     local rr_ = TR(3, "gain", "/circles/2/rites/5", '[' .. JV(l_0) .. ',' .. JV(l_1) .. ',' .. JV(l_2) .. ']')
@@ -332,17 +335,18 @@
         local l_4 = i_2 + 0.0
         local l_5 = 0.0
         do
-          local a_3, a_4, a_5, a_6, a_7 = l_0, l_1, AT(S[3].k_5, (l_4 * 2.0)), AT(S[3].k_5, ((l_4 * 2.0) + 1.0)), l_2
-          local r_8 = R[3][4](a_3, a_4, a_5, a_6, a_7)
-          if STOP(3) then return end
-          l_5 = r_8
+          local a_4, a_5, a_6, a_7, a_8 = l_0, l_1, AT(S[3].k_5, (l_4 * 2.0)), AT(S[3].k_5, ((l_4 * 2.0) + 1.0)), l_2
+          local w_3 = LIVE(3)
+          local r_9 = R[3][4](a_4, a_5, a_6, a_7, a_8)
+          if STOP(3, w_3) then return end
+          l_5 = r_9
         end
         l_3 = (l_3 + l_5)
       end
     end
-    local r_9 = l_3
-    TRET(rr_, JV(r_9))
-    do return r_9 end
+    local r_10 = l_3
+    TRET(rr_, JV(r_10))
+    do return r_10 end
   end
   R[3][7] = function(l_0, l_1, l_2)  -- place
     local rr_ = TR(3, "place", "/circles/2/rites/6", '[' .. JV(l_0) .. ',' .. JV(l_1) .. ',' .. JV(l_2) .. ']')
@@ -356,15 +360,16 @@
         local l_5 = AT(S[3].k_5, ((l_3 * 2.0) + 1.0))
         local l_6 = 0.0
         do
-          local a_3, a_4, a_5, a_6, a_7 = l_0, l_1, l_4, l_5, l_2
-          local r_8 = R[3][4](a_3, a_4, a_5, a_6, a_7)
-          if STOP(3) then return end
-          l_6 = r_8
+          local a_4, a_5, a_6, a_7, a_8 = l_0, l_1, l_4, l_5, l_2
+          local w_3 = LIVE(3)
+          local r_9 = R[3][4](a_4, a_5, a_6, a_7, a_8)
+          if STOP(3, w_3) then return end
+          l_6 = r_9
         end
         do
-          local n_9 = math.floor(l_6)
-          for i_10 = 0, n_9 - 1 do
-            local l_7 = i_10 + 0.0
+          local n_10 = math.floor(l_6)
+          for i_11 = 0, n_10 - 1 do
+            local l_7 = i_11 + 0.0
             SETAT(S[3].k_0, ((((l_1 + (l_5 * (l_7 + 1.0))) * 8.0) + l_0) + (l_4 * (l_7 + 1.0))), l_2)
             TS(3, "board", "/circles/2/rites/6/steps/1/steps/4/steps/0", JL(JV)(S[3].k_0))
           end
@@ -374,8 +379,9 @@
     S[3].k_4 = ((l_1 * 8.0) + l_0)
     TS(3, "lastMove", "/circles/2/rites/6/steps/2", JV(S[3].k_4))
     do
+      local w_12 = LIVE(3)
       R[3][3]()
-      if STOP(3) then return end
+      if STOP(3, w_12) then return end
     end
   end
   R[3][8] = function(l_0)  -- anyMove
@@ -386,21 +392,22 @@
         local l_1 = i_2 + 0.0
         local l_2 = false
         do
-          local a_3, a_4, a_5 = (l_1 % 8.0), F.floor((l_1 / 8.0)), l_0
-          local r_6 = R[3][5](a_3, a_4, a_5)
-          if STOP(3) then return end
-          l_2 = r_6
+          local a_4, a_5, a_6 = (l_1 % 8.0), F.floor((l_1 / 8.0)), l_0
+          local w_3 = LIVE(3)
+          local r_7 = R[3][5](a_4, a_5, a_6)
+          if STOP(3, w_3) then return end
+          l_2 = r_7
         end
         if l_2 then
-          local r_7 = true
-          TRET(rr_, JV(r_7))
-          do return r_7 end
+          local r_8 = true
+          TRET(rr_, JV(r_8))
+          do return r_8 end
         end
       end
     end
-    local r_8 = false
-    TRET(rr_, JV(r_8))
-    do return r_8 end
+    local r_9 = false
+    TRET(rr_, JV(r_9))
+    do return r_9 end
   end
   R[3][9] = function(l_0)  -- computeHints
     local rr_ = TR(3, "computeHints", "/circles/2/rites/8", '[' .. JV(l_0) .. ']')
@@ -415,16 +422,17 @@
         local l_1 = i_4 + 0.0
         local l_2 = false
         do
-          local a_5, a_6, a_7 = (l_1 % 8.0), F.floor((l_1 / 8.0)), l_0
-          local r_8 = R[3][5](a_5, a_6, a_7)
-          if STOP(3) then return end
-          l_2 = r_8
+          local a_6, a_7, a_8 = (l_1 % 8.0), F.floor((l_1 / 8.0)), l_0
+          local w_5 = LIVE(3)
+          local r_9 = R[3][5](a_6, a_7, a_8)
+          if STOP(3, w_5) then return end
+          l_2 = r_9
         end
         if l_2 then
           do
-            local a_9, a_10 = S[3].k_1, l_1
-            local c_11 = T("cast", 3, "push", "/circles/2/rites/8/steps/1/steps/2/then/0", '[' .. JL(JV)(a_9) .. ',' .. JV(a_10) .. ']', nil)
-            E.push(a_9, a_10)
+            local a_10, a_11 = S[3].k_1, l_1
+            local c_12 = T("cast", 3, "push", "/circles/2/rites/8/steps/1/steps/2/then/0", '[' .. JL(JV)(a_10) .. ',' .. JV(a_11) .. ']', nil)
+            E.push(a_10, a_11)
           end
         end
       end
@@ -440,18 +448,20 @@
         local l_3 = i_2 + 0.0
         local l_4 = false
         do
-          local a_3, a_4, a_5 = (l_3 % 8.0), F.floor((l_3 / 8.0)), l_0
-          local r_6 = R[3][5](a_3, a_4, a_5)
-          if STOP(3) then return end
-          l_4 = r_6
+          local a_4, a_5, a_6 = (l_3 % 8.0), F.floor((l_3 / 8.0)), l_0
+          local w_3 = LIVE(3)
+          local r_7 = R[3][5](a_4, a_5, a_6)
+          if STOP(3, w_3) then return end
+          l_4 = r_7
         end
         if l_4 then
           local l_5 = 0.0
           do
-            local a_7, a_8, a_9 = (l_3 % 8.0), F.floor((l_3 / 8.0)), l_0
-            local r_10 = R[3][6](a_7, a_8, a_9)
-            if STOP(3) then return end
-            l_5 = r_10
+            local a_9, a_10, a_11 = (l_3 % 8.0), F.floor((l_3 / 8.0)), l_0
+            local w_8 = LIVE(3)
+            local r_12 = R[3][6](a_9, a_10, a_11)
+            if STOP(3, w_8) then return end
+            l_5 = r_12
           end
           if (l_5 > l_1) then
             l_1 = l_5
@@ -462,9 +472,10 @@
     end
     if (l_2 >= 0.0) then
       do
-        local a_11, a_12, a_13 = (l_2 % 8.0), F.floor((l_2 / 8.0)), l_0
-        R[3][7](a_11, a_12, a_13)
-        if STOP(3) then return end
+        local a_14, a_15, a_16 = (l_2 % 8.0), F.floor((l_2 / 8.0)), l_0
+        local w_13 = LIVE(3)
+        R[3][7](a_14, a_15, a_16)
+        if STOP(3, w_13) then return end
       end
     end
   end
@@ -477,19 +488,20 @@
         local l_2 = i_2 + 0.0
         local l_3 = false
         do
-          local a_3, a_4, a_5 = (l_2 % 8.0), F.floor((l_2 / 8.0)), l_0
-          local r_6 = R[3][5](a_3, a_4, a_5)
-          if STOP(3) then return end
-          l_3 = r_6
+          local a_4, a_5, a_6 = (l_2 % 8.0), F.floor((l_2 / 8.0)), l_0
+          local w_3 = LIVE(3)
+          local r_7 = R[3][5](a_4, a_5, a_6)
+          if STOP(3, w_3) then return end
+          l_3 = r_7
         end
         if l_3 then
           l_1 = (((l_1 .. F.sub(S[3].k_6, (l_2 % 8.0), 1.0)) .. F.str((F.floor((l_2 / 8.0)) + 1.0))) .. " ")
         end
       end
     end
-    local r_7 = l_1
-    TRET(rr_, JV(r_7))
-    do return r_7 end
+    local r_8 = l_1
+    TRET(rr_, JV(r_8))
+    do return r_8 end
   end
   -- circle 3: View
   R[4][1] = function()  -- idle
@@ -502,16 +514,19 @@
   R[4][2] = function()  -- paint
     local rr_ = TR(4, "paint", "/circles/3/rites/1", '[]')
     do
+      local w_1 = LIVE(4)
       R[4][3]()
-      if STOP(4) then return end
+      if STOP(4, w_1) then return end
     end
     do
+      local w_2 = LIVE(4)
       R[4][5]()
-      if STOP(4) then return end
+      if STOP(4, w_2) then return end
     end
     do
+      local w_3 = LIVE(4)
       R[4][6]()
-      if STOP(4) then return end
+      if STOP(4, w_3) then return end
     end
   end
   R[4][3] = function()  -- paintBoard
@@ -558,30 +573,32 @@
       H.canvas.ink(a_24)
     end
     do
-      local a_26 = 1.0
-      R[4][4](a_26)
-      if STOP(4) then return end
+      local a_27 = 1.0
+      local w_26 = LIVE(4)
+      R[4][4](a_27)
+      if STOP(4, w_26) then return end
     end
     do
-      local a_27 = "#eee"
-      local c_28 = T("cast", 4, "canvas.ink", "/circles/3/rites/2/steps/7", '[' .. JV(a_27) .. ']', nil)
-      H.canvas.ink(a_27)
+      local a_28 = "#eee"
+      local c_29 = T("cast", 4, "canvas.ink", "/circles/3/rites/2/steps/7", '[' .. JV(a_28) .. ']', nil)
+      H.canvas.ink(a_28)
     end
     do
-      local a_29 = 2.0
-      R[4][4](a_29)
-      if STOP(4) then return end
+      local a_31 = 2.0
+      local w_30 = LIVE(4)
+      R[4][4](a_31)
+      if STOP(4, w_30) then return end
     end
     if (P[3].k_4 >= 0.0) then
       do
-        local a_30 = "#e8c547"
-        local c_31 = T("cast", 4, "canvas.ink", "/circles/3/rites/2/steps/9/then/0", '[' .. JV(a_30) .. ']', nil)
-        H.canvas.ink(a_30)
+        local a_32 = "#e8c547"
+        local c_33 = T("cast", 4, "canvas.ink", "/circles/3/rites/2/steps/9/then/0", '[' .. JV(a_32) .. ']', nil)
+        H.canvas.ink(a_32)
       end
       do
-        local a_32, a_33, a_34, a_35 = (15.0 + ((P[3].k_4 % 8.0) * 16.0)), (15.0 + (F.floor((P[3].k_4 / 8.0)) * 16.0)), 3.0, 3.0
-        local c_36 = T("cast", 4, "canvas.rect", "/circles/3/rites/2/steps/9/then/1", '[' .. JV(a_32) .. ',' .. JV(a_33) .. ',' .. JV(a_34) .. ',' .. JV(a_35) .. ']', nil)
-        H.canvas.rect(a_32, a_33, a_34, a_35)
+        local a_34, a_35, a_36, a_37 = (15.0 + ((P[3].k_4 % 8.0) * 16.0)), (15.0 + (F.floor((P[3].k_4 / 8.0)) * 16.0)), 3.0, 3.0
+        local c_38 = T("cast", 4, "canvas.rect", "/circles/3/rites/2/steps/9/then/1", '[' .. JV(a_34) .. ',' .. JV(a_35) .. ',' .. JV(a_36) .. ',' .. JV(a_37) .. ']', nil)
+        H.canvas.rect(a_34, a_35, a_36, a_37)
       end
     end
   end
@@ -701,14 +718,16 @@
       WAIT_UNTIL(function() return ((S[5].k_1 or (S[5].k_0 == 2.0)) or S[5].k_11) end, "/circles/4/rites/0/steps/9/steps/0")
       if ((not S[5].k_1) and (S[5].k_0 == 1.0)) then
         do
+          local w_4 = LIVE(5)
           R[5][12]()
-          if STOP(5) then return end
+          if STOP(5, w_4) then return end
         end
       end
       if ((not S[5].k_1) and (S[5].k_0 == 2.0)) then
         do
+          local w_5 = LIVE(5)
           R[5][2]()
-          if STOP(5) then return end
+          if STOP(5, w_5) then return end
         end
       end
     end
@@ -720,14 +739,16 @@
     local rr_ = TR(5, "aiTurn", "/circles/4/rites/1", '[]')
     local l_0 = ""
     do
-      local r_1 = R[5][6]()
-      if STOP(5) then return end
-      l_0 = r_1
+      local w_1 = LIVE(5)
+      local r_2 = R[5][6]()
+      if STOP(5, w_1) then return end
+      l_0 = r_2
     end
     do
-      local a_2 = l_0
-      R[5][3](a_2)
-      if STOP(5) then return end
+      local a_4 = l_0
+      local w_3 = LIVE(5)
+      R[5][3](a_4)
+      if STOP(5, w_3) then return end
     end
     WAIT_UNTIL(function() return ((S[5].k_8 > 0.0) or (S[5].k_9 >= 60.0)) end, "/circles/4/rites/1/steps/3")
     S[5].k_4 = false
@@ -735,20 +756,23 @@
     local l_1 = (-1.0)
     if (S[5].k_8 > 0.0) then
       do
-        local a_3 = S[5].k_7
-        local r_4 = R[5][8](a_3)
-        if STOP(5) then return end
-        l_1 = r_4
+        local a_6 = S[5].k_7
+        local w_5 = LIVE(5)
+        local r_7 = R[5][8](a_6)
+        if STOP(5, w_5) then return end
+        l_1 = r_7
       end
     end
     do
-      local a_5 = l_1
-      R[5][4](a_5)
-      if STOP(5) then return end
+      local a_9 = l_1
+      local w_8 = LIVE(5)
+      R[5][4](a_9)
+      if STOP(5, w_8) then return end
     end
     do
+      local w_10 = LIVE(5)
       R[5][5]()
-      if STOP(5) then return end
+      if STOP(5, w_10) then return end
     end
   end
   R[5][3] = function(l_0)  -- ask
@@ -913,21 +937,22 @@
         local l_4 = F.num(F.sub(l_0, (l_2 + 1.0), 1.0))
         local l_5 = (-1.0)
         do
-          local a_3 = l_3
-          local r_4 = R[5][7](a_3)
-          if STOP(5) then return end
-          l_5 = r_4
+          local a_4 = l_3
+          local w_3 = LIVE(5)
+          local r_5 = R[5][7](a_4)
+          if STOP(5, w_3) then return end
+          l_5 = r_5
         end
         if (((l_5 >= 0.0) and (l_4 >= 1.0)) and (l_4 <= 8.0)) then
-          local r_5 = (((l_4 - 1.0) * 8.0) + l_5)
-          TRET(rr_, JV(r_5))
-          do return r_5 end
+          local r_6 = (((l_4 - 1.0) * 8.0) + l_5)
+          TRET(rr_, JV(r_6))
+          do return r_6 end
         end
       end
     end
-    local r_6 = (-1.0)
-    TRET(rr_, JV(r_6))
-    do return r_6 end
+    local r_7 = (-1.0)
+    TRET(rr_, JV(r_7))
+    do return r_7 end
   end
   R[5][9] = function(l_0, l_1, l_2)  -- recv
     local rr_ = TR(5, "recv", "/circles/4/rites/8", '[' .. JV(l_0) .. ',' .. JV(l_1) .. ',' .. JV(l_2) .. ']')
@@ -965,8 +990,9 @@
       S[5].k_5 = ""
       TS(5, "status", "/circles/4/rites/9/steps/7/then/1", JV(S[5].k_5))
       do
+        local w_10 = LIVE(5)
         R[5][5]()
-        if STOP(5) then return end
+        if STOP(5, w_10) then return end
       end
     end
   end
@@ -991,8 +1017,9 @@
     S[5].k_5 = ""
     TS(5, "status", "/circles/4/rites/11/steps/1", JV(S[5].k_5))
     do
+      local w_3 = LIVE(5)
       R[5][5]()
-      if STOP(5) then return end
+      if STOP(5, w_3) then return end
     end
   end
   -- circle 5: Result
@@ -1028,8 +1055,9 @@
       end
     end
     do
+      local w_11 = LIVE(6)
       R[6][3]()
-      if STOP(6) then return end
+      if STOP(6, w_11) then return end
     end
     if H.ui.button("RETRY", 144.0, 112.0, 64.0, 20.0) then
       T("finish", 6, nil, "/circles/5/rites/1/steps/4/then/0", nil, nil)
@@ -1167,8 +1195,9 @@
     S[2].k_2 = 0.0
     TS(2, "score", "/circles/1/rites/0/steps/0", JV(S[2].k_2))
     do
+      local w_1 = LIVE(2)
       R[2][2]()
-      if STOP(2) then return end
+      if STOP(2, w_1) then return end
     end
   end
   R[2][2] = function()  -- serve
@@ -1215,8 +1244,9 @@
       do return end
     end
     do
+      local w_4 = LIVE(2)
       R[2][4]()
-      if STOP(2) then return end
+      if STOP(2, w_4) then return end
     end
   end
   R[2][4] = function()  -- paint
@@ -1360,25 +1390,28 @@
     S[2].k_2 = H.random.range(0.0, 6.0)
     TS(2, "next", "/circles/1/rites/0/steps/8", JV(S[2].k_2))
     do
+      local w_8 = LIVE(2)
       R[2][3]()
-      if STOP(2) then return end
+      if STOP(2, w_8) then return end
     end
     while (not S[2].k_8) do
       WAIT_TICKS(S[2].k_6, "/circles/1/rites/0/steps/10/steps/0")
       local l_1 = false
       do
-        local a_8, a_9, a_10, a_11 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
-        local r_12 = R[2][2](a_8, a_9, a_10, a_11)
-        if STOP(2) then return end
-        l_1 = r_12
+        local a_10, a_11, a_12, a_13 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
+        local w_9 = LIVE(2)
+        local r_14 = R[2][2](a_10, a_11, a_12, a_13)
+        if STOP(2, w_9) then return end
+        l_1 = r_14
       end
       if l_1 then
         S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
         TS(2, "piece", "/circles/1/rites/0/steps/10/steps/3/then/0", JF[1](S[2].k_1))
       else
         do
+          local w_15 = LIVE(2)
           R[2][4]()
-          if STOP(2) then return end
+          if STOP(2, w_15) then return end
         end
       end
     end
@@ -1418,10 +1451,11 @@
     TS(2, "next", "/circles/1/rites/2/steps/1", JV(S[2].k_2))
     local l_0 = false
     do
-      local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, S[2].k_1.f_3
-      local r_5 = R[2][2](a_1, a_2, a_3, a_4)
-      if STOP(2) then return end
-      l_0 = r_5
+      local a_2, a_3, a_4, a_5 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, S[2].k_1.f_3
+      local w_1 = LIVE(2)
+      local r_6 = R[2][2](a_2, a_3, a_4, a_5)
+      if STOP(2, w_1) then return end
+      l_0 = r_6
     end
     if (not l_0) then
       S[2].k_8 = true
@@ -1450,14 +1484,16 @@
       H.audio.tone(a_3, a_4)
     end
     do
+      local w_6 = LIVE(2)
       R[2][5]()
-      if STOP(2) then return end
+      if STOP(2, w_6) then return end
     end
     S[2].k_5 = (S[2].k_5 + 1.0)
     TS(2, "placed", "/circles/1/rites/3/steps/5", JV(S[2].k_5))
     do
+      local w_7 = LIVE(2)
       R[2][3]()
-      if STOP(2) then return end
+      if STOP(2, w_7) then return end
     end
   end
   R[2][5] = function()  -- clearLines
@@ -1522,10 +1558,11 @@
     local l_0 = false
     if H.input.pressed("ArrowLeft") then
       do
-        local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 - 1.0), S[2].k_1.f_3
-        local r_5 = R[2][2](a_1, a_2, a_3, a_4)
-        if STOP(2) then return end
-        l_0 = r_5
+        local a_2, a_3, a_4, a_5 = S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 - 1.0), S[2].k_1.f_3
+        local w_1 = LIVE(2)
+        local r_6 = R[2][2](a_2, a_3, a_4, a_5)
+        if STOP(2, w_1) then return end
+        l_0 = r_6
       end
       if l_0 then
         S[2].k_1.f_2 = (S[2].k_1.f_2 - 1.0)
@@ -1534,10 +1571,11 @@
     end
     if H.input.pressed("ArrowRight") then
       do
-        local a_6, a_7, a_8, a_9 = S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 + 1.0), S[2].k_1.f_3
-        local r_10 = R[2][2](a_6, a_7, a_8, a_9)
-        if STOP(2) then return end
-        l_0 = r_10
+        local a_8, a_9, a_10, a_11 = S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 + 1.0), S[2].k_1.f_3
+        local w_7 = LIVE(2)
+        local r_12 = R[2][2](a_8, a_9, a_10, a_11)
+        if STOP(2, w_7) then return end
+        l_0 = r_12
       end
       if l_0 then
         S[2].k_1.f_2 = (S[2].k_1.f_2 + 1.0)
@@ -1547,10 +1585,11 @@
     if H.input.pressed("ArrowUp") then
       local l_1 = ((S[2].k_1.f_1 + 1.0) % 4.0)
       do
-        local a_11, a_12, a_13, a_14 = S[2].k_1.f_0, l_1, S[2].k_1.f_2, S[2].k_1.f_3
-        local r_15 = R[2][2](a_11, a_12, a_13, a_14)
-        if STOP(2) then return end
-        l_0 = r_15
+        local a_14, a_15, a_16, a_17 = S[2].k_1.f_0, l_1, S[2].k_1.f_2, S[2].k_1.f_3
+        local w_13 = LIVE(2)
+        local r_18 = R[2][2](a_14, a_15, a_16, a_17)
+        if STOP(2, w_13) then return end
+        l_0 = r_18
       end
       if l_0 then
         S[2].k_1.f_1 = l_1
@@ -1562,34 +1601,39 @@
       TS(2, "soft", "/circles/1/rites/5/steps/5/then/0", JV(S[2].k_7))
       if ((S[2].k_7 % 3.0) == 0.0) then
         do
+          local w_19 = LIVE(2)
           R[2][7]()
-          if STOP(2) then return end
+          if STOP(2, w_19) then return end
         end
       end
     end
     if H.input.pressed("Space") then
       do
+        local w_20 = LIVE(2)
         R[2][8]()
-        if STOP(2) then return end
+        if STOP(2, w_20) then return end
       end
     end
     do
+      local w_21 = LIVE(2)
       R[2][10]()
-      if STOP(2) then return end
+      if STOP(2, w_21) then return end
     end
     do
+      local w_22 = LIVE(2)
       R[2][11]()
-      if STOP(2) then return end
+      if STOP(2, w_22) then return end
     end
   end
   R[2][7] = function()  -- fall
     local rr_ = TR(2, "fall", "/circles/1/rites/6", '[]')
     local l_0 = false
     do
-      local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
-      local r_5 = R[2][2](a_1, a_2, a_3, a_4)
-      if STOP(2) then return end
-      l_0 = r_5
+      local a_2, a_3, a_4, a_5 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
+      local w_1 = LIVE(2)
+      local r_6 = R[2][2](a_2, a_3, a_4, a_5)
+      if STOP(2, w_1) then return end
+      l_0 = r_6
     end
     if l_0 then
       S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
@@ -1601,10 +1645,11 @@
     local l_0 = false
     while true do
       do
-        local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
-        local r_5 = R[2][2](a_1, a_2, a_3, a_4)
-        if STOP(2) then return end
-        l_0 = r_5
+        local a_2, a_3, a_4, a_5 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
+        local w_1 = LIVE(2)
+        local r_6 = R[2][2](a_2, a_3, a_4, a_5)
+        if STOP(2, w_1) then return end
+        l_0 = r_6
       end
       if (not l_0) then
         do break end
@@ -1613,8 +1658,9 @@
       TS(2, "piece", "/circles/1/rites/7/steps/1/steps/2", JF[1](S[2].k_1))
     end
     do
+      local w_7 = LIVE(2)
       R[2][4]()
-      if STOP(2) then return end
+      if STOP(2, w_7) then return end
     end
   end
   R[2][9] = function(l_0)  -- paintColor
@@ -1670,30 +1716,31 @@
           H.canvas.ink(a_19)
         end
         do
-          local a_21 = l_0
-          R[2][9](a_21)
-          if STOP(2) then return end
+          local a_22 = l_0
+          local w_21 = LIVE(2)
+          R[2][9](a_22)
+          if STOP(2, w_21) then return end
         end
       end
     end
     local l_1 = S[2].k_1.f_0
     local l_2 = S[2].k_1.f_1
     do
-      local a_22 = AT(S[2].k_10, l_1)
-      local c_23 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/8", '[' .. JV(a_22) .. ']', nil)
-      H.canvas.ink(a_22)
+      local a_23 = AT(S[2].k_10, l_1)
+      local c_24 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/8", '[' .. JV(a_23) .. ']', nil)
+      H.canvas.ink(a_23)
     end
     do
-      local n_24 = math.floor(4.0)
-      for i_25 = 0, n_24 - 1 do
-        local l_3 = i_25 + 0.0
+      local n_25 = math.floor(4.0)
+      for i_26 = 0, n_25 - 1 do
+        local l_3 = i_26 + 0.0
         local l_4 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0)))
         local l_5 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0) + 1.0)))
         if (l_5 >= 0.0) then
           do
-            local a_26, a_27, a_28, a_29 = (8.0 + (l_4 * 8.0)), (8.0 + (l_5 * 8.0)), 7.0, 7.0
-            local c_30 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/9/steps/2/then/0", '[' .. JV(a_26) .. ',' .. JV(a_27) .. ',' .. JV(a_28) .. ',' .. JV(a_29) .. ']', nil)
-            H.canvas.rect(a_26, a_27, a_28, a_29)
+            local a_27, a_28, a_29, a_30 = (8.0 + (l_4 * 8.0)), (8.0 + (l_5 * 8.0)), 7.0, 7.0
+            local c_31 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/9/steps/2/then/0", '[' .. JV(a_27) .. ',' .. JV(a_28) .. ',' .. JV(a_29) .. ',' .. JV(a_30) .. ']', nil)
+            H.canvas.rect(a_27, a_28, a_29, a_30)
           end
         end
       end
@@ -1933,9 +1980,10 @@
     do return l_1 end
   end
   R[1][2] = function()  -- main
-    local r_1 = R[1][1](20.0)
-    if STOP(1) then return end
-    S[1].k_0 = r_1
+    local w_1 = LIVE(1)
+    local r_2 = R[1][1](20.0)
+    if STOP(1, w_1) then return end
+    S[1].k_0 = r_2
     FINISH(1)
     do return end
   end
@@ -1980,8 +2028,9 @@
     SETAT(S[3].k_0, 35.0, 1.0)
     SETAT(S[3].k_0, 36.0, 2.0)
     S[3].k_4 = (-1.0)
+    local w_3 = LIVE(3)
     R[3][3]()
-    if STOP(3) then return end
+    if STOP(3, w_3) then return end
   end
   R[3][3] = function()  -- count
     S[3].k_2 = 0.0
@@ -2022,9 +2071,10 @@
       for i_2 = 0, n_1 - 1 do
         local l_3 = i_2 + 0.0
         local l_4 = 0.0
-        local r_3 = R[3][4](l_0, l_1, AT(S[3].k_5, (l_3 * 2.0)), AT(S[3].k_5, ((l_3 * 2.0) + 1.0)), l_2)
-        if STOP(3) then return end
-        l_4 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][4](l_0, l_1, AT(S[3].k_5, (l_3 * 2.0)), AT(S[3].k_5, ((l_3 * 2.0) + 1.0)), l_2)
+        if STOP(3, w_3) then return end
+        l_4 = r_4
         if (l_4 > 0.0) then
           do return true end
         end
@@ -2039,9 +2089,10 @@
       for i_2 = 0, n_1 - 1 do
         local l_4 = i_2 + 0.0
         local l_5 = 0.0
-        local r_3 = R[3][4](l_0, l_1, AT(S[3].k_5, (l_4 * 2.0)), AT(S[3].k_5, ((l_4 * 2.0) + 1.0)), l_2)
-        if STOP(3) then return end
-        l_5 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][4](l_0, l_1, AT(S[3].k_5, (l_4 * 2.0)), AT(S[3].k_5, ((l_4 * 2.0) + 1.0)), l_2)
+        if STOP(3, w_3) then return end
+        l_5 = r_4
         l_3 = (l_3 + l_5)
       end
     end
@@ -2056,21 +2107,23 @@
         local l_4 = AT(S[3].k_5, (l_3 * 2.0))
         local l_5 = AT(S[3].k_5, ((l_3 * 2.0) + 1.0))
         local l_6 = 0.0
-        local r_3 = R[3][4](l_0, l_1, l_4, l_5, l_2)
-        if STOP(3) then return end
-        l_6 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][4](l_0, l_1, l_4, l_5, l_2)
+        if STOP(3, w_3) then return end
+        l_6 = r_4
         do
-          local n_4 = math.floor(l_6)
-          for i_5 = 0, n_4 - 1 do
-            local l_7 = i_5 + 0.0
+          local n_5 = math.floor(l_6)
+          for i_6 = 0, n_5 - 1 do
+            local l_7 = i_6 + 0.0
             SETAT(S[3].k_0, ((((l_1 + (l_5 * (l_7 + 1.0))) * 8.0) + l_0) + (l_4 * (l_7 + 1.0))), l_2)
           end
         end
       end
     end
     S[3].k_4 = ((l_1 * 8.0) + l_0)
+    local w_7 = LIVE(3)
     R[3][3]()
-    if STOP(3) then return end
+    if STOP(3, w_7) then return end
   end
   R[3][8] = function(l_0)  -- anyMove
     do
@@ -2078,9 +2131,10 @@
       for i_2 = 0, n_1 - 1 do
         local l_1 = i_2 + 0.0
         local l_2 = false
-        local r_3 = R[3][5]((l_1 % 8.0), F.floor((l_1 / 8.0)), l_0)
-        if STOP(3) then return end
-        l_2 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][5]((l_1 % 8.0), F.floor((l_1 / 8.0)), l_0)
+        if STOP(3, w_3) then return end
+        l_2 = r_4
         if l_2 then
           do return true end
         end
@@ -2095,9 +2149,10 @@
       for i_2 = 0, n_1 - 1 do
         local l_1 = i_2 + 0.0
         local l_2 = false
-        local r_3 = R[3][5]((l_1 % 8.0), F.floor((l_1 / 8.0)), l_0)
-        if STOP(3) then return end
-        l_2 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][5]((l_1 % 8.0), F.floor((l_1 / 8.0)), l_0)
+        if STOP(3, w_3) then return end
+        l_2 = r_4
         if l_2 then
           E.push(S[3].k_1, l_1)
         end
@@ -2112,14 +2167,16 @@
       for i_2 = 0, n_1 - 1 do
         local l_3 = i_2 + 0.0
         local l_4 = false
-        local r_3 = R[3][5]((l_3 % 8.0), F.floor((l_3 / 8.0)), l_0)
-        if STOP(3) then return end
-        l_4 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][5]((l_3 % 8.0), F.floor((l_3 / 8.0)), l_0)
+        if STOP(3, w_3) then return end
+        l_4 = r_4
         if l_4 then
           local l_5 = 0.0
-          local r_4 = R[3][6]((l_3 % 8.0), F.floor((l_3 / 8.0)), l_0)
-          if STOP(3) then return end
-          l_5 = r_4
+          local w_5 = LIVE(3)
+          local r_6 = R[3][6]((l_3 % 8.0), F.floor((l_3 / 8.0)), l_0)
+          if STOP(3, w_5) then return end
+          l_5 = r_6
           if (l_5 > l_1) then
             l_1 = l_5
             l_2 = l_3
@@ -2128,8 +2185,9 @@
       end
     end
     if (l_2 >= 0.0) then
+      local w_7 = LIVE(3)
       R[3][7]((l_2 % 8.0), F.floor((l_2 / 8.0)), l_0)
-      if STOP(3) then return end
+      if STOP(3, w_7) then return end
     end
   end
   R[3][11] = function(l_0)  -- legalList
@@ -2139,9 +2197,10 @@
       for i_2 = 0, n_1 - 1 do
         local l_2 = i_2 + 0.0
         local l_3 = false
-        local r_3 = R[3][5]((l_2 % 8.0), F.floor((l_2 / 8.0)), l_0)
-        if STOP(3) then return end
-        l_3 = r_3
+        local w_3 = LIVE(3)
+        local r_4 = R[3][5]((l_2 % 8.0), F.floor((l_2 / 8.0)), l_0)
+        if STOP(3, w_3) then return end
+        l_3 = r_4
         if l_3 then
           l_1 = (((l_1 .. F.sub(S[3].k_6, (l_2 % 8.0), 1.0)) .. F.str((F.floor((l_2 / 8.0)) + 1.0))) .. " ")
         end
@@ -2156,12 +2215,15 @@
     do return end
   end
   R[4][2] = function()  -- paint
+    local w_1 = LIVE(4)
     R[4][3]()
-    if STOP(4) then return end
+    if STOP(4, w_1) then return end
+    local w_2 = LIVE(4)
     R[4][5]()
-    if STOP(4) then return end
+    if STOP(4, w_2) then return end
+    local w_3 = LIVE(4)
     R[4][6]()
-    if STOP(4) then return end
+    if STOP(4, w_3) then return end
   end
   R[4][3] = function()  -- paintBoard
     H.canvas.clear("#1b1f24")
@@ -2177,11 +2239,13 @@
       end
     end
     H.canvas.ink("#111")
+    local w_3 = LIVE(4)
     R[4][4](1.0)
-    if STOP(4) then return end
+    if STOP(4, w_3) then return end
     H.canvas.ink("#eee")
+    local w_4 = LIVE(4)
     R[4][4](2.0)
-    if STOP(4) then return end
+    if STOP(4, w_4) then return end
     if (P[3].k_4 >= 0.0) then
       H.canvas.ink("#e8c547")
       H.canvas.rect((15.0 + ((P[3].k_4 % 8.0) * 16.0)), (15.0 + (F.floor((P[3].k_4 / 8.0)) * 16.0)), 3.0, 3.0)
@@ -2244,12 +2308,14 @@
     while (not S[5].k_1) do
       WAIT_UNTIL(function() return ((S[5].k_1 or (S[5].k_0 == 2.0)) or S[5].k_11) end, "/circles/4/rites/0/steps/9/steps/0")
       if ((not S[5].k_1) and (S[5].k_0 == 1.0)) then
+        local w_1 = LIVE(5)
         R[5][12]()
-        if STOP(5) then return end
+        if STOP(5, w_1) then return end
       end
       if ((not S[5].k_1) and (S[5].k_0 == 2.0)) then
+        local w_2 = LIVE(5)
         R[5][2]()
-        if STOP(5) then return end
+        if STOP(5, w_2) then return end
       end
     end
     FINISH(5)
@@ -2257,23 +2323,28 @@
   end
   R[5][2] = function()  -- aiTurn
     local l_0 = ""
-    local r_1 = R[5][6]()
-    if STOP(5) then return end
-    l_0 = r_1
+    local w_1 = LIVE(5)
+    local r_2 = R[5][6]()
+    if STOP(5, w_1) then return end
+    l_0 = r_2
+    local w_3 = LIVE(5)
     R[5][3](l_0)
-    if STOP(5) then return end
+    if STOP(5, w_3) then return end
     WAIT_UNTIL(function() return ((S[5].k_8 > 0.0) or (S[5].k_9 >= 60.0)) end, "/circles/4/rites/1/steps/3")
     S[5].k_4 = false
     local l_1 = (-1.0)
     if (S[5].k_8 > 0.0) then
-      local r_2 = R[5][8](S[5].k_7)
-      if STOP(5) then return end
-      l_1 = r_2
+      local w_4 = LIVE(5)
+      local r_5 = R[5][8](S[5].k_7)
+      if STOP(5, w_4) then return end
+      l_1 = r_5
     end
+    local w_6 = LIVE(5)
     R[5][4](l_1)
-    if STOP(5) then return end
+    if STOP(5, w_6) then return end
+    local w_7 = LIVE(5)
     R[5][5]()
-    if STOP(5) then return end
+    if STOP(5, w_7) then return end
   end
   R[5][3] = function(l_0)  -- ask
     S[5].k_8 = 0.0
@@ -2373,9 +2444,10 @@
         local l_3 = F.sub(l_0, l_2, 1.0)
         local l_4 = F.num(F.sub(l_0, (l_2 + 1.0), 1.0))
         local l_5 = (-1.0)
-        local r_3 = R[5][7](l_3)
-        if STOP(5) then return end
-        l_5 = r_3
+        local w_3 = LIVE(5)
+        local r_4 = R[5][7](l_3)
+        if STOP(5, w_3) then return end
+        l_5 = r_4
         if (((l_5 >= 0.0) and (l_4 >= 1.0)) and (l_4 <= 8.0)) then
           do return (((l_4 - 1.0) * 8.0) + l_5) end
         end
@@ -2403,8 +2475,9 @@
     if l_4 then
       R[3][7](l_2, l_3, 1.0)
       S[5].k_5 = ""
+      local w_2 = LIVE(5)
       R[5][5]()
-      if STOP(5) then return end
+      if STOP(5, w_2) then return end
     end
   end
   R[5][11] = function()  -- frame
@@ -2416,8 +2489,9 @@
   R[5][12] = function()  -- autoTurn
     R[3][10](1.0)
     S[5].k_5 = ""
+    local w_1 = LIVE(5)
     R[5][5]()
-    if STOP(5) then return end
+    if STOP(5, w_1) then return end
   end
   -- circle 5: Result
   R[6][1] = function()  -- show
@@ -2436,8 +2510,9 @@
         end
       end
     end
+    local w_3 = LIVE(6)
     R[6][3]()
-    if STOP(6) then return end
+    if STOP(6, w_3) then return end
     if H.ui.button("RETRY", 144.0, 112.0, 64.0, 20.0) then
       FINISH(6)
       do return end
@@ -2514,8 +2589,9 @@
   -- circle 1: Play
   R[2][1] = function()  -- begin
     S[2].k_2 = 0.0
+    local w_1 = LIVE(2)
     R[2][2]()
-    if STOP(2) then return end
+    if STOP(2, w_1) then return end
   end
   R[2][2] = function()  -- serve
     S[2].k_0 = { f_0 = 160.0, f_1 = 40.0, f_2 = 90.0, f_3 = 70.0 }
@@ -2544,8 +2620,9 @@
       FINISH(2)
       do return end
     end
+    local w_1 = LIVE(2)
     R[2][4]()
-    if STOP(2) then return end
+    if STOP(2, w_1) then return end
   end
   R[2][4] = function()  -- paint
     H.canvas.clear("#000")
@@ -2623,19 +2700,22 @@
       end
     end
     S[2].k_2 = H.random.range(0.0, 6.0)
+    local w_3 = LIVE(2)
     R[2][3]()
-    if STOP(2) then return end
+    if STOP(2, w_3) then return end
     while (not S[2].k_8) do
       WAIT_TICKS(S[2].k_6, "/circles/1/rites/0/steps/10/steps/0")
       local l_1 = false
-      local r_3 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
-      if STOP(2) then return end
-      l_1 = r_3
+      local w_4 = LIVE(2)
+      local r_5 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
+      if STOP(2, w_4) then return end
+      l_1 = r_5
       if l_1 then
         S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
       else
+        local w_6 = LIVE(2)
         R[2][4]()
-        if STOP(2) then return end
+        if STOP(2, w_6) then return end
       end
     end
     FINISH(2)
@@ -2662,9 +2742,10 @@
     S[2].k_1 = { f_0 = S[2].k_2, f_1 = 0.0, f_2 = 3.0, f_3 = 0.0 }
     S[2].k_2 = H.random.range(0.0, 6.0)
     local l_0 = false
-    local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, S[2].k_1.f_3)
-    if STOP(2) then return end
-    l_0 = r_1
+    local w_1 = LIVE(2)
+    local r_2 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, S[2].k_1.f_3)
+    if STOP(2, w_1) then return end
+    l_0 = r_2
     if (not l_0) then
       S[2].k_8 = true
     end
@@ -2684,11 +2765,13 @@
       end
     end
     H.audio.tone(220.0, 30.0)
+    local w_3 = LIVE(2)
     R[2][5]()
-    if STOP(2) then return end
+    if STOP(2, w_3) then return end
     S[2].k_5 = (S[2].k_5 + 1.0)
+    local w_4 = LIVE(2)
     R[2][3]()
-    if STOP(2) then return end
+    if STOP(2, w_4) then return end
   end
   R[2][5] = function()  -- clearLines
     local l_0 = 0.0
@@ -2740,26 +2823,29 @@
     end
     local l_0 = false
     if H.input.pressed("ArrowLeft") then
-      local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 - 1.0), S[2].k_1.f_3)
-      if STOP(2) then return end
-      l_0 = r_1
+      local w_1 = LIVE(2)
+      local r_2 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 - 1.0), S[2].k_1.f_3)
+      if STOP(2, w_1) then return end
+      l_0 = r_2
       if l_0 then
         S[2].k_1.f_2 = (S[2].k_1.f_2 - 1.0)
       end
     end
     if H.input.pressed("ArrowRight") then
-      local r_2 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 + 1.0), S[2].k_1.f_3)
-      if STOP(2) then return end
-      l_0 = r_2
+      local w_3 = LIVE(2)
+      local r_4 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 + 1.0), S[2].k_1.f_3)
+      if STOP(2, w_3) then return end
+      l_0 = r_4
       if l_0 then
         S[2].k_1.f_2 = (S[2].k_1.f_2 + 1.0)
       end
     end
     if H.input.pressed("ArrowUp") then
       local l_1 = ((S[2].k_1.f_1 + 1.0) % 4.0)
-      local r_3 = R[2][2](S[2].k_1.f_0, l_1, S[2].k_1.f_2, S[2].k_1.f_3)
-      if STOP(2) then return end
-      l_0 = r_3
+      local w_5 = LIVE(2)
+      local r_6 = R[2][2](S[2].k_1.f_0, l_1, S[2].k_1.f_2, S[2].k_1.f_3)
+      if STOP(2, w_5) then return end
+      l_0 = r_6
       if l_0 then
         S[2].k_1.f_1 = l_1
       end
@@ -2767,24 +2853,29 @@
     if H.input.key("ArrowDown") then
       S[2].k_7 = (S[2].k_7 + 1.0)
       if ((S[2].k_7 % 3.0) == 0.0) then
+        local w_7 = LIVE(2)
         R[2][7]()
-        if STOP(2) then return end
+        if STOP(2, w_7) then return end
       end
     end
     if H.input.pressed("Space") then
+      local w_8 = LIVE(2)
       R[2][8]()
-      if STOP(2) then return end
+      if STOP(2, w_8) then return end
     end
+    local w_9 = LIVE(2)
     R[2][10]()
-    if STOP(2) then return end
+    if STOP(2, w_9) then return end
+    local w_10 = LIVE(2)
     R[2][11]()
-    if STOP(2) then return end
+    if STOP(2, w_10) then return end
   end
   R[2][7] = function()  -- fall
     local l_0 = false
-    local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
-    if STOP(2) then return end
-    l_0 = r_1
+    local w_1 = LIVE(2)
+    local r_2 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
+    if STOP(2, w_1) then return end
+    l_0 = r_2
     if l_0 then
       S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
     end
@@ -2792,16 +2883,18 @@
   R[2][8] = function()  -- hardDrop
     local l_0 = false
     while true do
-      local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
-      if STOP(2) then return end
-      l_0 = r_1
+      local w_1 = LIVE(2)
+      local r_2 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
+      if STOP(2, w_1) then return end
+      l_0 = r_2
       if (not l_0) then
         do break end
       end
       S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
     end
+    local w_3 = LIVE(2)
     R[2][4]()
-    if STOP(2) then return end
+    if STOP(2, w_3) then return end
   end
   R[2][9] = function(l_0)  -- paintColor
     do
@@ -2825,17 +2918,18 @@
       for i_2 = 0, n_1 - 1 do
         local l_0 = i_2 + 0.0
         H.canvas.ink(AT(S[2].k_10, l_0))
+        local w_3 = LIVE(2)
         R[2][9](l_0)
-        if STOP(2) then return end
+        if STOP(2, w_3) then return end
       end
     end
     local l_1 = S[2].k_1.f_0
     local l_2 = S[2].k_1.f_1
     H.canvas.ink(AT(S[2].k_10, l_1))
     do
-      local n_3 = math.floor(4.0)
-      for i_4 = 0, n_3 - 1 do
-        local l_3 = i_4 + 0.0
+      local n_4 = math.floor(4.0)
+      for i_5 = 0, n_4 - 1 do
+        local l_3 = i_5 + 0.0
         local l_4 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0)))
         local l_5 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_1 * 4.0) + l_2) * 4.0) + l_3) * 2.0) + 1.0)))
         if (l_5 >= 0.0) then

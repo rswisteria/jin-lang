@@ -1,4 +1,4 @@
--- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 6
+-- Jin v2 プレリュード（docs/spec/v2/runtime.md / jil.md §1 の <prelude>）。jil: 7
 --
 -- `game.lua` の先頭にそのまま連結される。表示リスト / 入力 / ui / audio / PCG32 / スケジューラ /
 -- トレース / JSON 直列化 / 数値書式をここに置き、生成部（<program>）は式とステップだけを出す。
@@ -35,7 +35,7 @@
 -- プレリュードが持つもの:
 --   S[i]（陣 i の state。init が返す表）/ P[i]（公開 state の確定値。他陣は P を読む）
 --   H（ホスト能力: H.canvas / H.input / H.ui / H.audio / H.random / H.storage）/ F（純関数）/ E（効果）
---   AT / SETAT（添字）/ WAIT_TICKS / WAIT_UNTIL / FINISH / TRANSFER / EMIT / ASK / STOP
+--   AT / SETAT（添字）/ WAIT_TICKS / WAIT_UNTIL / FINISH / TRANSFER / EMIT / ASK / LIVE / STOP
 --   T / TS / TR / TRET（トレース。DEBUG のときだけ生成部が呼ぶ）
 --   RN / RB / RSTR / RL / RREC（resume の読み手。num / bool / str / list / レコード。合わなければ nil）
 --   CIRCLES[i].pub = function() return '"Play.score":' .. JN(P[i].k_2) end   -- 公開 state の JSON 断片（tick の戻り値の public）
@@ -519,11 +519,17 @@ local function is_active(i)
 end
 
 -- ---------------------------------------------------------------- 手順の起動（コルーチン / 直接呼び出し）
--- STOP(i): done か休止中（生成部が自陣の手順への cast の直後に見て、finish / transfer した呼び出し列を巻き戻す）。
--- idle は止めない: summon の呼び先は未 entered でもよく（model.md §3.2）、その手順の中の cast の後で
--- 打ち切ってはいけない（Issue #87）。
-local function STOP(i)
-  return C[i].status == "done" or C[i].paused
+-- 中断検査（jil.md §4）: 生成部は自陣の手順への cast の前に LIVE(i)（呼ぶ前に active で休止中でなかったか）を
+-- 局所に取り、直後に STOP(i, live) を見て、その呼び出しで finish / transfer した（active でなくなった）ときだけ
+-- 呼び出し列を巻き戻す。呼ぶ前から active でない陣では止めない: 未 entered の summon の呼び先・done の陣・
+-- on exit の中では入れ子の finish / transfer は no-op、transfer で休止中の陣（status は active で paused）では
+-- 入れ子の finish で陣は done になるが呼び出し列は巻き戻さない（Issue #87 / #89・jil.md §4）。
+local function LIVE(i)
+  return is_active(i)
+end
+
+local function STOP(i, live)
+  return live and not is_active(i)
 end
 
 local function register_wait(i, co, req)
@@ -941,7 +947,7 @@ local function dispatch_events()
       local on = c.on
       if on then
         for _, ev in ipairs(INPUTS.events) do
-          if STOP(i) then break end
+          if not is_active(i) then break end
           if ev.kind == "key" and on.key then
             local down = ev.down and true or false
             if DEBUG then ROW("event", i, "key", c.on_ptr.key, "[" .. JS(ev.name) .. "," .. JB(down) .. "]", nil) end
@@ -952,7 +958,7 @@ local function dispatch_events()
             RUN(i, on.pointer, c.on_waits.pointer, { p })
           end
         end
-        if not STOP(i) and on.tick then
+        if is_active(i) and on.tick then
           if DEBUG then ROW("event", i, "tick", c.on_ptr.tick, "[" .. JN(dt) .. "]", nil) end
           RUN(i, on.tick, c.on_waits.tick, { dt })
         end

@@ -1,4 +1,4 @@
-  ;; Jin v2 wasm-GC ランタイム部（docs/spec/v2/jil.md §6.4。プレリュード prelude.lua に相当）。jil: 6
+  ;; Jin v2 wasm-GC ランタイム部（docs/spec/v2/jil.md §6.4。プレリュード prelude.lua に相当）。jil: 7
   ;;
   ;; 生成物: `uv run python scripts/generate_runtime_wat.py` が packages/jin-wasmgc/runtime/（部品 *.wat と
   ;; data 区画の文字列表 strings.json）から生成する。**手で編集しない**（正典は部品の側。番地は生成器が振る）。
@@ -2685,9 +2685,13 @@
   (func $cst (param $i i32) (result i32) (call $cget (global.get $CST) (local.get $i)))
   (func $is_active (param $i i32) (result i32)
     (i32.and (i32.eq (call $cst (local.get $i)) (i32.const 1)) (i32.eqz (call $cget (global.get $CPAUSED) (local.get $i)))))
-  ;; STOP(i): done か休止中（生成部が cast の直後に見る）。idle は止めない（summon の呼び先は未 entered でもよい。Issue #87）
-  (func $stop (param $i i32) (result i32)
-    (i32.or (i32.eq (call $cst (local.get $i)) (i32.const 2)) (call $cget (global.get $CPAUSED) (local.get $i))))
+  ;; 中断検査（jil.md §4・プレリュードの LIVE / STOP）: 生成部は自陣の手順への cast の前に $live（呼ぶ前に active で
+  ;; 休止中でなかったか）を局所に取り、直後に $stop(i, live) で「この呼び出しで active でなくなった」ときだけ返る。
+  ;; 呼ぶ前から active でない陣では止めない: 未 entered の summon の呼び先・done の陣・on exit の中（入れ子の finish / transfer は
+  ;; no-op）、transfer で休止中の陣（入れ子の finish で done にはなるが巻き戻さない）。Issue #87 / #89・jil.md §4
+  (func $live (param $i i32) (result i32) (call $is_active (local.get $i)))
+  (func $stop (param $i i32) (param $live i32) (result i32)
+    (i32.and (local.get $live) (i32.eqz (call $is_active (local.get $i)))))
 
   (func $lr_reset (param $l (ref null $Lr)) (struct.set $Lr 1 (local.get $l) (i32.const 0)))
 
@@ -3267,7 +3271,7 @@
             (block $d2
               (loop $n2
                 (br_if $d2 (i32.ge_u (local.get $k) (local.get $n)))
-                (br_if $d2 (call $stop (local.get $i)))
+                (br_if $d2 (i32.eqz (call $is_active (local.get $i))))
                 (br_if $d2 (global.get $ERRED))
                 (local.set $kind (call $ev_kind (local.get $k)))
                 (if (i32.and (i32.eq (local.get $kind) (i32.const 1)) (call $prog_has_on (local.get $i) (i32.const 1)))
@@ -3276,7 +3280,7 @@
                   (then (call $prog_on_pointer (local.get $i) (local.get $k))))
                 (local.set $k (i32.add (local.get $k) (i32.const 1)))
                 (br $n2)))
-            (if (i32.and (i32.eqz (call $stop (local.get $i))) (i32.and (i32.eqz (global.get $ERRED)) (call $prog_has_on (local.get $i) (i32.const 3))))
+            (if (i32.and (call $is_active (local.get $i)) (i32.and (i32.eqz (global.get $ERRED)) (call $prog_has_on (local.get $i) (i32.const 3))))
               (then (call $prog_on_tick (local.get $i))))))
         (local.set $oi (i32.add (local.get $oi) (i32.const 1)))
         (br $next))))
