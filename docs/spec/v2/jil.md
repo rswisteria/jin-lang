@@ -183,6 +183,22 @@ wasm-GC の `array` / `struct` はホストから読めないので、**引数�
   (Lua 経路と同じ)
 - 命令数の上限(§6.6)
 
+エラーは wasm の例外ではなく**フラグ**で写す(ランタイム部の `$ERR` が `ERRED` / `ERRMSG` / `DONE` を立てる)。効果はフラグが
+立っていたら何もしない、生成部の手順はエラーし得るステップ(添字を含む式・cast・ループ)と手順の呼び出しの後にフラグを見て返る、
+`tick` はフラグが立っていたら `publish_all` / `ADVANCE` を飛ばし、`boot` は飛ばさない(プレリュードの `pcall` の範囲と同じ)。
+
+**Lua 経路との既知の差**(パリティの fixture はこの形を含まない):
+
+- `each` の本文で反復中の list を縮めると、Lua は `#list` を最初に 1 度だけ評価して nil を読み後の算術で落ちる。wasm は添字が
+  長さを超えた時点で抜ける(nil が無い)
+- `sub` の添字が NaN のとき Lua は `utf8.offset` の位置付きの文で落ちる。wasm は `""`
+- 深い再帰は Lua が `stack overflow` の文(位置付き)で落ちる。wasm は call stack の trap(`WasmGcRunError`)
+- `sin` / `cos` / `atan2` は fdlibm の移植で、C ライブラリ(glibc は正しい丸め)と最後の bit が違い得る(1 ulp 以内)。
+  |x| ≥ 2^19·π/2 の引数の還元は Payne-Hanek を移植していないので精度が落ちる
+- 数値の書式は Lua の `%.{p}e` 探索の写しなので、Python の `repr` と割れる 2 の冪の一部(往復の区間が非対称な値・
+  `tests/fixtures/numbers.jsonl` の `str != repr` の 92 行)は **Lua に付く**(runtime.md §6 の「repr と同じ配置」からの
+  既知の逸脱で、両経路で同じ)
+
 ### 6.5 `wait` の変換(継続 → 状態機械)
 
 wasm にコルーチンは無い。`wait` に到達しうる手順(`jin_wasm.codegen` が `_waits` として静的に求めている閉包)だけを
@@ -250,8 +266,8 @@ dist/
 | Sub-Issue | 範囲 | 完了の fixture |
 |---|---|---|
 | A(#73) | `jin-wasmgc` パッケージ(依存 / layers / packaging 契約)・`jin_wasm.codegen` の解析の切り出し・WAT の生成部(式 / state / core の手順)・`wat2wasm` の束ね・`jin build --target wasm-gc`・`jin run --target wasm-gc`(wasmtime) | `examples-v2/fib`(文字列も `wait` も無い)の最後の公開 state が Lua 経路と一致 |
-| B(#74) | ランタイム部(文字列 / JSON の読み書き / 数値の書式 / PCG32 / 表示リストと音 / 入力 / `storage` / 純関数)・命令数の上限 | `clicker` / `key_pointer` / `storage` / `text_input` の release `--frames` が一致・数値書式 700 件が一致 |
-| C(#75) | スケジューラ(flow / transfer / emit / `wait` の状態機械 / guard / `asks` + `reply`)・debug(トレース / `snapshot` / `resume`) | `paddle` と `tests/fixtures/v2-programs/` 14 本の debug `--trace` と `--frames` が全行一致(`test_wasmgc_parity.py`) |
+| B(#74) | ランタイム部(文字列 / list / 型紙 / JSON の読み書き / 数値の書式と strtod / PCG32 / 表示リストと音 / 入力 / `storage` / 純関数 / 効果)・`on key` / `on pointer` / `on tick` の配達(核あり root だけ)・命令数の上限 | `key_pointer` / `storage` / `text_input` / `each_list` / `bad_color` / `runtime_error_index` の release `--frames` が一致・数値書式 700 件が一致・両経路で `NUMSTR` → strtod が bit 一致 |
+| C(#75) | スケジューラ(flow / transfer / emit / `wait` の状態機械 / summon / guard / `asks` + `reply`・陣の順)・debug(トレース / `snapshot` / `resume`) | `paddle` / `clicker`(核が `wait` を含む)と `tests/fixtures/v2-programs/` 14 本の debug `--trace` と `--frames` が全行一致(`test_wasmgc_parity.py`) |
 | D(#76) | プレイヤーの `WasmGcHost`・manifest の `target`・`--single`・ブラウザの e2e・文書(runtime.md §8 / §9 / §10・設計書 §12・CLAUDE.md) | `apps/player/e2e/wasmgc.spec.ts` が実ブラウザで録画 → 両経路の `jin run --input` と全行一致 |
 
 release(表示リストの一致)を先に、debug(トレース全行一致・`snapshot` / `resume`)を後にするが、Issue #53 の完了条件は

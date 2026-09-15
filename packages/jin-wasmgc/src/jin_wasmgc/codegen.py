@@ -7,15 +7,26 @@
 
 `.jin` の名前を WAT の識別子に**埋め込まない**。陣 i（0 始まり）の state は `(type $S<i>)` の
 struct で欄は宣言順の添字、確定値は同じ型の `$P<i>`、手順は `$r<i>_<j>`、局所は `$l<n>`
-（手順ごとの通し番号）。名前は data 区画の文字列（公開 state の鍵 `"Fib.answer":`）にだけ載る。
+（手順ごとの通し番号）、型紙 k は `$F<k>`（`$F0` はランタイム部の Pointer）。名前は data 区画の
+文字列（公開 state の鍵 `"Fib.answer":` / 型紙の欄の鍵）にだけ載る。
 
-## Sub-Issue A（#73）の範囲
+## 値の表現（jil.md §6.3）
 
-`num` / `bool` の式（リテラル・局所・state・他陣の公開 state・単項・二項）、`let` / `set` / `if` /
-`loop count` / `loop while` / `break` / `return` / `finish` / 自陣の手順への `cast`、`out` の state、
-release ビルド。それ以外は `CodegenError` で、どの Sub-Issue で入るかを名指しする
-（文字列 / list / 型紙 / 純関数 / ホスト能力は #74、`wait` / `emit` / `transfer` / flow / `on` /
-summon / agent / debug は #75）。
+`num` = `f64`、`bool` = `i32`、`str` = `(ref $str)`（UTF-8 の `array i8`・作ったら書き換えない）、
+`list<num>` / `list<bool>` / それ以外の list = ランタイム部の `$Lf` / `$Li` / `$Lr`（`$Lr` の要素は
+`anyref` で、読むときに要素の型へ `ref.cast`）、型紙 = `(ref $F<k>)` の struct。式の文字列リテラルは
+passive の data（`(data $L<i> "…")`）から `array.new_data` で作る。
+
+## エラー機構（jil.md §6.4）
+
+wasm に例外は使わない。ランタイム部の `$ERR` がフラグ `$ERRED` を立てるので、生成部は**エラーし得る
+ステップの後**（添字を含む式・cast・ループ）と手順の呼び出しの後にフラグを見て返る（Lua の error が
+手順を抜ける形の写し）。ループの戻り辺と手順の呼び出しには命令数のカウンタ `$bud` を埋める（§6.6）。
+
+## Sub-Issue B（#74）の後に残るもの
+
+`wait` / `emit` / `transfer` / flow / summon / agent / debug は #75（Sub-Issue C）で、それまでは
+`CodegenError` で名指しする。
 
 ## 文字列（WAT のリテラル）
 
@@ -31,6 +42,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from jin_core.v2 import abilities
 from jin_core.v2 import expr as ex
 from jin_core.v2.model import (
     BreakStep,
@@ -47,30 +59,23 @@ from jin_core.v2.model import (
     Step,
     TransferStep,
     WaitStep,
+    parse_type,
 )
 from jin_wasm.codegen import lua_string
 from jin_wasm.jil import JIL_VERSION
-from jin_wasm.program import CircleInfo, CodegenError, Program, analyze
+from jin_wasm.program import CircleInfo, CodegenError, FormInfo, Program, analyze
 
-#: 生成部の data 区画の先頭。ランタイム部（`runtime.wat`）の文字列は [0, 128) に閉じる。
-DATA_BASE = 128
+#: 生成部の data 区画の先頭。ランタイム部（`runtime.wat`）の文字列は [0, 2048) に閉じる。
+DATA_BASE = 2048
 
 #: 入力域の直後に確保しておく出力域（`runtime.wat` の `input` と同じ 64 KiB）。
 _PAGE = 65536
 
 _LATER = {
-    "str": "#74（Sub-Issue B: 文字列）",
-    "list": "#74（Sub-Issue B: list）",
-    "form": "#74（Sub-Issue B: 型紙）",
-    "pure": "#74（Sub-Issue B: 純関数）",
-    "host": "#74（Sub-Issue B: ホスト能力）",
-    "effect": "#74（Sub-Issue B: 効果）",
-    "each": "#74（Sub-Issue B: loop each）",
     "wait": "#75（Sub-Issue C: wait）",
     "emit": "#75（Sub-Issue C: emit）",
     "transfer": "#75（Sub-Issue C: transfer）",
     "flow": "#75（Sub-Issue C: flow を持つ陣）",
-    "on": "#75（Sub-Issue C: on の手順）",
     "summon": "#75（Sub-Issue C: summon）",
     "agent": "#75（Sub-Issue C: agent）",
     "debug": "#75（Sub-Issue C: デバッグビルド）",
@@ -111,21 +116,29 @@ def wat_number(value: float) -> str:
     return text
 
 
+def list_variant(elem_type: str) -> str:
+    """list の要素の表現（`f` = f64 / `i` = i32 / `r` = anyref）。"""
+    if elem_type == "num":
+        return "f"
+    if elem_type == "bool":
+        return "i"
+    return "r"
+
+
 def wat_type(type_text: str | None) -> str:
+    """型紙を含まない型の WAT の型（型紙は `_Generator.wtype`）。"""
     if type_text == "num":
         return "f64"
     if type_text == "bool":
         return "i32"
     if type_text == "str":
-        raise _later("str", "str の値")
-    if type_text is not None and type_text.startswith("list"):
-        raise _later("list", "list の値")
-    raise _later("form", f"型 {type_text} の値")
-
-
-def _default(type_text: str | None) -> str:
-    """戻り値の型ごとの既定値（`STOP` で早く返るときに積む。Lua の nil に相当・意味は使わない）。"""
-    return "(f64.const 0)" if type_text == "num" else "(i32.const 0)"
+        return "(ref $str)"
+    if type_text is not None and type_text.startswith("list<"):
+        _, inner = parse_type(type_text)
+        return f"(ref $L{list_variant(inner or '?')})"
+    if type_text == "Pointer":
+        return "(ref $F0)"
+    raise CodegenError(f"型 {type_text} は wasm の型に写せません")
 
 
 # ---------------------------------------------------------------- 文脈
@@ -133,7 +146,7 @@ def _default(type_text: str | None) -> str:
 
 @dataclass(slots=True)
 class _Data:
-    """data 区画。同じ文字列は 1 度だけ置く。"""
+    """data 区画（active。公開 state の鍵など、書き手が `$puts` で写す文字列）。同じ文字列は 1 度だけ置く。"""
 
     chunks: list[tuple[int, bytes]] = field(default_factory=list)
     offsets: dict[bytes, tuple[int, int]] = field(default_factory=dict)
@@ -149,26 +162,82 @@ class _Data:
 
 
 @dataclass(slots=True)
+class _Literals:
+    """式の文字列リテラル（passive の data。`array.new_data` で str を作る）。"""
+
+    items: list[bytes] = field(default_factory=list)
+    index: dict[bytes, int] = field(default_factory=dict)
+
+    def get(self, text: str) -> str:
+        raw = text.encode("utf-8")
+        if raw not in self.index:
+            self.index[raw] = len(self.items)
+            self.items.append(raw)
+        return f"(array.new_data $str $L{self.index[raw]} (i32.const 0) (i32.const {len(raw)}))"
+
+
+@dataclass(slots=True)
 class _RiteCtx:
     info: CircleInfo
     rite: Rite
-    locals: dict[str, str]  # 局所名 → $l<n>
-    decls: list[tuple[str, str]] = field(default_factory=list)  # ($l<n>, f64 | i32)
+    locals: dict[str, tuple[str, str | None]]  # 局所名 → ($l<n>, 型)
+    decls: list[tuple[str, str]] = field(default_factory=list)  # ($l<n>, WAT の型)
     next_local: int = 0
     next_label: int = 0
     loop_labels: list[str] = field(default_factory=list)  # break の飛び先（内側が末尾）
 
-    def new_local(self, name: str | None, type_text: str | None) -> str:
-        wat = f"$l{self.next_local}"
-        self.next_local += 1
-        self.decls.append((wat, wat_type(type_text)))
-        if name is not None:
-            self.locals[name] = wat
-        return wat
-
     def label(self, stem: str) -> str:
         self.next_label += 1
         return f"${stem}{self.next_label}"
+
+
+def _is_ref(wat: str) -> bool:
+    return wat.startswith("(ref")
+
+
+def _nullable(wat: str) -> str:
+    return wat.replace("(ref $", "(ref null $", 1) if _is_ref(wat) else wat
+
+
+def _contains_index(node: ex.Node) -> bool:
+    """式がエラーし得る（添字を含む）か。"""
+    if isinstance(node, ex.Index):
+        return True
+    if isinstance(node, ex.Unary):
+        return _contains_index(node.operand)
+    if isinstance(node, ex.Binary):
+        return _contains_index(node.left) or _contains_index(node.right)
+    if isinstance(node, ex.FieldAccess):
+        return _contains_index(node.obj)
+    if isinstance(node, ex.Call):
+        return _contains_index(node.callee) or any(_contains_index(a) for a in node.args)
+    if isinstance(node, ex.Construct):
+        return any(_contains_index(v) for _, _, v in node.fields)
+    if isinstance(node, ex.ListLiteral):
+        return any(_contains_index(i) for i in node.items)
+    return False
+
+
+_HOST_FUNC = {
+    (ns.name, m.name): f"$h_{ns.name}_{m.name}" for ns in abilities.NAMESPACES for m in ns.members
+}
+
+_PURE_SIMPLE = {
+    "abs": "$f_abs",
+    "min": "$f_min",
+    "max": "$f_max",
+    "floor": "$f_floor",
+    "ceil": "$f_ceil",
+    "round": "$f_round",
+    "sqrt": "$f_sqrt",
+    "sin": "$f_sin",
+    "cos": "$f_cos",
+    "atan2": "$f_atan2",
+    "clamp": "$f_clamp",
+    "sub": "$f_sub",
+    "num": "$f_num",
+    "cmp": "$f_cmp",
+}
 
 
 class _Generator:
@@ -176,20 +245,123 @@ class _Generator:
         self.program = program
         self.model = program.model
         self.circles = program.circles
+        self.forms: dict[str, FormInfo] = program.forms
         self.data = _Data()
+        self.lits = _Literals()
         self.lines: list[str] = []
+        self.serializers: dict[str, str] = {}  # 型 → 直列化関数の名前
+        self.serializer_lines: list[str] = []
 
     def out(self, text: str, indent: int = 1) -> None:
         self.lines.append("  " * indent + text)
 
+    # ---------------------------------------------------------------- 型
+    def form_index(self, name: str) -> int:
+        info = self.forms.get(name)
+        if info is None:
+            raise CodegenError(f"型紙 '{name}' が分かりません")
+        return info.index
+
+    def wtype(self, type_text: str | None) -> str:
+        if type_text is None or type_text == ex.LIST_OF_UNKNOWN:
+            raise CodegenError(
+                "--target wasm-gc: 要素の型が決まらない list（空の list リテラルだけの let など）は"
+                "生成できません。state か型紙の欄に置くか、要素を 1 つ入れてください"
+            )
+        head, _ = parse_type(type_text)
+        if head in ("num", "bool", "str", "list", "Pointer"):
+            return wat_type(type_text)
+        return f"(ref $F{self.form_index(head)})"
+
+    def default_const(self, type_text: str) -> str:
+        """型ごとの既定値（グローバルの初期化や早い return に使う定数式）。"""
+        head, inner = parse_type(type_text)
+        if head == "num":
+            return "(f64.const 0)"
+        if head == "bool":
+            return "(i32.const 0)"
+        if head == "str":
+            return "(array.new_fixed $str 0)"
+        if head == "list":
+            v = list_variant(inner or "?")
+            return f"(struct.new $L{v} (array.new_default $l{v} (i32.const 0)) (i32.const 0))"
+        k = self.form_index(head)
+        fields = " ".join(self.default_const(t) for _, (_, t) in self.forms[head].fields.items())
+        return f"(struct.new $F{k}{' ' + fields if fields else ''})"
+
+    def cast_elem(self, value: str, elem_type: str) -> str:
+        """`$Lr` の要素（anyref）を要素の型へ。"""
+        if list_variant(elem_type) != "r":
+            return value
+        return f"(ref.cast {self.wtype(elem_type)} {value})"
+
+    # ---------------------------------------------------------------- 直列化（公開 state の JSON）
+    def serializer(self, type_text: str) -> str:
+        """型の値を書き手（$OUT）へ JSON で書く関数の名前。"""
+        head, inner = parse_type(type_text)
+        if head == "num":
+            return "$put_jn"
+        if head == "bool":
+            return "$put_bool"
+        if head == "str":
+            return "$put_js"
+        if type_text in self.serializers:
+            return self.serializers[type_text]
+        if head == "list":
+            assert inner is not None
+            name = f"$ser{len(self.serializers)}"
+            self.serializers[type_text] = name
+            v = list_variant(inner)
+            item = self.serializer(inner)
+            get = self.cast_elem(f"(call $l{v}_get (local.get $l) (local.get $i))", inner)
+            self.serializer_lines.extend(
+                [
+                    f"  (func {name} (param $l (ref null $L{v}))  ;; {type_text}",
+                    "    (local $i i32) (local $n i32)",
+                    f"    (local.set $n (call $l{v}_len (local.get $l)))",
+                    "    (call $putc (i32.const 91))",
+                    "    (block $done (loop $next",
+                    "      (br_if $done (i32.ge_u (local.get $i) (local.get $n)))",
+                    "      (if (local.get $i) (then (call $putc (i32.const 44))))",
+                    f"      (call {item} {get})",
+                    "      (local.set $i (i32.add (local.get $i) (i32.const 1)))",
+                    "      (br $next)))",
+                    "    (call $putc (i32.const 93)))",
+                ]
+            )
+            return name
+        name = f"$jf{self.form_index(head)}"
+        self.serializers[type_text] = name
+        return name
+
+    def emit_form_serializers(self) -> None:
+        """`$jf<k>`: 型紙 k を `{"x":…,"y":…}` で書く（Lua の JF[k] と 1:1。$jf0 は Pointer）。"""
+        for name, info in self.forms.items():
+            k = info.index
+            self.out(f"(func $jf{k} (param $v (ref null $F{k}))  ;; {name}", 1)
+            self.out("(call $putc (i32.const 123))", 2)
+            for pos, (field_name, (j, type_text)) in enumerate(info.fields.items()):
+                off, length = self.data.put(("," if pos else "") + f'"{field_name}":')
+                self.out(f"(call $puts (i32.const {off}) (i32.const {length}))", 2)
+                self.out(
+                    f"(call {self.serializer(type_text)} (struct.get $F{k} {j} (local.get $v)))", 2
+                )
+            self.out("(call $putc (i32.const 125)))", 2)
+
     # ---------------------------------------------------------------- 式
-    def expr(self, node: ex.Node, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
+    def expr(
+        self,
+        node: ex.Node,
+        ctx: _RiteCtx | None,
+        info: CircleInfo | None,
+        expect: str | None = None,
+    ) -> str:
         if isinstance(node, ex.Number):
             return f"(f64.const {wat_number(node.value)})"
         if isinstance(node, ex.Boolean):
             return f"(i32.const {1 if node.value else 0})"
         if isinstance(node, ex.String):
-            raise _later("str", "文字列リテラル")
+            return self.lits.get(node.value)
         if isinstance(node, ex.Name):
             return self.name(node.name, ctx, info)
         if isinstance(node, ex.Unary):
@@ -200,16 +372,35 @@ class _Generator:
         if isinstance(node, ex.FieldAccess):
             return self.field(node, ctx, info)
         if isinstance(node, ex.Index):
-            raise _later("list", "添字")
+            obj_type = node.obj.type or ""
+            _, inner = parse_type(obj_type) if obj_type.startswith("list<") else ("", None)
+            if inner is None:
+                raise CodegenError(f"添字の左辺の型が list ではありません（{obj_type}）")
+            v = list_variant(inner)
+            obj = self.expr(node.obj, ctx, info)
+            idx = self.expr(node.index, ctx, info)
+            return self.cast_elem(f"(call $l{v}_at {obj} {idx})", inner)
         if isinstance(node, ex.Call):
-            callee = node.callee
-            if isinstance(callee, ex.Name):
-                raise _later("pure", f"純関数 {callee.name}")
-            raise _later("host", "式の中のホスト能力")
+            return self.call(node, ctx, info)
         if isinstance(node, ex.Construct):
-            raise _later("form", "型紙のコンストラクタ")
+            form = self.forms[node.form]
+            values = {name: value for name, _, value in node.fields}
+            parts = [
+                self.expr(values[field_name], ctx, info, type_text)
+                for field_name, (_, type_text) in form.fields.items()
+            ]
+            return f"(struct.new $F{form.index}{' ' + ' '.join(parts) if parts else ''})"
         if isinstance(node, ex.ListLiteral):
-            raise _later("list", "list リテラル")
+            type_text = node.type if node.type != ex.LIST_OF_UNKNOWN else expect
+            if type_text is None or not type_text.startswith("list<"):
+                self.wtype(ex.LIST_OF_UNKNOWN)  # 要素の型が決まらない → CodegenError
+            _, inner = parse_type(type_text or "")
+            assert inner is not None
+            v = list_variant(inner)
+            text = f"(call $l{v}_new (i32.const {len(node.items)}))"
+            for item in node.items:
+                text = f"(call $l{v}_pushr {text} {self.expr(item, ctx, info, inner)})"
+            return text
         raise CodegenError(f"式の形 {type(node).__name__} は生成できません")  # pragma: no cover
 
     def binary(self, node: ex.Binary, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
@@ -221,7 +412,7 @@ class _Generator:
         if op == "or":
             return f"(if (result i32) {left} (then (i32.const 1)) (else {right}))"
         if op == "++":
-            raise _later("str", "文字列の連結")
+            return f"(call $str_cat {left} {right})"
         if op in ("+", "-", "*", "/"):
             name = {"+": "add", "-": "sub", "*": "mul", "/": "div"}[op]
             return f"(f64.{name} {left} {right})"
@@ -233,14 +424,22 @@ class _Generator:
             return f"(f64.{name} {left} {right})"
         if operand_type == "bool" and op in ("==", "!="):
             return f"(i32.{'eq' if op == '==' else 'ne'} {left} {right})"
-        raise _later("str", f"{operand_type} の比較")
+        if operand_type == "str" and op in ("==", "!="):
+            eq = f"(call $str_eq {left} {right})"
+            return eq if op == "==" else f"(i32.eqz {eq})"
+        if op in ("==", "!="):
+            # list / 型紙は同一性（Lua のテーブルの == と同じ）
+            eq = f"(ref.eq (ref.cast (ref null eq) {left}) (ref.cast (ref null eq) {right}))"
+            return eq if op == "==" else f"(i32.eqz {eq})"
+        raise CodegenError(f"{operand_type} の比較 {op} は生成できません")
 
     def name(self, name: str, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
         if ctx is not None and name in ctx.locals:
-            return f"(local.get {ctx.locals[name]})"
+            wat, type_text = ctx.locals[name]
+            get = f"(local.get {wat})"
+            return f"(ref.as_non_null {get})" if _is_ref(self.wtype(type_text)) else get
         if info is not None and name in info.states:
-            j, type_text = info.states[name]
-            wat_type(type_text)
+            j, _ = info.states[name]
             return f"(struct.get $S{info.pointer_index} {j} (global.get $S{info.pointer_index}))"
         raise CodegenError(f"識別子 '{name}' を解決できません")
 
@@ -252,30 +451,118 @@ class _Generator:
             )
             if not is_value and base.name in self.circles:
                 other = self.circles[base.name]
-                j, type_text = other.states[node.name]
-                wat_type(type_text)
+                j, _ = other.states[node.name]
                 return (
                     f"(struct.get $S{other.pointer_index} {j} (global.get $P{other.pointer_index}))"
                 )
-        raise _later("form", f"型紙の欄 .{node.name}")
+        obj_type = base.type
+        if obj_type is None or obj_type not in self.forms:
+            raise CodegenError(f"'.{node.name}' の左辺の型紙が分かりません（{obj_type}）")
+        k = self.forms[obj_type].index
+        j, _ = self.forms[obj_type].fields[node.name]
+        return f"(struct.get $F{k} {j} {self.expr(base, ctx, info)})"
+
+    def call(self, node: ex.Call, ctx: _RiteCtx | None, info: CircleInfo | None) -> str:
+        callee = node.callee
+        if isinstance(callee, ex.Name):
+            return self.pure_call(callee.name, node.args, ctx, info)
+        if isinstance(callee, ex.FieldAccess) and isinstance(callee.obj, ex.Name):
+            sigil = info.sigils.get(callee.obj.name) if info is not None else None
+            if sigil is not None and sigil[0] == "host":
+                func = _HOST_FUNC.get((sigil[1], callee.name))
+                if func is None:
+                    raise CodegenError(f"ホスト能力 {sigil[1]}.{callee.name} が分かりません")
+                args = " ".join(self.expr(a, ctx, info) for a in node.args)
+                return f"(call {func}{' ' + args if args else ''})"
+            if sigil is not None:
+                raise _later(sigil[0], f"式の中の {callee.obj.name}.{callee.name}")
+        raise CodegenError("呼び出せるのは純関数と '名前空間.メンバ' だけです")
+
+    def pure_call(
+        self, name: str, args: list[ex.Node], ctx: _RiteCtx | None, info: CircleInfo | None
+    ) -> str:
+        arg_type = args[0].type if args else None
+        if name in _PURE_SIMPLE:
+            values = " ".join(self.expr(a, ctx, info) for a in args)
+            return f"(call {_PURE_SIMPLE[name]} {values})"
+        if name == "len":
+            value = self.expr(args[0], ctx, info)
+            if arg_type == "str":
+                return f"(call $f_len {value})"
+            _, inner = parse_type(arg_type or "")
+            return f"(call $f_len_{list_variant(inner or '?')} {value})"
+        if name == "str":
+            value = self.expr(args[0], ctx, info)
+            if arg_type == "num":
+                return f"(call $f_str {value})"
+            if arg_type == "bool":
+                return f"(call $f_str_b {value})"
+            return value
+        if name == "contains":
+            value = self.expr(args[0], ctx, info)
+            item = self.expr(args[1], ctx, info)
+            _, inner = parse_type(arg_type or "")
+            if inner == "str":
+                return f"(call $f_contains_s {value} {item})"
+            return f"(call $f_contains_{list_variant(inner or '?')} {value} {item})"
+        raise CodegenError(f"純関数 {name} が分かりません")
 
     # ---------------------------------------------------------------- 代入先
     def assign(self, target: ex.Node, value: str, ctx: _RiteCtx, indent: int) -> None:
         info = ctx.info
         if isinstance(target, ex.Index):
-            raise _later("list", "添字への代入")
+            obj_type = target.obj.type or ""
+            _, inner = parse_type(obj_type)
+            v = list_variant(inner or "?")
+            obj = self.expr(target.obj, ctx, info)
+            idx = self.expr(target.index, ctx, info)
+            self.out(f"(call $l{v}_set {obj} {idx} {value})", indent)
+            return
         if isinstance(target, ex.Name):
             if target.name in ctx.locals:
-                self.out(f"(local.set {ctx.locals[target.name]} {value})", indent)
+                self.out(f"(local.set {ctx.locals[target.name][0]} {value})", indent)
                 return
             if target.name in info.states:
                 j, _ = info.states[target.name]
                 pi = info.pointer_index
                 self.out(f"(struct.set $S{pi} {j} (global.get $S{pi}) {value})", indent)
                 return
-        raise _later("form", "型紙の欄への代入")
+        if isinstance(target, ex.FieldAccess):
+            obj_type = target.obj.type
+            if obj_type is None or obj_type not in self.forms:
+                raise CodegenError(f"'.{target.name}' の左辺の型紙が分かりません（{obj_type}）")
+            k = self.forms[obj_type].index
+            j, _ = self.forms[obj_type].fields[target.name]
+            self.out(f"(struct.set $F{k} {j} {self.expr(target.obj, ctx, info)} {value})", indent)
+            return
+        raise CodegenError("代入先の形が分かりません")  # pragma: no cover
 
     # ---------------------------------------------------------------- ステップ
+    def new_local(self, ctx: _RiteCtx, name: str | None, type_text: str | None) -> str:
+        wat = f"$l{ctx.next_local}"
+        ctx.next_local += 1
+        ctx.decls.append((wat, _nullable(self.wtype(type_text))))
+        if name is not None:
+            ctx.locals[name] = (wat, type_text)
+        return wat
+
+    def new_raw_local(self, ctx: _RiteCtx, wat_type_text: str) -> str:
+        wat = f"$l{ctx.next_local}"
+        ctx.next_local += 1
+        ctx.decls.append((wat, wat_type_text))
+        return wat
+
+    def value(self, node: ex.Node, ctx: _RiteCtx, indent: int, expect: str | None = None) -> str:
+        """式の値。添字を含む（エラーし得る）式は局所に置き、フラグを見てから使う。"""
+        text = self.expr(node, ctx, ctx.info, expect)
+        if not _contains_index(node):
+            return text
+        tmp = self.new_local(ctx, None, node.type if node.type != ex.LIST_OF_UNKNOWN else expect)
+        self.out(f"(local.set {tmp} {text})", indent)
+        self.out(f"(if (global.get $ERRED) (then {self.early_return(ctx)}))", indent)
+        get = f"(local.get {tmp})"
+        return f"(ref.as_non_null {get})" if _is_ref(self.wtype(node.type or expect)) else get
+
     def steps(self, steps: list[Step], pointer: str, ctx: _RiteCtx, indent: int) -> None:
         for k, step in enumerate(steps):
             self.step(step, f"{pointer}/{k}", ctx, indent)
@@ -284,20 +571,21 @@ class _Generator:
         info = ctx.info
         node = self.program.node
         if isinstance(step, SetStep):
-            value = self.expr(node(f"{sp}/expr"), ctx, info)
-            self.assign(node(f"{sp}/target"), value, ctx, indent)
+            target = node(f"{sp}/target")
+            value = self.value(node(f"{sp}/expr"), ctx, indent, target.type)
+            self.assign(target, value, ctx, indent)
             return
         if isinstance(step, LetStep):
             value_node = node(f"{sp}/expr")
-            value = self.expr(value_node, ctx, info)
-            local = ctx.new_local(step.name, value_node.type)
+            value = self.value(value_node, ctx, indent)
+            local = self.new_local(ctx, step.name, value_node.type)
             self.out(f"(local.set {local} {value})", indent)
             return
         if isinstance(step, CastStep):
             self.cast(step, sp, ctx, indent)
             return
         if isinstance(step, IfStep):
-            cond = self.expr(node(f"{sp}/cond"), ctx, info)
+            cond = self.value(node(f"{sp}/cond"), ctx, indent)
             self.out(f"(if {cond}", indent)
             self.out("(then", indent + 1)
             self.steps(step.then, f"{sp}/then", ctx, indent + 2)
@@ -322,7 +610,7 @@ class _Generator:
             if step.expr is None:
                 self.out("(return)", indent)
                 return
-            self.out(f"(return {self.expr(node(f'{sp}/expr'), ctx, info)})", indent)
+            self.out(f"(return {self.value(node(f'{sp}/expr'), ctx, indent)})", indent)
             return
         if isinstance(step, FinishStep):
             self.out(f"(call $finish{info.pointer_index})", indent)
@@ -335,75 +623,166 @@ class _Generator:
     def early_return(self, ctx: _RiteCtx) -> str:
         if ctx.rite.returns is None:
             return "(return)"
-        return f"(return {_default(ctx.rite.returns)})"
+        return f"(return {self.default_const(ctx.rite.returns)})"
+
+    def back_edge(self, brk: str, cont: str, indent: int) -> None:
+        """ループの戻り辺: 命令数のカウンタを減らし、上限に当たっていたら抜ける（jil.md §6.6）。"""
+        self.out("(call $bud)", indent)
+        self.out(f"(br_if {brk} (global.get $ERRED))", indent)
+        self.out(f"(br {cont})", indent)
 
     def loop(self, step: LoopStep, sp: str, ctx: _RiteCtx, indent: int) -> None:
-        info = ctx.info
         node = self.program.node
-        if step.kind == "each":
-            raise _later("each", "loop each")
         brk = ctx.label("brk")
         cont = ctx.label("loop")
         if step.kind == "while":
             self.out(f"(block {brk}", indent)
             self.out(f"(loop {cont}", indent + 1)
-            cond = self.expr(node(f"{sp}/cond"), ctx, info)
+            cond = self.value(node(f"{sp}/cond"), ctx, indent + 2)
             self.out(f"(br_if {brk} (i32.eqz {cond}))", indent + 2)
             ctx.loop_labels.append(brk)
             self.steps(step.steps, f"{sp}/steps", ctx, indent + 2)
             ctx.loop_labels.pop()
-            self.out(f"(br {cont})", indent + 2)
+            self.back_edge(brk, cont, indent + 2)
             self.out(")", indent + 1)
             self.out(")", indent)
-            return
-        # count: Lua の `for i = 0, math.floor(times) - 1`。回数は f64 のまま比べる（NaN / 巨大な値で
-        # i32 に変換すると trap する。NaN は 1 回も回らない・Lua の math.floor(NaN) と同じ）。
-        times = self.expr(node(f"{sp}/times"), ctx, info)
-        count = ctx.new_local(None, "num")
-        index = ctx.new_local(None, "num")
-        self.out(f"(local.set {count} (f64.floor {times}))", indent)
-        self.out(f"(local.set {index} (f64.const 0))", indent)
-        self.out(f"(block {brk}", indent)
-        self.out(f"(loop {cont}", indent + 1)
-        self.out(
-            f"(br_if {brk} (i32.eqz (f64.lt (local.get {index}) (local.get {count}))))", indent + 2
-        )
-        if step.name is not None:
-            item = ctx.new_local(step.name, "num")
-            self.out(f"(local.set {item} (local.get {index}))", indent + 2)
-        ctx.loop_labels.append(brk)
-        self.steps(step.steps, f"{sp}/steps", ctx, indent + 2)
-        ctx.loop_labels.pop()
-        self.out(f"(local.set {index} (f64.add (local.get {index}) (f64.const 1)))", indent + 2)
-        self.out(f"(br {cont})", indent + 2)
-        self.out(")", indent + 1)
-        self.out(")", indent)
+        elif step.kind == "each":
+            # Lua の `for i = 1, #list do local item = list[i]`: 長さは最初に 1 度だけ評価する。本文で list が
+            # 縮んだら（Lua は nil を読んで後で落ちる）添字が長さを超えた時点で抜ける（既知の差・jil.md §6.4）
+            source_node = node(f"{sp}/in")
+            source_type = source_node.type or ""
+            _, inner = parse_type(source_type) if source_type.startswith("list<") else ("", None)
+            if inner is None:
+                raise CodegenError(f"loop each の in の型が list ではありません（{source_type}）")
+            v = list_variant(inner)
+            source = self.value(source_node, ctx, indent)
+            lst = self.new_local(ctx, None, source_type)
+            count = self.new_raw_local(ctx, "i32")
+            index = self.new_raw_local(ctx, "i32")
+            item = self.new_local(ctx, step.name or "", inner)
+            self.out(f"(local.set {lst} {source})", indent)
+            self.out(f"(local.set {count} (call $l{v}_len (local.get {lst})))", indent)
+            self.out(f"(local.set {index} (i32.const 0))", indent)
+            self.out(f"(block {brk}", indent)
+            self.out(f"(loop {cont}", indent + 1)
+            self.out(
+                f"(br_if {brk} (i32.ge_u (local.get {index}) (local.get {count})))", indent + 2
+            )
+            self.out(
+                f"(br_if {brk} (i32.ge_u (local.get {index}) (call $l{v}_len (local.get {lst}))))",
+                indent + 2,
+            )
+            get = self.cast_elem(f"(call $l{v}_get (local.get {lst}) (local.get {index}))", inner)
+            self.out(f"(local.set {item} {get})", indent + 2)
+            ctx.loop_labels.append(brk)
+            self.steps(step.steps, f"{sp}/steps", ctx, indent + 2)
+            ctx.loop_labels.pop()
+            self.out(f"(local.set {index} (i32.add (local.get {index}) (i32.const 1)))", indent + 2)
+            self.back_edge(brk, cont, indent + 2)
+            self.out(")", indent + 1)
+            self.out(")", indent)
+        else:
+            # count: Lua の `for i = 0, math.floor(times) - 1`。回数は f64 のまま比べる（NaN / 巨大な値で
+            # i32 に変換すると trap する。NaN は 1 回も回らない・Lua の math.floor(NaN) と同じ）。
+            times = self.value(node(f"{sp}/times"), ctx, indent)
+            count = self.new_local(ctx, None, "num")
+            index = self.new_local(ctx, None, "num")
+            self.out(f"(local.set {count} (f64.floor {times}))", indent)
+            self.out(f"(local.set {index} (f64.const 0))", indent)
+            self.out(f"(block {brk}", indent)
+            self.out(f"(loop {cont}", indent + 1)
+            self.out(
+                f"(br_if {brk} (i32.eqz (f64.lt (local.get {index}) (local.get {count}))))",
+                indent + 2,
+            )
+            if step.name is not None:
+                item = self.new_local(ctx, step.name, "num")
+                self.out(f"(local.set {item} (local.get {index}))", indent + 2)
+            ctx.loop_labels.append(brk)
+            self.steps(step.steps, f"{sp}/steps", ctx, indent + 2)
+            ctx.loop_labels.pop()
+            self.out(f"(local.set {index} (f64.add (local.get {index}) (f64.const 1)))", indent + 2)
+            self.back_edge(brk, cont, indent + 2)
+            self.out(")", indent + 1)
+            self.out(")", indent)
+        # 戻り辺で上限に当たって抜けた形（本文のステップは自分で返っている）
+        self.out(f"(if (global.get $ERRED) (then {self.early_return(ctx)}))", indent)
 
     def cast(self, step: CastStep, sp: str, ctx: _RiteCtx, indent: int) -> None:
         info = ctx.info
         node = self.program.node
+        arg_nodes = [node(f"{sp}/args/{k}") for k in range(len(step.args))]
         parts = step.target.split(".")
+        pi = info.pointer_index
+        errcheck = f"(if (global.get $ERRED) (then {self.early_return(ctx)}))"
         if len(parts) == 1 and parts[0] in info.rites:
             j = info.rites[parts[0]]
             rite = info.circle.rites[j - 1]
-        elif len(parts) == 1 and parts[0] in info.sigils:
-            raise _later(info.sigils[parts[0]][0], f"cast {step.target}")
-        elif len(parts) == 1:
-            raise _later("effect", f"効果 {step.target}")
-        else:
-            raise _later("host", f"ホスト能力 {step.target}")
-        args = " ".join(self.expr(node(f"{sp}/args/{k}"), ctx, info) for k in range(len(step.args)))
-        call = f"(call $r{info.pointer_index}_{j - 1}{' ' + args if args else ''})"
-        stop = f"(i32.ne (global.get $st{info.pointer_index}) (i32.const 1))"
-        if step.into is not None and rite.returns is not None:
-            # Lua と同じ順: 呼ぶ → STOP なら返る → into に代入
-            tmp = ctx.new_local(None, rite.returns)
-            self.out(f"(local.set {tmp} {call})", indent)
-            self.out(f"(if {stop} (then {self.early_return(ctx)}))", indent)
-            self.assign(node(f"{sp}/into"), f"(local.get {tmp})", ctx, indent)
+            args = " ".join(
+                self.value(a, ctx, indent, p.type)
+                for a, p in zip(arg_nodes, rite.params, strict=True)
+            )
+            call = f"(call $r{pi}_{j - 1}{' ' + args if args else ''})"
+            # 手順の呼び出しにもカウンタを埋める（再帰の無限ループ・jil.md §6.6）
+            self.out("(call $bud)", indent)
+            self.out(errcheck, indent)
+            # Lua と同じ順: 呼ぶ → STOP なら返る → into に代入（STOP はエラーも含む）
+            stop = f"(if (i32.or (global.get $ERRED) (i32.ne (global.get $st{pi}) (i32.const 1))) (then {self.early_return(ctx)}))"
+            if step.into is not None and rite.returns is not None:
+                tmp = self.new_local(ctx, None, rite.returns)
+                self.out(f"(local.set {tmp} {call})", indent)
+                self.out(stop, indent)
+                get = f"(local.get {tmp})"
+                if _is_ref(self.wtype(rite.returns)):
+                    get = f"(ref.as_non_null {get})"
+                self.assign(node(f"{sp}/into"), get, ctx, indent)
+                return
+            self.out(f"(drop {call})" if rite.returns is not None else call, indent)
+            self.out(stop, indent)
             return
-        self.out(f"(drop {call})" if rite.returns is not None else call, indent)
-        self.out(f"(if {stop} (then {self.early_return(ctx)}))", indent)
+        if len(parts) == 1 and parts[0] in info.sigils:
+            raise _later(info.sigils[parts[0]][0], f"cast {step.target}")
+        if len(parts) == 1:
+            # 効果（expr.md §4.2）: push / removeAt / clear。list の要素の表現で関数を選ぶ
+            list_type = arg_nodes[0].type or ""
+            _, inner = parse_type(list_type) if list_type.startswith("list<") else ("", None)
+            if inner is None:
+                raise CodegenError(
+                    f"効果 {parts[0]} の 1 つ目の引数の型が list ではありません（{list_type}）"
+                )
+            v = list_variant(inner)
+            expected = [list_type, inner] if parts[0] == "push" else [list_type, "num"]
+            args = " ".join(
+                self.value(a, ctx, indent, t) for a, t in zip(arg_nodes, expected, strict=False)
+            )
+            func = {"push": f"$e_push_{v}", "removeAt": f"$e_remove_{v}", "clear": f"$e_clear_{v}"}
+            self.out(f"(call {func[parts[0]]} {args})", indent)
+            self.out(errcheck, indent)
+            return
+        # ホスト能力（abilities.md）
+        sigil = info.sigils.get(parts[0])
+        if sigil is None or sigil[0] != "host":
+            raise CodegenError(f"'{parts[0]}' は host の sigil ではありません")
+        ns = sigil[1]
+        member = abilities.namespace(ns).member(parts[1])  # type: ignore[union-attr]
+        if member is None:
+            raise CodegenError(f"ホスト能力 {ns}.{parts[1]} が分かりません")
+        args = " ".join(
+            self.value(a, ctx, indent, t)
+            for a, (_, t) in zip(arg_nodes, member.params, strict=True)
+        )
+        call = f"(call {_HOST_FUNC[ns, parts[1]]}{' ' + args if args else ''})"
+        if member.returns is not None and step.into is not None:
+            tmp = self.new_local(ctx, None, member.returns)
+            self.out(f"(local.set {tmp} {call})", indent)
+            self.out(errcheck, indent)
+            get = f"(local.get {tmp})"
+            if _is_ref(self.wtype(member.returns)):
+                get = f"(ref.as_non_null {get})"
+            self.assign(node(f"{sp}/into"), get, ctx, indent)
+            return
+        self.out(f"(drop {call})" if member.returns is not None else call, indent)
+        self.out(errcheck, indent)
 
     # ---------------------------------------------------------------- 手順と陣
     def emit_rite(self, info: CircleInfo, rite: Rite, j: int) -> None:
@@ -412,10 +791,10 @@ class _Generator:
         for p in rite.params:
             wat = f"$l{ctx.next_local}"
             ctx.next_local += 1
-            ctx.locals[p.name] = wat
-            params.append(f"(param {wat} {wat_type(p.type)})")
+            ctx.locals[p.name] = (wat, p.type)
+            params.append(f"(param {wat} {self.wtype(p.type)})")
         pointer = f"/circles/{info.pointer_index}/rites/{j}"
-        result = f" (result {wat_type(rite.returns)})" if rite.returns is not None else ""
+        result = f" (result {self.wtype(rite.returns)})" if rite.returns is not None else ""
         start = len(self.lines)
         self.steps(rite.steps, f"{pointer}/steps", ctx, 2)
         body = self.lines[start:]
@@ -439,23 +818,44 @@ class _Generator:
             self.out("(unreachable)", 2)
         self.out(")", 1)
 
+    def param_types(self, info: CircleInfo, rite: Rite) -> None:
+        for p in rite.params:
+            self.wtype(p.type)
+
+    def emit_types(self) -> None:
+        """型紙と陣の state の struct（相互参照に備えて 1 つの rec に入れる）。"""
+        self.out("(rec", 1)
+        for name, info in self.forms.items():
+            if info.index == 0:
+                continue  # Pointer はランタイム部の $F0
+            fields = " ".join(f"(field (mut {self.wtype(t)}))" for _, (_, t) in info.fields.items())
+            self.out(
+                f"(type $F{info.index} (struct {fields}))  ;; form {name}".replace(
+                    "struct )", "struct)"
+                ),
+                2,
+            )
+        for info in self.circles.values():
+            pi = info.pointer_index
+            fields = " ".join(f"(field (mut {self.wtype(s.type)}))" for s in info.circle.state)
+            self.out(f"(type $S{pi} (struct {fields}))".replace("struct )", "struct)"), 2)
+        self.out(")", 1)
+
     def emit_circle(self, info: CircleInfo) -> None:
         circle = info.circle
         pi = info.pointer_index
         if circle.flow is not None:
             raise _later("flow", f"陣 {circle.name}（flow）")
-        if circle.boundary is not None and circle.boundary.on:
-            raise _later("on", f"陣 {circle.name} の on")
-        fields = " ".join(f"(field (mut {wat_type(s.type)}))" for s in circle.state)
+        defaults = " ".join(self.default_const(s.type) for s in circle.state)
+        new = f"(struct.new $S{pi}{' ' + defaults if defaults else ''})"
         self.out(f";; circle {pi}: {circle.name}", 1)
-        self.out(f"(type $S{pi} (struct {fields}))".replace("struct )", "struct)"), 1)
-        self.out(f"(global $S{pi} (mut (ref $S{pi})) (struct.new_default $S{pi}))", 1)
-        self.out(f"(global $P{pi} (mut (ref $S{pi})) (struct.new_default $S{pi}))", 1)
+        self.out(f"(global $S{pi} (mut (ref $S{pi})) {new})", 1)
+        self.out(f"(global $P{pi} (mut (ref $S{pi})) {new})", 1)
         self.out(f"(global $st{pi} (mut i32) (i32.const 0))  ;; 0 idle / 1 active / 2 done", 1)
         self.out(f"(global $pubd{pi} (mut i32) (i32.const 0))", 1)
         inits = " ".join(
-            self.expr(self.program.node(f"/circles/{pi}/state/{j}/init"), None, None)
-            for j, _ in enumerate(circle.state)
+            self.expr(self.program.node(f"/circles/{pi}/state/{j}/init"), None, None, s.type)
+            for j, s in enumerate(circle.state)
         )
         self.out(
             f"(func $init{pi} (global.set $S{pi} (struct.new $S{pi}{' ' + inits if inits else ''})))",
@@ -474,10 +874,11 @@ class _Generator:
         self.out(f"(func $pub{pi}", 1)
         for j, s in outs:
             off, length = self.data.put(f'"{circle.name}.{s.name}":')
-            put = "$put_jn" if s.type == "num" else "$put_bool"
             self.out("(call $pub_comma)", 2)
             self.out(f"(call $puts (i32.const {off}) (i32.const {length}))", 2)
-            self.out(f"(call {put} (struct.get $S{pi} {j} (global.get $P{pi})))", 2)
+            self.out(
+                f"(call {self.serializer(s.type)} (struct.get $S{pi} {j} (global.get $P{pi})))", 2
+            )
         self.out(")", 1)
         self.out(f"(func $finish{pi}", 1)
         self.out(f"(if (i32.ne (global.get $st{pi}) (i32.const 1)) (then (return)))", 2)
@@ -494,6 +895,64 @@ class _Generator:
         self.out(f"(drop {call})" if core.returns is not None else call, 2)
         self.out(")", 1)
 
+    def emit_dispatch(self, root: CircleInfo) -> None:
+        """`$prog_dispatch`: on key / on pointer / on tick の配達（dispatch_events）。#74 は root だけ（ORDER = [root]）。"""
+        circle = root.circle
+        pi = root.pointer_index
+        handlers = {on.event: on.rite for on in (circle.boundary.on if circle.boundary else [])}
+        for event, rite_name in handlers.items():
+            if event not in ("key", "pointer", "tick"):
+                raise _later("emit" if event == "message" else "flow", f"on {event}")
+            if root.waits[rite_name]:
+                raise _later("wait", f"on {event} の手順 {rite_name}（wait を含む）")
+        self.out("(func $prog_dispatch", 1)
+        if not handlers:
+            self.out(")", 1)
+            return
+        self.out("(local $k i32) (local $n i32)", 2)
+        stop = f"(i32.or (global.get $ERRED) (i32.ne (global.get $st{pi}) (i32.const 1)))"
+
+        def invoke(rite_name: str, args: list[str]) -> str:
+            # Lua は余分な引数を捨てる: 手順が宣言した数だけ渡す（dt を受けない on tick など）
+            j = root.rites[rite_name] - 1
+            rite = circle.rites[j]
+            passed = " ".join(args[: len(rite.params)])
+            call = f"(call $r{pi}_{j}{' ' + passed if passed else ''})"
+            return f"(drop {call})" if rite.returns is not None else call
+
+        if "key" in handlers or "pointer" in handlers:
+            self.out("(local.set $n (call $ev_count))", 2)
+            self.out("(block $done (loop $next", 2)
+            self.out("(br_if $done (i32.ge_u (local.get $k) (local.get $n)))", 3)
+            self.out(f"(br_if $done {stop})", 3)
+            if "key" in handlers:
+                self.out(
+                    "(if (i32.eq (call $ev_kind (local.get $k)) (i32.const 1)) (then "
+                    + invoke(
+                        handlers["key"],
+                        ["(call $ev_name (local.get $k))", "(call $ev_down (local.get $k))"],
+                    )
+                    + "))",
+                    3,
+                )
+            if "pointer" in handlers:
+                self.out(
+                    "(if (i32.eq (call $ev_kind (local.get $k)) (i32.const 2)) (then "
+                    + invoke(handlers["pointer"], ["(call $ev_pointer (local.get $k))"])
+                    + "))",
+                    3,
+                )
+            self.out("(local.set $k (i32.add (local.get $k) (i32.const 1)))", 3)
+            self.out("(br $next)))", 3)
+        if "tick" in handlers:
+            self.out(
+                f"(if (i32.eqz {stop}) (then "
+                + invoke(handlers["tick"], ["(f64.div (f64.const 1) (global.get $FPS))"])
+                + "))",
+                2,
+            )
+        self.out(")", 1)
+
     # ---------------------------------------------------------------- 全体
     def program_part(self) -> str:
         model = self.model
@@ -501,17 +960,26 @@ class _Generator:
             if info.circle.core is None:
                 raise _later("flow", f"陣 {info.circle.name}（flow）")
             for sigil in info.circle.sigils:
-                if sigil.kind == "host":
-                    raise _later("host", f"陣 {info.circle.name} の sigil {sigil.name}")
-                raise _later(sigil.kind, f"陣 {info.circle.name} の sigil {sigil.name}")
+                if sigil.kind != "host":
+                    raise _later(sigil.kind, f"陣 {info.circle.name} の sigil {sigil.name}")
+            if (
+                info.circle.boundary is not None
+                and info.circle.boundary.on
+                and info.pointer_index != self.circles[model.root].pointer_index
+            ):
+                raise _later("flow", f"陣 {info.circle.name} の on（root 以外の陣の配達）")
         root = self.circles[model.root]
+        self.emit_types()
+        self.emit_form_serializers()
         for info in self.circles.values():
             for j, rite in enumerate(info.circle.rites):
                 self.emit_rite(info, rite, j)
         for info in self.circles.values():
             self.emit_circle(info)
+        self.emit_dispatch(root)
         indices = [info.pointer_index for info in self.circles.values()]
         self.out(f"(global $ROOT i32 (i32.const {root.pointer_index}))", 1)
+        self.out(f"(global $FPS f64 (f64.const {wat_number(model.stage.fps)}))", 1)
         self.out("(func $prog_fresh_state", 1)
         for pi in indices:
             self.out(f"(global.set $st{pi} (i32.const 0))", 2)
@@ -535,6 +1003,11 @@ class _Generator:
             2,
         )
         self.out(")", 1)
+        # list の直列化（型ごとに 1 つ）
+        self.lines.extend(self.serializer_lines)
+        # 式の文字列リテラル（passive）
+        for i, raw in enumerate(self.lits.items):
+            self.out(f"(data $L{i} {wat_string(raw.decode('utf-8'))})", 1)
         # data 区画と線形メモリ（runtime.wat の配置に合わせる）
         for off, raw in self.data.chunks:
             self.out(f"(data (i32.const {off}) {wat_string(raw.decode('utf-8'))})", 1)
@@ -576,4 +1049,12 @@ def generate_program(model: JinFileV2, *, debug: bool = False) -> str:
     return _Generator(analyze(model)).program_part()
 
 
-__all__ = ["DATA_BASE", "generate_program", "header", "wat_number", "wat_string", "wat_type"]
+__all__ = [
+    "DATA_BASE",
+    "generate_program",
+    "header",
+    "list_variant",
+    "wat_number",
+    "wat_string",
+    "wat_type",
+]

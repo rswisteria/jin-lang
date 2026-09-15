@@ -7,12 +7,10 @@
 module は import を持たず、線形メモリの外へ出る手段が無い（lupa 側の「消すグローバル」に相当する
 手続きは無い）。`jin run --target wasm-gc` が任意コードを実行しないのは Lua 経路と同じ。
 
-命令数の上限は module の中のカウンタ（jil.md §6.6）で掛けるが、それは #74（Sub-Issue B）で入る。
-それまでは wasmtime の fuel（`consume_fuel`・`FUEL_PER_CALL`）を boot / tick ごとに掛けて、無限ループの
-module を止める（ブラウザには fuel が無い。`wasmgc-api-probe.md` A.3 / A.5）。#74 の後は保険に格下げする。
-**#73 時点の既知の差**: 上限に当たると Lua 経路は tick 結果の `error`（`budget`・runtime.md §8）を持って
-正常に返るが、wasm 経路は fuel の Trap を `WasmGcRunError`（例外）にする。#74 でカウンタが入り、両経路が
-同じ tick に `error` 行を出す形に揃う（jil.md §6.6）。
+命令数の上限は module の中のカウンタ（jil.md §6.6。生成部がループの戻り辺と手順の呼び出しに埋める。値 10^7 と
+`error` の文は Lua 経路の `INSTRUCTION_BUDGET` / `_SETUP` と同じ）で掛かり、両経路が同じ tick に `error` 行を出す。
+wasmtime の fuel（`consume_fuel`・`FUEL_PER_CALL`）は**保険**で、カウンタが 10^7 回減る前に尽きない大きさに置く
+（module が止まらないのは生成系のバグ・§6.2。ブラウザには fuel が無い）。
 """
 
 from __future__ import annotations
@@ -24,9 +22,9 @@ from typing import Any
 from jin_wasm.runtime import HeadlessResult, InputState, apply_storage_writes
 from wasmtime import Config, Engine, Instance, Module, Store, Trap
 
-#: 1 回の `boot` / `tick` に許す wasmtime の fuel（おおよそ wasm 命令数）。Lua 経路の `INSTRUCTION_BUDGET`
-#: （10^7 VM 命令）に対して十分に余裕を取り、#74 で module 内のカウンタが入るまでの保険。
-FUEL_PER_CALL = 1_000_000_000
+#: 1 回の `boot` / `tick` に許す wasmtime の fuel（おおよそ wasm 命令数）。module 内のカウンタ（10^7 回の
+#: 戻り辺 / 呼び出し）が先に当たるよう、1 回の反復が 10^4 命令でも尽きない 10^11 に置く（保険。jil.md §6.6）。
+FUEL_PER_CALL = 100_000_000_000
 
 #: ホストが呼ぶ export（jil.md §6.2）。`memory` は読み書きの口。
 EXPORTS = ("memory", "input", "boot", "tick")
@@ -78,7 +76,8 @@ class WasmGcHost:
     def boot(self, seed: int, manifest: dict[str, Any]) -> None:
         self._call(self._boot, {"seed": int(seed), "manifest": manifest}, "boot")
 
-    def tick(self, t: int, inputs: dict[str, Any]) -> dict[str, Any]:
+    def tick_raw(self, t: int, inputs: dict[str, Any]) -> bytes:
+        """`tick` の結果を JSON のバイト列のまま返す（パリティのテストが Lua の文字列と突き合わせる）。"""
         returned = self._call(self._tick, {"t": int(t), "inputs": inputs}, f"tick {t}")
         try:
             ptr, length = (int(v) for v in returned)
@@ -86,7 +85,10 @@ class WasmGcHost:
             raise WasmGcRunError(
                 f"tick {t} の戻り値が (先頭, 長さ) ではありません: {returned!r}"
             ) from exc
-        raw = bytes(self.memory.read(self.store, ptr, ptr + length))
+        return bytes(self.memory.read(self.store, ptr, ptr + length))
+
+    def tick(self, t: int, inputs: dict[str, Any]) -> dict[str, Any]:
+        raw = self.tick_raw(t, inputs)
         try:
             return json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, ValueError) as exc:
@@ -98,11 +100,11 @@ def _trap_message(exc: Trap) -> str:
     last = text[-1].strip() if text else str(exc)
     if "fuel" in last:
         return (
-            "命令数の上限を超えました（無限ループ？）。module 内のカウンタ（jil.md §6.6）は #74 で入り、"
-            f"それまでは wasmtime の fuel（{FUEL_PER_CALL} / 回）で止めています"
+            f"wasmtime の fuel（{FUEL_PER_CALL} / 回）が尽きました。module 内のカウンタ（jil.md §6.6）が"
+            "先に止めるはずなので、生成系の不備です"
         )
-    if "unreachable" in last:
-        return "生成した module が trap しました（未実装の経路: 非整数の数値書式は #74）: " + last
+    if "unreachable" in last or "trap" in last:
+        return "生成した module が trap しました（生成系の不備・jil.md §6.2）: " + last
     return last
 
 
@@ -121,7 +123,7 @@ def run_headless_wasm(
 ) -> HeadlessResult:
     """`boot` → `tick(0..ticks-1)` を順に呼ぶ（`jin_wasm.runtime.run_headless` と同じ契約）。
 
-    `answer` / `replay`（v1 の陣への問い・runtime.md §11）は #75 で配線する。A の module は問いを出さない
+    `answer` / `replay`（v1 の陣への問い・runtime.md §11）は #75 で配線する。B までの module は問いを出さない
     （`agent` の sigil は `CodegenError`）ので、`asks` が出たら `WasmGcRunError`。
     """
     by_tick: dict[int, list[dict[str, Any]]] = {}

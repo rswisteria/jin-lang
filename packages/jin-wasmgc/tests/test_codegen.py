@@ -159,30 +159,44 @@ def _data_segments(wat: str) -> dict[int, bytes]:
 
 
 def test_runtime_strings_stay_below_the_program_data_base() -> None:
-    """`runtime.wat` の文字列と `$puts` の定数は手で書いてあるので、配置を機械で突き合わせる。"""
-    segments = _data_segments(runtime_source())
-    assert segments == {
-        0: b"NaN",
-        3: b"Infinity",
-        11: b'{"ops":[],"audio":[],"done":',
-        39: b',"error":null,"public":{',
-        63: b"true",
-        67: b"false",
-        72: b"}}",
-    }
+    """`runtime.wat` の文字列は [0, DATA_BASE) に閉じ、`$puts` / `$mem_str` などの (番地, 長さ) は実在の文字列を指す。"""
+    source = runtime_source()
+    segments = _data_segments(source)
+    assert segments, "runtime.wat の data 区画が読めない"
+    assert min(segments) == 0
     assert max(off + len(raw) for off, raw in segments.items()) <= DATA_BASE
-    for off, raw in segments.items():
-        assert f"(i32.const {off}) (i32.const {len(raw)})" in runtime_source(), (off, raw)
-    assert "$put_jn" in runtime_source()  # 生成部の pub_i が呼ぶ JSON の数値（JN 相当）
+    for expected in (b"NaN", b"Infinity", b"true", b"false", b"null", b'{"ops":[', b'],"audio":['):
+        assert expected in segments.values(), expected
+    # 番地 + 長さの組はすべて data 区画の文字列（手で振った定数がずれていない）
+    pairs = re.findall(
+        r"\(call \$(?:puts|mem_str) \(i32\.const (\d+)\) \(i32\.const (\d+)\)\)", source
+    )
+    pairs += re.findall(
+        r"\$(?:str_eq_mem|j_getk) [^\n]*? \(i32\.const (\d+)\) \(i32\.const (\d+)\)\)", source
+    )
+    assert len(pairs) > 40
+    for off, length in pairs:
+        assert segments.get(int(off)) is not None and len(segments[int(off)]) == int(length), (
+            off,
+            length,
+        )
+    assert "$put_jn" in source  # 生成部の pub_i が呼ぶ JSON の数値（JN 相当）
 
 
 def test_program_data_starts_at_the_base_and_the_input_area_follows() -> None:
     program = generate_program(load(FIB))
     segments = _data_segments(program)
     assert min(segments) == DATA_BASE
-    assert segments[DATA_BASE] == b'"Fib.answer":'
+    assert b'"Fib.answer":' in segments.values()
     in_base = int(re.search(r"\(global \$in_base i32 \(i32\.const (\d+)\)\)", program).group(1))
     assert in_base % 16 == 0 and in_base >= max(o + len(r) for o, r in segments.items())
+
+
+def test_string_literals_are_passive_data_created_with_array_new_data() -> None:
+    state = [{"name": "s", "type": "str", "init": '"日本 \\"q\\""', "out": True}]
+    program = generate_program(model_from(doc(circle("T", state, [{"name": "main", "steps": []}]))))
+    assert '(data $L0 "\\e6\\97\\a5\\e6\\9c\\ac \\22q\\22")' in program
+    assert "(array.new_data $str $L0 (i32.const 0) (i32.const 10))" in program
 
 
 # ---------------------------------------------------------------- 名前を識別子に埋めない（jil.md §6.3）
@@ -203,15 +217,12 @@ def test_names_appear_only_in_the_data_section() -> None:
     ("name", "issue"),
     [
         ("paddle", "#75"),  # flow
-        ("clicker", "#74"),  # ホスト能力（canvas / input）
+        ("clicker", "#75"),  # 核が wait を含む
         ("emit_message", "#75"),
         ("wait_until", "#75"),
         ("transfer", "#75"),
         ("summon", "#75"),
         ("agent", "#75"),
-        ("each_list", "#74"),
-        ("storage", "#74"),
-        ("text_input", "#74"),
     ],
 )
 def test_unsupported_programs_name_the_sub_issue(name: str, issue: str) -> None:
@@ -230,15 +241,10 @@ def test_debug_build_is_refused_until_sub_issue_c() -> None:
 
 
 @pytest.mark.parametrize(
-    ("expr", "issue"),
-    [
-        ('"a" ++ "b"', "#74"),
-        ("len([1, 2])", "#74"),
-        ("floor(1.5)", "#74"),
-    ],
+    "name",
+    ["key_pointer", "storage", "text_input", "each_list", "bad_color", "runtime_error_index"],
 )
-def test_unsupported_expressions_name_the_sub_issue(expr: str, issue: str) -> None:
-    state = [{"name": "x", "type": "num", "init": "0"}]
-    rite = {"name": "main", "steps": [{"do": "let", "name": "v", "expr": expr}, {"do": "finish"}]}
-    with pytest.raises(CodegenError, match=issue):
-        generate_program(model_from(doc(circle("T", state, [rite]))))
+def test_the_sub_issue_b_fixtures_assemble(name: str) -> None:
+    game = assemble(load(PROGRAMS / f"{name}.jin"), source_name=f"{name}.jin")
+    module = Module(Engine(), game.wasm)
+    assert module.imports == [] and {e.name for e in module.exports} == set(EXPORTS)

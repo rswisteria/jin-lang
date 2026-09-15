@@ -1,6 +1,18 @@
 # serializer version: 1
 # name: test_fib_program_snapshot
   '''
+    (rec
+      (type $S0 (struct (field (mut f64))))
+    )
+    (func $jf0 (param $v (ref null $F0))  ;; Pointer
+      (call $putc (i32.const 123))
+      (call $puts (i32.const 2048) (i32.const 4))
+      (call $put_jn (struct.get $F0 0 (local.get $v)))
+      (call $puts (i32.const 2052) (i32.const 5))
+      (call $put_jn (struct.get $F0 1 (local.get $v)))
+      (call $puts (i32.const 2057) (i32.const 8))
+      (call $put_bool (struct.get $F0 2 (local.get $v)))
+      (call $putc (i32.const 125)))
     (func $r0_0 (param $l0 f64) (result f64) ;; Fib.fib
       (local $l1 f64)
       (local $l2 f64)
@@ -18,24 +30,28 @@
           (local.set $l1 (local.get $l2))
           (local.set $l2 (local.get $l5))
           (local.set $l4 (f64.add (local.get $l4) (f64.const 1)))
+          (call $bud)
+          (br_if $brk1 (global.get $ERRED))
           (br $loop2)
         )
       )
+      (if (global.get $ERRED) (then (return (f64.const 0))))
       (return (local.get $l1))
       (unreachable)
     )
     (func $r0_1 ;; Fib.main
       (local $l0 f64)
+      (call $bud)
+      (if (global.get $ERRED) (then (return)))
       (local.set $l0 (call $r0_0 (f64.const 20.0)))
-      (if (i32.ne (global.get $st0) (i32.const 1)) (then (return)))
+      (if (i32.or (global.get $ERRED) (i32.ne (global.get $st0) (i32.const 1))) (then (return)))
       (struct.set $S0 0 (global.get $S0) (local.get $l0))
       (call $finish0)
       (return)
     )
     ;; circle 0: Fib
-    (type $S0 (struct (field (mut f64))))
-    (global $S0 (mut (ref $S0)) (struct.new_default $S0))
-    (global $P0 (mut (ref $S0)) (struct.new_default $S0))
+    (global $S0 (mut (ref $S0)) (struct.new $S0 (f64.const 0)))
+    (global $P0 (mut (ref $S0)) (struct.new $S0 (f64.const 0)))
     (global $st0 (mut i32) (i32.const 0))  ;; 0 idle / 1 active / 2 done
     (global $pubd0 (mut i32) (i32.const 0))
     (func $init0 (global.set $S0 (struct.new $S0 (f64.const 0.0))))
@@ -45,7 +61,7 @@
     )
     (func $pub0
       (call $pub_comma)
-      (call $puts (i32.const 128) (i32.const 13))
+      (call $puts (i32.const 2065) (i32.const 13))
       (call $put_jn (struct.get $S0 0 (global.get $P0)))
     )
     (func $finish0
@@ -59,7 +75,10 @@
       (call $publish0)
       (call $r0_1)
     )
+    (func $prog_dispatch
+    )
     (global $ROOT i32 (i32.const 0))
+    (global $FPS f64 (f64.const 60.0))
     (func $prog_fresh_state
       (global.set $st0 (i32.const 0))
       (global.set $pubd0 (i32.const 0))
@@ -76,8 +95,11 @@
     (func $prog_advance
       (if (i32.eq (global.get $st0) (i32.const 2)) (then (global.set $DONE (i32.const 1))))
     )
-    (data (i32.const 128) "\22Fib.answer\22:")
-    (global $in_base i32 (i32.const 144))
+    (data (i32.const 2048) "\22x\22:")
+    (data (i32.const 2052) ",\22y\22:")
+    (data (i32.const 2057) ",\22down\22:")
+    (data (i32.const 2065) "\22Fib.answer\22:")
+    (global $in_base i32 (i32.const 2080))
     (memory (export "memory") 3)
   
   '''
