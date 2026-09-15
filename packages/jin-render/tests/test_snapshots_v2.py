@@ -13,7 +13,7 @@ from jin_render import render
 from .conftest import PROGRAMS_V2, load_model_v2, trace_rows_v2
 
 
-@pytest.mark.parametrize("name", ["paddle", "clicker", "fib"])
+@pytest.mark.parametrize("name", ["paddle", "clicker", "fib", "tetris"])
 def test_example_svg_snapshot(name: str, request: pytest.FixtureRequest, snapshot) -> None:
     model: JinFileV2 = request.getfixturevalue(name)
     assert render(model) == snapshot

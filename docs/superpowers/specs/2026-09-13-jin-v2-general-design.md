@@ -102,6 +102,7 @@ jin/
     paddle/paddle.jin              # §2.2 の例(ボールとパドル)
     clicker/clicker.jin            # UI だけのゲーム(ui.button / ui.label)。wait を含むループの実例
     fib/fib.jin                    # 純粋な計算(§2.5)
+    tetris/tetris.jin              # 後から足した 4 本目(10×20 の盤面を list<num> で持つ・型紙 Piece・wait の重力・random・行消去。README の動画の題材)
   tests/fixtures/errors/v2/        # v2 の診断 fixture(各コードちょうど 1 つ。v1 の走査は非再帰なので混ざらない)
 ```
 

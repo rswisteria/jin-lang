@@ -367,6 +367,538 @@
   
   '''
 # ---
+# name: test_program_snapshot[debug-tetris]
+  '''
+  DEBUG = true
+  ROOT = 1
+  FPS = 30.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JR[0] = function(v) if RREC(v) == nil then return nil end local f_0 = RN(v["x"]) local f_1 = RN(v["y"]) local f_2 = RB(v["down"]) if f_0 == nil or f_1 == nil or f_2 == nil then return nil end return { f_0 = f_0, f_1 = f_1, f_2 = f_2 } end  -- Pointer
+  JF[1] = function(v) return '{' .. '"kind":' .. JV(v.f_0) .. ',' .. '"rot":' .. JV(v.f_1) .. ',' .. '"x":' .. JV(v.f_2) .. ',' .. '"y":' .. JV(v.f_3) .. '}' end  -- Piece
+  JR[1] = function(v) if RREC(v) == nil then return nil end local f_0 = RN(v["kind"]) local f_1 = RN(v["rot"]) local f_2 = RN(v["x"]) local f_3 = RN(v["y"]) if f_0 == nil or f_1 == nil or f_2 == nil or f_3 == nil then return nil end return { f_0 = f_0, f_1 = f_1, f_2 = f_2, f_3 = f_3 } end  -- Piece
+  R[2] = {}
+  R[3] = {}
+  -- circle 1: Play
+  R[2][1] = function()  -- begin
+    local rr_ = TR(2, "begin", "/circles/1/rites/0", '[]')
+    S[2].k_3 = 0.0
+    TS(2, "score", "/circles/1/rites/0/steps/0", JV(S[2].k_3))
+    S[2].k_4 = 0.0
+    TS(2, "lines", "/circles/1/rites/0/steps/1", JV(S[2].k_4))
+    S[2].k_5 = 0.0
+    TS(2, "placed", "/circles/1/rites/0/steps/2", JV(S[2].k_5))
+    S[2].k_6 = 15.0
+    TS(2, "speed", "/circles/1/rites/0/steps/3", JV(S[2].k_6))
+    S[2].k_8 = false
+    TS(2, "over", "/circles/1/rites/0/steps/4", JV(S[2].k_8))
+    S[2].k_7 = 0.0
+    TS(2, "soft", "/circles/1/rites/0/steps/5", JV(S[2].k_7))
+    do
+      local a_1 = S[2].k_0
+      local c_2 = T("cast", 2, "clear", "/circles/1/rites/0/steps/6", '[' .. JL(JV)(a_1) .. ']', nil)
+      E.clear(a_1)
+    end
+    do
+      local n_3 = math.floor(200.0)
+      for i_4 = 0, n_3 - 1 do
+        local l_0 = i_4 + 0.0
+        do
+          local a_5, a_6 = S[2].k_0, 0.0
+          local c_7 = T("cast", 2, "push", "/circles/1/rites/0/steps/7/steps/0", '[' .. JL(JV)(a_5) .. ',' .. JV(a_6) .. ']', nil)
+          E.push(a_5, a_6)
+        end
+      end
+    end
+    S[2].k_2 = H.random.range(0.0, 6.0)
+    TS(2, "next", "/circles/1/rites/0/steps/8", JV(S[2].k_2))
+    do
+      R[2][3]()
+      if STOP(2) then return end
+    end
+    while (not S[2].k_8) do
+      WAIT_TICKS(S[2].k_6, "/circles/1/rites/0/steps/10/steps/0")
+      local l_1 = false
+      do
+        local a_8, a_9, a_10, a_11 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
+        local r_12 = R[2][2](a_8, a_9, a_10, a_11)
+        if STOP(2) then return end
+        l_1 = r_12
+      end
+      if l_1 then
+        S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
+        TS(2, "piece", "/circles/1/rites/0/steps/10/steps/3/then/0", JF[1](S[2].k_1))
+      else
+        do
+          R[2][4]()
+          if STOP(2) then return end
+        end
+      end
+    end
+    T("finish", 2, nil, "/circles/1/rites/0/steps/11", nil, nil)
+    FINISH(2)
+    do return end
+  end
+  R[2][2] = function(l_0, l_1, l_2, l_3)  -- fits
+    local rr_ = TR(2, "fits", "/circles/1/rites/1", '[' .. JV(l_0) .. ',' .. JV(l_1) .. ',' .. JV(l_2) .. ',' .. JV(l_3) .. ']')
+    do
+      local n_1 = math.floor(4.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_4 = i_2 + 0.0
+        local l_5 = (l_2 + AT(S[2].k_9, (((((l_0 * 4.0) + l_1) * 4.0) + l_4) * 2.0)))
+        local l_6 = (l_3 + AT(S[2].k_9, ((((((l_0 * 4.0) + l_1) * 4.0) + l_4) * 2.0) + 1.0)))
+        if (((l_5 < 0.0) or (l_5 >= 10.0)) or (l_6 >= 20.0)) then
+          local r_3 = false
+          TRET(rr_, JV(r_3))
+          do return r_3 end
+        end
+        if ((l_6 >= 0.0) and (AT(S[2].k_0, ((l_6 * 10.0) + l_5)) ~= 0.0)) then
+          local r_4 = false
+          TRET(rr_, JV(r_4))
+          do return r_4 end
+        end
+      end
+    end
+    local r_5 = true
+    TRET(rr_, JV(r_5))
+    do return r_5 end
+  end
+  R[2][3] = function()  -- spawn
+    local rr_ = TR(2, "spawn", "/circles/1/rites/2", '[]')
+    S[2].k_1 = { f_0 = S[2].k_2, f_1 = 0.0, f_2 = 3.0, f_3 = 0.0 }
+    TS(2, "piece", "/circles/1/rites/2/steps/0", JF[1](S[2].k_1))
+    S[2].k_2 = H.random.range(0.0, 6.0)
+    TS(2, "next", "/circles/1/rites/2/steps/1", JV(S[2].k_2))
+    local l_0 = false
+    do
+      local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, S[2].k_1.f_3
+      local r_5 = R[2][2](a_1, a_2, a_3, a_4)
+      if STOP(2) then return end
+      l_0 = r_5
+    end
+    if (not l_0) then
+      S[2].k_8 = true
+      TS(2, "over", "/circles/1/rites/2/steps/4/then/0", JV(S[2].k_8))
+    end
+  end
+  R[2][4] = function()  -- lock
+    local rr_ = TR(2, "lock", "/circles/1/rites/3", '[]')
+    local l_0 = S[2].k_1.f_0
+    local l_1 = S[2].k_1.f_1
+    do
+      local n_1 = math.floor(4.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_2 = i_2 + 0.0
+        local l_3 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_0 * 4.0) + l_1) * 4.0) + l_2) * 2.0)))
+        local l_4 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_0 * 4.0) + l_1) * 4.0) + l_2) * 2.0) + 1.0)))
+        if (l_4 >= 0.0) then
+          SETAT(S[2].k_0, ((l_4 * 10.0) + l_3), (l_0 + 1.0))
+          TS(2, "board", "/circles/1/rites/3/steps/2/steps/2/then/0", JL(JV)(S[2].k_0))
+        end
+      end
+    end
+    do
+      local a_3, a_4 = 220.0, 30.0
+      local c_5 = T("cast", 2, "audio.tone", "/circles/1/rites/3/steps/3", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ']', nil)
+      H.audio.tone(a_3, a_4)
+    end
+    do
+      R[2][5]()
+      if STOP(2) then return end
+    end
+    S[2].k_5 = (S[2].k_5 + 1.0)
+    TS(2, "placed", "/circles/1/rites/3/steps/5", JV(S[2].k_5))
+    do
+      R[2][3]()
+      if STOP(2) then return end
+    end
+  end
+  R[2][5] = function()  -- clearLines
+    local rr_ = TR(2, "clearLines", "/circles/1/rites/4", '[]')
+    local l_0 = 0.0
+    do
+      local n_1 = math.floor(20.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_1 = i_2 + 0.0
+        local l_2 = true
+        do
+          local n_3 = math.floor(10.0)
+          for i_4 = 0, n_3 - 1 do
+            local l_3 = i_4 + 0.0
+            if (AT(S[2].k_0, ((l_1 * 10.0) + l_3)) == 0.0) then
+              l_2 = false
+            end
+          end
+        end
+        if l_2 then
+          do
+            local n_5 = math.floor((l_1 * 10.0))
+            for i_6 = 0, n_5 - 1 do
+              local l_4 = i_6 + 0.0
+              local l_5 = (((l_1 * 10.0) - 1.0) - l_4)
+              SETAT(S[2].k_0, (l_5 + 10.0), AT(S[2].k_0, l_5))
+              TS(2, "board", "/circles/1/rites/4/steps/1/steps/2/then/0/steps/1", JL(JV)(S[2].k_0))
+            end
+          end
+          do
+            local n_7 = math.floor(10.0)
+            for i_8 = 0, n_7 - 1 do
+              local l_6 = i_8 + 0.0
+              SETAT(S[2].k_0, l_6, 0.0)
+              TS(2, "board", "/circles/1/rites/4/steps/1/steps/2/then/1/steps/0", JL(JV)(S[2].k_0))
+            end
+          end
+          l_0 = (l_0 + 1.0)
+        end
+      end
+    end
+    if (l_0 > 0.0) then
+      local l_7 = { 0.0, 100.0, 300.0, 500.0, 800.0 }
+      S[2].k_3 = (S[2].k_3 + AT(l_7, l_0))
+      TS(2, "score", "/circles/1/rites/4/steps/2/then/1", JV(S[2].k_3))
+      S[2].k_4 = (S[2].k_4 + l_0)
+      TS(2, "lines", "/circles/1/rites/4/steps/2/then/2", JV(S[2].k_4))
+      S[2].k_6 = F.max(4.0, (15.0 - F.floor((S[2].k_4 / 5.0))))
+      TS(2, "speed", "/circles/1/rites/4/steps/2/then/3", JV(S[2].k_6))
+      do
+        local a_9, a_10 = 660.0, 80.0
+        local c_11 = T("cast", 2, "audio.tone", "/circles/1/rites/4/steps/2/then/4", '[' .. JV(a_9) .. ',' .. JV(a_10) .. ']', nil)
+        H.audio.tone(a_9, a_10)
+      end
+    end
+  end
+  R[2][6] = function()  -- control
+    local rr_ = TR(2, "control", "/circles/1/rites/5", '[]')
+    if S[2].k_8 then
+      do return end
+    end
+    local l_0 = false
+    if H.input.pressed("ArrowLeft") then
+      do
+        local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 - 1.0), S[2].k_1.f_3
+        local r_5 = R[2][2](a_1, a_2, a_3, a_4)
+        if STOP(2) then return end
+        l_0 = r_5
+      end
+      if l_0 then
+        S[2].k_1.f_2 = (S[2].k_1.f_2 - 1.0)
+        TS(2, "piece", "/circles/1/rites/5/steps/2/then/1/then/0", JF[1](S[2].k_1))
+      end
+    end
+    if H.input.pressed("ArrowRight") then
+      do
+        local a_6, a_7, a_8, a_9 = S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 + 1.0), S[2].k_1.f_3
+        local r_10 = R[2][2](a_6, a_7, a_8, a_9)
+        if STOP(2) then return end
+        l_0 = r_10
+      end
+      if l_0 then
+        S[2].k_1.f_2 = (S[2].k_1.f_2 + 1.0)
+        TS(2, "piece", "/circles/1/rites/5/steps/3/then/1/then/0", JF[1](S[2].k_1))
+      end
+    end
+    if H.input.pressed("ArrowUp") then
+      local l_1 = ((S[2].k_1.f_1 + 1.0) % 4.0)
+      do
+        local a_11, a_12, a_13, a_14 = S[2].k_1.f_0, l_1, S[2].k_1.f_2, S[2].k_1.f_3
+        local r_15 = R[2][2](a_11, a_12, a_13, a_14)
+        if STOP(2) then return end
+        l_0 = r_15
+      end
+      if l_0 then
+        S[2].k_1.f_1 = l_1
+        TS(2, "piece", "/circles/1/rites/5/steps/4/then/2/then/0", JF[1](S[2].k_1))
+      end
+    end
+    if H.input.key("ArrowDown") then
+      S[2].k_7 = (S[2].k_7 + 1.0)
+      TS(2, "soft", "/circles/1/rites/5/steps/5/then/0", JV(S[2].k_7))
+      if ((S[2].k_7 % 3.0) == 0.0) then
+        do
+          R[2][7]()
+          if STOP(2) then return end
+        end
+      end
+    end
+    if H.input.pressed("Space") then
+      do
+        R[2][8]()
+        if STOP(2) then return end
+      end
+    end
+    do
+      R[2][9]()
+      if STOP(2) then return end
+    end
+    do
+      R[2][10]()
+      if STOP(2) then return end
+    end
+  end
+  R[2][7] = function()  -- fall
+    local rr_ = TR(2, "fall", "/circles/1/rites/6", '[]')
+    local l_0 = false
+    do
+      local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
+      local r_5 = R[2][2](a_1, a_2, a_3, a_4)
+      if STOP(2) then return end
+      l_0 = r_5
+    end
+    if l_0 then
+      S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
+      TS(2, "piece", "/circles/1/rites/6/steps/2/then/0", JF[1](S[2].k_1))
+    end
+  end
+  R[2][8] = function()  -- hardDrop
+    local rr_ = TR(2, "hardDrop", "/circles/1/rites/7", '[]')
+    local l_0 = false
+    while true do
+      do
+        local a_1, a_2, a_3, a_4 = S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0)
+        local r_5 = R[2][2](a_1, a_2, a_3, a_4)
+        if STOP(2) then return end
+        l_0 = r_5
+      end
+      if (not l_0) then
+        do break end
+      end
+      S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
+      TS(2, "piece", "/circles/1/rites/7/steps/1/steps/2", JF[1](S[2].k_1))
+    end
+    do
+      R[2][4]()
+      if STOP(2) then return end
+    end
+  end
+  R[2][9] = function()  -- paintBoard
+    local rr_ = TR(2, "paintBoard", "/circles/1/rites/8", '[]')
+    do
+      local a_1 = "#101418"
+      local c_2 = T("cast", 2, "canvas.clear", "/circles/1/rites/8/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.clear(a_1)
+    end
+    do
+      local a_3 = "#2a3340"
+      local c_4 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/1", '[' .. JV(a_3) .. ']', nil)
+      H.canvas.ink(a_3)
+    end
+    do
+      local a_5, a_6, a_7, a_8 = 6.0, 6.0, 84.0, 164.0
+      local c_9 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/2", '[' .. JV(a_5) .. ',' .. JV(a_6) .. ',' .. JV(a_7) .. ',' .. JV(a_8) .. ']', nil)
+      H.canvas.rect(a_5, a_6, a_7, a_8)
+    end
+    do
+      local a_10 = "#000"
+      local c_11 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/3", '[' .. JV(a_10) .. ']', nil)
+      H.canvas.ink(a_10)
+    end
+    do
+      local a_12, a_13, a_14, a_15 = 8.0, 8.0, 80.0, 160.0
+      local c_16 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/4", '[' .. JV(a_12) .. ',' .. JV(a_13) .. ',' .. JV(a_14) .. ',' .. JV(a_15) .. ']', nil)
+      H.canvas.rect(a_12, a_13, a_14, a_15)
+    end
+    do
+      local n_17 = math.floor(200.0)
+      for i_18 = 0, n_17 - 1 do
+        local l_0 = i_18 + 0.0
+        local l_1 = AT(S[2].k_0, l_0)
+        if (l_1 ~= 0.0) then
+          do
+            local a_19 = AT(S[2].k_10, (l_1 - 1.0))
+            local c_20 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/5/steps/1/then/0", '[' .. JV(a_19) .. ']', nil)
+            H.canvas.ink(a_19)
+          end
+          do
+            local a_21, a_22, a_23, a_24 = (8.0 + ((l_0 % 10.0) * 8.0)), (8.0 + (F.floor((l_0 / 10.0)) * 8.0)), 7.0, 7.0
+            local c_25 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/5/steps/1/then/1", '[' .. JV(a_21) .. ',' .. JV(a_22) .. ',' .. JV(a_23) .. ',' .. JV(a_24) .. ']', nil)
+            H.canvas.rect(a_21, a_22, a_23, a_24)
+          end
+        end
+      end
+    end
+    local l_2 = S[2].k_1.f_0
+    local l_3 = S[2].k_1.f_1
+    do
+      local a_26 = AT(S[2].k_10, l_2)
+      local c_27 = T("cast", 2, "canvas.ink", "/circles/1/rites/8/steps/8", '[' .. JV(a_26) .. ']', nil)
+      H.canvas.ink(a_26)
+    end
+    do
+      local n_28 = math.floor(4.0)
+      for i_29 = 0, n_28 - 1 do
+        local l_4 = i_29 + 0.0
+        local l_5 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0)))
+        local l_6 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0) + 1.0)))
+        if (l_6 >= 0.0) then
+          do
+            local a_30, a_31, a_32, a_33 = (8.0 + (l_5 * 8.0)), (8.0 + (l_6 * 8.0)), 7.0, 7.0
+            local c_34 = T("cast", 2, "canvas.rect", "/circles/1/rites/8/steps/9/steps/2/then/0", '[' .. JV(a_30) .. ',' .. JV(a_31) .. ',' .. JV(a_32) .. ',' .. JV(a_33) .. ']', nil)
+            H.canvas.rect(a_30, a_31, a_32, a_33)
+          end
+        end
+      end
+    end
+  end
+  R[2][10] = function()  -- paintPanel
+    local rr_ = TR(2, "paintPanel", "/circles/1/rites/9", '[]')
+    do
+      local a_1 = "#c8d0dc"
+      local c_2 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.ink(a_1)
+    end
+    do
+      local a_3, a_4, a_5 = "SCORE", 100.0, 8.0
+      local c_6 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/1", '[' .. JV(a_3) .. ',' .. JV(a_4) .. ',' .. JV(a_5) .. ']', nil)
+      H.canvas.text(a_3, a_4, a_5)
+    end
+    do
+      local a_7, a_8, a_9 = F.str(S[2].k_3), 100.0, 18.0
+      local c_10 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/2", '[' .. JV(a_7) .. ',' .. JV(a_8) .. ',' .. JV(a_9) .. ']', nil)
+      H.canvas.text(a_7, a_8, a_9)
+    end
+    do
+      local a_11, a_12, a_13 = "LINES", 100.0, 36.0
+      local c_14 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/3", '[' .. JV(a_11) .. ',' .. JV(a_12) .. ',' .. JV(a_13) .. ']', nil)
+      H.canvas.text(a_11, a_12, a_13)
+    end
+    do
+      local a_15, a_16, a_17 = F.str(S[2].k_4), 100.0, 46.0
+      local c_18 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/4", '[' .. JV(a_15) .. ',' .. JV(a_16) .. ',' .. JV(a_17) .. ']', nil)
+      H.canvas.text(a_15, a_16, a_17)
+    end
+    do
+      local a_19, a_20, a_21 = "NEXT", 100.0, 64.0
+      local c_22 = T("cast", 2, "canvas.text", "/circles/1/rites/9/steps/5", '[' .. JV(a_19) .. ',' .. JV(a_20) .. ',' .. JV(a_21) .. ']', nil)
+      H.canvas.text(a_19, a_20, a_21)
+    end
+    do
+      local a_23 = AT(S[2].k_10, S[2].k_2)
+      local c_24 = T("cast", 2, "canvas.ink", "/circles/1/rites/9/steps/6", '[' .. JV(a_23) .. ']', nil)
+      H.canvas.ink(a_23)
+    end
+    do
+      local n_25 = math.floor(4.0)
+      for i_26 = 0, n_25 - 1 do
+        local l_0 = i_26 + 0.0
+        do
+          local a_27, a_28, a_29, a_30 = (100.0 + (AT(S[2].k_9, (((S[2].k_2 * 16.0) + l_0) * 2.0)) * 8.0)), (76.0 + (AT(S[2].k_9, ((((S[2].k_2 * 16.0) + l_0) * 2.0) + 1.0)) * 8.0)), 7.0, 7.0
+          local c_31 = T("cast", 2, "canvas.rect", "/circles/1/rites/9/steps/7/steps/0", '[' .. JV(a_27) .. ',' .. JV(a_28) .. ',' .. JV(a_29) .. ',' .. JV(a_30) .. ']', nil)
+          H.canvas.rect(a_27, a_28, a_29, a_30)
+        end
+      end
+    end
+  end
+  -- circle 2: Result
+  R[3][1] = function()  -- show
+    local rr_ = TR(3, "show", "/circles/2/rites/0", '[]')
+    S[3].k_0 = false
+    TS(3, "quit", "/circles/2/rites/0/steps/0", JV(S[3].k_0))
+    WAIT_TICKS(20.0, "/circles/2/rites/0/steps/1")
+  end
+  R[3][2] = function()  -- menu
+    local rr_ = TR(3, "menu", "/circles/2/rites/1", '[]')
+    do
+      local a_1 = "#101418"
+      local c_2 = T("cast", 3, "canvas.clear", "/circles/2/rites/1/steps/0", '[' .. JV(a_1) .. ']', nil)
+      H.canvas.clear(a_1)
+    end
+    do
+      local a_3 = "#3a4250"
+      local c_4 = T("cast", 3, "canvas.ink", "/circles/2/rites/1/steps/1", '[' .. JV(a_3) .. ']', nil)
+      H.canvas.ink(a_3)
+    end
+    do
+      local n_5 = math.floor(200.0)
+      for i_6 = 0, n_5 - 1 do
+        local l_0 = i_6 + 0.0
+        if (AT(P[2].k_0, l_0) ~= 0.0) then
+          do
+            local a_7, a_8, a_9, a_10 = (8.0 + ((l_0 % 10.0) * 8.0)), (8.0 + (F.floor((l_0 / 10.0)) * 8.0)), 7.0, 7.0
+            local c_11 = T("cast", 3, "canvas.rect", "/circles/2/rites/1/steps/2/steps/0/then/0", '[' .. JV(a_7) .. ',' .. JV(a_8) .. ',' .. JV(a_9) .. ',' .. JV(a_10) .. ']', nil)
+            H.canvas.rect(a_7, a_8, a_9, a_10)
+          end
+        end
+      end
+    end
+    do
+      local a_12 = "#c8d0dc"
+      local c_13 = T("cast", 3, "canvas.ink", "/circles/2/rites/1/steps/3", '[' .. JV(a_12) .. ']', nil)
+      H.canvas.ink(a_12)
+    end
+    do
+      local a_14, a_15, a_16 = "GAME OVER", 100.0, 8.0
+      local c_17 = T("cast", 3, "canvas.text", "/circles/2/rites/1/steps/4", '[' .. JV(a_14) .. ',' .. JV(a_15) .. ',' .. JV(a_16) .. ']', nil)
+      H.canvas.text(a_14, a_15, a_16)
+    end
+    do
+      local a_18, a_19, a_20 = "SCORE", 100.0, 28.0
+      local c_21 = T("cast", 3, "canvas.text", "/circles/2/rites/1/steps/5", '[' .. JV(a_18) .. ',' .. JV(a_19) .. ',' .. JV(a_20) .. ']', nil)
+      H.canvas.text(a_18, a_19, a_20)
+    end
+    do
+      local a_22, a_23, a_24 = F.str(P[2].k_3), 100.0, 38.0
+      local c_25 = T("cast", 3, "canvas.text", "/circles/2/rites/1/steps/6", '[' .. JV(a_22) .. ',' .. JV(a_23) .. ',' .. JV(a_24) .. ']', nil)
+      H.canvas.text(a_22, a_23, a_24)
+    end
+    do
+      local a_26, a_27, a_28 = "LINES", 100.0, 56.0
+      local c_29 = T("cast", 3, "canvas.text", "/circles/2/rites/1/steps/7", '[' .. JV(a_26) .. ',' .. JV(a_27) .. ',' .. JV(a_28) .. ']', nil)
+      H.canvas.text(a_26, a_27, a_28)
+    end
+    do
+      local a_30, a_31, a_32 = F.str(P[2].k_4), 100.0, 66.0
+      local c_33 = T("cast", 3, "canvas.text", "/circles/2/rites/1/steps/8", '[' .. JV(a_30) .. ',' .. JV(a_31) .. ',' .. JV(a_32) .. ']', nil)
+      H.canvas.text(a_30, a_31, a_32)
+    end
+    if H.ui.button("RETRY", 100.0, 96.0, 64.0, 20.0) then
+      T("finish", 3, nil, "/circles/2/rites/1/steps/9/then/0", nil, nil)
+      FINISH(3)
+      do return end
+    end
+    if H.ui.button("QUIT", 100.0, 124.0, 64.0, 20.0) then
+      S[3].k_0 = true
+      TS(3, "quit", "/circles/2/rites/1/steps/10/then/0", JV(S[3].k_0))
+      T("finish", 3, nil, "/circles/2/rites/1/steps/10/then/1", nil, nil)
+      FINISH(3)
+      do return end
+    end
+  end
+  CIRCLES[1] = { name = "Game", flow = "loop", children = { 2, 3 }, exit = function() return P[3].k_0 end }
+  CIRCLES[2] = {
+    name = "Play",
+    init = function() return { k_0 = {  }, k_1 = { f_0 = 0.0, f_1 = 0.0, f_2 = 3.0, f_3 = 0.0 }, k_2 = 0.0, k_3 = 0.0, k_4 = 0.0, k_5 = 0.0, k_6 = 15.0, k_7 = 0.0, k_8 = false, k_9 = { 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 0.0, 2.0, 1.0, 2.0, 2.0, 2.0, 3.0, 0.0, 2.0, 1.0, 2.0, 2.0, 2.0, 3.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 0.0, 1.0, 1.0, 2.0, 0.0, 2.0, 1.0, 2.0, 1.0, 2.0, 2.0, 3.0, 1.0, 3.0, 2.0, 1.0, 2.0, 1.0, 3.0, 2.0, 2.0, 2.0, 3.0, 0.0, 1.0, 0.0, 2.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 2.0, 0.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0, 0.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 0.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 0.0, 1.0, 0.0, 2.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0, 0.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 1.0, 1.0, 2.0, 0.0, 2.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 0.0, 1.0, 0.0, 2.0, 1.0, 1.0, 2.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0 }, k_10 = { "#4ce0e6", "#f2d541", "#b26ce8", "#5fd463", "#ef5b5b", "#4f7be8", "#f2953d" } } end,
+    publish = function() P[2].k_0 = S[2].k_0 P[2].k_1 = S[2].k_1 P[2].k_3 = S[2].k_3 P[2].k_4 = S[2].k_4 P[2].k_5 = S[2].k_5 end,
+    pub = function() return '"Play.board":' .. JL(JV)(P[2].k_0) .. ',' .. '"Play.piece":' .. JF[1](P[2].k_1) .. ',' .. '"Play.score":' .. JV(P[2].k_3) .. ',' .. '"Play.lines":' .. JV(P[2].k_4) .. ',' .. '"Play.placed":' .. JV(P[2].k_5) end,
+    dump = function() return '{' .. '"board":' .. JL(JV)(S[2].k_0) .. ',' .. '"piece":' .. JF[1](S[2].k_1) .. ',' .. '"next":' .. JV(S[2].k_2) .. ',' .. '"score":' .. JV(S[2].k_3) .. ',' .. '"lines":' .. JV(S[2].k_4) .. ',' .. '"placed":' .. JV(S[2].k_5) .. ',' .. '"speed":' .. JV(S[2].k_6) .. ',' .. '"soft":' .. JV(S[2].k_7) .. ',' .. '"over":' .. JV(S[2].k_8) .. ',' .. '"shapes":' .. JL(JV)(S[2].k_9) .. ',' .. '"colors":' .. JL(JV)(S[2].k_10) .. '}' end,
+    restore = function(v) do local x = RL(RN)(v["board"]) if x ~= nil then S[2].k_0 = x end end do local x = JR[1](v["piece"]) if x ~= nil then S[2].k_1 = x end end do local x = RN(v["next"]) if x ~= nil then S[2].k_2 = x end end do local x = RN(v["score"]) if x ~= nil then S[2].k_3 = x end end do local x = RN(v["lines"]) if x ~= nil then S[2].k_4 = x end end do local x = RN(v["placed"]) if x ~= nil then S[2].k_5 = x end end do local x = RN(v["speed"]) if x ~= nil then S[2].k_6 = x end end do local x = RN(v["soft"]) if x ~= nil then S[2].k_7 = x end end do local x = RB(v["over"]) if x ~= nil then S[2].k_8 = x end end do local x = RL(RN)(v["shapes"]) if x ~= nil then S[2].k_9 = x end end do local x = RL(RSTR)(v["colors"]) if x ~= nil then S[2].k_10 = x end end end,
+    prestore = function(v) do local x = RL(RN)(v["board"]) if x ~= nil then P[2].k_0 = x end end do local x = JR[1](v["piece"]) if x ~= nil then P[2].k_1 = x end end do local x = RN(v["score"]) if x ~= nil then P[2].k_3 = x end end do local x = RN(v["lines"]) if x ~= nil then P[2].k_4 = x end end do local x = RN(v["placed"]) if x ~= nil then P[2].k_5 = x end end end,
+    pdump = function() return '{' .. '"board":' .. JL(JV)(P[2].k_0) .. ',' .. '"piece":' .. JF[1](P[2].k_1) .. ',' .. '"score":' .. JV(P[2].k_3) .. ',' .. '"lines":' .. JV(P[2].k_4) .. ',' .. '"placed":' .. JV(P[2].k_5) .. '}' end,
+    core = R[2][1], core_waits = true,
+    on = { tick = R[2][6] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/1/boundary/on/0" },
+    guards = {
+      { fn = function() return ((F.len(S[2].k_0) == 0.0) or (F.len(S[2].k_0) == 200.0)) end, message = "盤面は 10 × 20", pointer = "/circles/1/boundary/guards/0" },
+      { fn = function() return ((S[2].k_3 >= 0.0) and (S[2].k_4 >= 0.0)) end, message = "得点と消した行数は負にならない", pointer = "/circles/1/boundary/guards/1" },
+    },
+  }
+  CIRCLES[3] = {
+    name = "Result",
+    init = function() return { k_0 = false } end,
+    publish = function() P[3].k_0 = S[3].k_0 end,
+    pub = function() return '"Result.quit":' .. JV(P[3].k_0) end,
+    dump = function() return '{' .. '"quit":' .. JV(S[3].k_0) .. '}' end,
+    restore = function(v) do local x = RB(v["quit"]) if x ~= nil then S[3].k_0 = x end end end,
+    prestore = function(v) do local x = RB(v["quit"]) if x ~= nil then P[3].k_0 = x end end end,
+    pdump = function() return '{' .. '"quit":' .. JV(P[3].k_0) .. '}' end,
+    core = R[3][1], core_waits = true,
+    on = { tick = R[3][2] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/2/boundary/on/0" },
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
 # name: test_program_snapshot[release-clicker]
   '''
   DEBUG = false
@@ -535,6 +1067,318 @@
     pub = function() return '"Play.score":' .. JV(P[2].k_2) end,
     core = R[2][1], core_waits = false,
     on = { tick = R[2][3] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/1/boundary/on/0" },
+  }
+  CIRCLES[3] = {
+    name = "Result",
+    init = function() return { k_0 = false } end,
+    publish = function() P[3].k_0 = S[3].k_0 end,
+    pub = function() return '"Result.quit":' .. JV(P[3].k_0) end,
+    core = R[3][1], core_waits = true,
+    on = { tick = R[3][2] },
+    on_waits = { tick = false },
+    on_ptr = { tick = "/circles/2/boundary/on/0" },
+  }
+  return { boot = boot, tick = tick }
+  
+  '''
+# ---
+# name: test_program_snapshot[release-tetris]
+  '''
+  DEBUG = false
+  ROOT = 1
+  FPS = 30.0
+  JF[0] = function(v) return '{' .. '"x":' .. JV(v.f_0) .. ',' .. '"y":' .. JV(v.f_1) .. ',' .. '"down":' .. JV(v.f_2) .. '}' end  -- Pointer
+  JF[1] = function(v) return '{' .. '"kind":' .. JV(v.f_0) .. ',' .. '"rot":' .. JV(v.f_1) .. ',' .. '"x":' .. JV(v.f_2) .. ',' .. '"y":' .. JV(v.f_3) .. '}' end  -- Piece
+  R[2] = {}
+  R[3] = {}
+  -- circle 1: Play
+  R[2][1] = function()  -- begin
+    S[2].k_3 = 0.0
+    S[2].k_4 = 0.0
+    S[2].k_5 = 0.0
+    S[2].k_6 = 15.0
+    S[2].k_8 = false
+    S[2].k_7 = 0.0
+    E.clear(S[2].k_0)
+    do
+      local n_1 = math.floor(200.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_0 = i_2 + 0.0
+        E.push(S[2].k_0, 0.0)
+      end
+    end
+    S[2].k_2 = H.random.range(0.0, 6.0)
+    R[2][3]()
+    if STOP(2) then return end
+    while (not S[2].k_8) do
+      WAIT_TICKS(S[2].k_6, "/circles/1/rites/0/steps/10/steps/0")
+      local l_1 = false
+      local r_3 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
+      if STOP(2) then return end
+      l_1 = r_3
+      if l_1 then
+        S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
+      else
+        R[2][4]()
+        if STOP(2) then return end
+      end
+    end
+    FINISH(2)
+    do return end
+  end
+  R[2][2] = function(l_0, l_1, l_2, l_3)  -- fits
+    do
+      local n_1 = math.floor(4.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_4 = i_2 + 0.0
+        local l_5 = (l_2 + AT(S[2].k_9, (((((l_0 * 4.0) + l_1) * 4.0) + l_4) * 2.0)))
+        local l_6 = (l_3 + AT(S[2].k_9, ((((((l_0 * 4.0) + l_1) * 4.0) + l_4) * 2.0) + 1.0)))
+        if (((l_5 < 0.0) or (l_5 >= 10.0)) or (l_6 >= 20.0)) then
+          do return false end
+        end
+        if ((l_6 >= 0.0) and (AT(S[2].k_0, ((l_6 * 10.0) + l_5)) ~= 0.0)) then
+          do return false end
+        end
+      end
+    end
+    do return true end
+  end
+  R[2][3] = function()  -- spawn
+    S[2].k_1 = { f_0 = S[2].k_2, f_1 = 0.0, f_2 = 3.0, f_3 = 0.0 }
+    S[2].k_2 = H.random.range(0.0, 6.0)
+    local l_0 = false
+    local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, S[2].k_1.f_3)
+    if STOP(2) then return end
+    l_0 = r_1
+    if (not l_0) then
+      S[2].k_8 = true
+    end
+  end
+  R[2][4] = function()  -- lock
+    local l_0 = S[2].k_1.f_0
+    local l_1 = S[2].k_1.f_1
+    do
+      local n_1 = math.floor(4.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_2 = i_2 + 0.0
+        local l_3 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_0 * 4.0) + l_1) * 4.0) + l_2) * 2.0)))
+        local l_4 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_0 * 4.0) + l_1) * 4.0) + l_2) * 2.0) + 1.0)))
+        if (l_4 >= 0.0) then
+          SETAT(S[2].k_0, ((l_4 * 10.0) + l_3), (l_0 + 1.0))
+        end
+      end
+    end
+    H.audio.tone(220.0, 30.0)
+    R[2][5]()
+    if STOP(2) then return end
+    S[2].k_5 = (S[2].k_5 + 1.0)
+    R[2][3]()
+    if STOP(2) then return end
+  end
+  R[2][5] = function()  -- clearLines
+    local l_0 = 0.0
+    do
+      local n_1 = math.floor(20.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_1 = i_2 + 0.0
+        local l_2 = true
+        do
+          local n_3 = math.floor(10.0)
+          for i_4 = 0, n_3 - 1 do
+            local l_3 = i_4 + 0.0
+            if (AT(S[2].k_0, ((l_1 * 10.0) + l_3)) == 0.0) then
+              l_2 = false
+            end
+          end
+        end
+        if l_2 then
+          do
+            local n_5 = math.floor((l_1 * 10.0))
+            for i_6 = 0, n_5 - 1 do
+              local l_4 = i_6 + 0.0
+              local l_5 = (((l_1 * 10.0) - 1.0) - l_4)
+              SETAT(S[2].k_0, (l_5 + 10.0), AT(S[2].k_0, l_5))
+            end
+          end
+          do
+            local n_7 = math.floor(10.0)
+            for i_8 = 0, n_7 - 1 do
+              local l_6 = i_8 + 0.0
+              SETAT(S[2].k_0, l_6, 0.0)
+            end
+          end
+          l_0 = (l_0 + 1.0)
+        end
+      end
+    end
+    if (l_0 > 0.0) then
+      local l_7 = { 0.0, 100.0, 300.0, 500.0, 800.0 }
+      S[2].k_3 = (S[2].k_3 + AT(l_7, l_0))
+      S[2].k_4 = (S[2].k_4 + l_0)
+      S[2].k_6 = F.max(4.0, (15.0 - F.floor((S[2].k_4 / 5.0))))
+      H.audio.tone(660.0, 80.0)
+    end
+  end
+  R[2][6] = function()  -- control
+    if S[2].k_8 then
+      do return end
+    end
+    local l_0 = false
+    if H.input.pressed("ArrowLeft") then
+      local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 - 1.0), S[2].k_1.f_3)
+      if STOP(2) then return end
+      l_0 = r_1
+      if l_0 then
+        S[2].k_1.f_2 = (S[2].k_1.f_2 - 1.0)
+      end
+    end
+    if H.input.pressed("ArrowRight") then
+      local r_2 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, (S[2].k_1.f_2 + 1.0), S[2].k_1.f_3)
+      if STOP(2) then return end
+      l_0 = r_2
+      if l_0 then
+        S[2].k_1.f_2 = (S[2].k_1.f_2 + 1.0)
+      end
+    end
+    if H.input.pressed("ArrowUp") then
+      local l_1 = ((S[2].k_1.f_1 + 1.0) % 4.0)
+      local r_3 = R[2][2](S[2].k_1.f_0, l_1, S[2].k_1.f_2, S[2].k_1.f_3)
+      if STOP(2) then return end
+      l_0 = r_3
+      if l_0 then
+        S[2].k_1.f_1 = l_1
+      end
+    end
+    if H.input.key("ArrowDown") then
+      S[2].k_7 = (S[2].k_7 + 1.0)
+      if ((S[2].k_7 % 3.0) == 0.0) then
+        R[2][7]()
+        if STOP(2) then return end
+      end
+    end
+    if H.input.pressed("Space") then
+      R[2][8]()
+      if STOP(2) then return end
+    end
+    R[2][9]()
+    if STOP(2) then return end
+    R[2][10]()
+    if STOP(2) then return end
+  end
+  R[2][7] = function()  -- fall
+    local l_0 = false
+    local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
+    if STOP(2) then return end
+    l_0 = r_1
+    if l_0 then
+      S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
+    end
+  end
+  R[2][8] = function()  -- hardDrop
+    local l_0 = false
+    while true do
+      local r_1 = R[2][2](S[2].k_1.f_0, S[2].k_1.f_1, S[2].k_1.f_2, (S[2].k_1.f_3 + 1.0))
+      if STOP(2) then return end
+      l_0 = r_1
+      if (not l_0) then
+        do break end
+      end
+      S[2].k_1.f_3 = (S[2].k_1.f_3 + 1.0)
+    end
+    R[2][4]()
+    if STOP(2) then return end
+  end
+  R[2][9] = function()  -- paintBoard
+    H.canvas.clear("#101418")
+    H.canvas.ink("#2a3340")
+    H.canvas.rect(6.0, 6.0, 84.0, 164.0)
+    H.canvas.ink("#000")
+    H.canvas.rect(8.0, 8.0, 80.0, 160.0)
+    do
+      local n_1 = math.floor(200.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_0 = i_2 + 0.0
+        local l_1 = AT(S[2].k_0, l_0)
+        if (l_1 ~= 0.0) then
+          H.canvas.ink(AT(S[2].k_10, (l_1 - 1.0)))
+          H.canvas.rect((8.0 + ((l_0 % 10.0) * 8.0)), (8.0 + (F.floor((l_0 / 10.0)) * 8.0)), 7.0, 7.0)
+        end
+      end
+    end
+    local l_2 = S[2].k_1.f_0
+    local l_3 = S[2].k_1.f_1
+    H.canvas.ink(AT(S[2].k_10, l_2))
+    do
+      local n_3 = math.floor(4.0)
+      for i_4 = 0, n_3 - 1 do
+        local l_4 = i_4 + 0.0
+        local l_5 = (S[2].k_1.f_2 + AT(S[2].k_9, (((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0)))
+        local l_6 = (S[2].k_1.f_3 + AT(S[2].k_9, ((((((l_2 * 4.0) + l_3) * 4.0) + l_4) * 2.0) + 1.0)))
+        if (l_6 >= 0.0) then
+          H.canvas.rect((8.0 + (l_5 * 8.0)), (8.0 + (l_6 * 8.0)), 7.0, 7.0)
+        end
+      end
+    end
+  end
+  R[2][10] = function()  -- paintPanel
+    H.canvas.ink("#c8d0dc")
+    H.canvas.text("SCORE", 100.0, 8.0)
+    H.canvas.text(F.str(S[2].k_3), 100.0, 18.0)
+    H.canvas.text("LINES", 100.0, 36.0)
+    H.canvas.text(F.str(S[2].k_4), 100.0, 46.0)
+    H.canvas.text("NEXT", 100.0, 64.0)
+    H.canvas.ink(AT(S[2].k_10, S[2].k_2))
+    do
+      local n_1 = math.floor(4.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_0 = i_2 + 0.0
+        H.canvas.rect((100.0 + (AT(S[2].k_9, (((S[2].k_2 * 16.0) + l_0) * 2.0)) * 8.0)), (76.0 + (AT(S[2].k_9, ((((S[2].k_2 * 16.0) + l_0) * 2.0) + 1.0)) * 8.0)), 7.0, 7.0)
+      end
+    end
+  end
+  -- circle 2: Result
+  R[3][1] = function()  -- show
+    S[3].k_0 = false
+    WAIT_TICKS(20.0, "/circles/2/rites/0/steps/1")
+  end
+  R[3][2] = function()  -- menu
+    H.canvas.clear("#101418")
+    H.canvas.ink("#3a4250")
+    do
+      local n_1 = math.floor(200.0)
+      for i_2 = 0, n_1 - 1 do
+        local l_0 = i_2 + 0.0
+        if (AT(P[2].k_0, l_0) ~= 0.0) then
+          H.canvas.rect((8.0 + ((l_0 % 10.0) * 8.0)), (8.0 + (F.floor((l_0 / 10.0)) * 8.0)), 7.0, 7.0)
+        end
+      end
+    end
+    H.canvas.ink("#c8d0dc")
+    H.canvas.text("GAME OVER", 100.0, 8.0)
+    H.canvas.text("SCORE", 100.0, 28.0)
+    H.canvas.text(F.str(P[2].k_3), 100.0, 38.0)
+    H.canvas.text("LINES", 100.0, 56.0)
+    H.canvas.text(F.str(P[2].k_4), 100.0, 66.0)
+    if H.ui.button("RETRY", 100.0, 96.0, 64.0, 20.0) then
+      FINISH(3)
+      do return end
+    end
+    if H.ui.button("QUIT", 100.0, 124.0, 64.0, 20.0) then
+      S[3].k_0 = true
+      FINISH(3)
+      do return end
+    end
+  end
+  CIRCLES[1] = { name = "Game", flow = "loop", children = { 2, 3 }, exit = function() return P[3].k_0 end }
+  CIRCLES[2] = {
+    name = "Play",
+    init = function() return { k_0 = {  }, k_1 = { f_0 = 0.0, f_1 = 0.0, f_2 = 3.0, f_3 = 0.0 }, k_2 = 0.0, k_3 = 0.0, k_4 = 0.0, k_5 = 0.0, k_6 = 15.0, k_7 = 0.0, k_8 = false, k_9 = { 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 0.0, 2.0, 1.0, 2.0, 2.0, 2.0, 3.0, 0.0, 2.0, 1.0, 2.0, 2.0, 2.0, 3.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 3.0, 1.0, 0.0, 1.0, 1.0, 2.0, 0.0, 2.0, 1.0, 2.0, 1.0, 2.0, 2.0, 3.0, 1.0, 3.0, 2.0, 1.0, 2.0, 1.0, 3.0, 2.0, 2.0, 2.0, 3.0, 0.0, 1.0, 0.0, 2.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 2.0, 0.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0, 0.0, 2.0, 1.0, 1.0, 1.0, 2.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 0.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 0.0, 1.0, 0.0, 2.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 0.0, 0.0, 1.0, 1.0, 1.0, 2.0, 1.0, 2.0, 2.0, 0.0, 2.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 0.0, 1.0, 1.0, 1.0, 2.0, 0.0, 2.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 0.0, 1.0, 0.0, 2.0, 1.0, 1.0, 2.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 2.0 }, k_10 = { "#4ce0e6", "#f2d541", "#b26ce8", "#5fd463", "#ef5b5b", "#4f7be8", "#f2953d" } } end,
+    publish = function() P[2].k_0 = S[2].k_0 P[2].k_1 = S[2].k_1 P[2].k_3 = S[2].k_3 P[2].k_4 = S[2].k_4 P[2].k_5 = S[2].k_5 end,
+    pub = function() return '"Play.board":' .. JL(JV)(P[2].k_0) .. ',' .. '"Play.piece":' .. JF[1](P[2].k_1) .. ',' .. '"Play.score":' .. JV(P[2].k_3) .. ',' .. '"Play.lines":' .. JV(P[2].k_4) .. ',' .. '"Play.placed":' .. JV(P[2].k_5) end,
+    core = R[2][1], core_waits = true,
+    on = { tick = R[2][6] },
     on_waits = { tick = false },
     on_ptr = { tick = "/circles/1/boundary/on/0" },
   }

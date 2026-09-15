@@ -240,7 +240,7 @@ wasm には hook が無く、wasmtime の fuel はブラウザに無い(probe A.
   `--ticks` / `--seed` / `--input` / `--storage` / `--trace` / `--frames` / `--debug` / `--record` / `--model` の意味は
   Lua 経路と同じ(runtime.md §8)。Issue #53 は「ヘッドレスは lupa」と書いていたが、CI でブラウザ無しに両経路を突き合わせる
   には Python から wasm を走らせる口が要るので、wasmtime を足す(ヘッドレスの既定は Lua のまま)
-- **完了条件のパリティ**: `tests/fixtures/v2-programs/`(14 本)と `examples-v2/`(3 本)の全部について、同じ seed /
+- **完了条件のパリティ**: `tests/fixtures/v2-programs/`(14 本)と `examples-v2/`(3 本 + 後から足した tetris)の全部について、同じ seed /
   ticks / 入力ログで、release は `--frames` が、debug は `--trace` と `--frames` が**バイト一致**する。証拠は
   `tests/contract/test_wasmgc_parity.py`(両経路を実プロセスで走らせて比較)
 - ブラウザは `apps/player/e2e/wasmgc.spec.ts` 1 本(paddle。`WasmGcHost` で録画 → `jin run --input`(Lua)と
