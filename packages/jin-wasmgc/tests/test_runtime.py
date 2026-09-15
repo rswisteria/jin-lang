@@ -634,6 +634,53 @@ def test_an_error_in_boot_still_publishes_like_lua() -> None:
     assert wasm.error == "添字 -1 は範囲外です（長さ 1）"
 
 
+@pytest.mark.parametrize("where", ["boot", "tick"])
+def test_an_out_of_range_index_on_a_str_or_form_list_errors_instead_of_trapping(where: str) -> None:
+    """`$Lr` の要素は非 null へ ref.cast するので、範囲外で null を返すと trap した。既定値を返して ERR で抜ける（Lua と同じ error 行）。"""
+    forms = [{"name": "Ball", "fields": [{"name": "x", "type": "num"}]}]
+    state = [
+        {"name": "a", "type": "num", "init": "1", "out": True},
+        {"name": "s", "type": "str", "init": '"init"', "out": True},
+        {"name": "names", "type": "list<str>", "init": '["x"]', "out": True},
+        {"name": "balls", "type": "list<Ball>", "init": "[Ball { x: 1 }]", "out": True},
+    ]
+    for expr in ("names[9]", "sub(names[2 - 5], 0, 1)"):
+        steps = [
+            {"do": "set", "target": "s", "expr": expr},
+            {"do": "set", "target": "a", "expr": "9"},
+        ]
+        _check_error_parity(state, steps, forms, where)
+    for expr in ("balls[3].x", "balls[1].x + a"):
+        steps = [
+            {"do": "set", "target": "a", "expr": expr},
+            {"do": "set", "target": "s", "expr": '"after"'},
+        ]
+        _check_error_parity(state, steps, forms, where)
+    # 代入先の添字が範囲外（`set xs[9] = …`）でも次のステップへ進まない
+    for target, expr in (("names[9]", '"z"'), ("balls[5].x", "7"), ("balls[-1].x", "a")):
+        steps = [
+            {"do": "set", "target": target, "expr": expr},
+            {"do": "set", "target": "a", "expr": "100"},
+        ]
+        _check_error_parity(state, steps, forms, where)
+
+
+def _check_error_parity(
+    state: list[dict], steps: list[dict], forms: list[dict], where: str
+) -> None:
+    if where == "boot":
+        model = program(state, steps, forms=forms)
+    else:
+        rite = {"name": "step", "steps": steps}
+        model = program(state, [], [rite], forms=forms, on=[{"event": "tick", "rite": "step"}])
+    lua, wasm = raw_ticks(model, ticks=3)
+    assert wasm == lua, steps
+    result = json.loads(wasm[0 if where == "boot" else 1])
+    assert result["error"].startswith("添字 ") and "は範囲外です" in result["error"], steps
+    assert result["public"]["T.a"] == 1 and result["public"]["T.s"] == "init", steps
+    assert_same(model, ticks=3)
+
+
 def test_an_infinite_loop_stops_both_paths_in_the_same_tick_with_the_same_error() -> None:
     """命令数の上限（jil.md §6.6）: 単位が違うので回数は同じでなくてよいが、同じ tick で止まり release の error と done が一致する。"""
     budget_error = "命令数の上限 10000000 を超えました（無限ループ？）"

@@ -1469,10 +1469,11 @@
   (func $lf_get (param $l (ref null $Lf)) (param $k i32) (result f64)
     (array.get $lf (struct.get $Lf 0 (local.get $l)) (local.get $k)))
 
-  (func $lf_at (param $l (ref null $Lf)) (param $i f64) (result f64)
+  ;; 範囲外なら ERR して $dflt を返す（$Lr の要素は非 null へ ref.cast されるので null は返せない。生成部が型の既定値を渡す）
+  (func $lf_at (param $l (ref null $Lf)) (param $i f64) (param $dflt f64) (result f64)
     (local $k i32)
     (local.set $k (call $index_of (struct.get $Lf 1 (local.get $l)) (local.get $i)))
-    (if (i32.lt_s (local.get $k) (i32.const 0)) (then (return (f64.const 0))))
+    (if (i32.lt_s (local.get $k) (i32.const 0)) (then (return (local.get $dflt))))
     (array.get $lf (struct.get $Lf 0 (local.get $l)) (local.get $k)))
 
   (func $lf_set (param $l (ref null $Lf)) (param $i f64) (param $v f64)
@@ -1541,10 +1542,11 @@
   (func $li_get (param $l (ref null $Li)) (param $k i32) (result i32)
     (array.get $li (struct.get $Li 0 (local.get $l)) (local.get $k)))
 
-  (func $li_at (param $l (ref null $Li)) (param $i f64) (result i32)
+  ;; 範囲外なら ERR して $dflt を返す（$Lr の要素は非 null へ ref.cast されるので null は返せない。生成部が型の既定値を渡す）
+  (func $li_at (param $l (ref null $Li)) (param $i f64) (param $dflt i32) (result i32)
     (local $k i32)
     (local.set $k (call $index_of (struct.get $Li 1 (local.get $l)) (local.get $i)))
-    (if (i32.lt_s (local.get $k) (i32.const 0)) (then (return (i32.const 0))))
+    (if (i32.lt_s (local.get $k) (i32.const 0)) (then (return (local.get $dflt))))
     (array.get $li (struct.get $Li 0 (local.get $l)) (local.get $k)))
 
   (func $li_set (param $l (ref null $Li)) (param $i f64) (param $v i32)
@@ -1613,10 +1615,11 @@
   (func $lr_get (param $l (ref null $Lr)) (param $k i32) (result anyref)
     (array.get $lr (struct.get $Lr 0 (local.get $l)) (local.get $k)))
 
-  (func $lr_at (param $l (ref null $Lr)) (param $i f64) (result anyref)
+  ;; 範囲外なら ERR して $dflt を返す（$Lr の要素は非 null へ ref.cast されるので null は返せない。生成部が型の既定値を渡す）
+  (func $lr_at (param $l (ref null $Lr)) (param $i f64) (param $dflt anyref) (result anyref)
     (local $k i32)
     (local.set $k (call $index_of (struct.get $Lr 1 (local.get $l)) (local.get $i)))
-    (if (i32.lt_s (local.get $k) (i32.const 0)) (then (return (ref.null any))))
+    (if (i32.lt_s (local.get $k) (i32.const 0)) (then (return (local.get $dflt))))
     (array.get $lr (struct.get $Lr 0 (local.get $l)) (local.get $k)))
 
   (func $lr_set (param $l (ref null $Lr)) (param $i f64) (param $v anyref)

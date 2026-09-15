@@ -198,6 +198,8 @@ wasm-GC の `array` / `struct` はホストから読めないので、**引数�
 - 数値の書式は Lua の `%.{p}e` 探索の写しなので、Python の `repr` と割れる 2 の冪の一部(往復の区間が非対称な値・
   `tests/fixtures/numbers.jsonl` の `str != repr` の 92 行)は **Lua に付く**(runtime.md §6 の「repr と同じ配置」からの
   既知の逸脱で、両経路で同じ)
+- `boot` の `seed` は JSON の数値 → strtod → `i64.trunc_sat_f64_s` で受けるので、2^53 を超える `--seed` は Lua(lupa が
+  整数をそのまま渡す)と PCG32 の列が割れ得る。`.jinrec` のヘッダと `jin run --seed` の seed は 2^53 未満に閉じる
 
 ### 6.5 `wait` の変換(継続 → 状態機械)
 

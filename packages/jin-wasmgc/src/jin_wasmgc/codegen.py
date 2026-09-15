@@ -379,7 +379,9 @@ class _Generator:
             v = list_variant(inner)
             obj = self.expr(node.obj, ctx, info)
             idx = self.expr(node.index, ctx, info)
-            return self.cast_elem(f"(call $l{v}_at {obj} {idx})", inner)
+            # 範囲外は ERR して既定値が返る（$Lr の要素は非 null へ cast するので null は渡せない）。
+            # 続くステップのフラグ検査で手順を抜けるので、既定値が観測されることはない
+            return self.cast_elem(f"(call $l{v}_at {obj} {idx} {self.default_const(inner)})", inner)
         if isinstance(node, ex.Call):
             return self.call(node, ctx, info)
         if isinstance(node, ex.Construct):
@@ -574,6 +576,9 @@ class _Generator:
             target = node(f"{sp}/target")
             value = self.value(node(f"{sp}/expr"), ctx, indent, target.type)
             self.assign(target, value, ctx, indent)
+            if _contains_index(target):
+                # 代入先の添字が範囲外（`set xs[9] = …`）でも ERR は代入の中で立つ。次のステップへ進まない
+                self.out(f"(if (global.get $ERRED) (then {self.early_return(ctx)}))", indent)
             return
         if isinstance(step, LetStep):
             value_node = node(f"{sp}/expr")
