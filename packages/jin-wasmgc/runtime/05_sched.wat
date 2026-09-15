@@ -45,7 +45,8 @@
     (i32.and (i32.eq (call $cst (local.get $i)) (i32.const 1)) (i32.eqz (call $cget (global.get $CPAUSED) (local.get $i)))))
   ;; 中断検査（jil.md §4・プレリュードの LIVE / STOP）: 生成部は自陣の手順への cast の前に $live（呼ぶ前に active で
   ;; 休止中でなかったか）を局所に取り、直後に $stop(i, live) で「この呼び出しで active でなくなった」ときだけ返る。
-  ;; 呼ぶ前から active でない陣（未 entered の summon の呼び先・done の陣・on exit の中）では止めない（Issue #87 / #89）
+  ;; 呼ぶ前から active でない陣では止めない: 未 entered の summon の呼び先・done の陣・on exit の中（入れ子の finish / transfer は
+  ;; no-op）、transfer で休止中の陣（入れ子の finish で done にはなるが巻き戻さない）。Issue #87 / #89・jil.md §4
   (func $live (param $i i32) (result i32) (call $is_active (local.get $i)))
   (func $stop (param $i i32) (param $live i32) (result i32)
     (i32.and (local.get $live) (i32.eqz (call $is_active (local.get $i)))))

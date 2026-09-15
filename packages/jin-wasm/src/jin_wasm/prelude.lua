@@ -521,8 +521,9 @@ end
 -- ---------------------------------------------------------------- 手順の起動（コルーチン / 直接呼び出し）
 -- 中断検査（jil.md §4）: 生成部は自陣の手順への cast の前に LIVE(i)（呼ぶ前に active で休止中でなかったか）を
 -- 局所に取り、直後に STOP(i, live) を見て、その呼び出しで finish / transfer した（active でなくなった）ときだけ
--- 呼び出し列を巻き戻す。呼ぶ前から active でない陣（未 entered の summon の呼び先・done の陣・on exit の中）
--- では入れ子の finish / transfer は no-op なので止めない（Issue #87 / #89）。
+-- 呼び出し列を巻き戻す。呼ぶ前から active でない陣では止めない: 未 entered の summon の呼び先・done の陣・
+-- on exit の中では入れ子の finish / transfer は no-op、transfer で休止中の陣（status は active で paused）では
+-- 入れ子の finish で陣は done になるが呼び出し列は巻き戻さない（Issue #87 / #89・jil.md §4）。
 local function LIVE(i)
   return is_active(i)
 end
