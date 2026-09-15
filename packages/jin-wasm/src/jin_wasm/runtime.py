@@ -284,7 +284,7 @@ def run_headless(
         frames.append({"tick": t, "ops": result["ops"], "audio": result["audio"]})
         public = result.get("public", {})
         apply_storage_writes(store, result)
-        for reply in _answer_asks(result, t, answer=answer, replay=replay):
+        for reply in answer_asks(result, t, answer=answer, replay=replay):
             by_tick.setdefault(t + 1, []).append(reply)
             replies.append(reply)
         if result.get("error") is not None:
@@ -295,14 +295,17 @@ def run_headless(
     return HeadlessResult(rows, frames, public, error, done_tick, ran, store, replies)
 
 
-def _answer_asks(
+def answer_asks(
     result: dict[str, Any],
     t: int,
     *,
     answer: Callable[[dict[str, Any]], str] | None,
     replay: bool,
 ) -> list[dict[str, Any]]:
-    """tick 結果の `asks` を順に `answer` へ渡し、次の tick に積む `reply` イベントを返す（runtime.md §11）。"""
+    """tick 結果の `asks` を順に `answer` へ渡し、次の tick に積む `reply` イベントを返す（runtime.md §11）。
+
+    wasm-GC 経路（`jin_wasmgc.runtime.run_headless_wasm`）も同じ関数で答えを積む（再実装しない）。
+    """
     asks = result.get("asks", [])
     if not asks or replay:
         return []
@@ -327,6 +330,7 @@ __all__ = [
     "InputState",
     "LuaHost",
     "RunError",
+    "answer_asks",
     "run_headless",
     "sandboxed_runtime",
 ]

@@ -5,6 +5,7 @@
 - 命令数の上限の文は Lua 経路（`jin_wasm.runtime._SETUP` / `INSTRUCTION_BUDGET`）と同じ
   （`test_player_contract.py::test_the_sandbox_matches_the_lupa_host` の 3 つ目）
 - ランタイム部の文字列は `codegen.DATA_BASE` より下に閉じる
+- ランタイム部が呼ぶ `$prog_*` を生成部が全部定義する（#75 の分担）
 """
 
 from __future__ import annotations
@@ -79,3 +80,32 @@ def test_the_shared_number_fixture_is_up_to_date() -> None:
         cwd=root,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_the_generated_part_defines_every_prog_function_the_runtime_calls() -> None:
+    """ランタイム部が呼ぶ `$prog_*` は生成部が全部定義する（両ビルド）。名指しの一覧は `runtime.wat` の先頭コメント。"""
+    from jin_core.check import check_file
+    from jin_wasmgc.codegen import generate_program
+
+    runtime = runtime_source()
+    called = set(re.findall(r"\(call \$(prog_[a-z_]+)", runtime))
+    assert {
+        "prog_flow",
+        "prog_core",
+        "prog_deliver",
+        "prog_reply",
+        "prog_resume",
+        "prog_until",
+        "prog_guards",
+    } <= called
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "examples-v2" / "paddle" / "paddle.jin"
+    model = check_file(path).model
+    assert model is not None
+    for debug in (False, True):
+        defined = defined_functions(generate_program(model, debug=debug))
+        assert called <= defined, called - defined
+        assert {"N", "ROOT", "FPS", "DEBUG", "in_base"} <= set(
+            re.findall(r"\(global \$([A-Za-z_]+) ", generate_program(model, debug=debug))
+        )

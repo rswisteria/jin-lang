@@ -19,7 +19,7 @@ import json
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from jin_wasm.runtime import HeadlessResult, InputState, apply_storage_writes
+from jin_wasm.runtime import HeadlessResult, InputState, answer_asks, apply_storage_writes
 from wasmtime import Config, Engine, Instance, Module, Store, Trap
 
 #: 1 回の `boot` / `tick` に許す wasmtime の fuel（おおよそ wasm 命令数）。module 内のカウンタ（10^7 回の
@@ -123,8 +123,8 @@ def run_headless_wasm(
 ) -> HeadlessResult:
     """`boot` → `tick(0..ticks-1)` を順に呼ぶ（`jin_wasm.runtime.run_headless` と同じ契約）。
 
-    `answer` / `replay`（v1 の陣への問い・runtime.md §11）は #75 で配線する。B までの module は問いを出さない
-    （`agent` の sigil は `CodegenError`）ので、`asks` が出たら `WasmGcRunError`。
+    `answer` / `replay`（v1 の陣への問い・runtime.md §11）は Lua 経路と同じ `answer_asks` で次の tick の
+    `reply` に積む（`jin_wasm` の実装を共有し、再実装しない）。
     """
     by_tick: dict[int, list[dict[str, Any]]] = {}
     for ev in events:
@@ -139,6 +139,7 @@ def run_headless_wasm(
     error: str | None = None
     done_tick: int | None = None
     ran = 0
+    replies: list[dict[str, Any]] = []
     for t in range(ticks):
         result = host.tick(t, state.apply(by_tick.get(t, [])))
         ran = t + 1
@@ -149,14 +150,15 @@ def run_headless_wasm(
         frames.append({"tick": t, "ops": result["ops"], "audio": result["audio"]})
         public = result.get("public", {})
         apply_storage_writes(store, result)
-        if result.get("asks"):
-            raise WasmGcRunError("v1 の陣への問い（agent）は --target wasm-gc では #75 で入ります")
+        for reply in answer_asks(result, t, answer=answer, replay=replay):
+            by_tick.setdefault(t + 1, []).append(reply)
+            replies.append(reply)
         if result.get("error") is not None:
             error = str(result["error"])
         if result.get("done"):
             done_tick = t
             break
-    return HeadlessResult(rows, frames, public, error, done_tick, ran, store, [])
+    return HeadlessResult(rows, frames, public, error, done_tick, ran, store, replies)
 
 
 __all__ = ["EXPORTS", "FUEL_PER_CALL", "WasmGcHost", "WasmGcRunError", "run_headless_wasm"]

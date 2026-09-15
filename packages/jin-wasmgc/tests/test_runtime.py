@@ -1,5 +1,8 @@
-"""wasmtime でのヘッドレス実行: Lua 経路との一致（fixture・算術・制御・文字列 / list / 型紙 / 能力 / エラー）と
-trap の扱い（jil.md §6.2 / §6.4 / §6.6 / §6.7）。"""
+"""wasmtime でのヘッドレス実行: Lua 経路との一致（fixture・算術・制御・文字列 / list / 型紙 / 能力 / エラー・
+スケジューラ / wait の状態機械 / debug のトレース・agent）と trap の扱い（jil.md §6.2 / §6.4〜§6.7）。
+
+Lua 経路が正なので、ほとんどの検査は「生の tick 結果（JSON の文字列）が同じ」（`raw_ticks`）で行う。
+"""
 
 from __future__ import annotations
 
@@ -101,10 +104,12 @@ def raw_ticks(
     seed: int = 7,
     events: list[dict] = (),
     storage: dict | None = None,
+    debug: bool = False,
+    stop_when_done: bool = False,
 ) -> tuple[list[str], list[str]]:
     """生の tick 結果（JSON の文字列）を両経路で。`json.loads` を通すと 1 / 1.0 とエスケープの違いが消えるので、文字列で比べる。"""
-    lua_game = generate_lua(model, source_name="t.jin")
-    wasm_game = assemble(model, source_name="t.jin")
+    lua_game = generate_lua(model, source_name="t.jin", debug=debug)
+    wasm_game = assemble(model, source_name="t.jin", debug=debug)
     by_tick: dict[int, list[dict]] = {}
     for ev in events:
         by_tick.setdefault(int(ev["tick"]), []).append(ev)
@@ -121,7 +126,34 @@ def raw_ticks(
         assert isinstance(text, str)
         out_l.append(text)
         out_w.append(wasm.tick_raw(t, state_w.apply(by_tick.get(t, []))).decode("utf-8"))
+        if stop_when_done and json.loads(text).get("done"):
+            break
     return out_l, out_w
+
+
+def circles_doc(*circles: dict, root: str, forms: list[dict] = (), fps: int = 60) -> JinFileV2:
+    """複数の陣（flow を含む）を持つ `.jin`。"""
+    doc: dict[str, Any] = {
+        "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+        "version": 2,
+        "root": root,
+        "stage": {"width": 64, "height": 64, "fps": fps},
+        "circles": list(circles),
+    }
+    if forms:
+        doc["forms"] = list(forms)
+    return model_from(doc)
+
+
+def core_circle(name: str, state: list[dict], rites: list[dict], **extra: Any) -> dict:
+    return {"name": name, "core": rites[0]["name"], "state": state, "rites": rites, **extra}
+
+
+def assert_same_text(model: JinFileV2, **kw: Any) -> list[dict]:
+    """debug の生の tick 結果（トレース・snapshot 込み）が Lua と同じ文字列。読んだ結果を返す。"""
+    lua, wasm = raw_ticks(model, debug=True, **kw)
+    assert wasm == lua
+    return [json.loads(text) for text in wasm]
 
 
 # ---------------------------------------------------------------- fixture（Sub-Issue B の完了条件・jil.md §6.9）
@@ -767,3 +799,430 @@ def test_a_module_without_the_host_exports_is_refused() -> None:
     wasm = bytes(wat2wasm('(module (memory (export "memory") 1))'))
     with pytest.raises(WasmGcRunError, match="input"):
         WasmGcHost(wasm)
+
+
+# ---------------------------------------------------------------- スケジューラ / wait / debug / agent（Sub-Issue C・jil.md §6.5〜§6.7）
+
+ALL_EVENTS = {
+    **EVENTS,
+    "agent": [{"tick": 2, "kind": "reply", "id": 1, "text": "canned"}],
+    "paddle": [
+        {"tick": 3, "kind": "key", "name": "ArrowLeft", "down": True},
+        {"tick": 20, "kind": "key", "name": "ArrowLeft", "down": False},
+        {"tick": 35, "kind": "key", "name": "ArrowRight", "down": True},
+    ],
+    "clicker": [
+        {"tick": 5, "kind": "pointer", "x": 30, "y": 70, "down": True},
+        {"tick": 6, "kind": "pointer", "x": 30, "y": 70, "down": False},
+        {"tick": 70, "kind": "pointer", "x": 140, "y": 70, "down": True},
+        {"tick": 71, "kind": "pointer", "x": 140, "y": 70, "down": False},
+    ],
+}
+ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + ["fib", "paddle", "clicker"]
+EXAMPLES = REPO_ROOT / "examples-v2"
+
+
+def any_path(name: str) -> Path:
+    return (
+        (EXAMPLES / name / f"{name}.jin")
+        if (EXAMPLES / name).is_dir()
+        else PROGRAMS / f"{name}.jin"
+    )
+
+
+@pytest.mark.parametrize("name", ALL_PROGRAMS)
+def test_every_program_gives_the_same_debug_tick_text_as_lua(name: str) -> None:
+    """17 本すべての debug の tick 結果（trace / snapshot / asks / storage を含む JSON）が文字列で一致する。"""
+    ticks = {"paddle": 40, "clicker": 80}.get(name, 6)
+    lua, wasm = raw_ticks(
+        load(any_path(name)),
+        ticks=ticks,
+        events=ALL_EVENTS.get(name, []),
+        storage=STORAGE if name == "storage" else None,
+        debug=True,
+        stop_when_done=True,
+    )
+    assert wasm == lua
+    # boot で done になる陣は tick 0 で何もせず frame 行も無い（Lua と同じ）。それ以外は毎 tick 1 行
+    first = json.loads(wasm[0])
+    assert ('"kind":"frame"' in wasm[0]) == (
+        first["trace"][0]["tick"] == -1 and not (first["done"] and first["trace"][-1]["tick"] == -1)
+    )
+
+
+def test_wait_ticks_and_until_inside_loops_with_locals_and_a_waiting_cast() -> None:
+    """wait の状態機械: loop の中の wait、局所を読む until、待つ手順への cast と tick を跨ぐ戻り値、複数の待ち。"""
+    twice = {
+        "name": "twice",
+        "params": [{"name": "x", "type": "num"}],
+        "returns": "num",
+        "steps": [
+            {"do": "let", "name": "k", "expr": "x * 2"},
+            {"do": "wait", "ticks": "k"},
+            {"do": "set", "target": "log", "expr": 'log ++ "t"'},
+            {"do": "return", "expr": "k + n"},
+        ],
+    }
+    main = {
+        "name": "main",
+        "steps": [
+            {"do": "let", "name": "xs", "expr": "[1, 2, 3]"},
+            {
+                "do": "loop",
+                "kind": "each",
+                "name": "x",
+                "in": "xs",
+                "steps": [
+                    {"do": "wait", "until": "n >= x * 2"},
+                    {"do": "set", "target": "log", "expr": "log ++ str(x)"},
+                ],
+            },
+            {
+                "do": "loop",
+                "kind": "count",
+                "times": "2",
+                "name": "i",
+                "steps": [
+                    {"do": "cast", "target": "twice", "args": ["i + 1"], "into": "got"},
+                    {"do": "set", "target": "log", "expr": 'log ++ "/" ++ str(got)'},
+                ],
+            },
+            {
+                "do": "loop",
+                "kind": "while",
+                "cond": "n < 30",
+                "steps": [
+                    {
+                        "do": "if",
+                        "cond": "n % 2 == 0",
+                        "then": [{"do": "wait", "ticks": "1"}],
+                        "else": [{"do": "wait", "ticks": "0.5"}],
+                    },
+                    {"do": "set", "target": "log", "expr": 'log ++ "."'},
+                ],
+            },
+            {"do": "finish"},
+        ],
+    }
+    step = {"name": "step", "steps": [{"do": "set", "target": "n", "expr": "n + 1"}]}
+    ping = {
+        "name": "ping",
+        "steps": [
+            {"do": "wait", "ticks": "3"},
+            {"do": "set", "target": "pings", "expr": "pings + 1"},
+        ],
+    }
+    state = [
+        {"name": "n", "type": "num", "init": "0", "out": True},
+        {"name": "got", "type": "num", "init": "0", "out": True},
+        {"name": "log", "type": "str", "init": '""', "out": True},
+        {"name": "pings", "type": "num", "init": "0", "out": True},
+    ]
+    model = program(
+        state,
+        main["steps"],
+        [twice, step, ping],
+        sigils=[host("input")],
+        on=[{"event": "tick", "rite": "step"}, {"event": "key", "rite": "ping"}],
+    )
+    events = [{"tick": t, "kind": "key", "name": "Space", "down": t % 2 == 0} for t in range(2, 9)]
+    results = assert_same_text(model, ticks=45, events=events)
+    assert results[-1]["done"]
+    public = results[-1]["public"]
+    # each の until で "123"、twice の wait を跨いだ戻り値で "t/…" が 2 回、while の wait で "." が並ぶ
+    assert public["T.log"].startswith("123t/") and public["T.log"].endswith(".")
+    assert public["T.pings"] == 7  # on key の手順は同じ陣で並んで待てる
+    waits = [r["output"] for res in results for r in res["trace"] if r["kind"] == "wait"]
+    assert waits.count("suspend") > 20 and 0 < waits.count("resume") <= waits.count("suspend")
+
+
+def test_finish_transfer_and_errors_while_waiting_match_lua() -> None:
+    """待っている手順は finish で捨てられ、on exit の手順が wait しても黙って落ち、transfer 先が idle でなければ error 行。"""
+    main = {
+        "name": "main",
+        "steps": [{"do": "wait", "until": "n >= 100"}, {"do": "set", "target": "n", "expr": "-1"}],
+    }
+    step = {
+        "name": "step",
+        "steps": [
+            {"do": "set", "target": "n", "expr": "n + 1"},
+            {"do": "if", "cond": "n == 2", "then": [{"do": "transfer", "circle": "Sub"}]},
+            {"do": "if", "cond": "n == 4", "then": [{"do": "finish"}]},
+        ],
+    }
+    bye = {
+        "name": "bye",
+        "steps": [{"do": "wait", "ticks": "1"}, {"do": "set", "target": "n", "expr": "n + 100"}],
+    }
+    main_c = core_circle(
+        "Main",
+        [{"name": "n", "type": "num", "init": "0", "out": True}],
+        [main, step, bye],
+        delegate=["Sub"],
+        boundary={"on": [{"event": "tick", "rite": "step"}, {"event": "exit", "rite": "bye"}]},
+    )
+    sub = core_circle(
+        "Sub",
+        [{"name": "m", "type": "num", "init": "0", "out": True}],
+        [
+            {"name": "start", "steps": []},
+            {
+                "name": "tick",
+                "steps": [
+                    {"do": "set", "target": "m", "expr": "m + 1"},
+                    {"do": "if", "cond": "m == 1", "then": [{"do": "finish"}]},
+                ],
+            },
+        ],
+        boundary={"on": [{"event": "tick", "rite": "tick"}]},
+    )
+    results = assert_same_text(circles_doc(main_c, sub, root="Main"), ticks=8)
+    assert results[-1]["done"] and results[-1]["public"] == {"Main.n": 4, "Sub.m": 1}
+    # transfer 先が idle でない: Sub が active のうちに Main がもう一度 transfer する
+    step_twice = {
+        "name": "step",
+        "steps": [
+            {"do": "set", "target": "n", "expr": "n + 1"},
+            {"do": "if", "cond": "n == 1", "then": [{"do": "transfer", "circle": "Sub"}]},
+        ],
+    }
+    sub_slow = core_circle(
+        "Sub",
+        [{"name": "m", "type": "num", "init": "0", "out": True}],
+        [
+            {
+                "name": "start",
+                "steps": [{"do": "emit", "circle": "Main", "message": "again", "args": []}],
+            },
+            {
+                "name": "back",
+                "steps": [
+                    {"do": "cast", "target": "poke"},
+                ],
+            },
+            {"name": "poke", "steps": [{"do": "set", "target": "m", "expr": "m + 1"}]},
+        ],
+        boundary={"on": [{"event": "message", "rite": "back"}]},
+    )
+    main_again = core_circle(
+        "Main",
+        [{"name": "n", "type": "num", "init": "0", "out": True}],
+        [
+            {"name": "main", "steps": []},
+            step_twice,
+            {
+                "name": "recv",
+                "params": [{"name": "name", "type": "str"}],
+                "steps": [{"do": "transfer", "circle": "Sub"}],
+            },
+        ],
+        delegate=["Sub"],
+        boundary={"on": [{"event": "tick", "rite": "step"}, {"event": "message", "rite": "recv"}]},
+    )
+    results = assert_same_text(circles_doc(main_again, sub_slow, root="Main"), ticks=4)
+    assert (
+        results[-1]["error"] is None
+    )  # Main は休止中なので message は捨てられる（emit 行の output が false）
+    emits = [r for res in results for r in res["trace"] if r["kind"] == "emit"]
+    assert emits and emits[0]["output"] is False
+
+
+def test_flows_advance_like_lua_including_the_loop_exit_and_the_advance_limit() -> None:
+    """sequence / parallel / loop の進行と exit、同じ tick に何段も進む形、1 tick に 1000 回で advance の error。"""
+
+    def leaf(name: str, finish_at: int) -> dict:
+        return core_circle(
+            name,
+            [{"name": "n", "type": "num", "init": "0", "out": True}],
+            [
+                {"name": "start", "steps": []},
+                {
+                    "name": "step",
+                    "steps": [
+                        {"do": "set", "target": "n", "expr": "n + 1"},
+                        {"do": "if", "cond": f"n >= {finish_at}", "then": [{"do": "finish"}]},
+                    ],
+                },
+            ],
+            boundary={"on": [{"event": "tick", "rite": "step"}]},
+        )
+
+    doc = circles_doc(
+        {
+            "name": "Root",
+            "flow": {"kind": "loop", "steps": ["Pair", "Tail"], "exit": "Tail.n >= 1"},
+        },
+        {"name": "Pair", "flow": {"kind": "parallel", "steps": ["A", "B"]}},
+        leaf("A", 2),
+        leaf("B", 3),
+        leaf("Tail", 1),
+        root="Root",
+    )
+    results = assert_same_text(doc, ticks=14)
+    assert results[-1]["done"]
+    # 同期的に done になる loop は 1000 回で止まる
+    instant = core_circle("Now", [], [{"name": "start", "steps": [{"do": "finish"}]}])
+    doc = circles_doc(
+        {"name": "Root", "flow": {"kind": "loop", "steps": ["Now"], "exit": "false"}},
+        instant,
+        root="Root",
+    )
+    results = assert_same_text(doc, ticks=2)
+    assert (
+        results[0]["error"]
+        == "1 tick の中で陣の進行が 1000 回を超えました（exit が常に偽の loop など）"
+    )
+    assert (
+        results[0]["trace"][-1]["kind"] == "error" and results[0]["done"]
+    )  # boot で当たる（frame 行は無い）
+
+
+def test_guards_summon_and_emit_rows_match_lua() -> None:
+    lib = core_circle(
+        "Lib",
+        [{"name": "calls", "type": "num", "init": "0", "out": True}],
+        [
+            {"name": "noop", "steps": []},
+            {
+                "name": "twice",
+                "params": [{"name": "s", "type": "str"}],
+                "returns": "str",
+                "steps": [
+                    {"do": "set", "target": "calls", "expr": "calls + 1"},
+                    {"do": "return", "expr": "s ++ s"},
+                ],
+            },
+        ],
+    )
+    main = core_circle(
+        "Main",
+        [
+            {"name": "text", "type": "str", "init": '""', "out": True},
+            {"name": "xs", "type": "list<num>", "init": "[1]", "out": True},
+        ],
+        [
+            {
+                "name": "main",
+                "steps": [
+                    {"do": "cast", "target": "dbl", "args": ['"ab"'], "into": "text"},
+                    {"do": "emit", "circle": "Main", "message": "hello", "args": ["xs", "text"]},
+                    {"do": "cast", "target": "push", "args": ["xs", "2"]},
+                ],
+            },
+            {
+                "name": "recv",
+                "params": [
+                    {"name": "name", "type": "str"},
+                    {"name": "ys", "type": "list<num>"},
+                    {"name": "s", "type": "str"},
+                ],
+                "steps": [{"do": "set", "target": "text", "expr": "text ++ s ++ str(len(ys))"}],
+            },
+        ],
+        sigils=[{"name": "dbl", "kind": "summon", "circle": "Lib", "rite": "twice"}],
+        boundary={
+            "on": [{"event": "message", "rite": "recv"}],
+            "guards": [{"assert": "len(text) < 8", "message": "短く"}, {"assert": "xs[0] == 1"}],
+        },
+    )
+    results = assert_same_text(circles_doc(main, lib, root="Main"), ticks=3)
+    kinds = [(r["kind"], r["name"], r["output"]) for res in results for r in res["trace"]]
+    assert ("cast", "dbl", "abab") in kinds and ("emit", "hello", True) in kinds
+    assert ("assert", None, "短く") in kinds
+    assert results[-1]["public"]["Main.text"] == "abababab2"
+
+
+def test_a_budget_hit_inside_a_waiting_rite_stops_both_paths_in_the_same_tick() -> None:
+    main = {
+        "name": "main",
+        "steps": [
+            {"do": "wait", "ticks": "2"},
+            {
+                "do": "loop",
+                "kind": "while",
+                "cond": "true",
+                "steps": [{"do": "set", "target": "n", "expr": "n + 1"}],
+            },
+        ],
+    }
+    state = [{"name": "n", "type": "num", "init": "0", "out": True}]
+    lua, wasm = both(program(state, main["steps"]), ticks=5, budget=10_000_000)
+    assert wasm.error == lua.error == "命令数の上限 10000000 を超えました（無限ループ？）"
+    assert wasm.done_tick == lua.done_tick == 1
+
+
+# ---------------------------------------------------------------- agent（runtime.md §11）
+
+
+def agent_games():
+    model = load(PROGRAMS / "agent.jin")
+    return generate_lua(model, source_name="agent.jin", debug=True), assemble(
+        model, source_name="agent.jin", debug=True
+    )
+
+
+def echo(ask: dict) -> str:
+    return f"echo:{ask['prompt']}"
+
+
+def test_the_ask_leaves_in_the_tick_result_and_the_answer_arrives_next_tick() -> None:
+    lua_game, wasm_game = agent_games()
+    lua = run_headless(lua_game.lua, lua_game.manifest, seed=7, ticks=10, answer=echo)
+    wasm = run_headless_wasm(wasm_game.wasm, wasm_game.manifest, seed=7, ticks=10, answer=echo)
+    assert (
+        wasm.public
+        == lua.public
+        == {
+            "Npc.pending": 1,
+            "Npc.answer": "echo:What is the password?",
+            "Npc.replies": 1,
+            "Npc.summary": "got:echo:What is the password?",
+        }
+    )
+    assert wasm.replies == lua.replies and wasm.rows == lua.rows and wasm.done_tick == 1
+
+
+def test_replay_delivers_the_recorded_reply_and_never_calls_answer() -> None:
+    _, wasm_game = agent_games()
+
+    def boom(_ask: dict) -> str:
+        raise AssertionError("再生では答えを求めない")
+
+    events = [{"tick": 2, "kind": "reply", "id": 1, "text": "canned"}]
+    result = run_headless_wasm(
+        wasm_game.wasm,
+        wasm_game.manifest,
+        seed=7,
+        ticks=10,
+        events=events,
+        answer=boom,
+        replay=True,
+    )
+    assert result.error is None and result.public["Npc.answer"] == "canned" and result.replies == []
+
+
+def test_a_program_that_asks_needs_a_host_unless_replaying() -> None:
+    from jin_wasm.runtime import RunError
+
+    _, wasm_game = agent_games()
+    with pytest.raises(RunError, match="答えるホストがありません"):
+        run_headless_wasm(wasm_game.wasm, wasm_game.manifest, seed=7, ticks=3)
+    result = run_headless_wasm(wasm_game.wasm, wasm_game.manifest, seed=7, ticks=3, replay=True)
+    assert result.public["Npc.replies"] == 0
+
+
+def test_an_unknown_id_is_dropped_with_an_emit_row_that_says_so() -> None:
+    events = [
+        {"tick": 1, "kind": "reply", "id": 9, "text": "stray"},
+        {"tick": 1, "kind": "reply", "id": 1, "text": "real"},
+        {"tick": 2, "kind": "reply", "id": 1, "text": "again"},
+        {"tick": 2, "kind": "reply", "id": 1.5, "text": "half"},
+    ]
+    results = assert_same_text(load(PROGRAMS / "agent.jin"), ticks=4, events=events)
+    emits = [
+        (r["circle"], r["input"], r["output"])
+        for res in results
+        for r in res["trace"]
+        if r["kind"] == "emit"
+    ]
+    assert emits[:2] == [(None, [9, "stray"], False), ("Npc", [1, "real"], True)]
