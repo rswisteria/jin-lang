@@ -1159,7 +1159,6 @@ class _Generator:
         parts = step.target.split(".")
         pi = info.pointer_index
         errcheck = f"(if (global.get $ERRED) (then {self.early_return(ctx)}))"
-        stop = f"(if (i32.or (global.get $ERRED) (call $stop (i32.const {pi}))) (then {self.early_return(ctx)}))"
         if len(parts) == 1 and parts[0] in info.rites:
             j = info.rites[parts[0]] - 1
             rite = info.circle.rites[j]
@@ -1171,10 +1170,14 @@ class _Generator:
                 for a, p in zip(arg_nodes, rite.params, strict=True)
             )
             call = f"(call $r{pi}_{j}{' ' + args if args else ''})"
+            # 呼ぶ前の生存を局所に取る（プレリュードの LIVE。jil.md §4・Issue #87 / #89）
+            live = self.new_raw_local(ctx, "i32")
+            self.out(self.setv(ctx, live, f"(call $live (i32.const {pi}))"), indent)
+            stop = self.stop_check(ctx, pi, live)
             # 手順の呼び出しにもカウンタを埋める（再帰の無限ループ・jil.md §6.6）
             self.out("(call $bud)", indent)
             self.out(errcheck, indent)
-            # Lua と同じ順: 呼ぶ → STOP なら返る → into に代入（STOP はエラーも含む）
+            # Lua と同じ順: 呼ぶ → STOP（この呼び出しで active でなくなった）なら返る → into に代入（STOP はエラーも含む）
             if step.into is not None and rite.returns is not None:
                 tmp = self.new_local(ctx, None, rite.returns)
                 self.out(self.setv(ctx, tmp, call), indent)
@@ -1301,6 +1304,13 @@ class _Generator:
         got = self.get(ctx, handle)
         return f"(ref.as_non_null {got})" if _is_ref(self.wtype(type_text)) else got
 
+    def stop_check(self, ctx: _RiteCtx, pi: int, live: str) -> str:
+        """自陣の手順への cast の直後の中断検査（Lua の `if STOP(i, w) then return end`。エラーも含む）。"""
+        return (
+            f"(if (i32.or (global.get $ERRED) (call $stop (i32.const {pi}) {self.get(ctx, live)})) "
+            f"(then {self.early_return(ctx)}))"
+        )
+
     def cast_waiting(
         self, step: CastStep, sp: str, ctx: _RiteCtx, indent: int, j: int, rite: Rite
     ) -> None:
@@ -1311,6 +1321,7 @@ class _Generator:
         assert ctx.frame is not None
         frame = self.frame_of[pi, j]
         slot = self.new_raw_local(ctx, f"(ref null {frame})")
+        live = self.new_raw_local(ctx, "i32")  # 呼ぶ前の生存（フレームの欄。tick を跨いで残る）
         c = ctx.pc()
         pc = f"(struct.get {ctx.frame} 0 (local.get $fr))"
         skip = ctx.label("skip")
@@ -1318,6 +1329,7 @@ class _Generator:
         self.out("(if (local.get $rs)", indent + 1)
         self.out(f"(then (br_if {skip} (i32.ne {pc} (i32.const {c}))))", indent + 2)
         self.out("(else", indent + 2)
+        self.out(self.setv(ctx, live, f"(call $live (i32.const {pi}))"), indent + 3)
         self.out("(call $bud)", indent + 3)
         self.out(f"(if (global.get $ERRED) (then {self.early_return(ctx)}))", indent + 3)
         args = [
@@ -1339,10 +1351,7 @@ class _Generator:
             indent + 2,
         )
         self.out("(local.set $rs (i32.const 0))", indent + 1)
-        self.out(
-            f"(if (i32.or (global.get $ERRED) (call $stop (i32.const {pi}))) (then {self.early_return(ctx)}))",
-            indent + 1,
-        )
+        self.out(self.stop_check(ctx, pi, live), indent + 1)
         if step.into is not None and rite.returns is not None:
             got = f"(struct.get {frame} 1 {self.get(ctx, slot)})"
             if _is_ref(self.wtype(rite.returns)):

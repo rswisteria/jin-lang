@@ -458,19 +458,24 @@ class _Generator:
             kind = "host"
         into = self.node(f"{sp}/into") if step.into is not None else None
 
+        # 自陣の手順への cast: 呼ぶ前の生存を局所に取り、直後に「この呼び出しで active でなくなったか」を見て
+        # 呼び出し列を巻き戻す（jil.md §4。呼ぶ前から active でない陣では止めない。Issue #87 / #89）
+        live = ctx.temp("w") if kind == "rite" else None
         if not self.debug:
             args = ", ".join([*prefix, *(self.expr(a, ctx, info) for a in arg_nodes)])
             call = f"{callee}({args})"
+            if live is not None:
+                self.out(f"local {live} = LIVE({ci})", indent)
             if into is not None:
                 tmp = ctx.temp("r")
                 self.out(f"local {tmp} = {call}", indent)
-                if kind == "rite":
-                    self.out(f"if STOP({ci}) then return end", indent)
+                if live is not None:
+                    self.out(f"if STOP({ci}, {live}) then return end", indent)
                 self.assign(into, tmp, ctx, sp, indent)
             else:
                 self.out(call, indent)
-                if kind == "rite":
-                    self.out(f"if STOP({ci}) then return end", indent)
+                if live is not None:
+                    self.out(f"if STOP({ci}, {live}) then return end", indent)
             return
 
         # DEBUG: 引数を一度だけ評価して局所に置き、cast 行を**呼び出しの前に**積む
@@ -485,6 +490,8 @@ class _Generator:
             [f"{self.serializer(a.type)}({v})" for a, v in zip(arg_nodes, arg_vars, strict=True)]
         )
         call = f"{callee}({', '.join([*prefix, *arg_vars])})"
+        if live is not None:
+            self.out(f"local {live} = LIVE({ci})", indent + 1)
         row_var: str | None = None
         if kind != "rite":
             row_var = ctx.temp("c")
@@ -499,8 +506,8 @@ class _Generator:
             self.out(f"local {result_var} = {call}", indent + 1)
         else:
             self.out(call, indent + 1)
-        if kind == "rite":
-            self.out(f"if STOP({ci}) then return end", indent + 1)
+        if live is not None:
+            self.out(f"if STOP({ci}, {live}) then return end", indent + 1)
         elif result_var is not None:
             self.out(f"TRET({row_var}, {self.serializer(returns)}({result_var}))", indent + 1)
         if into is not None and result_var is not None:
