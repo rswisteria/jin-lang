@@ -609,6 +609,45 @@ def test_othello_reads_the_llm_answer_and_plays_it_when_legal() -> None:
     assert result.public["Play.llmMoves"] == 0 and result.public["Play.fallbackMoves"] >= 2
 
 
+def test_othello_retry_reenters_the_round_and_resets_the_board() -> None:
+    """終局後の RETRY で Round（Board / View / Play）が入り直し、盤が初期配置に戻る。
+
+    Board は Play より先に entered になる（parallel の配列順）。2 周目もその順で通り、
+    Play の核が呼ぶ summon の resetBoard が空の盤を埋める。
+    """
+    path = EXAMPLES / "othello" / "othello.jin"
+    game = generate(load(path), source_name=path.name, debug=True)
+    result = run_headless(
+        game.lua,
+        game.manifest,
+        seed=5,
+        ticks=91,  # RETRY の直後で止める（auto なので放っておくと 2 局目が進む）
+        storage={"auto": "1"},  # 内蔵 AI 同士で終局まで（tick 59 に over）
+        answer=lambda _ask: "fake-response",
+        events=[
+            {"tick": 89, "kind": "pointer", "x": 176, "y": 122, "down": True},  # RETRY の中心
+            {"tick": 90, "kind": "pointer", "x": 176, "y": 122, "down": False},
+        ],
+    )
+    assert result.error is None
+    enters = [(r["tick"], r["name"]) for r in result.rows if r["kind"] == "enter"]
+    assert enters.count((-1, "Board")) == 1 and (60, "Result") in enters
+    second = [e for e in enters if e[0] == 90]
+    assert second == [(90, "Board"), (90, "View"), (90, "Play")]  # 2 周目も Board が先
+    # 公開 state は次 tick の確定を待つので、入り直した tick の書き込み（set 行）で盤の数を見る
+    counts = [
+        (r["name"], r["output"])
+        for r in result.rows
+        if r["kind"] == "set"
+        and r["tick"] == 90
+        and r["circle"] == "Board"
+        and r["name"] in ("black", "white")
+    ]
+    assert counts[-2:] in ([("black", 2), ("white", 2)], [("white", 2), ("black", 2)])
+    assert result.public["Play.over"] is False and result.public["Play.turn"] == 1
+    assert result.public["Result.quit"] is False
+
+
 def test_othello_in_the_browser_shape_waits_then_falls_back_to_the_builtin_ai() -> None:
     """人がクリックで打ち、答えが来なければ（ブラウザ相当）60 tick 待って内蔵 AI が打つ。"""
     path = EXAMPLES / "othello" / "othello.jin"
