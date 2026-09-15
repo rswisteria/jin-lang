@@ -88,7 +88,7 @@ def test_wat_string_escapes_everything_but_printable_ascii(text: str, expected: 
 # ---------------------------------------------------------------- スナップショットと決定性
 
 
-EXAMPLE_NAMES = ["fib", "paddle", "clicker", "tetris"]
+EXAMPLE_NAMES = ["fib", "paddle", "clicker", "tetris", "othello"]
 PROGRAM_NAMES = sorted(p.stem for p in PROGRAMS.glob("*.jin"))
 
 

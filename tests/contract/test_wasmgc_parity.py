@@ -53,6 +53,13 @@ EVENTS: dict[str, list[dict]] = {
         {"tick": 70, "kind": "pointer", "x": 140, "y": 70, "down": True},
         {"tick": 71, "kind": "pointer", "x": 140, "y": 70, "down": False},
     ],
+    "othello": [
+        {"tick": 2, "kind": "pointer", "x": 64, "y": 48, "down": True},
+        {"tick": 3, "kind": "pointer", "x": 64, "y": 48, "down": False},
+        {"tick": 5, "kind": "reply", "id": 1, "text": "I take c3."},
+        {"tick": 10, "kind": "pointer", "x": 32, "y": 48, "down": True},
+        {"tick": 11, "kind": "pointer", "x": 32, "y": 48, "down": False},
+    ],
     "tetris": [
         {"tick": 4, "kind": "key", "name": "ArrowLeft", "down": True},
         {"tick": 5, "kind": "key", "name": "ArrowLeft", "down": False},
@@ -72,7 +79,7 @@ EVENTS: dict[str, list[dict]] = {
 }
 
 #: 走らせる tick 数（既定 5。核が wait で待つものは長め）
-TICKS = {"paddle": 40, "clicker": 80, "tetris": 60, "wait_until": 6, "transfer": 6}
+TICKS = {"paddle": 40, "clicker": 80, "tetris": 60, "othello": 40, "wait_until": 6, "transfer": 6}
 
 #: 両経路とも実行時エラー（exit 1・stderr の「実行時エラー」の行が同じ）
 RUNTIME_ERRORS = {"bad_color", "runtime_error_index"}
@@ -82,6 +89,7 @@ ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + [
     "paddle",
     "clicker",
     "tetris",
+    "othello",
 ]
 
 

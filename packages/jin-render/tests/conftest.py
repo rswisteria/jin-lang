@@ -148,6 +148,12 @@ def tetris() -> JinFileV2:
     return load_model_v2(EXAMPLES_V2 / "tetris" / "tetris.jin")
 
 
+@pytest.fixture
+def othello() -> JinFileV2:
+    """`examples-v2/othello/othello.jin`（5 本目。陣 6 つ・parallel の flow・summon・agent の sigil）。"""
+    return load_model_v2(EXAMPLES_V2 / "othello" / "othello.jin")
+
+
 def model_v2_from(
     circles: list[dict[str, Any]],
     root: str,

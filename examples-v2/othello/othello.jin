@@ -1,0 +1,2144 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": {
+    "width": 224,
+    "height": 176,
+    "fps": 30,
+    "seed": 5
+  },
+  "circles": [
+    {
+      "name": "Game",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Round",
+          "Result"
+        ],
+        "exit": "Result.quit"
+      }
+    },
+    {
+      "name": "Round",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "Board",
+          "View",
+          "Play"
+        ]
+      }
+    },
+    {
+      "name": "Board",
+      "core": "idle",
+      "state": [
+        {
+          "name": "board",
+          "type": "list<num>",
+          "init": "[]",
+          "out": true
+        },
+        {
+          "name": "hints",
+          "type": "list<num>",
+          "init": "[]",
+          "out": true
+        },
+        {
+          "name": "black",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "white",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "lastMove",
+          "type": "num",
+          "init": "-1",
+          "out": true
+        },
+        {
+          "name": "dirs",
+          "type": "list<num>",
+          "init": "[-1, -1, 0, -1, 1, -1, -1, 0, 1, 0, -1, 1, 0, 1, 1, 1]"
+        },
+        {
+          "name": "cols",
+          "type": "str",
+          "init": "\"abcdefgh\""
+        }
+      ],
+      "rites": [
+        {
+          "name": "idle",
+          "steps": [
+            {
+              "do": "wait",
+              "until": "Play.over"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "resetBoard",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "clear",
+              "args": [
+                "board"
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "cast",
+                  "target": "push",
+                  "args": [
+                    "board",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "set",
+              "target": "board[27]",
+              "expr": "2"
+            },
+            {
+              "do": "set",
+              "target": "board[28]",
+              "expr": "1"
+            },
+            {
+              "do": "set",
+              "target": "board[35]",
+              "expr": "1"
+            },
+            {
+              "do": "set",
+              "target": "board[36]",
+              "expr": "2"
+            },
+            {
+              "do": "set",
+              "target": "lastMove",
+              "expr": "-1"
+            },
+            {
+              "do": "cast",
+              "target": "count"
+            }
+          ]
+        },
+        {
+          "name": "count",
+          "steps": [
+            {
+              "do": "set",
+              "target": "black",
+              "expr": "0"
+            },
+            {
+              "do": "set",
+              "target": "white",
+              "expr": "0"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "if",
+                  "cond": "board[i] == 1",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "black",
+                      "expr": "black + 1"
+                    }
+                  ]
+                },
+                {
+                  "do": "if",
+                  "cond": "board[i] == 2",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "white",
+                      "expr": "white + 1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "flips",
+          "params": [
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "dx",
+              "type": "num"
+            },
+            {
+              "name": "dy",
+              "type": "num"
+            },
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "let",
+              "name": "cx",
+              "expr": "x + dx"
+            },
+            {
+              "do": "let",
+              "name": "cy",
+              "expr": "y + dy"
+            },
+            {
+              "do": "let",
+              "name": "n",
+              "expr": "0"
+            },
+            {
+              "do": "loop",
+              "kind": "while",
+              "cond": "cx >= 0 and cx < 8 and cy >= 0 and cy < 8 and board[cy * 8 + cx] == 3 - who",
+              "steps": [
+                {
+                  "do": "set",
+                  "target": "n",
+                  "expr": "n + 1"
+                },
+                {
+                  "do": "set",
+                  "target": "cx",
+                  "expr": "cx + dx"
+                },
+                {
+                  "do": "set",
+                  "target": "cy",
+                  "expr": "cy + dy"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "n > 0 and cx >= 0 and cx < 8 and cy >= 0 and cy < 8 and board[cy * 8 + cx] == who",
+              "then": [
+                {
+                  "do": "return",
+                  "expr": "n"
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "0"
+            }
+          ]
+        },
+        {
+          "name": "legal",
+          "params": [
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "returns": "bool",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "x < 0 or x > 7 or y < 0 or y > 7 or board[y * 8 + x] != 0",
+              "then": [
+                {
+                  "do": "return",
+                  "expr": "false"
+                }
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "d",
+              "times": "8",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "n",
+                  "expr": "0"
+                },
+                {
+                  "do": "cast",
+                  "target": "flips",
+                  "args": [
+                    "x",
+                    "y",
+                    "dirs[d * 2]",
+                    "dirs[d * 2 + 1]",
+                    "who"
+                  ],
+                  "into": "n"
+                },
+                {
+                  "do": "if",
+                  "cond": "n > 0",
+                  "then": [
+                    {
+                      "do": "return",
+                      "expr": "true"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "false"
+            }
+          ]
+        },
+        {
+          "name": "gain",
+          "params": [
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "let",
+              "name": "total",
+              "expr": "0"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "d",
+              "times": "8",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "n",
+                  "expr": "0"
+                },
+                {
+                  "do": "cast",
+                  "target": "flips",
+                  "args": [
+                    "x",
+                    "y",
+                    "dirs[d * 2]",
+                    "dirs[d * 2 + 1]",
+                    "who"
+                  ],
+                  "into": "n"
+                },
+                {
+                  "do": "set",
+                  "target": "total",
+                  "expr": "total + n"
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "total"
+            }
+          ]
+        },
+        {
+          "name": "place",
+          "params": [
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            },
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "set",
+              "target": "board[y * 8 + x]",
+              "expr": "who"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "d",
+              "times": "8",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "dx",
+                  "expr": "dirs[d * 2]"
+                },
+                {
+                  "do": "let",
+                  "name": "dy",
+                  "expr": "dirs[d * 2 + 1]"
+                },
+                {
+                  "do": "let",
+                  "name": "n",
+                  "expr": "0"
+                },
+                {
+                  "do": "cast",
+                  "target": "flips",
+                  "args": [
+                    "x",
+                    "y",
+                    "dx",
+                    "dy",
+                    "who"
+                  ],
+                  "into": "n"
+                },
+                {
+                  "do": "loop",
+                  "kind": "count",
+                  "name": "k",
+                  "times": "n",
+                  "steps": [
+                    {
+                      "do": "set",
+                      "target": "board[(y + dy * (k + 1)) * 8 + x + dx * (k + 1)]",
+                      "expr": "who"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "set",
+              "target": "lastMove",
+              "expr": "y * 8 + x"
+            },
+            {
+              "do": "cast",
+              "target": "count"
+            }
+          ]
+        },
+        {
+          "name": "anyMove",
+          "params": [
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "returns": "bool",
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "ok",
+                  "expr": "false"
+                },
+                {
+                  "do": "cast",
+                  "target": "legal",
+                  "args": [
+                    "i % 8",
+                    "floor(i / 8)",
+                    "who"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "return",
+                      "expr": "true"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "false"
+            }
+          ]
+        },
+        {
+          "name": "computeHints",
+          "params": [
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "cast",
+              "target": "clear",
+              "args": [
+                "hints"
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "ok",
+                  "expr": "false"
+                },
+                {
+                  "do": "cast",
+                  "target": "legal",
+                  "args": [
+                    "i % 8",
+                    "floor(i / 8)",
+                    "who"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "push",
+                      "args": [
+                        "hints",
+                        "i"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "greedy",
+          "params": [
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "let",
+              "name": "best",
+              "expr": "0"
+            },
+            {
+              "do": "let",
+              "name": "bi",
+              "expr": "-1"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "ok",
+                  "expr": "false"
+                },
+                {
+                  "do": "cast",
+                  "target": "legal",
+                  "args": [
+                    "i % 8",
+                    "floor(i / 8)",
+                    "who"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "let",
+                      "name": "g",
+                      "expr": "0"
+                    },
+                    {
+                      "do": "cast",
+                      "target": "gain",
+                      "args": [
+                        "i % 8",
+                        "floor(i / 8)",
+                        "who"
+                      ],
+                      "into": "g"
+                    },
+                    {
+                      "do": "if",
+                      "cond": "g > best",
+                      "then": [
+                        {
+                          "do": "set",
+                          "target": "best",
+                          "expr": "g"
+                        },
+                        {
+                          "do": "set",
+                          "target": "bi",
+                          "expr": "i"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "bi >= 0",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "place",
+                  "args": [
+                    "bi % 8",
+                    "floor(bi / 8)",
+                    "who"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "legalList",
+          "params": [
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "returns": "str",
+          "steps": [
+            {
+              "do": "let",
+              "name": "out",
+              "expr": "\"\""
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "ok",
+                  "expr": "false"
+                },
+                {
+                  "do": "cast",
+                  "target": "legal",
+                  "args": [
+                    "i % 8",
+                    "floor(i / 8)",
+                    "who"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "out",
+                      "expr": "out ++ sub(cols, i % 8, 1) ++ str(floor(i / 8) + 1) ++ \" \""
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "out"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "guards": [
+          {
+            "assert": "len(board) == 0 or len(board) == 64",
+            "message": "盤面は 8 × 8"
+          },
+          {
+            "assert": "black + white <= 64",
+            "message": "石は 64 個を超えない"
+          }
+        ]
+      }
+    },
+    {
+      "name": "View",
+      "core": "idle",
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "idle",
+          "steps": [
+            {
+              "do": "wait",
+              "until": "Play.over"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "paint",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "paintBoard"
+            },
+            {
+              "do": "cast",
+              "target": "paintHints"
+            },
+            {
+              "do": "cast",
+              "target": "paintPanel"
+            }
+          ]
+        },
+        {
+          "name": "paintBoard",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#1b1f24\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#2e8b57\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "8",
+                "8",
+                "128",
+                "128"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#1f5f3a\""
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "k",
+              "times": "9",
+              "steps": [
+                {
+                  "do": "cast",
+                  "target": "canvas.line",
+                  "args": [
+                    "8 + k * 16",
+                    "8",
+                    "8 + k * 16",
+                    "136"
+                  ]
+                },
+                {
+                  "do": "cast",
+                  "target": "canvas.line",
+                  "args": [
+                    "8",
+                    "8 + k * 16",
+                    "136",
+                    "8 + k * 16"
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#111\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "paintStones",
+              "args": [
+                "1"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#eee\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "paintStones",
+              "args": [
+                "2"
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "Board.lastMove >= 0",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "canvas.ink",
+                  "args": [
+                    "\"#e8c547\""
+                  ]
+                },
+                {
+                  "do": "cast",
+                  "target": "canvas.rect",
+                  "args": [
+                    "15 + Board.lastMove % 8 * 16",
+                    "15 + floor(Board.lastMove / 8) * 16",
+                    "3",
+                    "3"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "paintStones",
+          "params": [
+            {
+              "name": "who",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "if",
+                  "cond": "Board.board[i] == who",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "canvas.circle",
+                      "args": [
+                        "16 + i % 8 * 16",
+                        "16 + floor(i / 8) * 16",
+                        "6"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "paintHints",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "Play.turn != 1 or Play.over",
+              "then": [
+                {
+                  "do": "return"
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#7cc47c\""
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "each",
+              "name": "i",
+              "in": "Board.hints",
+              "steps": [
+                {
+                  "do": "cast",
+                  "target": "canvas.circle",
+                  "args": [
+                    "16 + i % 8 * 16",
+                    "16 + floor(i / 8) * 16",
+                    "2"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "paintPanel",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#c8d0dc\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "\"BLACK X\"",
+                "144",
+                "8"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "str(Board.black)",
+                "144",
+                "18"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "\"WHITE O\"",
+                "144",
+                "36"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "str(Board.white)",
+                "144",
+                "46"
+              ]
+            },
+            {
+              "do": "let",
+              "name": "msg",
+              "expr": "\"AI TURN\""
+            },
+            {
+              "do": "if",
+              "cond": "Play.turn == 1",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "msg",
+                  "expr": "\"YOUR TURN\""
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "Play.thinking",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "msg",
+                  "expr": "\"THINKING\""
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "Play.over",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "msg",
+                  "expr": "\"GAME OVER\""
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "msg",
+                "144",
+                "72"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "Play.status",
+                "144",
+                "90"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        {
+          "name": "turn",
+          "type": "num",
+          "init": "1",
+          "out": true
+        },
+        {
+          "name": "over",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        },
+        {
+          "name": "llmMoves",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "fallbackMoves",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "thinking",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        },
+        {
+          "name": "status",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        },
+        {
+          "name": "pending",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "reply",
+          "type": "str",
+          "init": "\"\""
+        },
+        {
+          "name": "replied",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "waited",
+          "type": "num",
+          "init": "0"
+        },
+        {
+          "name": "pressed",
+          "type": "bool",
+          "init": "false"
+        },
+        {
+          "name": "auto",
+          "type": "bool",
+          "init": "false"
+        }
+      ],
+      "sigils": [
+        {
+          "name": "input",
+          "kind": "host",
+          "host": "input"
+        },
+        {
+          "name": "storage",
+          "kind": "host",
+          "host": "storage"
+        },
+        {
+          "name": "rival",
+          "kind": "agent",
+          "file": "agents/rival.jin"
+        },
+        {
+          "name": "resetBoard",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "resetBoard"
+        },
+        {
+          "name": "legal",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "legal"
+        },
+        {
+          "name": "place",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "place"
+        },
+        {
+          "name": "anyMove",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "anyMove"
+        },
+        {
+          "name": "greedy",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "greedy"
+        },
+        {
+          "name": "legalList",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "legalList"
+        },
+        {
+          "name": "computeHints",
+          "kind": "summon",
+          "circle": "Board",
+          "rite": "computeHints"
+        },
+        {
+          "name": "draw",
+          "kind": "summon",
+          "circle": "View",
+          "rite": "paint"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "set",
+              "target": "over",
+              "expr": "false"
+            },
+            {
+              "do": "set",
+              "target": "turn",
+              "expr": "1"
+            },
+            {
+              "do": "set",
+              "target": "llmMoves",
+              "expr": "0"
+            },
+            {
+              "do": "set",
+              "target": "fallbackMoves",
+              "expr": "0"
+            },
+            {
+              "do": "set",
+              "target": "status",
+              "expr": "\"\""
+            },
+            {
+              "do": "set",
+              "target": "thinking",
+              "expr": "false"
+            },
+            {
+              "do": "set",
+              "target": "auto",
+              "expr": "storage.get(\"auto\") == \"1\""
+            },
+            {
+              "do": "cast",
+              "target": "resetBoard"
+            },
+            {
+              "do": "cast",
+              "target": "computeHints",
+              "args": [
+                "1"
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "while",
+              "cond": "not over",
+              "steps": [
+                {
+                  "do": "wait",
+                  "until": "over or turn == 2 or auto"
+                },
+                {
+                  "do": "if",
+                  "cond": "not over and turn == 1",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "autoTurn"
+                    }
+                  ]
+                },
+                {
+                  "do": "if",
+                  "cond": "not over and turn == 2",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "aiTurn"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "aiTurn",
+          "steps": [
+            {
+              "do": "let",
+              "name": "prompt",
+              "expr": "\"\""
+            },
+            {
+              "do": "cast",
+              "target": "buildPrompt",
+              "into": "prompt"
+            },
+            {
+              "do": "cast",
+              "target": "ask",
+              "args": [
+                "prompt"
+              ]
+            },
+            {
+              "do": "wait",
+              "until": "replied > 0 or waited >= 60"
+            },
+            {
+              "do": "set",
+              "target": "thinking",
+              "expr": "false"
+            },
+            {
+              "do": "let",
+              "name": "idx",
+              "expr": "-1"
+            },
+            {
+              "do": "if",
+              "cond": "replied > 0",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "parseMove",
+                  "args": [
+                    "reply"
+                  ],
+                  "into": "idx"
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "aiMove",
+              "args": [
+                "idx"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "endTurn"
+            }
+          ]
+        },
+        {
+          "name": "ask",
+          "params": [
+            {
+              "name": "prompt",
+              "type": "str"
+            }
+          ],
+          "steps": [
+            {
+              "do": "set",
+              "target": "replied",
+              "expr": "0"
+            },
+            {
+              "do": "set",
+              "target": "waited",
+              "expr": "0"
+            },
+            {
+              "do": "set",
+              "target": "thinking",
+              "expr": "true"
+            },
+            {
+              "do": "cast",
+              "target": "rival",
+              "args": [
+                "prompt"
+              ],
+              "into": "pending"
+            }
+          ]
+        },
+        {
+          "name": "aiMove",
+          "params": [
+            {
+              "name": "idx",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "let",
+              "name": "ok",
+              "expr": "false"
+            },
+            {
+              "do": "if",
+              "cond": "idx >= 0",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "legal",
+                  "args": [
+                    "idx % 8",
+                    "floor(idx / 8)",
+                    "2"
+                  ],
+                  "into": "ok"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "ok",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "place",
+                  "args": [
+                    "idx % 8",
+                    "floor(idx / 8)",
+                    "2"
+                  ]
+                },
+                {
+                  "do": "set",
+                  "target": "llmMoves",
+                  "expr": "llmMoves + 1"
+                }
+              ],
+              "else": [
+                {
+                  "do": "cast",
+                  "target": "greedy",
+                  "args": [
+                    "2"
+                  ]
+                },
+                {
+                  "do": "set",
+                  "target": "fallbackMoves",
+                  "expr": "fallbackMoves + 1"
+                }
+              ]
+            },
+            {
+              "do": "set",
+              "target": "status",
+              "expr": "\"\""
+            }
+          ]
+        },
+        {
+          "name": "endTurn",
+          "steps": [
+            {
+              "do": "let",
+              "name": "other",
+              "expr": "3 - turn"
+            },
+            {
+              "do": "let",
+              "name": "can",
+              "expr": "false"
+            },
+            {
+              "do": "cast",
+              "target": "anyMove",
+              "args": [
+                "other"
+              ],
+              "into": "can"
+            },
+            {
+              "do": "if",
+              "cond": "can",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "turn",
+                  "expr": "other"
+                }
+              ],
+              "else": [
+                {
+                  "do": "let",
+                  "name": "again",
+                  "expr": "false"
+                },
+                {
+                  "do": "cast",
+                  "target": "anyMove",
+                  "args": [
+                    "turn"
+                  ],
+                  "into": "again"
+                },
+                {
+                  "do": "if",
+                  "cond": "again",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "status",
+                      "expr": "\"PASS\""
+                    }
+                  ],
+                  "else": [
+                    {
+                      "do": "set",
+                      "target": "over",
+                      "expr": "true"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "over",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "computeHints",
+                  "args": [
+                    "0"
+                  ]
+                }
+              ],
+              "else": [
+                {
+                  "do": "cast",
+                  "target": "computeHints",
+                  "args": [
+                    "turn"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "buildPrompt",
+          "returns": "str",
+          "steps": [
+            {
+              "do": "let",
+              "name": "text",
+              "expr": "\"You are O in Othello (Reversi). X is your opponent. Board: columns a-h from left, rows 1-8 from top. . is empty.\\n\""
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "r",
+              "times": "8",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "line",
+                  "expr": "\"\""
+                },
+                {
+                  "do": "loop",
+                  "kind": "count",
+                  "name": "c",
+                  "times": "8",
+                  "steps": [
+                    {
+                      "do": "let",
+                      "name": "v",
+                      "expr": "Board.board[r * 8 + c]"
+                    },
+                    {
+                      "do": "if",
+                      "cond": "v == 0",
+                      "then": [
+                        {
+                          "do": "set",
+                          "target": "line",
+                          "expr": "line ++ \".\""
+                        }
+                      ]
+                    },
+                    {
+                      "do": "if",
+                      "cond": "v == 1",
+                      "then": [
+                        {
+                          "do": "set",
+                          "target": "line",
+                          "expr": "line ++ \"X\""
+                        }
+                      ]
+                    },
+                    {
+                      "do": "if",
+                      "cond": "v == 2",
+                      "then": [
+                        {
+                          "do": "set",
+                          "target": "line",
+                          "expr": "line ++ \"O\""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "do": "set",
+                  "target": "text",
+                  "expr": "text ++ line ++ \" \" ++ str(r + 1) ++ \"\\n\""
+                }
+              ]
+            },
+            {
+              "do": "let",
+              "name": "moves",
+              "expr": "\"\""
+            },
+            {
+              "do": "cast",
+              "target": "legalList",
+              "args": [
+                "2"
+              ],
+              "into": "moves"
+            },
+            {
+              "do": "set",
+              "target": "text",
+              "expr": "text ++ \"Your legal moves: \" ++ moves ++ \"\\nReply with exactly one move like d3 and nothing else.\""
+            },
+            {
+              "do": "return",
+              "expr": "text"
+            }
+          ]
+        },
+        {
+          "name": "letterIndex",
+          "params": [
+            {
+              "name": "a",
+              "type": "str"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "c",
+              "times": "8",
+              "steps": [
+                {
+                  "do": "if",
+                  "cond": "a == sub(\"abcdefgh\", c, 1) or a == sub(\"ABCDEFGH\", c, 1)",
+                  "then": [
+                    {
+                      "do": "return",
+                      "expr": "c"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "-1"
+            }
+          ]
+        },
+        {
+          "name": "parseMove",
+          "params": [
+            {
+              "name": "text",
+              "type": "str"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "let",
+              "name": "n",
+              "expr": "len(text)"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "max(0, n - 1)",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "a",
+                  "expr": "sub(text, i, 1)"
+                },
+                {
+                  "do": "let",
+                  "name": "row",
+                  "expr": "num(sub(text, i + 1, 1))"
+                },
+                {
+                  "do": "let",
+                  "name": "col",
+                  "expr": "-1"
+                },
+                {
+                  "do": "cast",
+                  "target": "letterIndex",
+                  "args": [
+                    "a"
+                  ],
+                  "into": "col"
+                },
+                {
+                  "do": "if",
+                  "cond": "col >= 0 and row >= 1 and row <= 8",
+                  "then": [
+                    {
+                      "do": "return",
+                      "expr": "(row - 1) * 8 + col"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "-1"
+            }
+          ]
+        },
+        {
+          "name": "recv",
+          "params": [
+            {
+              "name": "name",
+              "type": "str"
+            },
+            {
+              "name": "id",
+              "type": "num"
+            },
+            {
+              "name": "text",
+              "type": "str"
+            }
+          ],
+          "steps": [
+            {
+              "do": "if",
+              "cond": "name == \"rival\" and id == pending",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "reply",
+                  "expr": "text"
+                },
+                {
+                  "do": "set",
+                  "target": "replied",
+                  "expr": "replied + 1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "click",
+          "params": [
+            {
+              "name": "p",
+              "type": "Pointer"
+            }
+          ],
+          "steps": [
+            {
+              "do": "let",
+              "name": "go",
+              "expr": "p.down and not pressed"
+            },
+            {
+              "do": "set",
+              "target": "pressed",
+              "expr": "p.down"
+            },
+            {
+              "do": "if",
+              "cond": "not go or turn != 1 or over or thinking",
+              "then": [
+                {
+                  "do": "return"
+                }
+              ]
+            },
+            {
+              "do": "let",
+              "name": "cx",
+              "expr": "floor((p.x - 8) / 16)"
+            },
+            {
+              "do": "let",
+              "name": "cy",
+              "expr": "floor((p.y - 8) / 16)"
+            },
+            {
+              "do": "let",
+              "name": "ok",
+              "expr": "false"
+            },
+            {
+              "do": "cast",
+              "target": "legal",
+              "args": [
+                "cx",
+                "cy",
+                "1"
+              ],
+              "into": "ok"
+            },
+            {
+              "do": "if",
+              "cond": "ok",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "place",
+                  "args": [
+                    "cx",
+                    "cy",
+                    "1"
+                  ]
+                },
+                {
+                  "do": "set",
+                  "target": "status",
+                  "expr": "\"\""
+                },
+                {
+                  "do": "cast",
+                  "target": "endTurn"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "frame",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "thinking",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "waited",
+                  "expr": "waited + 1"
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "draw"
+            }
+          ]
+        },
+        {
+          "name": "autoTurn",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "greedy",
+              "args": [
+                "1"
+              ]
+            },
+            {
+              "do": "set",
+              "target": "status",
+              "expr": "\"\""
+            },
+            {
+              "do": "cast",
+              "target": "endTurn"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "frame"
+          },
+          {
+            "event": "pointer",
+            "rite": "click"
+          },
+          {
+            "event": "message",
+            "rite": "recv"
+          }
+        ],
+        "guards": [
+          {
+            "assert": "llmMoves >= 0 and fallbackMoves >= 0",
+            "message": "手数は負にならない"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Result",
+      "core": "show",
+      "state": [
+        {
+          "name": "quit",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        },
+        {
+          "name": "ui",
+          "kind": "host",
+          "host": "ui"
+        }
+      ],
+      "rites": [
+        {
+          "name": "show",
+          "steps": [
+            {
+              "do": "set",
+              "target": "quit",
+              "expr": "false"
+            },
+            {
+              "do": "wait",
+              "ticks": "20"
+            }
+          ]
+        },
+        {
+          "name": "menu",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#1b1f24\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#3a4250\""
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "64",
+              "steps": [
+                {
+                  "do": "if",
+                  "cond": "Board.board[i] != 0",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "canvas.circle",
+                      "args": [
+                        "16 + i % 8 * 16",
+                        "16 + floor(i / 8) * 16",
+                        "6"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "scores"
+            },
+            {
+              "do": "if",
+              "cond": "ui.button(\"RETRY\", 144, 112, 64, 20)",
+              "then": [
+                {
+                  "do": "finish"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "ui.button(\"QUIT\", 144, 140, 64, 20)",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "quit",
+                  "expr": "true"
+                },
+                {
+                  "do": "finish"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "scores",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#c8d0dc\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "\"GAME OVER\"",
+                "144",
+                "8"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "\"BLACK X\"",
+                "144",
+                "28"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "str(Board.black)",
+                "144",
+                "38"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "\"WHITE O\"",
+                "144",
+                "56"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "str(Board.white)",
+                "144",
+                "66"
+              ]
+            },
+            {
+              "do": "let",
+              "name": "w",
+              "expr": "\"DRAW\""
+            },
+            {
+              "do": "if",
+              "cond": "Board.black > Board.white",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "w",
+                  "expr": "\"YOU WIN\""
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "Board.white > Board.black",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "w",
+                  "expr": "\"AI WINS\""
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "w",
+                "144",
+                "84"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "menu"
+          }
+        ]
+      }
+    }
+  ]
+}

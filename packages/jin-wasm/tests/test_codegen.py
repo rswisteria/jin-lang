@@ -8,8 +8,10 @@
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from jin_core.check import check_file, check_text
@@ -22,7 +24,7 @@ from jin_wasm.runtime import HeadlessResult, run_headless
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES = REPO_ROOT / "examples-v2"
 PROGRAMS = REPO_ROOT / "tests" / "fixtures" / "v2-programs"
-EXAMPLE_NAMES = ("paddle", "clicker", "fib", "tetris")
+EXAMPLE_NAMES = ("paddle", "clicker", "fib", "tetris", "othello")
 
 
 def load(path: Path) -> JinFileV2:
@@ -488,3 +490,150 @@ def test_tetris_ends_in_the_result_screen_when_pieces_pile_up() -> None:
     assert ["text", "GAME OVER", 100, 8] in last
     assert [op[1] for op in last if op[0] == "button"] == ["RETRY", "QUIT"]
     assert result.public["Play.placed"] > 10
+
+
+# ---------------------------------------------------------------- othello（5 本目・相手が v1 の陣 = LLM）
+
+_OTHELLO_DIRS = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
+
+
+def _othello_flips(board: list[int], x: int, y: int, dx: int, dy: int, who: int) -> int:
+    cx, cy, n = x + dx, y + dy, 0
+    while 0 <= cx < 8 and 0 <= cy < 8 and board[cy * 8 + cx] == 3 - who:
+        n, cx, cy = n + 1, cx + dx, cy + dy
+    return n if n > 0 and 0 <= cx < 8 and 0 <= cy < 8 and board[cy * 8 + cx] == who else 0
+
+
+def _othello_greedy(board: list[int], who: int) -> int:
+    """othello.jin の内蔵 AI と同じ規則（取れる石が最多・同数なら添字の小さい方）の独立実装。"""
+    best, choice = 0, -1
+    for i in range(64):
+        x, y = i % 8, i // 8
+        if board[i] != 0:
+            continue
+        g = sum(_othello_flips(board, x, y, dx, dy, who) for dx, dy in _OTHELLO_DIRS)
+        if g > best:
+            best, choice = g, i
+    return choice
+
+
+def _othello_play_out() -> tuple[list[int], list[tuple[int, int]]]:
+    """両者が greedy で打ち切った最終盤面と、O（AI）の手の列。"""
+    board = [0] * 64
+    board[27], board[28], board[35], board[36] = 2, 1, 1, 2
+    turn, o_moves = 1, []
+
+    def place(i: int, who: int) -> None:
+        x, y = i % 8, i // 8
+        board[i] = who
+        for dx, dy in _OTHELLO_DIRS:
+            for k in range(_othello_flips(board, x, y, dx, dy, who)):
+                board[(y + dy * (k + 1)) * 8 + x + dx * (k + 1)] = who
+
+    while True:
+        i = _othello_greedy(board, turn)
+        if turn == 2:
+            o_moves.append((i % 8, i // 8))
+        place(i, turn)
+        if _othello_greedy(board, 3 - turn) >= 0:
+            turn = 3 - turn
+        elif _othello_greedy(board, turn) < 0:
+            return board, o_moves
+
+
+def test_othello_rules_match_an_independent_implementation() -> None:
+    """記憶 auto = "1" で X も内蔵 AI が打ち、答えが読めない（fake の答え）ので O も内蔵 AI に倒れる。
+
+    両者 greedy の対局を Python で独立に打ち切った最終盤面とバイト一致する（flips / legal / place / pass /
+    終局の規則がそのまま突き合う）。v1 の陣への問いは O の手番ごとに 1 回出て、全部が内蔵 AI に倒れる。
+    """
+    expected, o_moves = _othello_play_out()
+    path = EXAMPLES / "othello" / "othello.jin"
+    game = generate(load(path), source_name=path.name, debug=True)
+    asked: list[str] = []
+
+    def fake(ask: dict[str, Any]) -> str:
+        asked.append(ask["prompt"])
+        return "fake-response"
+
+    result = run_headless(
+        game.lua, game.manifest, seed=5, ticks=400, storage={"auto": "1"}, answer=fake
+    )
+    assert result.error is None
+    assert (
+        result.public["Play.over"] is True
+    )  # root は loop の flow（Result で RETRY / QUIT を待つ）
+    assert result.public["Board.board"] == expected
+    assert (result.public["Board.black"], result.public["Board.white"]) == (
+        expected.count(1),
+        expected.count(2),
+    )
+    assert result.public["Play.llmMoves"] == 0
+    assert result.public["Play.fallbackMoves"] == len(o_moves) == len(asked)
+    assert asked[0].startswith("You are O in Othello") and "Your legal moves: " in asked[0]
+    assert "c3 " in asked[0]  # 最初の O の合法手（X が d3 に打った後）
+
+
+def test_othello_reads_the_llm_answer_and_plays_it_when_legal() -> None:
+    """答えの文中の座標（"I choose c3."）を読んで打つ。合法なら LLM の手、違法や無答なら内蔵 AI。
+
+    答えを独立実装の greedy の手に揃えると盤面は同じまま `llmMoves` だけが O の手数になる。
+    """
+    expected, o_moves = _othello_play_out()
+    path = EXAMPLES / "othello" / "othello.jin"
+    game = generate(load(path), source_name=path.name, debug=False)
+    moves = iter(o_moves)
+
+    def oracle(ask: dict[str, Any]) -> str:
+        x, y = next(moves)
+        return f"I choose {'abcdefgh'[x]}{y + 1}."
+
+    result = run_headless(
+        game.lua, game.manifest, seed=5, ticks=400, storage={"auto": "1"}, answer=oracle
+    )
+    assert result.error is None and result.public["Board.board"] == expected
+    assert result.public["Play.llmMoves"] == len(o_moves)
+    assert result.public["Play.fallbackMoves"] == 0
+
+    # 盤面に無い座標（z9）と読めない答えは内蔵 AI に倒れる
+    answers = itertools.cycle(["z9", "pass", "I resign"])
+    result = run_headless(
+        game.lua,
+        game.manifest,
+        seed=5,
+        ticks=12,
+        storage={"auto": "1"},
+        answer=lambda ask: next(answers),
+    )
+    assert result.error is None
+    assert result.public["Play.llmMoves"] == 0 and result.public["Play.fallbackMoves"] >= 2
+
+
+def test_othello_in_the_browser_shape_waits_then_falls_back_to_the_builtin_ai() -> None:
+    """人がクリックで打ち、答えが来なければ（ブラウザ相当）60 tick 待って内蔵 AI が打つ。"""
+    path = EXAMPLES / "othello" / "othello.jin"
+    game = generate(load(path), source_name=path.name, debug=True)
+    result = run_headless(
+        game.lua,
+        game.manifest,
+        seed=5,
+        ticks=80,
+        events=[
+            {"tick": 2, "kind": "pointer", "x": 64, "y": 48, "down": True},  # d3（X の合法手）
+            {"tick": 3, "kind": "pointer", "x": 64, "y": 48, "down": False},
+            {"tick": 20, "kind": "pointer", "x": 16, "y": 16, "down": True},  # AI の手番中は無視
+            {"tick": 21, "kind": "pointer", "x": 16, "y": 16, "down": False},
+        ],
+        replay=True,  # 録画の再生と同じく問いに答えない（ブラウザのプレイヤーも答えない）
+    )
+    assert result.error is None
+    assert result.public["Board.board"][19] == 1  # d3 に X
+    assert result.public["Play.fallbackMoves"] == 1 and result.public["Play.llmMoves"] == 0
+    asks = [r for r in result.rows if r["kind"] == "cast" and r["name"] == "rival"]
+    assert len(asks) == 1
+    placed = [r for r in result.rows if r["kind"] == "rite" and r["name"] == "place"]
+    assert [r["tick"] for r in placed] == [
+        2,
+        63,
+    ]  # 問いは tick 3、答えを 60 tick 待って tick 63 に打つ
+    assert result.public["Play.turn"] == 1 and result.public["Board.board"][0] == 0
