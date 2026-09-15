@@ -227,8 +227,14 @@ def build(stage: str, spec: str, model: JinFileV2) -> tuple[str, dict[str, str]]
         body = f"{img(file, f'手順 {rite_name} の図')}\n\n{head}{rite_table(circle, rite.steps)}"
         return body, files
 
-    file = f"{stage}.svg"
-    files[file] = render(model)
+    if spec.startswith(("form ", "flow ")):
+        file = f"{stage}.svg"
+        files[file] = render(model)
+    else:
+        # 陣 1 つの図は focus=陣名 で描く（root 全体だと陣が積まれて小さくなる。flow / form は root 全体）
+        name = spec.split(" ", 1)[1] if spec.startswith("guards ") else spec
+        file = f"{stage}-{name}.svg"
+        files[file] = render(model, focus=name)
     if spec.startswith("form "):
         name = spec.split(" ", 1)[1]
         form = next(f for f in model.forms if f.name == name)

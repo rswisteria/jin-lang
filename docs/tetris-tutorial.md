@@ -225,7 +225,7 @@ Jin v2 のプログラムは、3 種類の基本要素で構成されていま�
 
 <!-- figure: 02-fall Play -->
 <!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
-<img src="images/tutorial/02-fall.svg" width="360" alt="陣全体の図">
+<img src="images/tutorial/02-fall-Play.svg" width="360" alt="陣全体の図">
 
 陣 `Play`: 核 `begin`・道具環 `canvas`・`on` `tick` → `paint`
 
@@ -691,6 +691,8 @@ cy >= 0 and board[cy * 10 + cx] != 0
 | 3t4 | 四角 | `set` | `speed ← max(4, 15 - floor(lines / 5))` |
 <!-- /figure -->
 
+最内環（深さ 3）の弧は狭いので、図ではラベルが重なります。番号は表を正として読んでください（`2.3t1.1` と `2.3t1.2` が行をずらす繰り返し、`2.3t2.1` が最上行を空にする繰り返しです）。
+
 この実装には 3 つの重要な設計技法が含まれています：
 
 1. **論理の反転フラグ**: 「すべてのマスが埋まっているか」を判定するために、初期値を `full = true` とし、空マス（`0`）を 1 つでも発見したら `full = false` に倒すパターンを採用しています
@@ -880,7 +882,7 @@ speed = max(4, 15 - floor(lines / 5))
 
 <!-- figure: 09-tetris guards Play -->
 <!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
-<img src="images/tutorial/09-tetris.svg" width="360" alt="陣全体の図">
+<img src="images/tutorial/09-tetris-Play.svg" width="360" alt="陣全体の図">
 
 陣 `Play` の境界環の検査
 

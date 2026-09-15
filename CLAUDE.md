@@ -567,6 +567,7 @@ uv run jin run examples-v2/paddle/paddle.jin --target wasm-gc --ticks 300 --trac
 uv run python scripts/generate_number_fixture.py --check   # 数値の書式の共有 fixture（tests/fixtures/numbers.jsonl）がずれていないか
 uv run jin build examples-v2/fib/fib.jin --target wasm-gc --out /tmp/dist-gc   # game.wasm + game.manifest.json（target: "wasm-gc"）+ 同梱していれば index.html / player.js（--single も可）
 uv run python scripts/generate_runtime_wat.py --check   # jin_wasmgc/runtime.wat が部品（packages/jin-wasmgc/runtime/）からの生成物とずれていないか
+uv run python scripts/generate_tutorial_figures.py --check   # docs/tetris-tutorial.md の図（docs/images/tutorial/*.svg + ステップの表）が段階サンプルからの生成物とずれていないか（--check 無しで書き直す）
 uv run jin run tests/fixtures/v2-programs/storage.jin --ticks 3 --storage /tmp/memory.json   # 同（記憶を実行をまたいで読み書き。2 回目は runs が 2）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json + 同梱していれば index.html / player.js / wasmoon.wasm）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/single --single   # 同（index.html 1 本。要 sync_player）
