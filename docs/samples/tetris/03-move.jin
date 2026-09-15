@@ -1,0 +1,192 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Play",
+  "stage": {
+    "width": 176,
+    "height": 176,
+    "fps": 30,
+    "seed": 3
+  },
+  "circles": [
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        {
+          "name": "x",
+          "type": "num",
+          "init": "3",
+          "out": true
+        },
+        {
+          "name": "y",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        },
+        {
+          "name": "input",
+          "kind": "host",
+          "host": "input"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "while",
+              "cond": "true",
+              "steps": [
+                {
+                  "do": "wait",
+                  "ticks": "15"
+                },
+                {
+                  "do": "if",
+                  "cond": "y < 19",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "y",
+                      "expr": "y + 1"
+                    }
+                  ],
+                  "else": [
+                    {
+                      "do": "set",
+                      "target": "y",
+                      "expr": "0"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "control",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "input.pressed(\"ArrowLeft\") and x > 0",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "x",
+                  "expr": "x - 1"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"ArrowRight\") and x < 9",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "x",
+                  "expr": "x + 1"
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.key(\"ArrowDown\") and y < 19",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "y",
+                  "expr": "y + 1"
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "paint"
+            }
+          ]
+        },
+        {
+          "name": "paint",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#101418\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#2a3340\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "6",
+                "6",
+                "84",
+                "164"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "8",
+                "8",
+                "80",
+                "160"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#4ce0e6\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "8 + x * 8",
+                "8 + y * 8",
+                "7",
+                "7"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "control"
+          }
+        ]
+      }
+    }
+  ]
+}

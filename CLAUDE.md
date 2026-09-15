@@ -620,6 +620,10 @@ uv run jin editor examples-v2/paddle/paddle.jin --no-browser          # Jin v2 �
   `tests/contract/test_cli_contract.py::test_the_showcase_example_runs_with_the_fake_model`）
 - `tests/fixtures/traces/pipeline-fake.jsonl` — `jin run --model fake` の出力（11 行）。`jin-render` の
   テストは `jin_adk` を import できないのでこれを読む（実行結果との突合は `tests/contract/test_render_contract.py`）
+- `docs/samples/tetris/` — 入門教材 `docs/tetris-tutorial.md` の段階サンプル 9 本（`01-canvas` … `09-tetris`。**最終段は
+  `examples-v2/tetris/tetris.jin` とバイト一致**なので tetris.jin を直したら `09-tetris.jin` も同じに直す）。
+  `tests/contract/test_docs_tetris_tutorial.py` が check / fmt / 90 tick の実行 / 本文の ```json 抜粋（`<!-- excerpt: … -->`
+  の直後）がサンプルの一部であること / 12 ステップ・3 段の上限を見る。`examples-v2/` の本数（4 本）には数えない
 
 ## 書くときの約束
 

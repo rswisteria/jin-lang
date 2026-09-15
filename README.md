@@ -34,7 +34,7 @@ v2 のサンプルは `examples-v2/` にあります。
 - [Fib](examples-v2/fib/fib.jin)：記憶環と手順だけの最小構成。`jin run` の標準出力に公開 state が出ます。
 - [Paddle](examples-v2/paddle/paddle.jin)：矢印キーでパドルを動かす。陣の `flow`（Play → Result のループ）、`wait` を含む手順、`audio` の例。
 - [Clicker](examples-v2/clicker/clicker.jin)：`ui.button` で押すボタンと `random`、`wait` で待つ手順の例。
-- [Tetris](examples-v2/tetris/tetris.jin)：10×20 の盤面を `list<num>` で持ち、型紙 `Piece` と 7 種のミノの表、`wait` で刻む重力、`random`、行消去を組み合わせたゲーム。上の動画の題材。
+- [Tetris](examples-v2/tetris/tetris.jin)：10×20 の盤面を `list<num>` で持ち、型紙 `Piece` と 7 種のミノの表、`wait` で刻む重力、`random`、行消去を組み合わせたゲーム。上の動画の題材。 9 段階で作り上げるプログラミング入門教材は [テトリスを作りながらプログラミングを学ぶ](docs/tetris-tutorial.md) を参照。
 
 v2 の実行パネルはプレイヤー（`apps/player`）のビルド物を使うので、[エディタの実行方法](#エディタの実行方法) のセットアップに加えてプレイヤーもビルドしてから開きます。
 
