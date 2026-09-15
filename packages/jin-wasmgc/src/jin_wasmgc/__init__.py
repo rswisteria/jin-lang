@@ -10,10 +10,10 @@
 ホストを呼ばない。`jin run --target wasm-gc` が任意コードを実行しないのは Lua 経路と同じ
 （`agent` の sigil があれば `jin_cli` が v1 の陣を走らせる。runtime.md §11）。
 
-Sub-Issue A（#73）の範囲: `num` / `bool` の式・`let` / `set` / `if` / `loop` / `break` / `return` /
-`finish` / 自陣の手順への `cast`・`out` の state・release ビルド。文字列 / list / 型紙 / 純関数 /
-ホスト能力 / 命令数の上限は #74、`wait` / `emit` / `transfer` / flow / `on` / guard / debug は #75、
-プレイヤー側は #76。
+Issue #53 は Sub-Issue A〜D（#73 = パッケージと生成部の最小形、#74 = ランタイム部と `on` の配達、#75 = スケジューラ /
+`wait` の状態機械 / debug / agent、#76 = プレイヤーの `WasmGcHost`（`apps/player/src/host.ts`）/ manifest の `target` /
+`--single` / ブラウザの e2e）で完了した。`runtime.wat` は `scripts/generate_runtime_wat.py` が
+`packages/jin-wasmgc/runtime/` の部品と文字列表から生成する**生成物**で、手で編集しない。
 """
 
 #: wasmtime（PyPI）の版。probe（`wasmgc-api-probe.md`）で実測した版に固定し、入っている版と違えば

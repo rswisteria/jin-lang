@@ -133,7 +133,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 | v2.1 | エディタの図の操作（Shift クリックの範囲で `wrapSteps` / `extractRite` を `count` > 1・列を跨ぐステップのドラッグは `removeStep` + `addStep` の合成・陣を陣 / 手順に落として `addDelegate` / `addSigil` の `summon`） | 実装済み |
 | v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
-| v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 は未着手） |
+| v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 = プレイヤーの `WasmGcHost` + manifest の `target` + `--single` + ブラウザの e2e + `runtime.wat` の生成物化: **実装済み**。Issue #53 完了） |
 
 ### Jin v2.1（`--target wasm-gc`・`jin-wasmgc`）の要点（正典は `docs/spec/v2/jil.md` §6・設計書 §11 #56・`wasmgc-api-probe.md`）
 
@@ -146,8 +146,10 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   （ヘッダ `;; jin: 2  jil: 6  target: wasm-gc`）
 - **ホストが呼ぶ export は `input(n)` / `boot(n)` / `tick(n) -> (ptr, len)` の 3 つ**（`jin_wasmgc.runtime.WasmGcHost`）。
   引数は `{"seed", "manifest"}` / `{"t", "inputs"}` の JSON を線形メモリに書き、`tick` の結果を読む。`boot` に結果は
-  無い。**instantiate も fuel を消費する**ので `Instance()` の前に `set_fuel` する。`memory.grow` で JS の buffer は
-  detach される（#76 で踏む）
+  無い。**instantiate も fuel を消費する**ので `Instance()` の前に `set_fuel` する。プレイヤー側は `apps/player/src/host.ts`
+  の **`WasmGcHost`**（`JinHost` と同じ `Host` の口・`Player` はどちらかを知らない）。`memory.grow` で JS の
+  `memory.buffer` は detach されるので、バイト列を先に作り → `input(n)` → **その後に** `memory.buffer` を取って書く
+  （vitest は `input` が毎回 grow する echo module で固定する）。trap は `HostError`
 - **module は trap しない**（trap = 生成系のバグ・`WasmGcRunError` が名指しする）。**エラーは例外ではなくフラグ**
   （`runtime.wat` の `$ERR` が `$ERRED` / `$ERRMSG` / `$DONE` を立てる）: 効果はフラグが立っていたら何もしない、
   生成部はエラーし得るステップ（添字を含む式・cast・ループ）と手順の呼び出しの後にフラグを見て返る、tick は
@@ -196,9 +198,14 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   が固定する）
 - **`jin_wasmgc.runtime.run_headless_wasm` は `answer` / `replay` を `jin_wasm.runtime.answer_asks` で処理する**
   （v1 の陣への問いの答えを次の tick の `reply` に積む実装は 1 つ。再実装しない）
-- 生成できない構文は無くなった。プレイヤー同梱と `--single` は #76（CLI が名指しして断る）。
-  release の manifest は共通部 + `target: "wasm-gc"` + `wasm`（sha256）で `jil` は無い。**Lua 経路の manifest に
-  `target` は足さない**（無ければ `"lua"`）。`--target wasm-gc` の `jin build` はプレイヤーのビルド物を書かない
+- 生成できない構文は無く、Sub-Issue #73〜#76 で Issue #53 は閉じた。release の manifest は共通部 + `target: "wasm-gc"` +
+  `wasm`（sha256）で `jil` は無い。**Lua 経路の manifest に `target` は足さない**（無ければ `"lua"`）。
+  **`jin build --target wasm-gc` は `game.wasm` + `game.manifest.json` + 同梱されたプレイヤーの `index.html` / `player.js`**
+  を書く（`wasmoon.wasm` は書かない・`PLAYER_FILES_WASMGC`。`PLAYER_FILES` 自体は変えない）。`--single` は
+  `window.JIN_BUNDLE = { manifest, game: base64 }`（Lua 経路の `{ jil, manifest, wasm }` とは別の形。プレイヤーは `game` の
+  有無で見分ける）。プレイヤーは `game.manifest.json` の `target` で `game.lua` + Wasmoon か `game.wasm` + `WasmGcHost` かを
+  選ぶ。**エディタの `jin.load` は JIL のまま**（LSP の生成は Lua 経路・設計書 §8）。ブラウザのパリティは
+  `apps/player/e2e/wasmgc.spec.ts`（録画 → Lua と wasm-GC の両方の `jin run --input` と全行一致・`--single` の wasm-gc 版）
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasmgc --snapshot-update`
   （`packages/jin-wasmgc/tests/__snapshots__/`・Lua 側と同じ 3 本 × debug / release）。パリティは
   `tests/contract/test_wasmgc_parity.py`（`jin run --target lua` と `--target wasm-gc` を実プロセスで走らせ、17 本
@@ -555,7 +562,8 @@ uv run jin schema --version 2             # Jin v2 の JSON Schema（CI が sche
 uv run jin run examples-v2/paddle/paddle.jin --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # Jin v2 のヘッドレス実行（lupa。標準出力は最後の公開 state）
 uv run jin run examples-v2/paddle/paddle.jin --target wasm-gc --ticks 300 --trace /tmp/t.jsonl --frames /tmp/f.jsonl   # 同（wasm-GC を wasmtime で。trace / frames は Lua 経路とバイト一致）
 uv run python scripts/generate_number_fixture.py --check   # 数値の書式の共有 fixture（tests/fixtures/numbers.jsonl）がずれていないか
-uv run jin build examples-v2/fib/fib.jin --target wasm-gc --out /tmp/dist-gc   # game.wasm + game.manifest.json（target: "wasm-gc"。プレイヤーは #76）
+uv run jin build examples-v2/fib/fib.jin --target wasm-gc --out /tmp/dist-gc   # game.wasm + game.manifest.json（target: "wasm-gc"）+ 同梱していれば index.html / player.js（--single も可）
+uv run python scripts/generate_runtime_wat.py --check   # jin_wasmgc/runtime.wat が部品（packages/jin-wasmgc/runtime/）からの生成物とずれていないか
 uv run jin run tests/fixtures/v2-programs/storage.jin --ticks 3 --storage /tmp/memory.json   # 同（記憶を実行をまたいで読み書き。2 回目は runs が 2）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/dist   # Jin v2 のバンドル（game.lua / game.manifest.json + 同梱していれば index.html / player.js / wasmoon.wasm）
 uv run jin build examples-v2/paddle/paddle.jin --out /tmp/single --single   # 同（index.html 1 本。要 sync_player）
