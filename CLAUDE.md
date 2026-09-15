@@ -442,7 +442,10 @@ Jin v2 Phase 6（デバッグ: 録画の再生・記憶環の値・`assert` の�
   `<text>` を作らない契約テストがあるので SVG の中に置かない。値は脇の表（`jin-state-values`）にも全部出す
 - **行数の上限は出どころで分ける**（`App.tsx`）: 走らせている間は `MAX_LIVE_ROWS`（4000・古い行を落とす）、
   録画の再生は `MAX_REPLAY_ROWS`（60000・落とさず、超えたら載せない）。古い行を落とすと `enter` 行が消えて
-  値の積算が黙って狂うため。描き直しはプレイヤーが止まった知らせ（`jin.status` の `running: false`）で行う
+  値の積算が黙って狂うため。描き直しはプレイヤーが止まった知らせ（`jin.status` の `running: false`）で行う。
+  **ws の 1 メッセージの上限は `jin_lsp.server.WS_MAX_MESSAGE_BYTES`（64 MiB）**: `jin/renderSvg` はトレース行を
+  丸ごと載せるので、`websockets` の既定 1 MiB のままだと数千行で接続が 1009 で閉じ「表示できません: Connection is
+  disposed」になる（tetris の録画の再生で実測。`test_ws_roundtrip.py::test_a_render_request_with_a_large_trace_…`）
 - **親とプレイヤーの語彙は 7 語**（`jin.load` / `jin.control` / `jin.replay` / `jin.frame` は親から、`jin.trace` /
   `jin.status` / `jin.recording` は親へ）。`tests/contract/test_editor_contract.py` が `RunPanel.tsx` と `main.ts` から
   抜いた集合の**等号**で固定する。語彙はこの 2 ファイルの外に書かない
@@ -586,7 +589,7 @@ uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同�
 uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同上（Phase 6・デバッグモード）
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
-cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-paddle-demo.gif / .mp4）を撮り直す（台本は demo/v2-paddle.spec.ts・要 ffmpeg と apps/player の dist）
+cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-tetris-demo.gif / .mp4）を撮り直す（台本は demo/v2-tetris.spec.ts・自動操縦で遊ぶ・要 ffmpeg と apps/player の dist）
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）

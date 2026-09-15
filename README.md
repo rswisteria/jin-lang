@@ -25,21 +25,22 @@ Jinは、AIエージェントの構成と処理の流れを「魔法陣」で表
 
 同じ魔法陣の記法で、AI エージェントではなく**小さなゲーム**を書けるのが Jin v2 です（`version: 2` の `.jin`）。陣の記憶環に状態を持ち、手順（`rite`）のステップで毎 tick の処理を書き、`canvas` / `input` などの能力で画面と入力を扱います。実行は Lua（Wasmoon）か wasm-GC のどちらかにコンパイルして、ブラウザのプレイヤーかヘッドレスの `jin run` で走らせます。
 
-![ビジュアルエディタで paddle の式を書き換え、実行パネルで遊び、トレースをスクラブするデモ](docs/images/editor-v2-paddle-demo.gif)
+![ビジュアルエディタでテトリスの式を書き換え、実行パネルで遊び、録画を読み直してトレースをスクラブするデモ](docs/images/editor-v2-tetris-demo.gif)
 
-上の動画は [Paddle](examples-v2/paddle/paddle.jin) をエディタで開き、手順 `Play/step` のステップを選んで式エディタでパドルの速さを書き換え、保存してからデバッグモードの実行パネルで遊び、一時停止してトレースをスクラブしている様子です（[MP4 版](docs/images/editor-v2-paddle-demo.mp4)）。式は確定すると正準形に揃い、保存は `jin fmt` の出力とバイト一致します。止めると発火した要素が魔法陣に重なり、記憶環の値がその時点の値になります。
+上の動画は [Tetris](examples-v2/tetris/tetris.jin) をエディタで開き、核の手順 `Play/begin` のステップを選んで式エディタで重力（1 段落ちるまでの tick 数）を書き換え、保存してからデバッグモードの実行パネルで録画しながら遊び、録画を読み直してトレースをスクラブしている様子です（[MP4 版](docs/images/editor-v2-tetris-demo.mp4)）。式は確定すると正準形に揃い、保存は `jin fmt` の出力とバイト一致します。スクラブすると発火した要素が魔法陣に重なり、記憶環の値（盤面の `list<num>` や落ちているミノの型紙）と画面がその時点に戻ります。
 
 v2 のサンプルは `examples-v2/` にあります。
 
 - [Fib](examples-v2/fib/fib.jin)：記憶環と手順だけの最小構成。`jin run` の標準出力に公開 state が出ます。
 - [Paddle](examples-v2/paddle/paddle.jin)：矢印キーでパドルを動かす。陣の `flow`（Play → Result のループ）、`wait` を含む手順、`audio` の例。
 - [Clicker](examples-v2/clicker/clicker.jin)：`ui.button` で押すボタンと `random`、`wait` で待つ手順の例。
+- [Tetris](examples-v2/tetris/tetris.jin)：10×20 の盤面を `list<num>` で持ち、型紙 `Piece` と 7 種のミノの表、`wait` で刻む重力、`random`、行消去を組み合わせたゲーム。上の動画の題材。
 
 v2 の実行パネルはプレイヤー（`apps/player`）のビルド物を使うので、[エディタの実行方法](#エディタの実行方法) のセットアップに加えてプレイヤーもビルドしてから開きます。
 
 ```bash
 cd apps/player && pnpm install --frozen-lockfile && pnpm build && cd ../..
-uv run jin editor examples-v2/paddle/paddle.jin
+uv run jin editor examples-v2/tetris/tetris.jin
 ```
 
 ヘッドレスで走らせてトレースを取る、ブラウザ用のバンドルを書き出す、といった操作は次のとおりです。
