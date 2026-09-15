@@ -1,0 +1,404 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Play",
+  "stage": {
+    "width": 176,
+    "height": 176,
+    "fps": 30,
+    "seed": 3
+  },
+  "forms": [
+    {
+      "name": "Piece",
+      "fields": [
+        {
+          "name": "kind",
+          "type": "num"
+        },
+        {
+          "name": "rot",
+          "type": "num"
+        },
+        {
+          "name": "x",
+          "type": "num"
+        },
+        {
+          "name": "y",
+          "type": "num"
+        }
+      ]
+    }
+  ],
+  "circles": [
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        {
+          "name": "piece",
+          "type": "Piece",
+          "init": "Piece{kind: 0, rot: 0, x: 3, y: 0}",
+          "out": true
+        },
+        {
+          "name": "shapes",
+          "type": "list<num>",
+          "init": "[0, 1, 1, 1, 2, 1, 3, 1, 2, 0, 2, 1, 2, 2, 2, 3, 0, 2, 1, 2, 2, 2, 3, 2, 1, 0, 1, 1, 1, 2, 1, 3, 1, 0, 1, 1, 2, 0, 2, 1, 2, 1, 2, 2, 3, 1, 3, 2, 1, 2, 1, 3, 2, 2, 2, 3, 0, 1, 0, 2, 1, 1, 1, 2, 0, 1, 1, 0, 1, 1, 2, 1, 1, 0, 1, 1, 1, 2, 2, 1, 0, 1, 1, 1, 1, 2, 2, 1, 0, 1, 1, 0, 1, 1, 1, 2, 0, 1, 1, 0, 1, 1, 2, 0, 1, 0, 1, 1, 2, 1, 2, 2, 0, 2, 1, 1, 1, 2, 2, 1, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0, 1, 0, 1, 1, 2, 1, 1, 1, 1, 2, 2, 0, 2, 1, 0, 1, 1, 1, 1, 2, 2, 2, 0, 1, 0, 2, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 2, 1, 1, 0, 1, 1, 1, 2, 2, 0, 0, 1, 1, 1, 2, 1, 2, 2, 0, 2, 1, 0, 1, 1, 1, 2, 0, 1, 1, 1, 2, 0, 2, 1, 1, 0, 1, 1, 1, 2, 2, 2, 0, 1, 0, 2, 1, 1, 2, 1, 0, 0, 1, 0, 1, 1, 1, 2]"
+        },
+        {
+          "name": "colors",
+          "type": "list<str>",
+          "init": "[\"#4ce0e6\", \"#f2d541\", \"#b26ce8\", \"#5fd463\", \"#ef5b5b\", \"#4f7be8\", \"#f2953d\"]"
+        }
+      ],
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        },
+        {
+          "name": "input",
+          "kind": "host",
+          "host": "input"
+        },
+        {
+          "name": "random",
+          "kind": "host",
+          "host": "random"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "spawn"
+            },
+            {
+              "do": "loop",
+              "kind": "while",
+              "cond": "true",
+              "steps": [
+                {
+                  "do": "wait",
+                  "ticks": "15"
+                },
+                {
+                  "do": "let",
+                  "name": "ok",
+                  "expr": "false"
+                },
+                {
+                  "do": "cast",
+                  "target": "fits",
+                  "args": [
+                    "piece.kind",
+                    "piece.rot",
+                    "piece.x",
+                    "piece.y + 1"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "piece.y",
+                      "expr": "piece.y + 1"
+                    }
+                  ],
+                  "else": [
+                    {
+                      "do": "cast",
+                      "target": "spawn"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "fits",
+          "params": [
+            {
+              "name": "kind",
+              "type": "num"
+            },
+            {
+              "name": "rot",
+              "type": "num"
+            },
+            {
+              "name": "x",
+              "type": "num"
+            },
+            {
+              "name": "y",
+              "type": "num"
+            }
+          ],
+          "returns": "bool",
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "4",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "cx",
+                  "expr": "x + shapes[((kind * 4 + rot) * 4 + i) * 2]"
+                },
+                {
+                  "do": "let",
+                  "name": "cy",
+                  "expr": "y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]"
+                },
+                {
+                  "do": "if",
+                  "cond": "cx < 0 or cx >= 10 or cy >= 20",
+                  "then": [
+                    {
+                      "do": "return",
+                      "expr": "false"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "return",
+              "expr": "true"
+            }
+          ]
+        },
+        {
+          "name": "spawn",
+          "steps": [
+            {
+              "do": "set",
+              "target": "piece",
+              "expr": "Piece{kind: random.range(0, 6), rot: 0, x: 3, y: 0}"
+            }
+          ]
+        },
+        {
+          "name": "control",
+          "steps": [
+            {
+              "do": "let",
+              "name": "ok",
+              "expr": "false"
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"ArrowLeft\")",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "fits",
+                  "args": [
+                    "piece.kind",
+                    "piece.rot",
+                    "piece.x - 1",
+                    "piece.y"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "piece.x",
+                      "expr": "piece.x - 1"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"ArrowRight\")",
+              "then": [
+                {
+                  "do": "cast",
+                  "target": "fits",
+                  "args": [
+                    "piece.kind",
+                    "piece.rot",
+                    "piece.x + 1",
+                    "piece.y"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "piece.x",
+                      "expr": "piece.x + 1"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"ArrowUp\")",
+              "then": [
+                {
+                  "do": "let",
+                  "name": "r",
+                  "expr": "(piece.rot + 1) % 4"
+                },
+                {
+                  "do": "cast",
+                  "target": "fits",
+                  "args": [
+                    "piece.kind",
+                    "r",
+                    "piece.x",
+                    "piece.y"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "piece.rot",
+                      "expr": "r"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "paint"
+            }
+          ]
+        },
+        {
+          "name": "paint",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#101418\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#2a3340\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "6",
+                "6",
+                "84",
+                "164"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "8",
+                "8",
+                "80",
+                "160"
+              ]
+            },
+            {
+              "do": "let",
+              "name": "kind",
+              "expr": "piece.kind"
+            },
+            {
+              "do": "let",
+              "name": "rot",
+              "expr": "piece.rot"
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "colors[kind]"
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "j",
+              "times": "4",
+              "steps": [
+                {
+                  "do": "let",
+                  "name": "cx",
+                  "expr": "piece.x + shapes[((kind * 4 + rot) * 4 + j) * 2]"
+                },
+                {
+                  "do": "let",
+                  "name": "cy",
+                  "expr": "piece.y + shapes[((kind * 4 + rot) * 4 + j) * 2 + 1]"
+                },
+                {
+                  "do": "if",
+                  "cond": "cy >= 0",
+                  "then": [
+                    {
+                      "do": "cast",
+                      "target": "canvas.rect",
+                      "args": [
+                        "8 + cx * 8",
+                        "8 + cy * 8",
+                        "7",
+                        "7"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "control"
+          }
+        ]
+      }
+    }
+  ]
+}

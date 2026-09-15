@@ -1,0 +1,109 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Play",
+  "stage": {
+    "width": 176,
+    "height": 176,
+    "fps": 30,
+    "seed": 3
+  },
+  "circles": [
+    {
+      "name": "Play",
+      "core": "begin",
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "wait",
+              "ticks": "300"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "paint",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#101418\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#2a3340\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "6",
+                "6",
+                "84",
+                "164"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "8",
+                "8",
+                "80",
+                "160"
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.ink",
+              "args": [
+                "\"#4ce0e6\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "8 + 3 * 8",
+                "8 + 0 * 8",
+                "7",
+                "7"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "paint"
+          }
+        ]
+      }
+    }
+  ]
+}
