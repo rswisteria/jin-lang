@@ -1,11 +1,14 @@
 /**
  * プレイヤーの入口（runtime.md §9 / §10）。
  *
- * - 通常: `game.manifest.json` と `game.lua` をページからの相対パスで fetch し、`wasmoon.wasm` も相対パスで読む
- * - `--single`: `window.JIN_BUNDLE`（JIL / manifest / wasm の base64）から読む。wasm は `data:` URL で渡す
+ * - 通常: `game.manifest.json` をページからの相対パスで fetch し、`target`（無ければ `"lua"`）で分ける:
+ *   Lua なら `game.lua` を fetch して Wasmoon（`JinHost`・`wasmoon.wasm` も相対パス）、`wasm-gc` なら `game.wasm` を
+ *   fetch して `WasmGcHost`（jil.md §6.8）。`Player` はどちらかを知らない
+ * - `--single`: `window.JIN_BUNDLE`（Lua: JIL / manifest / wasmoon の base64。wasm-gc: manifest / `game.wasm` の
+ *   base64）から読む。wasmoon の wasm は `data:` URL で渡し、`game.wasm` はバイト列に戻して instantiate する
  * - 最小 UI: 実行 / 一時停止 / 1 tick / seed / 最初から / 録画 / 書き出し
  * - 埋め込み（iframe・Jin v2 のエディタの実行パネル）: **fetch せず**親からの
- *   `{ type: "jin.load", jil, manifest, keep }` を待って読み込む（ライブリロード。`keep` なら
+ *   `{ type: "jin.load", jil, manifest, keep }` を待って読み込む（JIL だけ。LSP の生成は Lua 経路・設計書 §8。ライブリロード。`keep` なら
  *   直前の tick 結果の `snapshot` を `manifest.resume` に付けて boot し、状態と tick を続ける）。トレース行は親へ
  *   `postMessage({ type: "jin.trace", rows })`。`{ type: "jin.control", action }` で
  *   実行 / 一時停止 / 1 tick / 最初から（seed 付き）/ 録画 / 録画を止める を受ける。
@@ -22,7 +25,7 @@
 import { KEY_NAMES, subscriptions } from "./abilities";
 import { AudioOut } from "./audio";
 import { Renderer } from "./canvas";
-import { JinHost } from "./host";
+import { JinHost, WasmGcHost, type Host } from "./host";
 import { InputCollector } from "./input";
 import { parseJinrec } from "./jinrec";
 import { Player, type Clock } from "./player";
@@ -81,12 +84,40 @@ declare global {
 	}
 }
 
+/** 走らせる本体（`manifest.target` で決まる。jil.md §6.8）。 */
+type Program =
+	| { readonly kind: "lua"; readonly jil: string; readonly wasmUri: string }
+	| { readonly kind: "wasm-gc"; readonly game: Uint8Array<ArrayBuffer> };
+
 interface Source {
-	readonly jil: string;
+	readonly program: Program;
 	readonly manifest: Manifest;
-	readonly wasmUri: string;
 	/** asset の実体を読む（`--single` では無い）。 */
 	readonly assetUrl: ((path: string) => string) | null;
+}
+
+/** `manifest.target`（無ければ `"lua"`）。それ以外は読み込みを断る（黙って Lua にしない）。 */
+function targetOf(manifest: Manifest): "lua" | "wasm-gc" {
+	const target = manifest.target ?? "lua";
+	if (target !== "lua" && target !== "wasm-gc")
+		throw new Error(
+			`game.manifest.json の target '${String(target)}' は lua / wasm-gc のどちらでもありません`,
+		);
+	return target;
+}
+
+function fromBase64(text: string): Uint8Array<ArrayBuffer> {
+	const binary = atob(text);
+	const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+	for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+	return bytes;
+}
+
+/** 本体からホストを作る（`Player` に渡す口は同じ）。 */
+function createHost(program: Program): Promise<Host> {
+	return program.kind === "lua"
+		? JinHost.create(program.jil, program.wasmUri)
+		: WasmGcHost.create(program.game);
 }
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -135,10 +166,10 @@ function saveStore(file: string, store: ReadonlyMap<string, string>): void {
 	}
 }
 
-/** `wasmoon.wasm` の場所。`--single` は `data:`、それ以外はページからの相対（fetch は要らない）。 */
+/** `wasmoon.wasm` の場所。`--single`（Lua）は `data:`、それ以外はページからの相対（fetch は要らない）。 */
 function wasmUriOf(): string {
 	const bundle = window.JIN_BUNDLE;
-	return bundle !== undefined
+	return bundle !== undefined && "wasm" in bundle
 		? `data:application/wasm;base64,${bundle.wasm}`
 		: new URL("wasmoon.wasm", document.baseURI).href;
 }
@@ -150,12 +181,13 @@ function wasmUriOf(): string {
 async function loadSource(): Promise<Source | null> {
 	const bundle = window.JIN_BUNDLE;
 	if (bundle !== undefined) {
-		return {
-			jil: bundle.jil,
-			manifest: bundle.manifest,
-			wasmUri: wasmUriOf(),
-			assetUrl: null,
-		};
+		const program: Program =
+			"game" in bundle
+				? { kind: "wasm-gc", game: fromBase64(bundle.game) }
+				: { kind: "lua", jil: bundle.jil, wasmUri: wasmUriOf() };
+		if (targetOf(bundle.manifest) !== program.kind)
+			throw new Error("JIN_BUNDLE の中身と manifest の target が合いません");
+		return { program, manifest: bundle.manifest, assetUrl: null };
 	}
 	if (EMBEDDED) return null;
 	const manifestResponse = await fetch("game.manifest.json");
@@ -164,14 +196,28 @@ async function loadSource(): Promise<Source | null> {
 			`game.manifest.json を読めません（${manifestResponse.status}）`,
 		);
 	const manifest = (await manifestResponse.json()) as Manifest;
+	const assetUrl = (path: string): string =>
+		new URL(path, document.baseURI).href;
+	if (targetOf(manifest) === "wasm-gc") {
+		const wasmResponse = await fetch("game.wasm");
+		if (!wasmResponse.ok)
+			throw new Error(`game.wasm を読めません（${wasmResponse.status}）`);
+		return {
+			program: {
+				kind: "wasm-gc",
+				game: new Uint8Array(await wasmResponse.arrayBuffer()),
+			},
+			manifest,
+			assetUrl,
+		};
+	}
 	const jilResponse = await fetch("game.lua");
 	if (!jilResponse.ok)
 		throw new Error(`game.lua を読めません（${jilResponse.status}）`);
 	return {
-		jil: await jilResponse.text(),
+		program: { kind: "lua", jil: await jilResponse.text(), wasmUri: wasmUriOf() },
 		manifest,
-		wasmUri: wasmUriOf(),
-		assetUrl: (path) => new URL(path, document.baseURI).href,
+		assetUrl,
 	};
 }
 
@@ -241,7 +287,7 @@ async function main(): Promise<void> {
 	const textSink = byId<HTMLInputElement>("text");
 
 	let player: Player | null = null;
-	let host: JinHost | null = null;
+	let host: Host | null = null;
 	let collector: InputCollector | null = null;
 	/** 入力を受ける要素へフォーカスを戻す（文字を集めるなら入力欄、そうでなければ canvas）。 */
 	const focusStage = (): void => {
@@ -340,7 +386,7 @@ async function main(): Promise<void> {
 		if (context === null)
 			throw new Error("canvas の 2D コンテキストが取れません");
 		context.imageSmoothingEnabled = false;
-		host = await JinHost.create(source.jil, source.wasmUri);
+		host = await createHost(source.program);
 		const sprites = await loadSprites(source);
 		await loadSounds(source, audio);
 		previousCollector?.detach();
@@ -561,10 +607,10 @@ async function main(): Promise<void> {
 		load: (jil, manifest, keep = false) => {
 			// **fetch しない。** wasm の場所はページから決まる。asset の実体は埋め込みでは
 			// 読めない（`.jin` の隣にあり、エディタのサーバは配らない）ので、絵と音は出ない。
+			// 親が渡すのは JIL だけ（LSP の生成は Lua 経路）なので、ここは常に Wasmoon。
 			const source: Source = {
-				jil,
+				program: { kind: "lua", jil, wasmUri: wasmUriOf() },
 				manifest,
-				wasmUri: wasmUriOf(),
 				assetUrl:
 					embedded || window.JIN_BUNDLE !== undefined
 						? null

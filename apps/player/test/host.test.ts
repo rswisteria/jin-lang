@@ -8,6 +8,8 @@ import {
 	HostError,
 	JinHost,
 	SANDBOX_REMOVED,
+	WASMGC_EXPORTS,
+	WasmGcHost,
 	withoutNulls,
 } from "../src/host";
 import type { Manifest } from "../src/types";
@@ -184,5 +186,100 @@ group("JinHost（実際の Wasmoon）", () => {
 		} finally {
 			host.close();
 		}
+	});
+});
+
+/**
+ * `WasmGcHost`（jil.md §6.2）を実際の `WebAssembly` で通す（Python の生成物は読まない）。module は
+ * `wasmtime.wat2wasm` で 1 回だけ作ったバイト列を貼ってある（WAT はコメント）。
+ *
+ * ECHO: `input(n)` が**毎回** `memory.grow 1` して新しいページの先頭を返す（前の `memory.buffer` は毎回
+ * detach される）。`tick(n)` は入力域 `(ptr, n)` をそのまま返す（echo）ので、書いた JSON が読み戻せれば
+ * 「書く直前に buffer を取り直す」ことまで含めて配管全体が確かめられる。
+ *
+ *   (module
+ *     (memory (export "memory") 1)
+ *     (global $ptr (mut i32) (i32.const 0))
+ *     (func (export "input") (param $n i32) (result i32)
+ *       (global.set $ptr (i32.mul (memory.grow (i32.const 1)) (i32.const 65536)))
+ *       (global.get $ptr))
+ *     (func (export "boot") (param $n i32))
+ *     (func (export "tick") (param $n i32) (result i32 i32)
+ *       (global.get $ptr) (local.get $n)))
+ */
+const ECHO = new Uint8Array([
+	0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x10, 0x03, 0x60, 0x01,
+	0x7f, 0x01, 0x7f, 0x60, 0x01, 0x7f, 0x00, 0x60, 0x01, 0x7f, 0x02, 0x7f, 0x7f,
+	0x03, 0x04, 0x03, 0x00, 0x01, 0x02, 0x05, 0x03, 0x01, 0x00, 0x01, 0x06, 0x06,
+	0x01, 0x7f, 0x01, 0x41, 0x00, 0x0b, 0x07, 0x20, 0x04, 0x06, 0x6d, 0x65, 0x6d,
+	0x6f, 0x72, 0x79, 0x02, 0x00, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x00, 0x00,
+	0x04, 0x62, 0x6f, 0x6f, 0x74, 0x00, 0x01, 0x04, 0x74, 0x69, 0x63, 0x6b, 0x00,
+	0x02, 0x0a, 0x1b, 0x03, 0x0f, 0x00, 0x41, 0x01, 0x40, 0x00, 0x41, 0x80, 0x80,
+	0x04, 0x6c, 0x24, 0x00, 0x23, 0x00, 0x0b, 0x02, 0x00, 0x0b, 0x06, 0x00, 0x23,
+	0x00, 0x20, 0x00, 0x0b,
+]);
+
+/**
+ * TRAP: `tick` が `unreachable`（生成系のバグの形）。
+ *
+ *   (module
+ *     (memory (export "memory") 1)
+ *     (func (export "input") (param $n i32) (result i32) (i32.const 0))
+ *     (func (export "boot") (param $n i32))
+ *     (func (export "tick") (param $n i32) (result i32 i32) (unreachable)))
+ */
+const TRAP = new Uint8Array([
+	0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x10, 0x03, 0x60, 0x01,
+	0x7f, 0x01, 0x7f, 0x60, 0x01, 0x7f, 0x00, 0x60, 0x01, 0x7f, 0x02, 0x7f, 0x7f,
+	0x03, 0x04, 0x03, 0x00, 0x01, 0x02, 0x05, 0x03, 0x01, 0x00, 0x01, 0x07, 0x20,
+	0x04, 0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x05, 0x69, 0x6e,
+	0x70, 0x75, 0x74, 0x00, 0x00, 0x04, 0x62, 0x6f, 0x6f, 0x74, 0x00, 0x01, 0x04,
+	0x74, 0x69, 0x63, 0x6b, 0x00, 0x02, 0x0a, 0x0d, 0x03, 0x04, 0x00, 0x41, 0x00,
+	0x0b, 0x02, 0x00, 0x0b, 0x03, 0x00, 0x00, 0x0b,
+]);
+
+group("WasmGcHost（実際の WebAssembly）", () => {
+	test("export は jil.md §6.2 の 4 つ", () => {
+		expect(WASMGC_EXPORTS).toEqual(["memory", "input", "boot", "tick"]);
+	});
+
+	test("JSON を線形メモリで往復し、memory.grow で detach した buffer に書かない", async () => {
+		const host = await WasmGcHost.create(ECHO);
+		try {
+			host.boot(7, { ...MANIFEST, target: "wasm-gc" });
+			// tick は入力域をそのまま返すので、結果 = 書いた JSON（毎回 grow する module で 3 回）
+			for (let t = 0; t < 3; t += 1) {
+				const echoed = host.tick(t, INPUTS) as unknown as {
+					t: number;
+					inputs: typeof INPUTS;
+				};
+				expect(echoed).toEqual({ t, inputs: INPUTS });
+			}
+			// 非 ASCII も UTF-8 のバイト数で書いて読み戻す
+			const text = { ...INPUTS, events: [{ kind: "text" as const, text: "日本😀" }] };
+			expect(host.tick(3, text)).toEqual({ t: 3, inputs: text });
+		} finally {
+			host.close();
+		}
+	});
+
+	test("trap は HostError（生成系のバグとして止める・パリティの対象外）", async () => {
+		const host = await WasmGcHost.create(TRAP);
+		try {
+			host.boot(1, MANIFEST);
+			expect(() => host.tick(0, INPUTS)).toThrow(HostError);
+			expect(() => host.tick(0, INPUTS)).toThrow(/tick 0 に失敗しました/);
+		} finally {
+			host.close();
+		}
+	});
+
+	test("読めない / export の欠けた module は HostError", async () => {
+		await expect(
+			WasmGcHost.create(new Uint8Array([0, 1, 2, 3])),
+		).rejects.toBeInstanceOf(HostError);
+		// export を持たない module（magic + version + 空）
+		const empty = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+		await expect(WasmGcHost.create(empty)).rejects.toThrow(/memory \/ input \/ boot \/ tick/);
 	});
 });

@@ -9,6 +9,8 @@
  * `tick` → 描く → 鳴らす → トレースを流す → `done` なら止まる。録画と `inputs` が同じ
  * イベント列から出ることがパリティの根拠（`input.ts`）。
  *
+ * ホストは Wasmoon の `JinHost` か wasm-GC の `WasmGcHost`（jil.md §6.8）。ここでは `boot` / `tick` の口しか使わない。
+ *
  * 状態を保った差し替え（runtime.md §1 の `manifest.resume`・設計書 §11 #42）: 新しい JIL のホストで
  * 作った `Player` が `resumeFrom(previous)` で前のプレイヤーの直近の `snapshot` / reducer / トレース /
  * tick を引き継ぎ、`manifest.resume` 付きで `boot` する。root が照合できなければ（`resume.mode`
@@ -17,7 +19,7 @@
  */
 import type { AudioOut } from "./audio";
 import type { Renderer } from "./canvas";
-import type { JinHost } from "./host";
+import type { Host } from "./host";
 import { InputCollector, InputReducer } from "./input";
 import { DEFAULT_TICKS, eventsByTick, type Recording } from "./jinrec";
 import { Recorder } from "./recorder";
@@ -45,7 +47,8 @@ export interface Clock {
 }
 
 export interface PlayerOptions {
-	readonly host: JinHost;
+	/** Wasmoon（`JinHost`）か wasm-GC（`WasmGcHost`）。どちらかは知らない。 */
+	readonly host: Host;
 	readonly manifest: Manifest;
 	readonly renderer: Renderer;
 	readonly collector: InputCollector;

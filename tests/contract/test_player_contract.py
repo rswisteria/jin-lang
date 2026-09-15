@@ -96,6 +96,24 @@ def test_the_player_calls_only_boot_and_tick() -> None:
     assert called == set(HOST_ENTRY_POINTS), called
 
 
+def test_the_wasm_gc_host_uses_only_the_three_exports_and_memory() -> None:
+    """wasm-GC のホストが触る export は `memory` / `input` / `boot` / `tick`（jil.md §6.2・`jin_wasmgc.runtime.EXPORTS`）。
+
+    `.call("名前")` の走査（上）は Wasmoon の口しか見ないので、`WasmGcHost` は export の名前で見る。
+    """
+    from jin_wasmgc.runtime import EXPORTS
+
+    host = read(SRC / "host.ts")
+    listed = re.search(r"WASMGC_EXPORTS[^=]*=\s*\[(.*?)\];", host, re.DOTALL)
+    assert listed is not None
+    assert tuple(re.findall(r'"([a-z]+)"', listed.group(1))) == EXPORTS
+    # 実装が触るのもその 4 つだけ（`this.exports.<name>`）
+    touched = set(re.findall(r"this\.exports\.([a-z]+)", host))
+    assert touched == set(EXPORTS), touched
+    assert "WebAssembly.instantiate(" in host and "instantiateStreaming" not in host
+    assert "memory.buffer" in host
+
+
 def test_the_player_does_not_use_the_wasmoon_c_hook() -> None:
     """`Thread.setTimeout` / `functionTimeout`（C の hook）はコルーチンの中で PANIC する（probe §A.10）。"""
     for path in sources():
