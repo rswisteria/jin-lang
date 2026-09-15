@@ -140,7 +140,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 - **解析は `jin_wasm.program` で共有する**（`analyze` → `Program`: 型付き AST・型紙 / 陣 / 手順 / state / sigil の
   添字・`wait` の閉包・`manifest_base`）。Lua の `jin_wasm.codegen` も WAT の `jin_wasmgc.codegen` もここから読み、
   `typed_nodes` を呼び直さない。切り出しで Lua の生成物は 1 バイトも動いていない（34 本の `jil` sha が不変）
-- **`game.wasm` = ヘッダ 3 行 + `(module` + `jin_wasmgc/runtime.wat`（ランタイム部。プレリュードに相当・手書き）+
+- **`game.wasm` = ヘッダ 3 行 + `(module` + `jin_wasmgc/runtime.wat`（ランタイム部。プレリュードに相当・**生成物**）+
   生成部 + `)` を `wasmtime.wat2wasm` で束ねたもの**（`jin_wasmgc.assemble`）。自前の binary writer も `wasm-tools`
   も無い。`wat2wasm` は bytearray を返すので `bytes` にしてから bundle へ渡す。`jil` の版は Lua 経路と共有
   （ヘッダ `;; jin: 2  jil: 6  target: wasm-gc`）
@@ -170,9 +170,13 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   超えた時点で抜ける。`sub` の NaN の添字は Lua が位置付きの文で落ち、wasm は ""。深い再帰は Lua が "stack overflow"
   の文、wasm は call stack の trap。`sin` / `cos` / `atan2` は fdlibm の移植で 1 ulp 以内（バイト一致は保証しない。
   |x| ≥ 2^19·π/2 の還元は Payne-Hanek を移植していないので精度が落ちる）
-- `runtime.wat` の data 区画のオフセットは手で振ってある（`(call $puts (i32.const off) (i32.const len))`）。文字列を
-  足す / 変えるときは `packages/jin-wasmgc/tests/test_codegen.py::test_runtime_strings_stay_below_the_program_data_base`
-  が番地と長さの組を data 区画と突き合わせる
+- **`runtime.wat` は生成物で手で編集しない**（Issue #76 で切り替え）。正典は `packages/jin-wasmgc/runtime/`（部品
+  `01_head.wat` … `05_sched.wat` と data 区画の文字列表 `strings.json`）で、`uv run python scripts/generate_runtime_wat.py`
+  が `@K:name@` / `@OFF:name@` / `@LEN:name@` / `@DATA@` / `@LISTS@` の目印を番地と本文に置き換えて書く。文字列を足す /
+  変えるときは `strings.json` を直して再生成する（番地は表の順に詰めて振る）。ずれは pytest の `--check`
+  （`test_codegen.py::test_runtime_wat_is_generated_from_its_parts`）と CI の `--stdout | diff` が 2 重に見る。
+  `test_runtime_strings_stay_below_the_program_data_base` は生成物の番地と長さを data 区画と独立に突き合わせる（生成器が
+  壊れたときの網）。data 区画は 130 件・1157 バイトで [0, 2048) に収まっている
 - **`returns` 付きの手順が末尾まで `return` せずに抜ける形は生成の時点で拒む**（Lua は nil を返して次の算術で
   error 行になるが wasm に nil は無い。Sub-Issue ではなく恒久。JIN213 / JIN202 はこの形を落とさない）
 - `.jin` の `%` は Lua の `luai_nummod`（`$fmod` を b·2^k の引き算で正確に求めてから符号を b に合わせる）。

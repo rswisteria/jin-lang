@@ -1,5 +1,8 @@
   ;; Jin v2 wasm-GC ランタイム部（docs/spec/v2/jil.md §6.4。プレリュード prelude.lua に相当）。jil: 6
   ;;
+  ;; 生成物: `uv run python scripts/generate_runtime_wat.py` が packages/jin-wasmgc/runtime/（部品 *.wat と
+  ;; data 区画の文字列表 strings.json）から生成する。**手で編集しない**（正典は部品の側。番地は生成器が振る）。
+  ;;
   ;; `jin_wasmgc.assemble` が `(module` の直後にそのまま連結し、その後ろに生成部（<program>）を置く。
   ;; ホストが呼ぶ export は input / boot / tick の 3 つ（jil.md §6.2）。import は無い（module はホストを呼ばない）。
   ;; 引数も戻りも UTF-8 の JSON 1 本を線形メモリで越える: ホストは input(n) が返す番地に JSON を書き、

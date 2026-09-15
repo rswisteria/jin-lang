@@ -71,6 +71,11 @@ jobs:
       # 生成スクリプトを先に走らせると、テスト側のドリフト検出
       # （test_committed_schema_has_no_drift）が常に整形済みのツリーを見ることになり、
       # 2 重の網が独立しなくなる。
+      # `jin_wasmgc/runtime.wat` は `scripts/generate_runtime_wat.py` の生成物（部品は packages/jin-wasmgc/runtime/）。
+      # ツリーを書き換えずに比較する（pytest 側は packages/jin-wasmgc/tests/test_codegen.py が `--check` で固定する）。
+      - name: Check that runtime.wat is generated from its parts
+        run: uv run python scripts/generate_runtime_wat.py --stdout | diff -u packages/jin-wasmgc/src/jin_wasmgc/runtime.wat -
+
       - name: Test
         run: uv run pytest
 
