@@ -357,7 +357,13 @@ def test_summon_calls_the_other_circles_rite_synchronously() -> None:
         for r in result.rows
         if r["kind"] == "rite"
     ]
-    assert rite_rows == [("Main", "main", [], None), ("Lib", "double", [21], 42)]
+    # Lib は root の flow に居ない（未 entered = idle）。double の中の自陣への cast（bump）の後も
+    # 打ち切られずに return まで走る（Issue #87）
+    assert rite_rows == [
+        ("Main", "main", [], None),
+        ("Lib", "double", [21], 42),
+        ("Lib", "bump", [], None),
+    ]
 
 
 def test_index_out_of_range_is_an_error_row() -> None:

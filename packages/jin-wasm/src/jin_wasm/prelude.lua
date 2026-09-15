@@ -519,8 +519,11 @@ local function is_active(i)
 end
 
 -- ---------------------------------------------------------------- 手順の起動（コルーチン / 直接呼び出し）
+-- STOP(i): done か休止中（生成部が自陣の手順への cast の直後に見て、finish / transfer した呼び出し列を巻き戻す）。
+-- idle は止めない: summon の呼び先は未 entered でもよく（model.md §3.2）、その手順の中の cast の後で
+-- 打ち切ってはいけない（Issue #87）。
 local function STOP(i)
-  return C[i].status ~= "active" or C[i].paused
+  return C[i].status == "done" or C[i].paused
 end
 
 local function register_wait(i, co, req)

@@ -73,7 +73,7 @@ end
 
 - 手順は `local function` ではなく `R[i][j] = function` で定義する(1 チャンクの局所は 200 個まで。プレリュード + 陣 × 手順で上限に当たる)
 - トレース行はプレリュードの `T(kind, ci, name, pointer, input_json, output_json)` / `TS` / `TR` / `TRET` で積む。リリースビルドでは**呼び出しごと生成しない**(空関数を残して呼ぶのではなく、行を出さない。表示リストが同じことは `packages/jin-wasm/tests/test_codegen.py` が固定)。`enter` / `exit` / `event` / `wait` / `assert` / `error` / `frame` はプレリュードが積む
-- `FINISH(i)` は陣を `done` にし、その手順から `return` する。`finish` の後の同じ手順内のステップは走らない。呼び出し元の手順(自陣の手順を `cast` した側)は `STOP(i)`(`done` か休止中)を見て自分も `return` する(生成部が `cast` の直後に検査を出す)
+- `FINISH(i)` は陣を `done` にし、その手順から `return` する。`finish` の後の同じ手順内のステップは走らない。呼び出し元の手順(自陣の手順を `cast` した側)は `STOP(i)`(`done` か休止中。`idle` の陣 = 未 entered の summon の呼び先(model.md §3.2)は止めない。Issue #87)を見て自分も `return` する(生成部が `cast` の直後に検査を出す)
 - `wait` は `WAIT_TICKS(n, pointer)` / `WAIT_UNTIL(function() return e end, pointer)`(中は `coroutine.yield`)。手順が `wait` を含む(または含む手順を自陣で `cast` する)場合、核 / `on` / 配達からの起動はスケジューラの `RUN(i, fn, true, args)` でコルーチンになる。含まない手順は `RUN(i, fn, false, args)` で普通の関数呼び出し。手順同士の `cast` は常に直接呼び出し(同じコルーチンの中で yield が伝わる)
 - `emit` は `EMIT(to, name, { args }, meta)`。`meta` はデバッグビルドだけ(`{ ci, pointer, args_json }`。配達の tick で emit 行を積む)
 - `transfer` は `TRANSFER(from, to)` の後に `do return end`。委譲先はその tick の 6 で `entered` になる

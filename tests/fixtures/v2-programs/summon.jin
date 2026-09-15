@@ -72,13 +72,22 @@
           "returns": "num",
           "steps": [
             {
-              "do": "set",
-              "target": "calls",
-              "expr": "calls + 1"
+              "do": "cast",
+              "target": "bump"
             },
             {
               "do": "return",
               "expr": "n * 2"
+            }
+          ]
+        },
+        {
+          "name": "bump",
+          "steps": [
+            {
+              "do": "set",
+              "target": "calls",
+              "expr": "calls + 1"
             }
           ]
         }
