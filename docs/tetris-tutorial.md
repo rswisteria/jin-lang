@@ -25,8 +25,8 @@
   - 四則演算（`+`, `-`, `*`, `/`）と割り算の余り（`%`）のみ。高度な数学や物理演算は不要です。
 
 > [!NOTE]
-> Jin v2 はエディタ上では「魔法陣」というビジュアル図形面として表現されますが、**ソースコードの実体は宣言的な JSON** です。
-> Web開発における「HTML `<canvas>` の描画」「コンポーネント構造」「ステート管理（State）」「イベントリスナー」に近いメンタルモデルを持つため、Webエンジニアなら直感的に構造を理解できます。本チュートリアルでは、JSON の仕様とエディタのビジュアル操作を両輪で解説します。
+> Jin v2 はビジュアル言語で、プログラムはエディタ上で「魔法陣」の図として表現されます（ファイルの実体は宣言的な JSON ですが、本チュートリアルで JSON を読み書きすることはありません）。
+> Web開発における「HTML `<canvas>` の描画」「コンポーネント構造」「ステート管理（State）」「イベントリスナー」に近いメンタルモデルを持つため、Webエンジニアなら直感的に構造を理解できます。本チュートリアルのコード例は、**`jin render` が描いた手順の図**と、**その手順の各ステップをエディタで選んだときに右パネルに出る内容の一覧**の組で示します。
 
 ---
 
@@ -47,7 +47,7 @@
 | 9 | [`09-tetris.jin`](samples/tetris/09-tetris.jin) | 結果画面と RETRY / QUIT ボタン | シーン遷移（`flow`）・陣をまたぐ公開変数の参照・UI ボタン（`ui.button`）・検査（`assert`） |
 
 > [!NOTE]
-> 9 本のサンプルはすべて `jin check`（静的型・構造検査）および `jin fmt --check`（コード整形検査）を通過し、ヘッドレス実行で実行時エラーが発生しないことが保証されています。また、最終段は `examples-v2/tetris/tetris.jin` とバイト単位で完全一致し、本文の JSON 抜粋もテスト [`tests/contract/test_docs_tetris_tutorial.py`](../tests/contract/test_docs_tetris_tutorial.py) によって常時整合性が検証されています。
+> 9 本のサンプルはすべて `jin check`（静的型・構造検査）および `jin fmt --check`（コード整形検査）を通過し、ヘッドレス実行で実行時エラーが発生しないことが保証されています。また、最終段は `examples-v2/tetris/tetris.jin` とバイト単位で完全一致します。本文の図と一覧はサンプルから生成したもの（`scripts/generate_tutorial_figures.py`）で、ずれていないことをテスト [`tests/contract/test_docs_tetris_tutorial.py`](../tests/contract/test_docs_tetris_tutorial.py) が常時検証しています。
 
 ---
 
@@ -61,7 +61,7 @@
 2. **図とコードを読む（編集モード）**:
    - 上部メニューの **「編集」** をクリックすると、魔法陣の図面編集モードに切り替わります。
    - 魔法陣の手順環には手順（`rite`）が**頭文字の印**（`paint` なら `P`）で並び、中央には核の手順名が表示されます。
-   - 印を 1 回クリックすると右パネルに手順名が表示され、**ダブルクリックするとその手順の内部ステップの図**（ステップが輪になって並ぶ展開ビュー）に切り替わります。元の図に戻るには上部の **「focus を外す」** を押します。本文の JSON 抜粋と見比べてみてください。
+   - 印を 1 回クリックすると右パネルに手順名が表示され、**ダブルクリックするとその手順の内部ステップの図**（ステップが輪になって並ぶ展開ビュー）に切り替わります。元の図に戻るには上部の **「focus を外す」** を押します。本文の図と一覧は、この展開ビューと右パネルに対応しています。見比べてみてください。
 3. **書き換えて試す（ホットリロード & 保存）**:
    - 「編集」モードでステップをクリックすると、右パネルに `Do` / `Target` / `Args` / `Expr` などのプロパティ入力欄が現れます。
    - 数値や式を書き換えて `Enter` を押すと確定します。「実行」モードに切り替えると、走っている途中の状態を保ったまま即座に変更が反映されます（「編集しても状態を保つ」が既定で有効です）。
@@ -152,33 +152,34 @@ Jin v2 のプログラムは、3 種類の基本要素で構成されていま�
 
 ### 1-2. 呼び出し（`cast`）
 
-画面への描画は、道具環で宣言した `canvas`（画面描画機能）を呼び出して行います。操作を呼び出す命令が **`cast`** ステップです。手順 `paint` の末尾 2 ステップを見てみましょう。
+画面への描画は、道具環で宣言した `canvas`（画面描画機能）を呼び出して行います。操作を呼び出す命令が **`cast`** ステップです。手順 `paint` の図と、ステップの一覧です。まず末尾の 6 と 7 を見てみましょう。
 
-<!-- excerpt: docs/samples/tetris/01-canvas.jin -->
-```json
-{
-  "do": "cast",
-  "target": "canvas.ink",
-  "args": [
-    "\"#4ce0e6\""
-  ]
-},
-{
-  "do": "cast",
-  "target": "canvas.rect",
-  "args": [
-    "8 + 3 * 8",
-    "8 + 0 * 8",
-    "7",
-    "7"
-  ]
-}
-```
+<!-- figure: 01-canvas Play/paint -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/01-canvas-Play-paint.svg" width="360" alt="手順 paint の図">
 
-- `"do": "cast"`: 操作や関数を呼び出すステップです
-- `"target"`: 呼び出し先を指定します。`canvas.ink` は描画色の指定、`canvas.rect` は塗りつぶし矩形の描画です
-- `"args"`: 渡す引数の配列です。**要素はすべて「式（文字列）」として評価されます**。そのため `"8 + 3 * 8"` と書くと、式が計算されて `32` として渡されます。これは列 3・行 0 のマス、すなわち `(32, 8)` の位置です
-- 色の指定は `"#4ce0e6"` のような文字列です。JSON 文字列の内部で文字列式を表現するため、式の中のクォートは `\"...\"` とエスケープします（エディタのプロパティ欄で入力する場合は、エスケープ不要で `"#4ce0e6"` と入力できます）
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 円（外へ線 = 道具） | `cast` | `canvas.clear("#101418")` |
+| 2 | 円（外へ線 = 道具） | `cast` | `canvas.ink("#2a3340")` |
+| 3 | 円（外へ線 = 道具） | `cast` | `canvas.rect(6, 6, 84, 164)` |
+| 4 | 円（外へ線 = 道具） | `cast` | `canvas.ink("#000")` |
+| 5 | 円（外へ線 = 道具） | `cast` | `canvas.rect(8, 8, 80, 160)` |
+| 6 | 円（外へ線 = 道具） | `cast` | `canvas.ink("#4ce0e6")` |
+| 7 | 円（外へ線 = 道具） | `cast` | `canvas.rect(8 + 3 * 8, 8 + 0 * 8, 7, 7)` |
+<!-- /figure -->
+
+> [!TIP]
+> **図の読み方**（以後の章でも同じです）
+> - 中央の円が手順の名前、外側の環に**手順直下のステップ**が並びます。番号は上（12 時の位置）から**時計回り**です
+> - `if` や `loop` の中身は、親の弧の内側の環に置かれます。番号は `2.1`（2 番の `loop` の中の 1 番目）、`4t1`（4 番の `if` の then 側の 1 番目）、`4e1`（else 側）のように読みます。図では then が親の弧の前半（反時計回り側）、else が後半です
+> - 「記号」列は図の中の形です（`set` は四角、`let` は小さな四角、`cast` は円、`if` は弦、`loop` は多角形、`wait` は環の欠け、`return` / `finish` / `break` は外へ抜ける線）。矢印は実行の順です
+> - 「Do」と「内容」は、エディタでそのステップを選ぶと右パネルに出る欄（`Do` / `Target` / `Args` / `Cond` …）をまとめたものです
+
+- **Do = `cast`**: 操作や関数を呼び出すステップです
+- **Target**: 呼び出し先です。`canvas.ink` は描画色の指定、`canvas.rect` は塗りつぶし矩形の描画です
+- **Args**: 渡す引数の並びです。**要素はすべて「式」として評価されます**。そのため `8 + 3 * 8` と書くと、式が計算されて `32` として渡されます。これは列 3・行 0 のマス、すなわち `(32, 8)` の位置です
+- 色の指定は `"#4ce0e6"` のような文字列です。式の中の文字列は二重引用符で囲みます（エディタの `Args` の欄にそのまま `"#4ce0e6"` と入力します）
 
 手順 `paint` の先頭では `canvas.clear` で画面全体を背景色で塗りつぶし、枠線と黒い盤面を描画しています。**画面は tick ごとに初期化（白紙化）される**ため、表示し続けたい要素は毎 tick 描き直す必要があります。そのため `paint` は `on tick` に登録されています。
 
@@ -186,24 +187,18 @@ Jin v2 のプログラムは、3 種類の基本要素で構成されていま�
 
 核の手順 `begin` は、2 つのステップだけで構成されています。
 
-<!-- excerpt: docs/samples/tetris/01-canvas.jin -->
-```json
-{
-  "name": "begin",
-  "steps": [
-    {
-      "do": "wait",
-      "ticks": "300"
-    },
-    {
-      "do": "finish"
-    }
-  ]
-}
-```
+<!-- figure: 01-canvas Play/begin -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/01-canvas-Play-begin.svg" width="360" alt="手順 begin の図">
 
-- `"do": "wait"`: 指定した tick 数だけ処理を一時停止（スリープ）します
-- `"do": "finish"`: 現在の陣を終了します
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 環の欠け | `wait` | `300` tick 待つ |
+| 2 | 外へ抜ける線（二重横棒） | `finish` | 陣を終える |
+<!-- /figure -->
+
+- **`wait`**: 指定した tick 数だけ処理を一時停止（スリープ）します。図では環の欠けとして描かれます
+- **`finish`**: 現在の陣を終了します。図では環の外へ抜ける線（先端に二重横棒）です
 
 `begin` は 300 tick（10 秒）待機した後に `finish` を実行します。この陣は root（最外の親）であるため、陣の終了に伴いゲーム全体が停止し、`on tick` の描画も止まります。10 秒で画面が停止するのはこの仕組みによるものです。
 
@@ -228,26 +223,24 @@ Jin v2 のプログラムは、3 種類の基本要素で構成されていま�
 
 第 1 段階では、マスの座標を `3` と `0` という固定値で直接記述していました。マスを動かすためには、「現在どこにいるか」という状態を保持する場所が必要です。それが記憶環の **`state`**（変数）です。
 
-<!-- excerpt: docs/samples/tetris/02-fall.jin -->
-```json
-{
-  "name": "x",
-  "type": "num",
-  "init": "3",
-  "out": true
-},
-{
-  "name": "y",
-  "type": "num",
-  "init": "0",
-  "out": true
-}
-```
+<!-- figure: 02-fall Play -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/02-fall.svg" width="360" alt="陣全体の図">
 
-- `"name"`: 変数名です
-- `"type"`: 変数の**型**です。`num`（数値）のほか、`bool`（真偽値）、`str`（文字列）、`list<...>`（配列）などがあります。静的型付けにより、数値用の変数に誤って文字列を代入するようなバグは、実行前の静的検査（`jin check`）が検知します
-- `"init"`: 初期値の式です
-- `"out": true`: 外部公開フラグです。他の陣から値を参照できるようになり、`jin run` の終了ログやデバッグ用の値一覧パネルに表示されます
+陣 `Play`: 核 `begin`・道具環 `canvas`・`on` `tick` → `paint`
+
+記憶環（`state`）
+
+| 名前 | 型 | 最初の値 | out |
+|---|---|---|---|
+| `x` | `num` | `3` | ✓ |
+| `y` | `num` | `0` | ✓ |
+<!-- /figure -->
+
+- **名前**: 変数名です
+- **型**: 変数の**型**です。`num`（数値）のほか、`bool`（真偽値）、`str`（文字列）、`list<...>`（配列）などがあります。静的型付けにより、数値用の変数に誤って文字列を代入するようなバグは、実行前の静的検査（`jin check`）が検知します
+- **最初の値**（`init`）: 初期値の式です
+- **out**（`out: true`）: 外部公開フラグです。他の陣から値を参照できるようになり、`jin run` の終了ログやデバッグ用の値一覧パネルに表示されます
 
 変数 `x`, `y` を導入したことで、`paint` 内の描画座標の式は `"8 + x * 8"`, `"8 + y * 8"` に置き換わりました。変数の値が更新されると、描画される位置も連動して変化します。
 
@@ -255,49 +248,26 @@ Jin v2 のプログラムは、3 種類の基本要素で構成されていま�
 
 核の手順 `begin` で時間を刻み、落下処理を実行します。
 
-<!-- excerpt: docs/samples/tetris/02-fall.jin -->
-```json
-{
-  "name": "begin",
-  "steps": [
-    {
-      "do": "set",
-      "target": "y",
-      "expr": "0"
-    },
-    {
-      "do": "loop",
-      "kind": "while",
-      "cond": "y < 19",
-      "steps": [
-        {
-          "do": "wait",
-          "ticks": "15"
-        },
-        {
-          "do": "set",
-          "target": "y",
-          "expr": "y + 1"
-        }
-      ]
-    },
-    {
-      "do": "wait",
-      "ticks": "30"
-    },
-    {
-      "do": "finish"
-    }
-  ]
-}
-```
+<!-- figure: 02-fall Play/begin -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/02-fall-Play-begin.svg" width="360" alt="手順 begin の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 四角 | `set` | `y ← 0` |
+| 2 | 多角形（3 角） | `loop` | `y < 19` の間、中を繰り返す |
+| 2.1 | 環の欠け | `wait` | `15` tick 待つ |
+| 2.2 | 四角 | `set` | `y ← y + 1` |
+| 3 | 環の欠け | `wait` | `30` tick 待つ |
+| 4 | 外へ抜ける線（二重横棒） | `finish` | 陣を終える |
+<!-- /figure -->
 
 各ステップの実行フローは次の通りです：
 
 1. **`set`**（代入）: `y` に `0` を代入します
-2. **`loop while`**（条件付き繰り返し）: 条件式 `cond: "y < 19"` が真である間、内部の `steps` を繰り返します
-   - `wait 15`: 15 tick（0.5 秒）待機します
-   - `set target: "y", expr: "y + 1"`: `y` の値を 1 増加させます。右辺の式 `y + 1` が先に評価され、その結果が左辺の `y` に再格納されます
+2. **`loop while`**（条件付き繰り返し）: 条件式 `y < 19` が真である間、内側の環にある 2.1 と 2.2 を繰り返します
+   - 2.1 `wait`: 15 tick（0.5 秒）待機します
+   - 2.2 `set`: `y` の値を 1 増加させます。右辺の式 `y + 1` が先に評価され、その結果が左辺の `y` に再格納されます
 3. `y` が 19 に達するとループを抜け、30 tick（1 秒）待機した後に **`finish`** で陣を終了します
 
 ここで重要なのは、**`begin` が `wait` で待機している間も、`on tick` に登録された `paint` は毎フレーム（毎 tick）呼び出されている**という点です。核の手順は「座標を更新して休止する」ことに専念し、描画手順は「その時点の最新の座標を描く」ことに専念しています。ロジックと描画が疎結合に保たれているため、コードが簡潔で見通しの良い状態を維持できます。
@@ -333,57 +303,26 @@ uv run jin run docs/samples/tetris/02-fall.jin --ticks 400
 
 「特定のキーが押されたら座標を増減する」という制御を行うのが **`if`** ステップです。`on tick` の登録先を `control` という新しい手順に変更し、次のように実装しました。
 
-<!-- excerpt: docs/samples/tetris/03-move.jin -->
-```json
-{
-  "name": "control",
-  "steps": [
-    {
-      "do": "if",
-      "cond": "input.pressed(\"ArrowLeft\") and x > 0",
-      "then": [
-        {
-          "do": "set",
-          "target": "x",
-          "expr": "x - 1"
-        }
-      ]
-    },
-    {
-      "do": "if",
-      "cond": "input.pressed(\"ArrowRight\") and x < 9",
-      "then": [
-        {
-          "do": "set",
-          "target": "x",
-          "expr": "x + 1"
-        }
-      ]
-    },
-    {
-      "do": "if",
-      "cond": "input.key(\"ArrowDown\") and y < 19",
-      "then": [
-        {
-          "do": "set",
-          "target": "y",
-          "expr": "y + 1"
-        }
-      ]
-    },
-    {
-      "do": "cast",
-      "target": "paint"
-    }
-  ]
-}
-```
+<!-- figure: 03-move Play/control -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/03-move-Play-control.svg" width="360" alt="手順 control の図">
 
-- `"do": "if"`: 条件分岐を行うステップです
-- `"cond"`: 評価結果が真偽値（`bool`: `true` または `false`）になる式です
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 弦（分岐） | `if` | `input.pressed("ArrowLeft") and x > 0` が真なら t の列へ |
+| 1t1 | 四角 | `set` | `x ← x - 1` |
+| 2 | 弦（分岐） | `if` | `input.pressed("ArrowRight") and x < 9` が真なら t の列へ |
+| 2t1 | 四角 | `set` | `x ← x + 1` |
+| 3 | 弦（分岐） | `if` | `input.key("ArrowDown") and y < 19` が真なら t の列へ |
+| 3t1 | 四角 | `set` | `y ← y + 1` |
+| 4 | 円（内へ線 = 自陣の手順） | `cast` | `paint()` |
+<!-- /figure -->
+
+- **Do = `if`**: 条件分岐を行うステップです。図では弦（分岐の線）で描かれます
+- **Cond**: 評価結果が真偽値（`bool`: `true` または `false`）になる式です
   - 比較演算子: `<`, `>`, `==`, `!=` など
   - 論理演算子: `and`（かつ）、`or`（または）、`not`（否定）
-- `"then"`: 条件が真（`true`）のときに実行されるステップの配列です（偽のときに実行するステップは `"else"` に記述します）
+- **then / else**: 条件が真（`true`）のときに実行されるステップが then（一覧では `1t1` のように `t` が付く）、偽のときに実行するステップが else（`e` が付く）です
 - ガード条件: `x > 0` や `x < 9` という条件を論理積 `and` で組み合わせることで、マスが盤面の外壁を突き破るのを防いでいます
 
 道具環に `input`（ユーザー入力）が追加されました。**「使用する道具は、その陣自身が明示的に宣言しなければならない」** というのが Jin の基本原則です。宣言されていない道具を呼び出すと、`jin check` が静的エラーを報告します。
@@ -399,7 +338,7 @@ uv run jin run docs/samples/tetris/02-fall.jin --ticks 400
 
 ### 3-3. 手順から手順を呼ぶ
 
-手順 `control` の末尾にある `cast target: "paint"` に注目してください。**自陣の中で定義された他の手順も、`cast` ステップによって関数として呼び出すことができます**。「入力判定と状態更新」と「画面描画」を別々の手順に責任分離したまま、1 tick の中で順序立てて実行しています。
+手順 `control` の末尾（4 番）にある `cast` の `paint()` に注目してください。図では、道具を呼ぶ `cast` の円が環の**外**へ短い線を出すのに対し、自陣の手順を呼ぶ `cast` の円は**内**へ線を出します。**自陣の中で定義された他の手順も、`cast` ステップによって関数として呼び出すことができます**。「入力判定と状態更新」と「画面描画」を別々の手順に責任分離したまま、1 tick の中で順序立てて実行しています。
 
 また、核の手順 `begin` は `loop while true`（無限ループ）に改修され、マスが底に着いたときは `else` 節で `y` を 0 にリセットして再スタートするように構成されています。
 
@@ -423,30 +362,19 @@ uv run jin run docs/samples/tetris/02-fall.jin --ticks 400
 
 ミノの状態を管理するには、「種類（`kind`）」「向き（`rot`）」「位置 x（`x`）」「位置 y（`y`）」という 4 つの値が必要です。これらを個別の変数として定義する代わりに、**型紙**（`form`）を用いて 1 つの複合データ型にまとめます（TypeScript の `interface` や C 言語の構造体に相当します）。
 
-<!-- excerpt: docs/samples/tetris/04-piece.jin -->
-```json
-{
-  "name": "Piece",
-  "fields": [
-    {
-      "name": "kind",
-      "type": "num"
-    },
-    {
-      "name": "rot",
-      "type": "num"
-    },
-    {
-      "name": "x",
-      "type": "num"
-    },
-    {
-      "name": "y",
-      "type": "num"
-    }
-  ]
-}
-```
+<!-- figure: 04-piece form Piece -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/04-piece.svg" width="360" alt="陣全体の図">
+
+型紙 `Piece`
+
+| 欄 | 型 |
+|---|---|
+| `kind` | `num` |
+| `rot` | `num` |
+| `x` | `num` |
+| `y` | `num` |
+<!-- /figure -->
 
 記憶環の変数 `piece` はこの `Piece` 型として定義され、初期値は `Piece{kind: 0, rot: 0, x: 3, y: 0}` というリテラル記法で代入します。各プロパティには `piece.x` のように**ドット演算子**でアクセスでき、`set` の `target` に `piece.y` と指定することで、特定のフィールドだけを直接更新できます。
 
@@ -474,89 +402,44 @@ uv run jin run docs/samples/tetris/02-fall.jin --ticks 400
 
 ミノが底に到達したかを判定する手順 `touches` のコードです。
 
-<!-- excerpt: docs/samples/tetris/04-piece.jin -->
-```json
-{
-  "name": "touches",
-  "returns": "bool",
-  "steps": [
-    {
-      "do": "let",
-      "name": "kind",
-      "expr": "piece.kind"
-    },
-    {
-      "do": "let",
-      "name": "rot",
-      "expr": "piece.rot"
-    },
-    {
-      "do": "loop",
-      "kind": "count",
-      "name": "i",
-      "times": "4",
-      "steps": [
-        {
-          "do": "let",
-          "name": "cy",
-          "expr": "piece.y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]"
-        },
-        {
-          "do": "if",
-          "cond": "cy >= 19",
-          "then": [
-            {
-              "do": "return",
-              "expr": "true"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "do": "return",
-      "expr": "false"
-    }
-  ]
-}
-```
+<!-- figure: 04-piece Play/touches -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/04-piece-Play-touches.svg" width="360" alt="手順 touches の図">
+
+手順 `touches() -> bool`
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 小さな四角 | `let` | `kind = piece.kind` |
+| 2 | 小さな四角 | `let` | `rot = piece.rot` |
+| 3 | 多角形（3 角） | `loop` | `4` 回、中を繰り返す（`i` に 0, 1, … が入る） |
+| 3.1 | 小さな四角 | `let` | `cy = piece.y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]` |
+| 3.2 | 弦（分岐） | `if` | `cy >= 19` が真なら t の列へ |
+| 3.2t1 | 外へ抜ける線 | `return` | 手順を抜けて `true` を返す |
+| 4 | 外へ抜ける線 | `return` | 手順を抜けて `false` を返す |
+<!-- /figure -->
 
 - **`let`**: 手順の内部でのみ有効な**局所変数（ローカル変数）** を宣言します。`state` と異なり陣の状態としては保持されず、手順の終了とともに破棄されます。計算結果を一時キャッシュすることで、複雑な計算式を短く整理できます
-- **`loop count`**: 指定した回数だけ繰り返すループです。`name: "i"`, `times: "4"` と指定すると、カウンタ変数 `i` に 0, 1, 2, 3 が順に代入されて 4 回反復されます
-- **`returns` と `return`**: `"returns": "bool"` で戻り値の型を宣言し、`"do": "return"` ステップで値を返してその場で手順を抜けます。4 ブロックのうち 1 つでも底（行 19）に達していれば即座に `true` を返し、すべて下回っていれば末尾の `return false` に到達します
+- **`loop count`**: 指定した回数だけ繰り返すループです。回数 `4` と名前 `i` を指定すると、カウンタ変数 `i` に 0, 1, 2, 3 が順に代入されて 4 回反復されます
+- **`returns` と `return`**: 手順の見出し `touches() -> bool` が戻り値の型の宣言で、`return` ステップで値を返してその場で手順を抜けます。4 ブロックのうち 1 つでも底（行 19）に達していれば即座に `true` を返し、すべて下回っていれば末尾の `return false` に到達します
 
 この戻り値を受け取る呼び出し側（核の手順 `begin`）は次のようになっています。
 
-<!-- excerpt: docs/samples/tetris/04-piece.jin -->
-```json
-{
-  "do": "let",
-  "name": "bottom",
-  "expr": "false"
-},
-{
-  "do": "cast",
-  "target": "touches",
-  "into": "bottom"
-},
-{
-  "do": "if",
-  "cond": "bottom",
-  "then": [
-    {
-      "do": "cast",
-      "target": "spawn"
-    }
-  ],
-  "else": [
-    {
-      "do": "set",
-      "target": "piece.y",
-      "expr": "piece.y + 1"
-    }
-  ]
-}
-```
+<!-- figure: 04-piece Play/begin -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/04-piece-Play-begin.svg" width="360" alt="手順 begin の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 円（内へ線 = 自陣の手順） | `cast` | `spawn()` |
+| 2 | 多角形（4 角） | `loop` | `true` の間、中を繰り返す |
+| 2.1 | 環の欠け | `wait` | `15` tick 待つ |
+| 2.2 | 小さな四角 | `let` | `bottom = false` |
+| 2.3 | 円（内へ線 = 自陣の手順） | `cast` | `bottom ← touches()` |
+| 2.4 | 弦（分岐） | `if` | `bottom` が真なら t の列、偽なら e の列へ |
+| 2.4t1 | 円（内へ線 = 自陣の手順） | `cast` | `spawn()` |
+| 2.4e1 | 四角 | `set` | `piece.y ← piece.y + 1` |
+<!-- /figure -->
 
 `cast` ステップの **`into`** プロパティに戻り値の格納先変数名を指定します。「`touches` を呼び出し、結果を `bottom` に代入する」という動作になります。**受け皿となる変数は、呼び出し前にあらかじめ `let` などで宣言しておく必要があります**。
 
@@ -588,67 +471,23 @@ uv run jin run docs/samples/tetris/02-fall.jin --ticks 400
 
 この判定は「左移動」「右移動」「回転」「自然落下」の **4 か所すべてで実行** されなければなりません。同じ検証コードを 4 回コピペすると、修正漏れによるバグの温床になります。そこで、**判定ロジックを引数と戻り値を持つ 1 つの手順として独立させ、必要な場所から呼び出します**。これがプログラミングにおける「関数」の基本原則です。
 
-<!-- excerpt: docs/samples/tetris/05-fits.jin -->
-```json
-{
-  "name": "fits",
-  "params": [
-    {
-      "name": "kind",
-      "type": "num"
-    },
-    {
-      "name": "rot",
-      "type": "num"
-    },
-    {
-      "name": "x",
-      "type": "num"
-    },
-    {
-      "name": "y",
-      "type": "num"
-    }
-  ],
-  "returns": "bool",
-  "steps": [
-    {
-      "do": "loop",
-      "kind": "count",
-      "name": "i",
-      "times": "4",
-      "steps": [
-        {
-          "do": "let",
-          "name": "cx",
-          "expr": "x + shapes[((kind * 4 + rot) * 4 + i) * 2]"
-        },
-        {
-          "do": "let",
-          "name": "cy",
-          "expr": "y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]"
-        },
-        {
-          "do": "if",
-          "cond": "cx < 0 or cx >= 10 or cy >= 20",
-          "then": [
-            {
-              "do": "return",
-              "expr": "false"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "do": "return",
-      "expr": "true"
-    }
-  ]
-}
-```
+<!-- figure: 05-fits Play/fits -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/05-fits-Play-fits.svg" width="360" alt="手順 fits の図">
 
-- `"params"`: 手順が受け取る**引数**の定義リストです。名前と型を指定します
+手順 `fits(kind: num, rot: num, x: num, y: num) -> bool`
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 多角形（3 角） | `loop` | `4` 回、中を繰り返す（`i` に 0, 1, … が入る） |
+| 1.1 | 小さな四角 | `let` | `cx = x + shapes[((kind * 4 + rot) * 4 + i) * 2]` |
+| 1.2 | 小さな四角 | `let` | `cy = y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]` |
+| 1.3 | 弦（分岐） | `if` | `cx < 0 or cx >= 10 or cy >= 20` が真なら t の列へ |
+| 1.3t1 | 外へ抜ける線 | `return` | 手順を抜けて `false` を返す |
+| 2 | 外へ抜ける線 | `return` | 手順を抜けて `true` を返す |
+<!-- /figure -->
+
+- **引数**（`params`）: 手順の見出し `fits(kind: num, rot: num, x: num, y: num) -> bool` の括弧の中が、受け取る引数の名前と型です
 - **純粋な判定**: `fits` は現在の変数 `piece` を直接参照せず、渡された引数 `(kind, rot, x, y)` に基づいて計算します。これにより、「もし 1 マス左に動かしたら？」「もし回転させたら？」という **未来の仮想的な位置** を、状態を書き換える前に安全に問い合わせることができます
 - **早期リターン（Early Return）**: `cx < 0 or cx >= 10 or cy >= 20`（左壁外、右壁外、床下）のいずれかに該当した時点で、即座に `return false` を実行して手順を終了します。4 つのブロックがすべて境界内に収まっていれば、ループ完了後に末尾の `return true` が返されます
 
@@ -656,37 +495,28 @@ uv run jin run docs/samples/tetris/02-fall.jin --ticks 400
 
 手順 `control` における左移動の処理は、次のように安全な構造に刷新されました。
 
-<!-- excerpt: docs/samples/tetris/05-fits.jin -->
-```json
-{
-  "do": "if",
-  "cond": "input.pressed(\"ArrowLeft\")",
-  "then": [
-    {
-      "do": "cast",
-      "target": "fits",
-      "args": [
-        "piece.kind",
-        "piece.rot",
-        "piece.x - 1",
-        "piece.y"
-      ],
-      "into": "ok"
-    },
-    {
-      "do": "if",
-      "cond": "ok",
-      "then": [
-        {
-          "do": "set",
-          "target": "piece.x",
-          "expr": "piece.x - 1"
-        }
-      ]
-    }
-  ]
-}
-```
+<!-- figure: 05-fits Play/control -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/05-fits-Play-control.svg" width="360" alt="手順 control の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 小さな四角 | `let` | `ok = false` |
+| 2 | 弦（分岐） | `if` | `input.pressed("ArrowLeft")` が真なら t の列へ |
+| 2t1 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, piece.rot, piece.x - 1, piece.y)` |
+| 2t2 | 弦（分岐） | `if` | `ok` が真なら t の列へ |
+| 2t2t1 | 四角 | `set` | `piece.x ← piece.x - 1` |
+| 3 | 弦（分岐） | `if` | `input.pressed("ArrowRight")` が真なら t の列へ |
+| 3t1 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, piece.rot, piece.x + 1, piece.y)` |
+| 3t2 | 弦（分岐） | `if` | `ok` が真なら t の列へ |
+| 3t2t1 | 四角 | `set` | `piece.x ← piece.x + 1` |
+| 4 | 弦（分岐） | `if` | `input.pressed("ArrowUp")` が真なら t の列へ |
+| 4t1 | 小さな四角 | `let` | `r = (piece.rot + 1) % 4` |
+| 4t2 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, r, piece.x, piece.y)` |
+| 4t3 | 弦（分岐） | `if` | `ok` が真なら t の列へ |
+| 4t3t1 | 四角 | `set` | `piece.rot ← r` |
+| 5 | 円（内へ線 = 自陣の手順） | `cast` | `paint()` |
+<!-- /figure -->
 
 1. 左キーが押されたか判定する
 2. 1 マス左にずらした座標 `piece.x - 1` を引数にして `fits` を呼び出し、結果を `ok` に受け取る
@@ -731,32 +561,28 @@ Jin には、コードの品質と可読性を保つために意図的に設定�
 
 ゲーム開始時に核の手順 `begin` で盤面を初期化し、200 個の `0`（空マス）を詰め込みます。
 
-<!-- excerpt: docs/samples/tetris/06-board.jin -->
-```json
-{
-  "do": "cast",
-  "target": "clear",
-  "args": [
-    "board"
-  ]
-},
-{
-  "do": "loop",
-  "kind": "count",
-  "name": "i",
-  "times": "200",
-  "steps": [
-    {
-      "do": "cast",
-      "target": "push",
-      "args": [
-        "board",
-        "0"
-      ]
-    }
-  ]
-}
-```
+<!-- figure: 06-board Play/begin -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/06-board-Play-begin.svg" width="360" alt="手順 begin の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 四角 | `set` | `placed ← 0` |
+| 2 | 四角 | `set` | `over ← false` |
+| 3 | 破線の円（組み込みの効果） | `cast` | `clear(board)` |
+| 4 | 多角形（3 角） | `loop` | `200` 回、中を繰り返す（`i` に 0, 1, … が入る） |
+| 4.1 | 破線の円（組み込みの効果） | `cast` | `push(board, 0)` |
+| 5 | 四角 | `set` | `next ← random.range(0, 6)` |
+| 6 | 円（内へ線 = 自陣の手順） | `cast` | `spawn()` |
+| 7 | 多角形（4 角） | `loop` | `not over` の間、中を繰り返す |
+| 7.1 | 環の欠け | `wait` | `15` tick 待つ |
+| 7.2 | 小さな四角 | `let` | `ok = false` |
+| 7.3 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, piece.rot, piece.x, piece.y + 1)` |
+| 7.4 | 弦（分岐） | `if` | `ok` が真なら t の列、偽なら e の列へ |
+| 7.4t1 | 四角 | `set` | `piece.y ← piece.y + 1` |
+| 7.4e1 | 円（内へ線 = 自陣の手順） | `cast` | `lock()` |
+| 8 | 外へ抜ける線（二重横棒） | `finish` | 陣を終える |
+<!-- /figure -->
 
 `clear`（配列を空にする）および `push`（配列末尾に要素を追加する）は、Jin に組み込まれている標準のリスト操作命令です。
 
@@ -764,38 +590,22 @@ Jin には、コードの品質と可読性を保つために意図的に設定�
 
 着地して動けなくなったミノのブロックを、盤面配列に転記して固定するのが手順 `lock` です。
 
-<!-- excerpt: docs/samples/tetris/06-board.jin -->
-```json
-{
-  "do": "loop",
-  "kind": "count",
-  "name": "i",
-  "times": "4",
-  "steps": [
-    {
-      "do": "let",
-      "name": "cx",
-      "expr": "piece.x + shapes[((kind * 4 + rot) * 4 + i) * 2]"
-    },
-    {
-      "do": "let",
-      "name": "cy",
-      "expr": "piece.y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]"
-    },
-    {
-      "do": "if",
-      "cond": "cy >= 0",
-      "then": [
-        {
-          "do": "set",
-          "target": "board[cy * 10 + cx]",
-          "expr": "kind + 1"
-        }
-      ]
-    }
-  ]
-}
-```
+<!-- figure: 06-board Play/lock -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/06-board-Play-lock.svg" width="360" alt="手順 lock の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 小さな四角 | `let` | `kind = piece.kind` |
+| 2 | 小さな四角 | `let` | `rot = piece.rot` |
+| 3 | 多角形（3 角） | `loop` | `4` 回、中を繰り返す（`i` に 0, 1, … が入る） |
+| 3.1 | 小さな四角 | `let` | `cx = piece.x + shapes[((kind * 4 + rot) * 4 + i) * 2]` |
+| 3.2 | 小さな四角 | `let` | `cy = piece.y + shapes[((kind * 4 + rot) * 4 + i) * 2 + 1]` |
+| 3.3 | 弦（分岐） | `if` | `cy >= 0` が真なら t の列へ |
+| 3.3t1 | 四角 | `set` | `board[cy * 10 + cx] ← kind + 1` |
+| 4 | 四角 | `set` | `placed ← placed + 1` |
+| 5 | 円（内へ線 = 自陣の手順） | `cast` | `spawn()` |
+<!-- /figure -->
 
 `set` ステップの `target` に `board[cy * 10 + cx]` とインデックスを指定することで、**リスト内の特定の位置の要素だけをピンポイントで書き換える** ことができます。4 つのブロックの位置に `kind + 1`（1〜7 のブロック色 ID）を代入することで、ミノが静的な盤面データの一部へと変換されます。
 
@@ -815,25 +625,18 @@ cy >= 0 and board[cy * 10 + cx] != 0
 
 固定された盤面を描画する `paintBoard` は、描画コール回数を最小限に抑えるため、7 色それぞれについて盤面 200 マスを一括走査するサブルーチン `paintColor(c)` を呼び出します。
 
-<!-- excerpt: docs/samples/tetris/06-board.jin -->
-```json
-{
-  "do": "if",
-  "cond": "board[i] == c + 1",
-  "then": [
-    {
-      "do": "cast",
-      "target": "canvas.rect",
-      "args": [
-        "8 + i % 10 * 8",
-        "8 + floor(i / 10) * 8",
-        "7",
-        "7"
-      ]
-    }
-  ]
-}
-```
+<!-- figure: 06-board Play/paintColor -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/06-board-Play-paintColor.svg" width="360" alt="手順 paintColor の図">
+
+手順 `paintColor(c: num)`
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 多角形（3 角） | `loop` | `200` 回、中を繰り返す（`i` に 0, 1, … が入る） |
+| 1.1 | 弦（分岐） | `if` | `board[i] == c + 1` が真なら t の列へ |
+| 1.1t1 | 円（外へ線 = 道具） | `cast` | `canvas.rect(8 + i % 10 * 8, 8 + floor(i / 10) * 8, 7, 7)` |
+<!-- /figure -->
 
 マスごとに描画色（`canvas.ink`）を切り替えるのではなく、「色ごとに該当マスをまとめて描く（バッチ描画）」設計にすることで、コンテキストの切り替え回数を劇的に減らし、後述するデバッグトレースの行数を大幅に削減しています。
 
@@ -862,83 +665,31 @@ cy >= 0 and board[cy * 10 + cx] != 0
 
 これをコード化したのが手順 `clearLines` です。
 
-<!-- excerpt: docs/samples/tetris/07-lines.jin -->
-```json
-{
-  "do": "loop",
-  "kind": "count",
-  "name": "r",
-  "times": "20",
-  "steps": [
-    {
-      "do": "let",
-      "name": "full",
-      "expr": "true"
-    },
-    {
-      "do": "loop",
-      "kind": "count",
-      "name": "c",
-      "times": "10",
-      "steps": [
-        {
-          "do": "if",
-          "cond": "board[r * 10 + c] == 0",
-          "then": [
-            {
-              "do": "set",
-              "target": "full",
-              "expr": "false"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "do": "if",
-      "cond": "full",
-      "then": [
-        {
-          "do": "loop",
-          "kind": "count",
-          "name": "k",
-          "times": "r * 10",
-          "steps": [
-            {
-              "do": "let",
-              "name": "i",
-              "expr": "r * 10 - 1 - k"
-            },
-            {
-              "do": "set",
-              "target": "board[i + 10]",
-              "expr": "board[i]"
-            }
-          ]
-        },
-        {
-          "do": "loop",
-          "kind": "count",
-          "name": "c2",
-          "times": "10",
-          "steps": [
-            {
-              "do": "set",
-              "target": "board[c2]",
-              "expr": "0"
-            }
-          ]
-        },
-        {
-          "do": "set",
-          "target": "cleared",
-          "expr": "cleared + 1"
-        }
-      ]
-    }
-  ]
-}
-```
+<!-- figure: 07-lines Play/clearLines -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/07-lines-Play-clearLines.svg" width="360" alt="手順 clearLines の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 小さな四角 | `let` | `cleared = 0` |
+| 2 | 多角形（3 角） | `loop` | `20` 回、中を繰り返す（`r` に 0, 1, … が入る） |
+| 2.1 | 小さな四角 | `let` | `full = true` |
+| 2.2 | 多角形（3 角） | `loop` | `10` 回、中を繰り返す（`c` に 0, 1, … が入る） |
+| 2.2.1 | 弦（分岐） | `if` | `board[r * 10 + c] == 0` が真なら t の列へ |
+| 2.2.1t1 | 四角 | `set` | `full ← false` |
+| 2.3 | 弦（分岐） | `if` | `full` が真なら t の列へ |
+| 2.3t1 | 多角形（3 角） | `loop` | `r * 10` 回、中を繰り返す（`k` に 0, 1, … が入る） |
+| 2.3t1.1 | 小さな四角 | `let` | `i = r * 10 - 1 - k` |
+| 2.3t1.2 | 四角 | `set` | `board[i + 10] ← board[i]` |
+| 2.3t2 | 多角形（3 角） | `loop` | `10` 回、中を繰り返す（`c2` に 0, 1, … が入る） |
+| 2.3t2.1 | 四角 | `set` | `board[c2] ← 0` |
+| 2.3t3 | 四角 | `set` | `cleared ← cleared + 1` |
+| 3 | 弦（分岐） | `if` | `cleared > 0` が真なら t の列へ |
+| 3t1 | 小さな四角 | `let` | `bonus = [0, 100, 300, 500, 800]` |
+| 3t2 | 四角 | `set` | `score ← score + bonus[cleared]` |
+| 3t3 | 四角 | `set` | `lines ← lines + cleared` |
+| 3t4 | 四角 | `set` | `speed ← max(4, 15 - floor(lines / 5))` |
+<!-- /figure -->
 
 この実装には 3 つの重要な設計技法が含まれています：
 
@@ -983,30 +734,37 @@ speed = max(4, 15 - floor(lines / 5))
 
 第 3 段階で導入した `input.key` はキーが押されている間毎フレーム `true` になるため、そのまま落下処理を呼ぶと毎秒 30 段という制御不能な猛スピードで落下してしまいます。そこで、カウンタ変数 `soft` を用いて 3 tick に 1 回だけ落下を発火させる**スロットリング処理**を実装します。
 
-<!-- excerpt: docs/samples/tetris/08-controls.jin -->
-```json
-{
-  "do": "if",
-  "cond": "input.key(\"ArrowDown\")",
-  "then": [
-    {
-      "do": "set",
-      "target": "soft",
-      "expr": "soft + 1"
-    },
-    {
-      "do": "if",
-      "cond": "soft % 3 == 0",
-      "then": [
-        {
-          "do": "cast",
-          "target": "fall"
-        }
-      ]
-    }
-  ]
-}
-```
+<!-- figure: 08-controls Play/control -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/08-controls-Play-control.svg" width="360" alt="手順 control の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 弦（分岐） | `if` | `over` が真なら t の列へ |
+| 1t1 | 外へ抜ける線 | `return` | 手順を抜ける |
+| 2 | 小さな四角 | `let` | `ok = false` |
+| 3 | 弦（分岐） | `if` | `input.pressed("ArrowLeft")` が真なら t の列へ |
+| 3t1 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, piece.rot, piece.x - 1, piece.y)` |
+| 3t2 | 弦（分岐） | `if` | `ok` が真なら t の列へ |
+| 3t2t1 | 四角 | `set` | `piece.x ← piece.x - 1` |
+| 4 | 弦（分岐） | `if` | `input.pressed("ArrowRight")` が真なら t の列へ |
+| 4t1 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, piece.rot, piece.x + 1, piece.y)` |
+| 4t2 | 弦（分岐） | `if` | `ok` が真なら t の列へ |
+| 4t2t1 | 四角 | `set` | `piece.x ← piece.x + 1` |
+| 5 | 弦（分岐） | `if` | `input.pressed("ArrowUp")` が真なら t の列へ |
+| 5t1 | 小さな四角 | `let` | `r = (piece.rot + 1) % 4` |
+| 5t2 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, r, piece.x, piece.y)` |
+| 5t3 | 弦（分岐） | `if` | `ok` が真なら t の列へ |
+| 5t3t1 | 四角 | `set` | `piece.rot ← r` |
+| 6 | 弦（分岐） | `if` | `input.key("ArrowDown")` が真なら t の列へ |
+| 6t1 | 四角 | `set` | `soft ← soft + 1` |
+| 6t2 | 弦（分岐） | `if` | `soft % 3 == 0` が真なら t の列へ |
+| 6t2t1 | 円（内へ線 = 自陣の手順） | `cast` | `fall()` |
+| 7 | 弦（分岐） | `if` | `input.pressed("Space")` が真なら t の列へ |
+| 7t1 | 円（内へ線 = 自陣の手順） | `cast` | `hardDrop()` |
+| 8 | 円（内へ線 = 自陣の手順） | `cast` | `paintBoard()` |
+| 9 | 円（内へ線 = 自陣の手順） | `cast` | `paintPanel()` |
+<!-- /figure -->
 
 `soft % 3 == 0`（3 の倍数の tick）でのみ、落下処理手順 `fall` を呼び出します。「1 段落下し、底に着いていたら固定する」という処理は核の自然落下でもまったく同じものが使われるため、共通手順 `fall` として切り出すことでコードの重複を完全に排除しています。
 
@@ -1014,57 +772,22 @@ speed = max(4, 15 - floor(lines / 5))
 
 ハードドロップは「落ちられる限界まで一気に落下させ、その場で即座に固定する」操作です。何段落下できるかは盤面の状態によって事前に分からないため、無限ループ `loop while true` を回し、進めなくなった瞬間に **`break`** で脱出します。
 
-<!-- excerpt: docs/samples/tetris/08-controls.jin -->
-```json
-{
-  "name": "hardDrop",
-  "steps": [
-    {
-      "do": "let",
-      "name": "ok",
-      "expr": "false"
-    },
-    {
-      "do": "loop",
-      "kind": "while",
-      "cond": "true",
-      "steps": [
-        {
-          "do": "cast",
-          "target": "fits",
-          "args": [
-            "piece.kind",
-            "piece.rot",
-            "piece.x",
-            "piece.y + 1"
-          ],
-          "into": "ok"
-        },
-        {
-          "do": "if",
-          "cond": "not ok",
-          "then": [
-            {
-              "do": "break"
-            }
-          ]
-        },
-        {
-          "do": "set",
-          "target": "piece.y",
-          "expr": "piece.y + 1"
-        }
-      ]
-    },
-    {
-      "do": "cast",
-      "target": "lock"
-    }
-  ]
-}
-```
+<!-- figure: 08-controls Play/hardDrop -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/08-controls-Play-hardDrop.svg" width="360" alt="手順 hardDrop の図">
 
-- `"do": "break"`: 最も内側の `loop` を直ちに中断してループ外へ脱出するステップです
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 小さな四角 | `let` | `ok = false` |
+| 2 | 多角形（3 角） | `loop` | `true` の間、中を繰り返す |
+| 2.1 | 円（内へ線 = 自陣の手順） | `cast` | `ok ← fits(piece.kind, piece.rot, piece.x, piece.y + 1)` |
+| 2.2 | 弦（分岐） | `if` | `not ok` が真なら t の列へ |
+| 2.2t1 | 外へ抜ける線（横棒） | `break` | いちばん近い繰り返しを抜ける |
+| 2.3 | 四角 | `set` | `piece.y ← piece.y + 1` |
+| 3 | 円（内へ線 = 自陣の手順） | `cast` | `lock()` |
+<!-- /figure -->
+
+- **`break`**: 最も内側の `loop` を直ちに中断してループ外へ脱出するステップです。図では環の外へ抜ける線（先端に横棒）です
 - 盤面には必ず底（行 19 または蓄積ブロック）が存在するため、`fits` は有限回で必ず `false` を返し、安全にループを抜けます（万が一終了条件を満たさない無限ループを記述した場合でも、Jin のランタイムは 1 tick あたりの最大実行ステップ数上限で安全に強制停止します）
 
 ### 8-3. 次のミノの予告
@@ -1098,20 +821,18 @@ speed = max(4, 15 - floor(lines / 5))
 
 複数の陣を管理する場合、トップレベルに手順を持たない**核なし陣（Root Circle）** を配置し、画面の流れ（ライフサイクル）を定義します。
 
-<!-- excerpt: docs/samples/tetris/09-tetris.jin -->
-```json
-{
-  "name": "Game",
-  "flow": {
-    "kind": "loop",
-    "steps": [
-      "Play",
-      "Result"
-    ],
-    "exit": "Result.quit"
-  }
-}
-```
+<!-- figure: 09-tetris flow Game -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/09-tetris.svg" width="360" alt="陣全体の図">
+
+核なし陣 `Game` の `flow`
+
+| 欄 | 値 |
+|---|---|
+| `kind` | `loop` |
+| `steps` | `Play`, `Result` |
+| `exit` | `Result.quit` |
+<!-- /figure -->
 
 ルート陣 `Game` は、「`Play` 陣が終了したら `Result` 陣を開始し、`Result` 陣が終了したら再び `Play` 陣を開始する」というループフローを定義しています。このループは `Result.quit` が真になるまで繰り返されます。`Play` 陣が `finish` すると、自動的に `Result` 画面へと遷移します。
 
@@ -1125,32 +846,29 @@ speed = max(4, 15 - floor(lines / 5))
 
 道具環の `ui` を用いて、クリック可能な GUI ボタンを配置します。
 
-<!-- excerpt: docs/samples/tetris/09-tetris.jin -->
-```json
-{
-  "do": "if",
-  "cond": "ui.button(\"RETRY\", 100, 96, 64, 20)",
-  "then": [
-    {
-      "do": "finish"
-    }
-  ]
-},
-{
-  "do": "if",
-  "cond": "ui.button(\"QUIT\", 100, 124, 64, 20)",
-  "then": [
-    {
-      "do": "set",
-      "target": "quit",
-      "expr": "true"
-    },
-    {
-      "do": "finish"
-    }
-  ]
-}
-```
+<!-- figure: 09-tetris Result/menu -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/09-tetris-Result-menu.svg" width="360" alt="手順 menu の図">
+
+| 番号 | 記号 | Do | 内容 |
+|---|---|---|---|
+| 1 | 円（外へ線 = 道具） | `cast` | `canvas.clear("#101418")` |
+| 2 | 円（外へ線 = 道具） | `cast` | `canvas.ink("#3a4250")` |
+| 3 | 多角形（3 角） | `loop` | `200` 回、中を繰り返す（`i` に 0, 1, … が入る） |
+| 3.1 | 弦（分岐） | `if` | `Play.board[i] != 0` が真なら t の列へ |
+| 3.1t1 | 円（外へ線 = 道具） | `cast` | `canvas.rect(8 + i % 10 * 8, 8 + floor(i / 10) * 8, 7, 7)` |
+| 4 | 円（外へ線 = 道具） | `cast` | `canvas.ink("#c8d0dc")` |
+| 5 | 円（外へ線 = 道具） | `cast` | `canvas.text("GAME OVER", 100, 8)` |
+| 6 | 円（外へ線 = 道具） | `cast` | `canvas.text("SCORE", 100, 28)` |
+| 7 | 円（外へ線 = 道具） | `cast` | `canvas.text(str(Play.score), 100, 38)` |
+| 8 | 円（外へ線 = 道具） | `cast` | `canvas.text("LINES", 100, 56)` |
+| 9 | 円（外へ線 = 道具） | `cast` | `canvas.text(str(Play.lines), 100, 66)` |
+| 10 | 弦（分岐） | `if` | `ui.button("RETRY", 100, 96, 64, 20)` が真なら t の列へ |
+| 10t1 | 外へ抜ける線（二重横棒） | `finish` | 陣を終える |
+| 11 | 弦（分岐） | `if` | `ui.button("QUIT", 100, 124, 64, 20)` が真なら t の列へ |
+| 11t1 | 四角 | `set` | `quit ← true` |
+| 11t2 | 外へ抜ける線（二重横棒） | `finish` | 陣を終える |
+<!-- /figure -->
 
 - `ui.button(label, x, y, width, height)`: ボタンを描画し、**その tick にクリックされた瞬間にのみ `true` を返す即時モード（Immediate Mode）GUI** です。`if` の条件式に直接組み込むことができます
 - **RETRY の動作**: `Result` 陣を `finish` します。するとルート陣 `Game` の `flow` により次の `Play` 陣が開始されます。`Play` の核の手順 `begin` の冒頭で得点や盤面を初期化していたのは、この 2 周目以降のリスタートを正しく成立させるためでした
@@ -1160,17 +878,17 @@ speed = max(4, 15 - floor(lines / 5))
 
 境界環に **`guards`**（不変条件アサーション）を追加しました。
 
-<!-- excerpt: docs/samples/tetris/09-tetris.jin -->
-```json
-{
-  "assert": "len(board) == 0 or len(board) == 200",
-  "message": "盤面は 10 × 20"
-},
-{
-  "assert": "score >= 0 and lines >= 0",
-  "message": "得点と消した行数は負にならない"
-}
-```
+<!-- figure: 09-tetris guards Play -->
+<!-- 生成物（scripts/generate_tutorial_figures.py）。手で編集しない -->
+<img src="images/tutorial/09-tetris.svg" width="360" alt="陣全体の図">
+
+陣 `Play` の境界環の検査
+
+| assert | message |
+|---|---|
+| `len(board) == 0 or len(board) == 200` | 盤面は 10 × 20 |
+| `score >= 0 and lines >= 0` | 得点と消した行数は負にならない |
+<!-- /figure -->
 
 `assert` は「実行中、常に真でなければならない不変条件」を宣言します。毎 tick 自動的に検証され、もし偽になった場合は「実行」モードのエディタ上に警告バッジが表示されます。プログラムを強制クラッシュさせるためではなく、**「開発者が前提としている前提条件」をコード化し、思わぬバグに即座に気づくための防衛策** です。
 
@@ -1267,7 +985,7 @@ uv run jin run docs/samples/tetris/08-controls.jin --input space.jinrec
 | カウントループ（`for`） | `loop` `kind: count`（`name`, `times`） | 4 |
 | 乱数生成 | 道具 `random`、`random.range(lo, hi)` | 4 |
 | 関数の引数・戻り値・早期リターン | `params`, `returns`, `return`, `cast ... into` | 5 |
-| 配列の要素書き換え・配列メソッド | `set target: "board[i]"`, `push` / `clear` / `removeAt` | 6 |
+| 配列の要素書き換え・配列メソッド | `set` の `Target` に `board[i]`、`push` / `clear` / `removeAt` | 6 |
 | 二重ループ（入れ子） | `loop` のネスト（最大 3 段まで） | 7 |
 | ルックアップテーブル（表引き） | `bonus[cleared]`, `colors[kind]` | 7, 4 |
 | ループ中断（`break`） | `break` | 8 |
