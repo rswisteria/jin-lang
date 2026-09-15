@@ -11,8 +11,10 @@
 `--single` は `index.html` **1 本**だけを書く（`player.js` をインラインにし、JIL / manifest / wasm（base64）を
 `window.JIN_BUNDLE` に埋める。runtime.md §9）。asset は埋められないので、`assets` があれば拒む（設計書 §11 #34）。
 
-`--target wasm-gc`（jil.md §6.8・v2.1 Issue #53）は `program=("game.wasm", bytes)` で本体ファイルを差し替える。
-そのときはプレイヤーのビルド物を書かず（`WasmGcHost` の配線は #76）、`--single` も拒む。書き出しの規律は同じ。
+`--target wasm-gc`（jil.md §6.8・v2.1 Issue #53 / #76）は `program=("game.wasm", bytes)` で本体ファイルを差し替える。
+そのときはプレイヤーのうち `index.html` / `player.js` だけを書く（`wasmoon.wasm` は Lua 経路だけのもの。
+`player.js` は Wasmoon と `WasmGcHost` の両方を持ち、`game.manifest.json` の `target` で選ぶ）。`--single` は
+`window.JIN_BUNDLE = { manifest, game: base64 }`（`jil` も `wasmoon.wasm` も無い）。書き出しの規律は同じ。
 
 プレイヤーのビルド物は `jin_wasm/player/`（gitignore。`scripts/sync_player.py` が `apps/player/dist` から複製する。
 wheel には入る）。
@@ -76,6 +78,8 @@ ASSETS_DIR = "assets"
 INDEX_HTML = "index.html"
 #: apps/player のビルド物（`scripts/sync_player.py` が `jin_wasm/player/` に複製する）。
 PLAYER_FILES = ("index.html", "player.js", "wasmoon.wasm")
+#: wasm-gc のバンドルに並べるプレイヤー（`wasmoon.wasm` は要らない。jil.md §6.8）。
+PLAYER_FILES_WASMGC = ("index.html", "player.js")
 PLAYER_DIR = Path(__file__).with_name("player")
 #: `apps/player/public/index.html` の目印。`--single` はここを置き換える（`apps/player` 側と 1:1）。
 BUNDLE_MARKER = "<!-- jin:bundle -->"
@@ -113,7 +117,11 @@ def _escape_inline_json(text: str) -> str:
 
 
 def single_index_html(
-    game: GeneratedGame, manifest: dict, *, player_dir: Path | None = None
+    game: GeneratedGame | Bundleable,
+    manifest: dict,
+    *,
+    player_dir: Path | None = None,
+    program: tuple[str, bytes] | None = None,
 ) -> bytes:
     """`--single` の `index.html`: `player.js` をインラインにし、JIL / manifest / wasm を埋める。
 
@@ -121,13 +129,15 @@ def single_index_html(
     `<script src="player.js">` を `<script>` + 本文に置き換える。`player.js` は自前のビルド物なので
     `</script` を含まないはずだが、含んでいたら（インラインにすると HTML が壊れる）拒む。
 
+    束は Lua 経路が `{ jil, manifest, wasm }`（`wasm` は `wasmoon.wasm` の base64）、wasm-gc（`program` あり）が
+    `{ manifest, game }`（`game` は `game.wasm` の base64。jil.md §6.8）。
+
     guard: single_index_html -> _escape_inline_json(bundle)
     """
     if player_dir is None:
         player_dir = PLAYER_DIR
     html = (player_dir / "index.html").read_text(encoding="utf-8")
     player_js = (player_dir / "player.js").read_text(encoding="utf-8")
-    wasm = base64.b64encode((player_dir / "wasmoon.wasm").read_bytes()).decode("ascii")
     if BUNDLE_MARKER not in html or PLAYER_SCRIPT_TAG not in html:
         raise WriteRefused(
             f"同梱された index.html に {BUNDLE_MARKER} か {PLAYER_SCRIPT_TAG} がありません"
@@ -135,7 +145,15 @@ def single_index_html(
         )
     if "</script" in player_js.lower():
         raise WriteRefused("同梱された player.js に </script が含まれるのでインラインにできません")
-    bundle = json.dumps({"jil": game.lua, "manifest": manifest, "wasm": wasm}, ensure_ascii=False)
+    if program is not None:
+        embedded: dict[str, Any] = {
+            "manifest": manifest,
+            "game": base64.b64encode(program[1]).decode("ascii"),
+        }
+    else:
+        wasm = base64.b64encode((player_dir / "wasmoon.wasm").read_bytes()).decode("ascii")
+        embedded = {"jil": game.lua, "manifest": manifest, "wasm": wasm}  # type: ignore[union-attr]
+    bundle = json.dumps(embedded, ensure_ascii=False)
     html = html.replace(
         BUNDLE_MARKER, f"<script>window.JIN_BUNDLE = {_escape_inline_json(bundle)};</script>", 1
     )
@@ -281,12 +299,9 @@ def write_bundle(
     """バンドルを `<out>/` に書く。`single` は `<out>/index.html` 1 本（プレイヤーの同梱が要る）。
 
     `program` は本体ファイルの差し替え `(ファイル名, バイト列)`（`--target wasm-gc` の `game.wasm`。
-    jil.md §6.8）。与えたときは `game.lua` を書かず、プレイヤーのビルド物も書かない（#76 で配線する）。
+    jil.md §6.8）。与えたときは `game.lua` を書かず、プレイヤーは `index.html` / `player.js` だけを並べる
+    （`wasmoon.wasm` は書かない）。`--single` は `game.wasm` を base64 で埋める。
     """
-    if program is not None and single:
-        raise WriteRefused(
-            "--single の wasm-gc 版は #76（Sub-Issue D）で入ります。--single 無しで書き出してください"
-        )
     if single and not player_available():
         raise WriteRefused(
             "--single はプレイヤー（index.html / player.js / wasmoon.wasm）を埋め込みます。"
@@ -334,7 +349,10 @@ def write_bundle(
                 if single:
                     plans.append(
                         _Plan(
-                            out_fd, INDEX_HTML, single_index_html(game, manifest), out / INDEX_HTML
+                            out_fd,
+                            INDEX_HTML,
+                            single_index_html(game, manifest, program=program),
+                            out / INDEX_HTML,
                         )
                     )
                 else:
@@ -348,16 +366,14 @@ def write_bundle(
                             plans.append(
                                 _Plan(assets_fd, basename, fd, out / ASSETS_DIR / basename)
                             )
-                    if program is not None:
-                        pass  # wasm-gc: プレイヤーは #76 で `WasmGcHost` を配線してから同梱する
-                    elif player_available():
-                        for name in PLAYER_FILES:
+                    if player_available():
+                        for name in PLAYER_FILES if program is None else PLAYER_FILES_WASMGC:
                             plans.append(
                                 _Plan(out_fd, name, (PLAYER_DIR / name).read_bytes(), out / name)
                             )
                     else:
                         notes.append(
-                            f"{PLAYER_MISSING_NOTE}。{GAME_LUA} / {GAME_MANIFEST} を書きました"
+                            f"{PLAYER_MISSING_NOTE}。{program_name} / {GAME_MANIFEST} を書きました"
                         )
                 for plan in plans:
                     fd, opened_name = _open_for_write(
@@ -422,6 +438,7 @@ __all__ = [
     "INDEX_HTML",
     "PLAYER_DIR",
     "PLAYER_FILES",
+    "PLAYER_FILES_WASMGC",
     "PLAYER_MISSING_NOTE",
     "PLAYER_SCRIPT_TAG",
     "BundleResult",

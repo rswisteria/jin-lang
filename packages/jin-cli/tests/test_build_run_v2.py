@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -182,21 +183,6 @@ def test_run_wasm_gc_writes_the_same_trace_and_frames_as_lua(tmp_path: Path) -> 
     assert rows[0]["kind"] == "enter" and rows[0]["seq"] == 0 and rows[-1]["kind"] == "frame"
 
 
-@pytest.mark.parametrize(
-    ("args", "issue"),
-    [
-        (("build", FIB, "--target", "wasm-gc", "--out", "x", "--single"), "#76"),
-    ],
-)
-def test_the_wasm_gc_target_refuses_what_later_sub_issues_add(
-    args, issue: str, tmp_path: Path
-) -> None:
-    args = [tmp_path / a if a == "x" else a for a in args]
-    result = invoke(*args)
-    assert result.exit_code == 1, result.output
-    assert issue in result.stderr
-
-
 @pytest.mark.parametrize("command", ["run", "build"])
 def test_an_unknown_target_is_refused(command: str, tmp_path: Path) -> None:
     extra = ("--out", tmp_path / "x") if command == "build" else ()
@@ -218,8 +204,13 @@ def test_build_with_the_wasm_gc_target_writes_game_wasm_and_a_target_manifest(
     out = tmp_path / "dist"
     result = invoke("build", FIB, "--target", "wasm-gc", "--out", out)
     assert result.exit_code == 0, result.output
-    # プレイヤーが同梱されていても書かない（WasmGcHost の配線は #76）
-    assert sorted(p.name for p in out.iterdir()) == ["game.manifest.json", "game.wasm"]
+    # 同梱されたプレイヤーも並ぶ。`wasmoon.wasm` は wasm-gc のバンドルには書かない（jil.md §6.8）
+    assert sorted(p.name for p in out.iterdir()) == [
+        "game.manifest.json",
+        "game.wasm",
+        "index.html",
+        "player.js",
+    ]
     assert (out / "game.wasm").read_bytes()[:4] == b"\0asm"
     manifest = json.loads((out / "game.manifest.json").read_text(encoding="utf-8"))
     assert manifest["target"] == "wasm-gc" and "jil" not in manifest
@@ -229,6 +220,33 @@ def test_build_with_the_wasm_gc_target_writes_game_wasm_and_a_target_manifest(
     )
     again = invoke("build", FIB, "--target", "wasm-gc", "--out", out)
     assert again.exit_code == 1 and "--force" in again.stderr
+
+
+def test_build_single_with_the_wasm_gc_target_embeds_game_wasm(tmp_path: Path, monkeypatch) -> None:
+    """`--single --target wasm-gc`: index.html 1 本に `{ manifest, game: base64 }` を埋める（jil.md §6.8）。"""
+    from jin_wasm import bundle
+
+    player = tmp_path / "player"
+    player.mkdir()
+    (player / "index.html").write_text(
+        f"<html><body>{bundle.BUNDLE_MARKER}{bundle.PLAYER_SCRIPT_TAG}</body></html>",
+        encoding="utf-8",
+    )
+    (player / "player.js").write_text("void 0;", encoding="utf-8")
+    (player / "wasmoon.wasm").write_bytes(b"\x00asm")
+    monkeypatch.setattr(bundle, "PLAYER_DIR", player)
+    single = tmp_path / "single"
+    result = invoke("build", FIB, "--target", "wasm-gc", "--out", single, "--single", "--debug")
+    assert result.exit_code == 0, result.output
+    assert [p.name for p in single.iterdir()] == ["index.html"]
+    html = (single / "index.html").read_text(encoding="utf-8")
+    start = html.index("window.JIN_BUNDLE = ") + len("window.JIN_BUNDLE = ")
+    embedded = json.loads(html[start : html.index(";</script>", start)])
+    assert set(embedded) == {"manifest", "game"}
+    assert embedded["manifest"]["target"] == "wasm-gc" and embedded["manifest"]["debug"] is True
+    wasm = base64.b64decode(embedded["game"])
+    assert wasm[:4] == b"\0asm"
+    assert __import__("hashlib").sha256(wasm).hexdigest() == embedded["manifest"]["wasm"]
 
 
 def test_the_lua_manifest_does_not_grow_a_target_key(tmp_path: Path) -> None:
