@@ -207,8 +207,8 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   選ぶ。**エディタの `jin.load` は JIL のまま**（LSP の生成は Lua 経路・設計書 §8）。ブラウザのパリティは
   `apps/player/e2e/wasmgc.spec.ts`（録画 → Lua と wasm-GC の両方の `jin run --input` と全行一致・`--single` の wasm-gc 版）
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasmgc --snapshot-update`
-  （`packages/jin-wasmgc/tests/__snapshots__/`・Lua 側と同じ 3 本 × debug / release）。パリティは
-  `tests/contract/test_wasmgc_parity.py`（`jin run --target lua` と `--target wasm-gc` を実プロセスで走らせ、17 本
+  （`packages/jin-wasmgc/tests/__snapshots__/`・Lua 側と同じ 4 本 × debug / release）。パリティは
+  `tests/contract/test_wasmgc_parity.py`（`jin run --target lua` と `--target wasm-gc` を実プロセスで走らせ、18 本
   × release / debug の `--frames` / `--trace` のバイト一致 + 実行時エラーの行 + `paddle-v2.jsonl` の全行一致）。
   単体では `packages/jin-wasmgc/tests/test_runtime.py` が**生の tick 結果の文字列**（trace / snapshot / asks 込み）を
   Lua と比べる（`json.loads` を通すと 1 / 1.0 とエスケープの違いが消える）。ランタイム部の内側は `tests/conftest.py` の
@@ -276,7 +276,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   asset があれば拒む・設計書 §11 #34）。テストは `bundle.PLAYER_DIR` を monkeypatch して同梱あり / なしの両分岐を固定し、
   CI の player ジョブだけが `JIN_REQUIRE_PLAYER=1` で「有る側」を要求する
 - **生成部を変えたらスナップショットを更新する**: `uv run pytest packages/jin-wasm --snapshot-update`
-  （`packages/jin-wasm/tests/__snapshots__/`。生成部 3 本 × debug / release と paddle 60 tick のゴールデン）。
+  （`packages/jin-wasm/tests/__snapshots__/`。生成部 4 本（paddle / clicker / fib / tetris）× debug / release と paddle 60 tick のゴールデン）。
   差分を読んでからコミット。examples-v2 が使わない経路（parallel / transfer / emit / key / pointer / wait until /
   each / summon / agent / 実行時エラー / assert / sequence）は `tests/fixtures/v2-programs/` の 14 本が固定する（v2.1 の `storage` / `text_input` / `agent` を含む）
 - v2 の ops は `jin_core.v2.ops.OPERATIONS`（32 件・`docs/spec/v2/ops.md` §2 と等号）。`extractRite` の逆は
@@ -442,7 +442,10 @@ Jin v2 Phase 6（デバッグ: 録画の再生・記憶環の値・`assert` の�
   `<text>` を作らない契約テストがあるので SVG の中に置かない。値は脇の表（`jin-state-values`）にも全部出す
 - **行数の上限は出どころで分ける**（`App.tsx`）: 走らせている間は `MAX_LIVE_ROWS`（4000・古い行を落とす）、
   録画の再生は `MAX_REPLAY_ROWS`（60000・落とさず、超えたら載せない）。古い行を落とすと `enter` 行が消えて
-  値の積算が黙って狂うため。描き直しはプレイヤーが止まった知らせ（`jin.status` の `running: false`）で行う
+  値の積算が黙って狂うため。描き直しはプレイヤーが止まった知らせ（`jin.status` の `running: false`）で行う。
+  **ws の 1 メッセージの上限は `jin_lsp.server.WS_MAX_MESSAGE_BYTES`（64 MiB）**: `jin/renderSvg` はトレース行を
+  丸ごと載せるので、`websockets` の既定 1 MiB のままだと数千行で接続が 1009 で閉じ「表示できません: Connection is
+  disposed」になる（tetris の録画の再生で実測。`test_ws_roundtrip.py::test_a_render_request_with_a_large_trace_…`）
 - **親とプレイヤーの語彙は 7 語**（`jin.load` / `jin.control` / `jin.replay` / `jin.frame` は親から、`jin.trace` /
   `jin.status` / `jin.recording` は親へ）。`tests/contract/test_editor_contract.py` が `RunPanel.tsx` と `main.ts` から
   抜いた集合の**等号**で固定する。語彙はこの 2 ファイルの外に書かない
@@ -586,7 +589,7 @@ uv run python delivery/20260904-1445-jin/phase5-mutations/mutate_p5.py   # 同�
 uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同上（Phase 6・デバッグモード）
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
-cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-paddle-demo.gif / .mp4）を撮り直す（台本は demo/v2-paddle.spec.ts・要 ffmpeg と apps/player の dist）
+cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-tetris-demo.gif / .mp4）を撮り直す（台本は demo/v2-tetris.spec.ts・自動操縦で遊ぶ・要 ffmpeg と apps/player の dist）
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）

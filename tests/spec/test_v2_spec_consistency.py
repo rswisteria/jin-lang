@@ -203,8 +203,8 @@ def _steps(steps: list[dict]):
                 yield from _steps(s[key])
 
 
-def test_there_are_three_v2_examples() -> None:
-    assert [p.parent.name for p in EXAMPLES_V2] == ["clicker", "fib", "paddle"]
+def test_there_are_four_v2_examples() -> None:
+    assert [p.parent.name for p in EXAMPLES_V2] == ["clicker", "fib", "paddle", "tetris"]
 
 
 @pytest.mark.parametrize("path", EXAMPLES_V2, ids=[p.stem for p in EXAMPLES_V2])

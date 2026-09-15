@@ -2,7 +2,7 @@
 
 同じ `.jin` と同じ seed / ticks / 入力ログで `jin run --target lua` と `jin run --target wasm-gc` を**実プロセス**で
 走らせ、出力を突き合わせる。Sub-Issue A（#73）は fib の公開 state（標準出力）、B（#74）は release の
-`--frames`、C（#75）は `examples-v2/` 3 本と `tests/fixtures/v2-programs/` 14 本の全部について debug の
+`--frames`、C（#75）は `examples-v2/`（3 本 + 後から足した tetris）と `tests/fixtures/v2-programs/` 14 本の全部について debug の
 `--trace` + `--frames` のバイト一致（Issue #53 の完了条件）と、`tests/fixtures/traces/paddle-v2.jsonl` の全行一致。
 """
 
@@ -53,15 +53,36 @@ EVENTS: dict[str, list[dict]] = {
         {"tick": 70, "kind": "pointer", "x": 140, "y": 70, "down": True},
         {"tick": 71, "kind": "pointer", "x": 140, "y": 70, "down": False},
     ],
+    "tetris": [
+        {"tick": 4, "kind": "key", "name": "ArrowLeft", "down": True},
+        {"tick": 5, "kind": "key", "name": "ArrowLeft", "down": False},
+        {"tick": 8, "kind": "key", "name": "ArrowUp", "down": True},
+        {"tick": 9, "kind": "key", "name": "ArrowUp", "down": False},
+        {"tick": 12, "kind": "key", "name": "Space", "down": True},
+        {"tick": 13, "kind": "key", "name": "Space", "down": False},
+        {"tick": 20, "kind": "key", "name": "ArrowRight", "down": True},
+        {"tick": 21, "kind": "key", "name": "ArrowRight", "down": False},
+        {"tick": 22, "kind": "key", "name": "ArrowRight", "down": True},
+        {"tick": 23, "kind": "key", "name": "ArrowRight", "down": False},
+        {"tick": 26, "kind": "key", "name": "ArrowDown", "down": True},
+        {"tick": 40, "kind": "key", "name": "ArrowDown", "down": False},
+        {"tick": 44, "kind": "key", "name": "Space", "down": True},
+        {"tick": 45, "kind": "key", "name": "Space", "down": False},
+    ],
 }
 
 #: 走らせる tick 数（既定 5。核が wait で待つものは長め）
-TICKS = {"paddle": 40, "clicker": 80, "wait_until": 6, "transfer": 6}
+TICKS = {"paddle": 40, "clicker": 80, "tetris": 60, "wait_until": 6, "transfer": 6}
 
 #: 両経路とも実行時エラー（exit 1・stderr の「実行時エラー」の行が同じ）
 RUNTIME_ERRORS = {"bad_color", "runtime_error_index"}
 
-ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + ["fib", "paddle", "clicker"]
+ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + [
+    "fib",
+    "paddle",
+    "clicker",
+    "tetris",
+]
 
 
 def fixture_path(name: str) -> Path:

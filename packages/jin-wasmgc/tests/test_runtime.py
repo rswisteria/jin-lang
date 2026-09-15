@@ -820,8 +820,29 @@ ALL_EVENTS = {
         {"tick": 70, "kind": "pointer", "x": 140, "y": 70, "down": True},
         {"tick": 71, "kind": "pointer", "x": 140, "y": 70, "down": False},
     ],
+    "tetris": [
+        {"tick": 4, "kind": "key", "name": "ArrowLeft", "down": True},
+        {"tick": 5, "kind": "key", "name": "ArrowLeft", "down": False},
+        {"tick": 8, "kind": "key", "name": "ArrowUp", "down": True},
+        {"tick": 9, "kind": "key", "name": "ArrowUp", "down": False},
+        {"tick": 12, "kind": "key", "name": "Space", "down": True},
+        {"tick": 13, "kind": "key", "name": "Space", "down": False},
+        {"tick": 20, "kind": "key", "name": "ArrowRight", "down": True},
+        {"tick": 21, "kind": "key", "name": "ArrowRight", "down": False},
+        {"tick": 22, "kind": "key", "name": "ArrowRight", "down": True},
+        {"tick": 23, "kind": "key", "name": "ArrowRight", "down": False},
+        {"tick": 26, "kind": "key", "name": "ArrowDown", "down": True},
+        {"tick": 40, "kind": "key", "name": "ArrowDown", "down": False},
+        {"tick": 44, "kind": "key", "name": "Space", "down": True},
+        {"tick": 45, "kind": "key", "name": "Space", "down": False},
+    ],
 }
-ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + ["fib", "paddle", "clicker"]
+ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + [
+    "fib",
+    "paddle",
+    "clicker",
+    "tetris",
+]
 EXAMPLES = REPO_ROOT / "examples-v2"
 
 
@@ -835,8 +856,8 @@ def any_path(name: str) -> Path:
 
 @pytest.mark.parametrize("name", ALL_PROGRAMS)
 def test_every_program_gives_the_same_debug_tick_text_as_lua(name: str) -> None:
-    """17 本すべての debug の tick 結果（trace / snapshot / asks / storage を含む JSON）が文字列で一致する。"""
-    ticks = {"paddle": 40, "clicker": 80}.get(name, 6)
+    """18 本すべての debug の tick 結果（trace / snapshot / asks / storage を含む JSON）が文字列で一致する。"""
+    ticks = {"paddle": 40, "clicker": 80, "tetris": 60}.get(name, 6)
     lua, wasm = raw_ticks(
         load(any_path(name)),
         ticks=ticks,

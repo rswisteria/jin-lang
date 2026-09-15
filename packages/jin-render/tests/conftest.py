@@ -143,6 +143,11 @@ def fib() -> JinFileV2:
     return load_model_v2(EXAMPLES_V2 / "fib" / "fib.jin")
 
 
+@pytest.fixture(scope="session")
+def tetris() -> JinFileV2:
+    return load_model_v2(EXAMPLES_V2 / "tetris" / "tetris.jin")
+
+
 def model_v2_from(
     circles: list[dict[str, Any]],
     root: str,

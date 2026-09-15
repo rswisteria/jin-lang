@@ -446,3 +446,47 @@ async def test_the_server_survives_a_client_reconnect(tmp_path: Path) -> None:
                 assert "result" in answer, f"{attempt + 1} 本目の initialize が失敗: {answer}"
     finally:
         server.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_render_request_with_a_large_trace_does_not_close_the_connection(
+    ws_client,
+) -> None:
+    """`jin/renderSvg` にトレース行を丸ごと載せた数 MB のメッセージが通る（`WS_MAX_MESSAGE_BYTES`）。
+
+    `websockets` の既定は 1 MiB で、超えると 1009 で接続が閉じる。エディタは録画の再生で最大 60000 行
+    （`MAX_REPLAY_ROWS`）を 1 リクエストに載せるので、tetris のように 1 tick に百行出る .jin では
+    数千 tick で「表示できません: Connection is disposed」になっていた（README の動画の収録で実測）。
+    """
+    from pathlib import Path
+
+    paddle = Path(__file__).resolve().parents[3] / "examples-v2" / "paddle" / "paddle.jin"
+    text = paddle.read_text(encoding="utf-8")
+    uri = "file:///workspace/paddle.jin"
+    await open_document(ws_client, text, uri)
+    rows = [
+        {
+            "seq": i,
+            "tick": i // 10,
+            "circle": "Play",
+            "kind": "set",
+            "name": "ball",
+            "pointer": "/circles/1/state/0",
+            "input": None,
+            "output": {"x": 160.5, "y": 40.25, "vx": 90, "vy": 70, "pad": "x" * 120},
+        }
+        for i in range(20000)
+    ]
+    assert len(json.dumps(rows)) > 4 * 1024 * 1024
+    result = as_plain(
+        await asyncio.wait_for(
+            ws_client.protocol.send_request_async(
+                # upto を小さくして応答（SVG）は 1 MiB 未満に留める: 見たいのは**要求**の大きさ。テストの
+                # クライアント（pytest-lsp の websockets）は受信側に既定の 1 MiB の上限を持ったままである
+                "jin/renderSvg",
+                {"uri": uri, "trace": rows, "upto": 100},
+            ),
+            timeout=STARTUP_TIMEOUT,
+        )
+    )
+    assert "svg" in result and "data-jin-fired" in result["svg"]

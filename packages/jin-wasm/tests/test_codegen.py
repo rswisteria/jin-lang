@@ -22,7 +22,7 @@ from jin_wasm.runtime import HeadlessResult, run_headless
 REPO_ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES = REPO_ROOT / "examples-v2"
 PROGRAMS = REPO_ROOT / "tests" / "fixtures" / "v2-programs"
-EXAMPLE_NAMES = ("paddle", "clicker", "fib")
+EXAMPLE_NAMES = ("paddle", "clicker", "fib", "tetris")
 
 
 def load(path: Path) -> JinFileV2:
@@ -431,3 +431,60 @@ def test_num_states_are_floats_at_runtime(name: str) -> None:
             assert math_type(value) == "float", (circle.name, state.name, value)
             checked += 1
     assert checked >= 1
+
+
+# ---------------------------------------------------------------- tetris（examples-v2 の 4 本目）
+
+
+def test_tetris_clears_a_full_row_and_scores(tmp_path: Path) -> None:
+    """行消去: 満杯の行が消えて上の行が 1 段落ち、得点 100・行数 1 になる（板は list<num> の平らな 200 要素）。
+
+    盤面は `begin` が毎回空にするので、写しで `init` に満杯の行（18 行目）と右端だけ空いた行（19 行目）を置き、
+    `begin` の初期化を外してからハードドロップ（Space）を 1 回入れる。
+    """
+    doc = json.loads((EXAMPLES / "tetris" / "tetris.jin").read_text(encoding="utf-8"))
+    play = doc["circles"][1]
+    board = [0] * 180 + [1] * 10 + [2] * 9 + [0]
+    for state in play["state"]:
+        if state["name"] == "board":
+            state["init"] = json.dumps(board)
+    begin = next(r for r in play["rites"] if r["name"] == "begin")
+    begin["steps"] = [
+        s
+        for s in begin["steps"]
+        if not (s["do"] == "cast" and s["target"] in ("clear", "push"))
+        and not (s["do"] == "loop" and s["kind"] == "count")
+    ]
+    path = tmp_path / "tetris-clear.jin"
+    path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    game = generate(load(path), source_name=path.name, debug=True)
+    result = run_headless(
+        game.lua,
+        game.manifest,
+        seed=3,
+        ticks=12,
+        events=[
+            {"tick": 3, "kind": "key", "name": "Space", "down": True},
+            {"tick": 4, "kind": "key", "name": "Space", "down": False},
+        ],
+    )
+    assert result.error is None
+    assert result.public["Play.score"] == 100 and result.public["Play.lines"] == 1
+    assert result.public["Play.placed"] == 1
+    after = result.public["Play.board"]
+    assert after[190:200] == [2] * 9 + [0]  # 右端の空いた行はそのまま最下段
+    assert all(v == 0 for v in after[:170])  # 満杯の行は消え、上は空のまま
+    assert sum(1 for v in after[170:190] if v != 0) == 4  # 落としたミノ 4 マスが 1 段下がって載る
+    assert [r["name"] for r in result.rows if r["kind"] == "rite"][:1] == ["begin"]
+
+
+def test_tetris_ends_in_the_result_screen_when_pieces_pile_up() -> None:
+    """何も操作しないと積み上がって Play が done になり、Result の画面（GAME OVER と 2 つのボタン）に移る。"""
+    path = EXAMPLES / "tetris" / "tetris.jin"
+    game = generate(load(path), source_name=path.name, debug=False)
+    result = run_headless(game.lua, game.manifest, seed=3, ticks=2400)
+    assert result.error is None and result.done_tick is None
+    last = result.frames[-1]["ops"]
+    assert ["text", "GAME OVER", 100, 8] in last
+    assert [op[1] for op in last if op[0] == "button"] == ["RETRY", "QUIT"]
+    assert result.public["Play.placed"] > 10

@@ -12,7 +12,7 @@ export default defineConfig({
 	outputDir: "./demo-results",
 	fullyParallel: false,
 	workers: 1,
-	timeout: 180_000,
+	timeout: 600_000,
 	expect: { timeout: 30_000 },
 	reporter: "list",
 	retries: 0,
