@@ -25,7 +25,16 @@ from jin_cli.editor import (
     free_port,
     prepare,
 )
+from jin_cli.main import app
 from jin_cli.runserver import RunSlot  # noqa: F401  (serve の finally を差し替えるため)
+from typer.testing import CliRunner
+
+runner = CliRunner()
+
+
+def run(*args: str):
+    return runner.invoke(app, list(args))
+
 
 VALID = """{
   "$schema": "https://xtone.internal/jin/schemas/jin.schema.json",
@@ -384,3 +393,92 @@ def test_default_player_dist_prefers_the_repo_then_the_bundle(tmp_path: Path, mo
         editor_module.default_player_dist(repo / "packages" / "x.py")
         == (repo / "apps" / "player" / "dist").resolve()
     )
+
+
+# ======================================================================================
+# `/stage/`（鑑賞ページ・docs/spec/v2/stage.md）
+# ======================================================================================
+def _serve_with_stage(dist: Path, player: Path | None, stage: Path | None):
+    httpd = _static_server("127.0.0.1", dist, None, player, stage)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    return httpd, f"http://127.0.0.1:{httpd.server_address[1]}"
+
+
+def test_the_stage_is_served_under_stage_and_cannot_escape(tmp_path: Path) -> None:
+    """`/stage/…` は鑑賞ページの根へ写り、`..` でエディタの `dist` にもプレイヤーにも外にも抜けない。"""
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html>editor</html>", encoding="utf-8")
+    (tmp_path / "secret.jin").write_text("{}", encoding="utf-8")
+    player = tmp_path / "player"
+    player.mkdir()
+    (player / "index.html").write_text("<html>player</html>", encoding="utf-8")
+    stage = tmp_path / "stage"
+    (stage / "assets").mkdir(parents=True)
+    (stage / "index.html").write_text("<html>stage</html>", encoding="utf-8")
+    (stage / "assets" / "index.js").write_text("// js", encoding="utf-8")
+
+    httpd, base = _serve_with_stage(dist, player, stage)
+    try:
+        with urlopen(f"{base}/stage/index.html", timeout=5) as answer:
+            assert answer.read() == b"<html>stage</html>"
+        with urlopen(f"{base}/stage/", timeout=5) as answer:
+            assert answer.read() == b"<html>stage</html>"
+        with urlopen(f"{base}/stage/assets/index.js", timeout=5) as answer:
+            assert answer.read() == b"// js"
+        with urlopen(f"{base}/play/index.html", timeout=5) as answer:
+            assert answer.read() == b"<html>player</html>"
+        for escape in (
+            "/stage/../secret.jin",
+            "/stage/%2e%2e/secret.jin",
+            "/stage/../play/index.html",
+        ):
+            with pytest.raises(HTTPError) as caught:
+                urlopen(f"{base}{escape}", timeout=5)
+            assert caught.value.code == 404, escape
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_stage_is_404_when_there_is_no_stage(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<html></html>", encoding="utf-8")
+    httpd, base = _serve_with_stage(dist, None, None)
+    try:
+        with pytest.raises(HTTPError) as caught:
+            urlopen(f"{base}/stage/index.html", timeout=5)
+        assert caught.value.code == 404
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_resolve_stage_refuses_an_explicit_dir_without_index(tmp_path: Path) -> None:
+    from jin_cli.editor import EditorError, resolve_stage
+
+    with pytest.raises(EditorError, match="鑑賞ページ"):
+        resolve_stage(tmp_path)
+    (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    assert resolve_stage(tmp_path) == tmp_path.resolve()
+
+
+def test_default_stage_dist_is_the_repo_build(tmp_path: Path) -> None:
+    from jin_cli import editor as editor_module
+
+    assert editor_module.default_stage_dist(tmp_path / "x" / "y.py") is None
+    repo = tmp_path / "repo"
+    (repo / "apps" / "stage" / "dist").mkdir(parents=True)
+    (repo / "apps" / "stage" / "dist" / "index.html").write_text("<html></html>", encoding="utf-8")
+    assert (
+        editor_module.default_stage_dist(repo / "packages" / "x.py")
+        == (repo / "apps" / "stage" / "dist").resolve()
+    )
+
+
+def test_jin_editor_accepts_stage_dist_without_a_new_subcommand() -> None:
+    result = run("editor", "--help")
+    assert result.exit_code == 0
+    assert "--stage-dist" in result.output

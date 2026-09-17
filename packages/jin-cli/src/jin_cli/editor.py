@@ -9,6 +9,8 @@
 4. Jin v2 の実行パネル（設計書 §8）のために、プレイヤー（`apps/player` のビルド物）を
    **同じサーバの `/play/`** として配る（`--player-dist` > `apps/player/dist` >
    `jin_wasm.bundle.PLAYER_DIR` の順に探す。無ければ `/play/` は 404 で、エディタが 1 行出す）
+5. 鑑賞ページ（`apps/stage` のビルド物・`docs/spec/v2/stage.md`）を**同じサーバの `/stage/`** として配る
+   （`--stage-dist` > `apps/stage/dist` の順に探す。同梱版は無い。無ければ `/stage/` は 404 で、エディタが 1 行出す）
 
 **危険性**: これは `jin lsp --ws --root` と同じ口を、ユーザーが `--root` を明示せずに
 開くことを意味する。WebSocket には same-origin 制限が無いので、ブラウザで開いている
@@ -54,6 +56,12 @@ _PLAYER_FROM_REPO = ("apps", "player", "dist")
 
 #: プレイヤーを配る URL の前置き。エディタ（`apps/editor/src/run/RunPanel.tsx`）と同じ文字列。
 PLAY_PREFIX = "/play/"
+
+#: 鑑賞ページのビルド物の場所（リポジトリのレイアウト）。パッケージには同梱しない。
+_STAGE_FROM_REPO = ("apps", "stage", "dist")
+
+#: 鑑賞ページを配る URL の前置き。エディタ（`apps/editor/src/stage/StagePanel.tsx`）と同じ文字列。
+STAGE_PREFIX = "/stage/"
 
 
 class EditorError(Exception):
@@ -140,6 +148,26 @@ def resolve_player(player_dist: Path | None) -> Path | None:
     return root
 
 
+def default_stage_dist(start: Path | None = None) -> Path | None:
+    """鑑賞ページのビルド物をリポジトリの `apps/stage/dist` から探す。無ければ `None`。"""
+    here = (start or Path(__file__)).resolve()
+    for parent in here.parents:
+        candidate = parent.joinpath(*_STAGE_FROM_REPO)
+        if (candidate / "index.html").is_file():
+            return candidate
+    return None
+
+
+def resolve_stage(stage_dist: Path | None) -> Path | None:
+    """`--stage-dist` を検証する。明示されたのに無ければ**黙って既定に落ちない**。"""
+    if stage_dist is None:
+        return default_stage_dist()
+    root = stage_dist.resolve()
+    if not (root / "index.html").is_file():
+        raise EditorError(f"鑑賞ページの index.html がありません: {stage_dist}")
+    return root
+
+
 def free_port(host: str) -> int:
     """空きポートを 1 つ borrow する。
 
@@ -198,6 +226,7 @@ def serve(
     *,
     dist: Path | None = None,
     player_dist: Path | None = None,
+    stage_dist: Path | None = None,
     host: str = "127.0.0.1",
     open_browser: bool = True,
     announce: Callable[[str], None] | None = None,
@@ -209,6 +238,7 @@ def serve(
     """
     target, root = prepare(file, dist)
     player = resolve_player(player_dist)
+    stage = resolve_stage(stage_dist)
 
     # `jin/open` / `jin/save` が触れてよいのは**対象ファイルの親ディレクトリ**だけ。
     files = fileio.FileAccess.create(editor_root(target))
@@ -217,7 +247,7 @@ def serve(
     # 実行の口（Issue #34）。**トークンは `jin/open` / `jin/save` と同じものを使う。**
     # 別に発行しても守るものは変わらず、URL のフラグメントに 2 つ載せる分だけ漏れ口が増える。
     endpoint = RunEndpoint(target=target, token=files.token)
-    httpd = _static_server(host, root, endpoint, player)
+    httpd = _static_server(host, root, endpoint, player, stage)
     http_port = int(httpd.server_address[1])
     # `Origin` の期待値はポートが決まってからでないと書けない。
     endpoint.origin = f"http://{host}:{http_port}"
@@ -242,6 +272,12 @@ def serve(
                 "プレイヤーが見つからないので Jin v2 の実行パネルは使えません"
                 "（v1 の .jin には関係ありません。apps/player で `pnpm build` するか"
                 " --player-dist で場所を指定してください）"
+            )
+        if stage is None:
+            announce(
+                "鑑賞ページが見つからないので Jin v2 の鑑賞モードは使えません"
+                "（v1 の .jin には関係ありません。apps/stage で `pnpm build` するか"
+                " --stage-dist で場所を指定してください）"
             )
     if open_browser:
         webbrowser.open(address.url)
@@ -274,32 +310,36 @@ class _StaticHandler(SimpleHTTPRequestHandler):
         *args: object,
         endpoint: RunEndpoint | None = None,
         player: Path | None = None,
+        stage: Path | None = None,
         **kwargs: object,
     ) -> None:
         # **`super().__init__` の前に設定する。** `BaseHTTPRequestHandler.__init__` は
         # その場でリクエストを処理する（`handle()` を呼ぶ）ので、あとから代入しても間に合わない。
         self._endpoint = endpoint
         self._player = player
+        self._stage = stage
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
 
     def translate_path(self, path: str) -> str:
-        """`/play/…` だけをプレイヤーの根へ写し、それ以外は `dist` の根のまま。
+        """`/play/…` と `/stage/…` だけを写し、それ以外は `dist` の根のまま。
 
         写した先でも `SimpleHTTPRequestHandler.translate_path` の正規化（`..` の除去）を
-        そのまま通すので、`/play/../` でエディタの `dist` へも cwd へも抜けない
-        （`packages/jin-cli/tests/test_editor.py` が固定する）。プレイヤーが無ければ
-        `/play/` は存在しないパスとして `dist` 側で 404 になる。
+        そのまま通すので、`/play/../` や `/stage/../` でエディタの `dist` へも cwd へも抜けない
+        （`packages/jin-cli/tests/test_editor.py` が固定する）。プレイヤー・鑑賞ページが無ければ
+        `/play/` / `/stage/` は存在しないパスとして `dist` 側で 404 になる。
         """
         clean = path.split("?", 1)[0].split("#", 1)[0]
-        if self._player is None or not (clean == PLAY_PREFIX[:-1] or clean.startswith(PLAY_PREFIX)):
-            return super().translate_path(path)
-        rest = clean[len(PLAY_PREFIX) :] if clean.startswith(PLAY_PREFIX) else ""
-        original = self.directory
-        self.directory = str(self._player)
-        try:
-            return super().translate_path("/" + rest)
-        finally:
-            self.directory = original
+        for prefix, mount in ((PLAY_PREFIX, self._player), (STAGE_PREFIX, self._stage)):
+            if mount is None or not (clean == prefix[:-1] or clean.startswith(prefix)):
+                continue
+            rest = clean[len(prefix) :] if clean.startswith(prefix) else ""
+            original = self.directory
+            self.directory = str(mount)
+            try:
+                return super().translate_path("/" + rest)
+            finally:
+                self.directory = original
+        return super().translate_path(path)
 
     def log_message(self, format: str, *args: object) -> None:
         """アクセスログを**捨てる**。
@@ -374,9 +414,12 @@ class _StaticHandler(SimpleHTTPRequestHandler):
 
 
 def _handler_for(
-    root: Path, endpoint: RunEndpoint | None = None, player: Path | None = None
+    root: Path,
+    endpoint: RunEndpoint | None = None,
+    player: Path | None = None,
+    stage: Path | None = None,
 ) -> Callable[..., SimpleHTTPRequestHandler]:
-    """配信の根を `root`（と `/play/` の根を `player`）に固定したハンドラ。
+    """配信の根を `root`（と `/play/` の根を `player`、`/stage/` の根を `stage`）に固定したハンドラ。
 
     `directory=` を渡さないと `SimpleHTTPRequestHandler` は **cwd を配る**。
     cwd には `.jin` も鍵もありうるので、根はここで 1 回だけ固定する。
@@ -384,25 +427,32 @@ def _handler_for(
     `guard:` でここを名指ししている（`directory=` そのものは式ではないので
     トークンにできない。固定の所在をこの 1 関数に閉じることで代える）。
     """
-    return partial(_StaticHandler, directory=str(root), endpoint=endpoint, player=player)
+    return partial(
+        _StaticHandler, directory=str(root), endpoint=endpoint, player=player, stage=stage
+    )
 
 
 def _static_server(
-    host: str, root: Path, endpoint: RunEndpoint | None = None, player: Path | None = None
+    host: str,
+    root: Path,
+    endpoint: RunEndpoint | None = None,
+    player: Path | None = None,
+    stage: Path | None = None,
 ) -> ThreadingHTTPServer:
-    """`root` の中（と `/play/` の下にプレイヤー）だけを配る HTTP サーバ。ポートは OS に選ばせて実値を読む。
+    """`root` の中（と `/play/` の下にプレイヤー、`/stage/` の下に鑑賞ページ）だけを配る HTTP サーバ。
 
-    guard: _static_server -> _handler_for(root,endpoint,player)
+    guard: _static_server -> _handler_for(root,endpoint,player,stage)
     """
     # ↑ トークンに**空白を入れない**。`test_guard_claims.py` の `CLAIM` は `->\s*(\S+)` で
     # 拾うので、`_handler_for(root, endpoint)` と書くと `_handler_for(root,` で切れて
     # `ast.parse` が SyntaxError になる。AST は空白を無視するので実コードとは一致する。
-    return ThreadingHTTPServer((host, 0), _handler_for(root, endpoint, player))
+    return ThreadingHTTPServer((host, 0), _handler_for(root, endpoint, player, stage))
 
 
 __all__ = [
     "MAX_RUN_BODY",
     "PLAY_PREFIX",
+    "STAGE_PREFIX",
     "URL_PREFIX",
     "EditorAddress",
     "EditorError",
@@ -410,9 +460,11 @@ __all__ = [
     "build_url",
     "default_dist",
     "default_player_dist",
+    "default_stage_dist",
     "editor_root",
     "free_port",
     "prepare",
     "resolve_player",
+    "resolve_stage",
     "serve",
 ]
