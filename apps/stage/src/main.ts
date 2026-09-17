@@ -6,6 +6,7 @@ import { exportFileName } from "./exportName";
 import { canEncode, createEncoder } from "./mediabunnyEncoder";
 import {
 	fileMessage,
+	type Inbound,
 	parseInbound,
 	type SceneMessage,
 	type StageStatus,
@@ -17,6 +18,7 @@ import { StageRenderer } from "./render/stageRenderer";
 import { parseScene, SceneError } from "./scene";
 import {
 	type Aspect,
+	clampRange,
 	MAX_PNG_LONG_SIDE,
 	outputSize,
 	type Speed,
@@ -116,6 +118,8 @@ function drawAt(tick: number): void {
 // 手で動かす（設計書 §2.5・stage.md §4）: 横 1 px = 0.3°、縦 1 px = 0.2°。仰角の範囲は cameraPose が収める。
 let dragging: { x: number; y: number } | null = null;
 canvas.addEventListener("pointerdown", (event) => {
+	// 書き出し中は構図を動かさない（書き出しは押した瞬間の構図で描く）。
+	if (exporting !== null) return;
 	dragging = { x: event.clientX, y: event.clientY };
 	canvas.setPointerCapture(event.pointerId);
 });
@@ -140,11 +144,25 @@ preset.addEventListener("change", () => {
 	state.offset = NO_OFFSET;
 });
 
+/** 書き出し中に届いた語（種類ごとに最後の 1 つ）。書き出しが終わってから当てる（1 本の書き出しの中で場面を変えない）。 */
+const pending: { scene: Inbound | null; trace: Inbound | null } = {
+	scene: null,
+	trace: null,
+};
+
 window.addEventListener("message", (event: MessageEvent<unknown>) => {
 	if (event.source !== window.parent || event.origin !== window.location.origin)
 		return;
 	const message = parseInbound(event.data);
 	if (message === null) return;
+	if (exporting !== null) {
+		pending[message.type] = message;
+		return;
+	}
+	applyInbound(message);
+});
+
+function applyInbound(message: Inbound): void {
 	if (message.type === "scene") {
 		try {
 			renderer.setScene(parseScene(message.value.svg));
@@ -172,7 +190,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 		scrub.value = String(state.tick);
 		report({ rows: state.rows.length });
 	}
-});
+}
 
 function resizeToView(): void {
 	renderer.resize(
@@ -245,20 +263,75 @@ function withExportSize<T>(
 	return body().finally(resizeToView);
 }
 
-function drawFor(tick: number, width: number, height: number): void {
-	if (state.scene === null) return;
+/**
+ * 書き出しの入力の写し（押した瞬間に取る）。1 本の書き出しの中でトレース・構図・銘が途中で変わらないようにする
+ * （設計書 §3.1「同じトレース + 設定 → 同じ場面の列」）。
+ */
+interface ExportSnapshot {
+	readonly scene: SceneMessage;
+	readonly seed: number | null;
+	readonly firings: readonly Firing[];
+	readonly preset: CameraPreset;
+	readonly offset: CameraOffset;
+	readonly caption: string | null;
+}
+
+function snapshot(scene: SceneMessage): ExportSnapshot {
+	return {
+		scene,
+		seed: state.seed,
+		firings: state.firings,
+		preset: preset.value as CameraPreset,
+		offset: state.offset,
+		caption: caption.checked ? captionText(scene.circleName) : null,
+	};
+}
+
+function drawFor(
+	shot: ExportSnapshot,
+	tick: number,
+	width: number,
+	height: number,
+): void {
 	renderer.draw({
 		tick,
-		fps: state.scene.fps,
-		glows: glowsAt(state.firings, tick, state.scene.fps),
-		preset: preset.value as CameraPreset,
+		fps: shot.scene.fps,
+		glows: glowsAt(shot.firings, tick, shot.scene.fps),
+		preset: shot.preset,
 		aspect: width / height,
-		offset: state.offset,
+		offset: shot.offset,
 	});
-	composer.compose(
-		canvas,
-		caption.checked ? captionText(state.scene.circleName) : null,
-	);
+	composer.compose(canvas, shot.caption);
+}
+
+/** 書き出し中に動かせる欄を止める（再開時はコーデックを判定し直して動画ボタンを戻す）。 */
+const exportControls = [
+	preset,
+	aspect,
+	resolution,
+	speed,
+	start,
+	end,
+	caption,
+	exportVideo,
+	exportPng,
+];
+
+function beginExport(controller: AbortController): void {
+	exporting = controller;
+	for (const control of exportControls) control.disabled = true;
+}
+
+function endExport(): void {
+	exporting = null;
+	cancel.hidden = true;
+	for (const control of exportControls) control.disabled = false;
+	void refreshCodec();
+	const { scene, trace } = pending;
+	pending.scene = null;
+	pending.trace = null;
+	if (scene !== null) applyInbound(scene);
+	if (trace !== null) applyInbound(trace);
 }
 
 /** 親へバイト列を渡す（転送するので、渡す ArrayBuffer はちょうどの長さの単独のものに限る）。 */
@@ -279,16 +352,18 @@ exportVideo.addEventListener("click", () => {
 	const scene = state.scene;
 	if (scene === null || exporting !== null) return;
 	const controller = new AbortController();
-	exporting = controller;
+	const shot = snapshot(scene);
+	beginExport(controller);
 	cancel.hidden = false;
 	pause();
 	void (async () => {
-		const range = {
+		// 名前と中身の範囲を揃える（runExport も同じ clampRange をかけるが、名前には並べ替え・60 秒で切った値を使う）。
+		const range = clampRange({
 			startTick: Number(start.value),
 			endTick: Number(end.value),
 			fps: scene.fps,
 			speed: Number(speed.value) as Speed,
-		};
+		});
 		try {
 			const { width, height } = exportSize(Number.POSITIVE_INFINITY);
 			const choice = await chooseCodec(canEncode, width, height);
@@ -299,7 +374,7 @@ exportVideo.addEventListener("click", () => {
 			const bytes = await withExportSize(width, height, async () =>
 				runExport({
 					range,
-					draw: (tick) => drawFor(tick, width, height),
+					draw: (tick) => drawFor(shot, tick, width, height),
 					encoder: await createEncoder(composer.canvas, choice),
 					signal: controller.signal,
 					onProgress: (done, total) => report({ exporting: { done, total } }),
@@ -309,7 +384,7 @@ exportVideo.addEventListener("click", () => {
 				const name = exportFileName({
 					jinName: scene.jinName,
 					circleName: scene.circleName,
-					seed: state.seed,
+					seed: shot.seed,
 					startTick: range.startTick,
 					endTick: range.endTick,
 					extension: choice.container,
@@ -324,8 +399,7 @@ exportVideo.addEventListener("click", () => {
 				error: `書き出しに失敗しました: ${error instanceof Error ? error.message : String(error)}`,
 			});
 		} finally {
-			exporting = null;
-			cancel.hidden = true;
+			endExport();
 		}
 	})();
 });
@@ -333,19 +407,21 @@ exportVideo.addEventListener("click", () => {
 exportPng.addEventListener("click", () => {
 	const scene = state.scene;
 	if (scene === null || exporting !== null) return;
-	exporting = new AbortController();
+	const shot = snapshot(scene);
+	const tick = state.tick;
+	beginExport(new AbortController());
 	const { width, height } = exportSize(MAX_PNG_LONG_SIDE);
 	void withExportSize(width, height, async () => {
-		drawFor(state.tick, width, height);
+		drawFor(shot, tick, width, height);
 		const bytes = await composer.toPng();
-		const tick = Math.round(state.tick);
+		const rounded = Math.round(tick);
 		send(
 			exportFileName({
 				jinName: scene.jinName,
 				circleName: scene.circleName,
-				seed: state.seed,
-				startTick: tick,
-				endTick: tick,
+				seed: shot.seed,
+				startTick: rounded,
+				endTick: rounded,
 				extension: "png",
 			}),
 			"image/png",
@@ -355,9 +431,7 @@ exportPng.addEventListener("click", () => {
 		.catch((error: unknown) =>
 			report({ error: `PNG を作れません: ${String(error)}` }),
 		)
-		.finally(() => {
-			exporting = null;
-		});
+		.finally(endExport);
 });
 
 cancel.addEventListener("click", () => exporting?.abort());
