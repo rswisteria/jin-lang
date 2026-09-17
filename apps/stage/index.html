@@ -24,6 +24,33 @@
 					<option value="low">低い煽り</option>
 				</select>
 			</label>
+			<label>縦横比
+				<select id="aspect" data-testid="stage-aspect">
+					<option value="1:1" selected>1:1</option>
+					<option value="16:9">16:9</option>
+					<option value="9:16">9:16</option>
+				</select>
+			</label>
+			<label>解像度
+				<select id="resolution" data-testid="stage-resolution">
+					<option value="1080" selected>1080</option>
+					<option value="1440">1440</option>
+					<option value="2160">2160</option>
+				</select>
+			</label>
+			<label>速度
+				<select id="speed" data-testid="stage-speed">
+					<option value="1" selected>1×</option>
+					<option value="0.5">0.5×</option>
+				</select>
+			</label>
+			<label>開始 <input type="number" id="start" data-testid="stage-start" step="1" value="0" style="width:5em" /></label>
+			<label>終了 <input type="number" id="end" data-testid="stage-end" step="1" value="0" style="width:5em" /></label>
+			<label><input type="checkbox" id="caption" data-testid="stage-caption" checked /> 銘</label>
+			<button type="button" id="export-video" data-testid="stage-export-video">動画を書き出す</button>
+			<button type="button" id="export-png" data-testid="stage-export-png">この瞬間を PNG に</button>
+			<button type="button" id="cancel" data-testid="stage-cancel" hidden>中止</button>
+			<span id="codec" data-testid="stage-codec"></span>
 			<span data-testid="stage-status" id="status">SVG を待っています</span>
 			<span data-testid="stage-rows" id="rows">0</span>
 		</div>

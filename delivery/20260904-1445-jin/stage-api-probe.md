@@ -675,6 +675,13 @@ brief の Step 3 の `probe.ts` はそのままの形（1 文字も変えず）�
    Node 側の読み戻しコードを書くときは `await track.getDisplayWidth()` / `await track.getDisplayHeight()` を使うこと。
 3. **`LineMaterial.resolution` を手で渡す必要は無い**（§A.2 の訂正。Task 8 のレビューで判明）。`LineSegments2.onBeforeRender` が
    毎回 CSS px のビューポートで上書きするので、`linewidth` は CSS px。解像度に比例させたいなら `linewidth` 側を変える。
+4. **Task 11（書き出し）で 1・2 を反映した実測**（2026-09-17・Playwright 同梱 Chromium・macOS arm64）。
+   `apps/stage/src/mediabunnyEncoder.ts` は `canEncodeVideo(codec, { width, height, quality: new Quality("high") })` と
+   `new CanvasSource(canvas, { codec, quality: new Quality("high") })` で書いた（brief の `bitrate: QUALITY_HIGH` は
+   両方とも使わない）。クエリ無しの 1080×1080・tick 0〜60・1× の書き出しは `paddle-Play-seed7-t0-60.mp4`（1,119,730 byte・
+   約 1.7 秒）になり、ページ内で `Input` + `BufferSource` + `ALL_FORMATS` で読み戻すと `computeDuration() = 1` /
+   `packetCount = 60` / `averagePacketRate = 60` / `await getDisplayWidth() = 1080` / `await getDisplayHeight() = 1080` /
+   `codec = "avc"`。`output.cancel()` の後に次の `Output` を作って書き出しても問題なく完了した。
 
 上記以外の差分は無い（`Output` / `BufferTarget` / `Mp4OutputFormat` / `WebMOutputFormat` / `Input` / `ALL_FORMATS` /
 `computeDuration` / `computePacketStats` / `getPrimaryVideoTrack` / three の addon import パス / `THREE.Timer` /

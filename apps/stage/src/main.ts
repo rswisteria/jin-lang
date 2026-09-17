@@ -1,14 +1,26 @@
 import { type CameraOffset, type CameraPreset, NO_OFFSET } from "./camera";
+import { chooseCodec } from "./codec";
 import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
+import { runExport } from "./exporter";
+import { exportFileName } from "./exportName";
+import { canEncode, createEncoder } from "./mediabunnyEncoder";
 import {
+	fileMessage,
 	parseInbound,
 	type SceneMessage,
 	type StageStatus,
 	statusMessage,
 } from "./messages";
 import type { TraceRow } from "./names";
+import { captionText, Composer2D } from "./render/compose";
 import { StageRenderer } from "./render/stageRenderer";
 import { parseScene, SceneError } from "./scene";
+import {
+	type Aspect,
+	MAX_PNG_LONG_SIDE,
+	outputSize,
+	type Speed,
+} from "./timeline";
 
 /**
  * 鑑賞ページの入口（docs/spec/v2/stage.md）。エディタ（親）から `stage.scene` / `stage.trace` を受け、
@@ -30,6 +42,8 @@ const tickOut = element<HTMLOutputElement>("tick");
 const preset = element<HTMLSelectElement>("preset");
 const statusText = element<HTMLSpanElement>("status");
 const rowsText = element<HTMLSpanElement>("rows");
+const start = element<HTMLInputElement>("start");
+const end = element<HTMLInputElement>("end");
 
 export const state = {
 	scene: null as SceneMessage | null,
@@ -39,6 +53,8 @@ export const state = {
 	tick: 0,
 	playing: false,
 	offset: NO_OFFSET as CameraOffset,
+	/** 書き出しの範囲を人が打ち直したか。打ち直していなければトレースが来るたびに全体へ広げる。 */
+	rangeEdited: false,
 	status: {
 		ready: false,
 		rows: 0,
@@ -48,11 +64,19 @@ export const state = {
 	} as StageStatus,
 };
 
+/** 書き出し中の中止口。動画と PNG の両方がここを立てる（重ねて走らせない・プレビューが canvas を上書きしない）。 */
+let exporting: AbortController | null = null;
+
 function report(patch: Partial<StageStatus>): void {
 	state.status = { ...state.status, ...patch };
+	const progress = state.status.exporting;
 	statusText.textContent =
 		state.status.error ??
-		(state.status.ready ? "準備完了" : "SVG を待っています");
+		(progress !== null
+			? `書き出し中 ${String(progress.done)} / ${String(progress.total)}`
+			: state.status.ready
+				? "準備完了"
+				: "SVG を待っています");
 	rowsText.textContent = String(state.status.rows);
 	window.parent.postMessage(
 		statusMessage(state.status),
@@ -66,6 +90,11 @@ function refire(): void {
 	const span = tickSpan(state.rows);
 	scrub.min = String(span.first);
 	scrub.max = String(span.last);
+	// 書き出しの範囲の既定は全体。走らせている間は 1 秒ごとにトレースが届くので、人が打った範囲は上書きしない。
+	if (!state.rangeEdited) {
+		start.value = String(span.first);
+		end.value = String(span.last);
+	}
 }
 
 function viewAspect(): number {
@@ -145,13 +174,18 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 	}
 });
 
-new ResizeObserver(() =>
+function resizeToView(): void {
 	renderer.resize(
 		host.clientWidth,
 		host.clientHeight,
 		Math.min(window.devicePixelRatio, 2),
-	),
-).observe(host);
+	);
+}
+
+// 書き出し中は出力の大きさで描いているので、表示の大きさに戻さない（終わったら withExportSize が戻す）。
+new ResizeObserver(() => {
+	if (exporting === null) resizeToView();
+}).observe(host);
 
 play.addEventListener("click", () => {
 	state.playing = !state.playing;
@@ -163,6 +197,180 @@ scrub.addEventListener("input", () => {
 	play.textContent = "再生";
 });
 
+// ---- 書き出し（stage.md §5）: 1 コマずつ描いて WebCodecs に渡す。実時間の録画はしない ----
+
+const aspect = element<HTMLSelectElement>("aspect");
+const resolution = element<HTMLSelectElement>("resolution");
+const speed = element<HTMLSelectElement>("speed");
+const caption = element<HTMLInputElement>("caption");
+const exportVideo = element<HTMLButtonElement>("export-video");
+const exportPng = element<HTMLButtonElement>("export-png");
+const cancel = element<HTMLButtonElement>("cancel");
+const codecText = element<HTMLSpanElement>("codec");
+const composer = new Composer2D();
+
+/** e2e だけが使う長辺の上書き（`?export=360`）。UI の選択肢には出さない。 */
+const overrideLongSide =
+	Number(new URLSearchParams(window.location.search).get("export") ?? "") ||
+	null;
+
+function exportSize(longSideCap: number): { width: number; height: number } {
+	const longSide = Math.min(
+		overrideLongSide ?? Number(resolution.value),
+		longSideCap,
+	);
+	return outputSize(aspect.value as Aspect, longSide);
+}
+
+async function refreshCodec(): Promise<void> {
+	const { width, height } = exportSize(Number.POSITIVE_INFINITY);
+	const choice = await chooseCodec(canEncode, width, height);
+	codecText.textContent =
+		choice === null
+			? "この環境では動画を書き出せません"
+			: choice.container === "mp4"
+				? "MP4（H.264）"
+				: "WebM（VP9）";
+	exportVideo.disabled = choice === null;
+	report({ codec: choice?.codec ?? null });
+}
+
+function withExportSize<T>(
+	width: number,
+	height: number,
+	body: () => Promise<T>,
+): Promise<T> {
+	renderer.resize(width, height, 1);
+	composer.resize(width, height);
+	return body().finally(resizeToView);
+}
+
+function drawFor(tick: number, width: number, height: number): void {
+	if (state.scene === null) return;
+	renderer.draw({
+		tick,
+		fps: state.scene.fps,
+		glows: glowsAt(state.firings, tick, state.scene.fps),
+		preset: preset.value as CameraPreset,
+		aspect: width / height,
+		offset: state.offset,
+	});
+	composer.compose(
+		canvas,
+		caption.checked ? captionText(state.scene.circleName) : null,
+	);
+}
+
+/** 親へバイト列を渡す（転送するので、渡す ArrayBuffer はちょうどの長さの単独のものに限る）。 */
+function send(name: string, mime: string, bytes: ArrayBuffer): void {
+	window.parent.postMessage(
+		fileMessage(name, mime, bytes),
+		window.location.origin,
+		[bytes],
+	);
+}
+
+function pause(): void {
+	state.playing = false;
+	play.textContent = "再生";
+}
+
+exportVideo.addEventListener("click", () => {
+	const scene = state.scene;
+	if (scene === null || exporting !== null) return;
+	const controller = new AbortController();
+	exporting = controller;
+	cancel.hidden = false;
+	pause();
+	void (async () => {
+		const range = {
+			startTick: Number(start.value),
+			endTick: Number(end.value),
+			fps: scene.fps,
+			speed: Number(speed.value) as Speed,
+		};
+		try {
+			const { width, height } = exportSize(Number.POSITIVE_INFINITY);
+			const choice = await chooseCodec(canEncode, width, height);
+			if (choice === null) {
+				report({ exporting: null, error: "この環境では動画を書き出せません" });
+				return;
+			}
+			const bytes = await withExportSize(width, height, async () =>
+				runExport({
+					range,
+					draw: (tick) => drawFor(tick, width, height),
+					encoder: await createEncoder(composer.canvas, choice),
+					signal: controller.signal,
+					onProgress: (done, total) => report({ exporting: { done, total } }),
+				}),
+			);
+			if (bytes !== null) {
+				const name = exportFileName({
+					jinName: scene.jinName,
+					circleName: scene.circleName,
+					seed: state.seed,
+					startTick: range.startTick,
+					endTick: range.endTick,
+					extension: choice.container,
+				});
+				// slice() でちょうどの長さの単独の ArrayBuffer にしてから転送する。
+				send(name, choice.mime, bytes.slice().buffer);
+			}
+			report({ exporting: null, error: null });
+		} catch (error) {
+			report({
+				exporting: null,
+				error: `書き出しに失敗しました: ${error instanceof Error ? error.message : String(error)}`,
+			});
+		} finally {
+			exporting = null;
+			cancel.hidden = true;
+		}
+	})();
+});
+
+exportPng.addEventListener("click", () => {
+	const scene = state.scene;
+	if (scene === null || exporting !== null) return;
+	exporting = new AbortController();
+	const { width, height } = exportSize(MAX_PNG_LONG_SIDE);
+	void withExportSize(width, height, async () => {
+		drawFor(state.tick, width, height);
+		const bytes = await composer.toPng();
+		const tick = Math.round(state.tick);
+		send(
+			exportFileName({
+				jinName: scene.jinName,
+				circleName: scene.circleName,
+				seed: state.seed,
+				startTick: tick,
+				endTick: tick,
+				extension: "png",
+			}),
+			"image/png",
+			bytes,
+		);
+	})
+		.catch((error: unknown) =>
+			report({ error: `PNG を作れません: ${String(error)}` }),
+		)
+		.finally(() => {
+			exporting = null;
+		});
+});
+
+cancel.addEventListener("click", () => exporting?.abort());
+start.addEventListener("input", () => {
+	state.rangeEdited = true;
+});
+end.addEventListener("input", () => {
+	state.rangeEdited = true;
+});
+aspect.addEventListener("change", () => void refreshCodec());
+resolution.addEventListener("change", () => void refreshCodec());
+void refreshCodec();
+
 let last = performance.now();
 function loop(now: number): void {
 	const dt = (now - last) / 1000;
@@ -173,7 +381,8 @@ function loop(now: number): void {
 		scrub.value = String(state.tick);
 	}
 	tickOut.textContent = String(Math.floor(state.tick));
-	drawAt(state.tick);
+	// 書き出し中は出力の大きさの canvas をプレビューで上書きしない。
+	if (exporting === null) drawAt(state.tick);
 	requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
