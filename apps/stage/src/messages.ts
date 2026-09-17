@@ -41,7 +41,7 @@ function isRow(value: unknown): value is TraceRow {
 		isRecord(value) &&
 		typeof value["seq"] === "number" &&
 		typeof value["tick"] === "number" &&
-		typeof value["circle"] === "string" &&
+		(typeof value["circle"] === "string" || value["circle"] === null) &&
 		typeof value["kind"] === "string" &&
 		typeof value["pointer"] === "string"
 	);

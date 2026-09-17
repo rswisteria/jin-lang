@@ -17,6 +17,14 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 		expect(parseInbound({ type: "stage.trace", rows, seed: null })).toEqual({ type: "trace", value: { rows, seed: null } });
 	});
 
+	test("stage.trace は frame 行（circle が null・runtime.md §5）を含む実物の列を受ける", () => {
+		const rows = [
+			{ seq: 0, tick: -1, circle: "Play", kind: "enter", pointer: "/circles/1" },
+			{ seq: 1, tick: 0, circle: null, kind: "frame", name: null, pointer: "/stage", output: { ops: [] } },
+		];
+		expect(parseInbound({ type: "stage.trace", rows, seed: 7 })).toEqual({ type: "trace", value: { rows, seed: 7 } });
+	});
+
 	test.each([
 		[null],
 		["stage.scene"],
@@ -24,6 +32,7 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 		[{ type: "stage.scene", svg: "", names: {}, fps: 0, jinName: "", circleName: "" }],
 		[{ type: "stage.trace", rows: "x", seed: 1 }],
 		[{ type: "stage.trace", rows: [{ seq: "0" }], seed: 1 }],
+		[{ type: "stage.trace", rows: [{ seq: 0, tick: 0, circle: 1, kind: "frame", pointer: "/stage" }], seed: 1 }],
 		[{ type: "jin.load" }],
 	])("形の違う message は null: %j", (data) => {
 		expect(parseInbound(data)).toBeNull();

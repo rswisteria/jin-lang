@@ -17,7 +17,8 @@ export type StageNames = Readonly<Record<string, CircleNames>>;
 export interface TraceRow {
 	readonly seq: number;
 	readonly tick: number;
-	readonly circle: string;
+	/** `frame` 行は null（runtime.md §5）。 */
+	readonly circle: string | null;
 	readonly kind: string;
 	readonly name?: string | null;
 	readonly pointer: string;
@@ -41,7 +42,7 @@ export function resolveTargets(
 ): Targets | null {
 	if (row.kind === "frame") return null;
 	if (row.kind === "wait" && row.output !== "suspend") return null;
-	const circle = names[row.circle];
+	const circle = row.circle === null ? undefined : names[row.circle];
 	const name = typeof row.name === "string" ? row.name : "";
 	if (row.kind === "cast") {
 		const sigil = circle?.sigils[name.split(".")[0] ?? ""];

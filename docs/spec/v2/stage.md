@@ -117,3 +117,21 @@
 | `stage.file` | stage → 親 | `name` / `mime` / `bytes`（ArrayBuffer） |
 
 名前の表: `{ [陣名]: { pointer, sigils: {名前: pointer}, state: {名前: pointer}, delegates: {陣名: pointer} } }`。
+
+`stage.trace` の `rows` は runtime.md §5 の行をそのまま載せる。`frame` 行の `circle` は null で、stage はそれを受けて読み飛ばす（光らせない）。
+
+## 7. 実装で確定した値
+
+Task 8 の目視（`apps/stage/dev.html`・paddle の fixture・斜め 45° / 俯瞰 / 低い煽り）で決めた。残りの値は Task 13 でここに揃える。
+
+| 値 | 確定値 | 置き場所 | 根拠 |
+|---|---|---|---|
+| 背景色 | `#080503` | `render/stageRenderer.ts` の `BACKGROUND` | 初期値のまま |
+| ブルーム（strength / radius / threshold） | 0.7 / 0.45 / 0.82 | `render/stageRenderer.ts` の `BLOOM` | 初期値のまま。光の強さ側を下げれば白く飛ばなかった |
+| 主光源（点光源の強さ / 距離 / 減衰） | 8 / 8 / 1.3 | `render/stageRenderer.ts` の `key` | 初期値のまま |
+| 輪の太さ（陣の輪 / 小さな輪） | 0.009 / 0.005 | `render/gilded.ts` の `RING_TUBE` / `SMALL_RING_TUBE` | 初期値のまま |
+| 線の太さ | 1.4 px（高さ 1080 px 基準で比例） | `render/gilded.ts` の `LINE_WIDTH_PX` | 初期値のまま |
+| 光っていないときの自発光 | **0.12**（初期値 0.35） | `render/gilded.ts` の `BASE_EMISSIVE` | 0.35 だと輪が一様な黄色の板に見え、環境マップの陰影が消えた |
+| 光ったときの自発光の増分（強さ 1 あたり） | **1.6**（初期値 5） | `render/glowView.ts` の `EMISSIVE_GAIN` | 5 だと `ignite`（2.4 秒）の間ずっと陣全体が白く飛んだ |
+| 光ったときの線と文字の色の増分（強さ 1 あたり） | **1.2**（初期値 2.2） | `render/glowView.ts` の `COLOR_GAIN` | 同上 |
+| 光線と火花の明るさ | 強さを頂点色に掛ける。同じ出どころ → 行き先の光線は 1 本に畳んで強い方 | `render/glowView.ts` | 色を固定にすると、慣れて HUM に落ちた毎 tick の `cast` が加算で重なり、中心に白い棒ができた |

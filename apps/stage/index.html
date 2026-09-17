@@ -14,7 +14,18 @@
 	<body>
 		<div id="stage" data-testid="stage-view"></div>
 		<div id="controls">
-			<span data-testid="stage-status">SVG を待っています</span>
+			<button type="button" id="play" data-testid="stage-play">再生</button>
+			<input type="range" id="scrub" data-testid="stage-scrub" min="0" max="0" step="0.01" value="0" />
+			<output id="tick" data-testid="stage-tick">0</output>
+			<label>構図
+				<select id="preset" data-testid="stage-preset">
+					<option value="overhead">俯瞰</option>
+					<option value="oblique" selected>斜め 45°</option>
+					<option value="low">低い煽り</option>
+				</select>
+			</label>
+			<span data-testid="stage-status" id="status">SVG を待っています</span>
+			<span data-testid="stage-rows" id="rows">0</span>
 		</div>
 		<script type="module" src="/src/main.ts"></script>
 	</body>
