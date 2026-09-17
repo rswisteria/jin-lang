@@ -11,11 +11,14 @@ import re
 import subprocess
 from pathlib import Path
 
+from tests.spec.test_stage_spec_consistency import machine_table, stage_layers
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STAGE = REPO_ROOT / "apps" / "stage"
 EDITOR = REPO_ROOT / "apps" / "editor"
 PLAYER = REPO_ROOT / "apps" / "player"
 SRC = STAGE / "src"
+LAYERS_TS = SRC / "layers.ts"
 
 STAGE_RUNTIME_DEPENDENCIES = {"three": "0.186.0", "mediabunny": "1.57.0"}
 THREE_D_PACKAGES = {"three", "mediabunny", "@types/three"}
@@ -105,3 +108,31 @@ def test_the_svg_fixture_is_what_the_renderer_draws_today(tmp_path: Path) -> Non
         capture_output=True,
     )
     assert out.read_bytes() == (STAGE / "test" / "fixtures" / "play.svg").read_bytes()
+
+
+def test_the_kind_layers_in_the_code_are_the_table_of_stage_md() -> None:
+    body = re.search(
+        r"KIND_LAYERS[^=]*=\s*\{(.*?)\};", LAYERS_TS.read_text(encoding="utf-8"), re.DOTALL
+    )
+    assert body is not None
+    code = {
+        key.strip('"'): int(value)
+        for key, value in re.findall(r'("?[a-z-]+"?):\s*(\d)', body.group(1))
+    }
+    assert code == {kind: layer for kind, (layer, _) in stage_layers().items()}
+
+
+def test_the_ring_layers_in_the_code_are_the_table_of_stage_md() -> None:
+    body = re.search(
+        r"RING_LAYERS[^=]*=\s*\[(.*?)\n\];", LAYERS_TS.read_text(encoding="utf-8"), re.DOTALL
+    )
+    assert body is not None
+    code = [
+        (int(layer), float(radius))
+        for layer, radius in re.findall(r"\[(\d),\s*([\d.]+)\]", body.group(1))
+    ]
+    table = [
+        (int(layer), float(radius))
+        for layer, radius in machine_table(REPO_ROOT / "docs/spec/v2/stage.md", "stage-ring-layers")
+    ]
+    assert code == table
