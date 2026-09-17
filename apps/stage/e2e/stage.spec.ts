@@ -70,7 +70,7 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 	await expect(codecLabel).toHaveAttribute("data-codec", /.+/);
 	const codec = await codecLabel.getAttribute("data-codec");
 	// CI の stage ジョブは JIN_REQUIRE_CODEC=1 で走る。どちらのコーデックも無いときに往復を黙って飛ばさない
-	// （Linux の Chromium で canEncodeVideo が通るかは probe §C で未計測）。
+	// （CI と同じ Linux の Chromium 151 では avc / vp9 とも通る。probe §C.1）。
 	if (process.env["JIN_REQUIRE_CODEC"] === "1")
 		expect(codec, "JIN_REQUIRE_CODEC=1 なのに動画を書き出せない").not.toBe("none");
 	test.skip(codec === "none", "WebCodecs が無い環境（probe §C）");

@@ -16,6 +16,7 @@ macOS 15.7.7（`sw_vers`）、Node v22.12.0、pnpm 10.15.1。
 | `canEncodeVideo("vp9")`（同上） | `true` |
 | `canEncodeVideo("avc")`（`channel: "chrome"`） | `true` |
 | `canEncodeVideo("vp9")`（`channel: "chrome"`） | `true` |
+| `canEncodeVideo("avc")` / `("vp9")`（Linux x86_64・CI と同じ Chromium 151.0.7922.34・PR #92 のマージ後に追記） | `true` / `true`（§C.1。CI の動画の往復は MP4 で走っている） |
 | WebGL2（Playwright 同梱 Chromium・GPU なし） | `true`（`isWebGL2`）。renderer 文字列は `ANGLE (…, Vulkan 1.3.0 (SwiftShader Device …), SwiftShader driver)` |
 | `UnrealBloomPass` を含む 30 コマ（640×360, 1 秒）の書き出し時間 | 同梱 Chromium: **520 ms** / `channel: "chrome"`: 2269 ms（§D） |
 | Node での読み戻し | 可（`node readback 1 30 640 360`） |
@@ -558,16 +559,19 @@ $ sed -n '2928,2941p' node_modules/mediabunny/dist/mediabunny.d.ts
 
 ## C. コーデックの可否（Chromium / Chrome）
 
-| ブラウザ | `avc` | `vp9` |
-|---|---|---|
-| Chromium（Playwright 同梱・ヘッドレス・`chromium.launch()`）151.0.7922.34 | `true` | `true` |
-| Chrome（`channel: "chrome"`）153.0.8010.48 | `true` | `true` |
+| ブラウザ | 環境 | `avc` | `vp9` |
+|---|---|---|---|
+| Chromium（Playwright 同梱・ヘッドレス・`chromium.launch()`）151.0.7922.34 | macOS 15.7.7 / arm64 | `true` | `true` |
+| Chrome（`channel: "chrome"`）153.0.8010.48 | macOS 15.7.7 / arm64 | `true` | `true` |
+| Chromium（Playwright 同梱・ヘッドレス）151.0.7922.34 | Linux x86_64（`mcr.microsoft.com/playwright:v1.62.0-noble`・Ubuntu 24.04.4）— **CI と同じ Chromium のビルド**（§C.1） | `true`（360 / 1080 / 2160） | `true`（360 / 1080 / 2160） |
 
 **本機（macOS 15.7.7 / arm64）では Chromium 同梱でも `avc` は `true` だった**ので、brief が想定した
-「Chromium で `avc` が false なら vp9 に分岐する」フォールバックは今回不要だった。ただし**この計測は macOS でしか
-取っていない**（`jin-e2e-linux-only-drag-failures` の教訓どおり、CI の Linux Chromium イメージは同梱の H.264
-コーデック有無が異なる可能性がある）。e2e のコードは `canEncodeVideo("avc")` の戻り値で `avc` / `vp9` の分岐を
-残したまま書き、CI で最初に走らせて実際の値を確認すること。決め打ちで `avc` 固定にしない。
+「Chromium で `avc` が false なら vp9 に分岐する」フォールバックは今回不要だった。最初の計測は macOS でしか
+取っていなかった（`jin-e2e-linux-only-drag-failures` の教訓どおり、Linux の Chromium は同梱の H.264 コーデックの有無が
+異なる可能性がある）ので、PR #92 のマージ後に **CI と同じ Chromium のビルドで Linux x86_64 を実測し、`avc` / `vp9` とも
+`true` で、実際に書き出して読み戻せる**ことを確かめた（§C.1）。`chooseCodec` は `avc` を先に試すので、CI の `stage` ジョブの
+動画の往復は **MP4（H.264）** で走っている。e2e の分岐（`avc` → `vp9` → 不可）は、将来 Chromium の版や CI のイメージが
+変わったときの網として残す。決め打ちで `avc` 固定にしない。
 
 Playwright の `chromium.launch()` の版:
 
@@ -578,6 +582,77 @@ channel chrome: 153.0.8010.48
 ```
 
 `channel: "chrome"` は手元にインストール済みの Chrome を掴めた（Step 5 は `sed` でスクリプトを書き換えて実行）。
+
+### C.1 CI（Linux x86_64）での確認（2026-09-17・PR #92 のマージ後に追記）
+
+**CI の実行（GitHub Actions run 35230241160・`stage` ジョブ）のログから分かること**:
+
+```
+Image: ubuntu-24.04
+Version: 20260907.300.1
+  JIN_REQUIRE_CODEC: 1
+Downloading Chrome for Testing 151.0.7922.34 (playwright chromium v1234) from https://cdn.playwright.dev/builds/cft/151.0.7922.34/linu…
+Running 3 tests using 1 worker
+  ✓  1 [chromium] › e2e/stage.spec.ts:34:1 › 陣が描かれ、トレースの行数が届く (7.1s)
+  ✓  2 [chromium] › e2e/stage.spec.ts:55:1 › PNG を書き出す (8.5s)
+  ✓  3 [chromium] › e2e/stage.spec.ts:67:1 › 1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒 (14.6s)
+  3 passed (32.7s)
+```
+
+`JIN_REQUIRE_CODEC=1` の下で動画の往復が skip されずに通ったので、CI の Chromium では `avc` か `vp9` の少なくとも
+一方が使える。ログにはどちらを選んだかが出ない（e2e は `data-codec` を annotation に積むが、`list` レポーターは表示しない）。
+
+**どちらかを確かめるため、CI と同じ Chromium のビルドを手元の Docker で x86_64 として動かした**
+（本機は arm64 なので `--platform linux/amd64` のエミュレーション）。呼び方は `apps/stage/src/mediabunnyEncoder.ts` の
+`canEncode` と同じ `canEncodeVideo(codec, { width, height, quality: new Quality("high") })`。続けて 360×360 の 2D canvas を
+60 コマ（60 fps）書き出し、Mediabunny の `Input` で読み戻した。作業ディレクトリは
+`/Users/toyota/.claude/jobs/68fdfc7b/tmp/ci-codec-probe`（リポジトリの外・コミットしない。`index.html` / `run.mjs`）。
+
+```
+$ docker run --rm --platform linux/amd64 --ipc=host -v "$S:/stage:ro" -v "$P:/probe" -w /probe \
+    mcr.microsoft.com/playwright:v1.62.0-noble bash -c 'uname -m; cat /etc/os-release | grep PRETTY; node --version; node run.mjs'
+x86_64
+PRETTY_NAME="Ubuntu 24.04.4 LTS"
+v24.18.0
+chromium version: 151.0.7922.34
+{
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+  "hasVideoEncoder": true,
+  "canEncode": {
+    "avc@360": true,
+    "avc@1080": true,
+    "avc@2160": true,
+    "vp9@360": true,
+    "vp9@1080": true,
+    "vp9@2160": true
+  },
+  "encode": {
+    "avc": {
+      "bytes": 41091,
+      "duration": 1,
+      "packets": 60,
+      "codec": "avc",
+      "width": 360,
+      "height": 360
+    },
+    "vp9": {
+      "bytes": 57846,
+      "duration": 1,
+      "packets": 60,
+      "codec": "vp9",
+      "width": 360,
+      "height": 360
+    }
+  }
+}
+```
+
+- Chromium のビルドは CI と同じ `151.0.7922.34`（`playwright chromium v1234`）で、OS も CI と同じ Ubuntu 24.04 系
+- `avc` / `vp9` とも、鑑賞ページの選択肢の長辺（1080 / 1440 / 2160 のうち 1080 と 2160）と e2e の 360 で `true`
+- 実際の書き出しと読み戻しも、両コーデックで 60 パケット・1 秒・360×360
+- **結論**: CI の `stage` ジョブの動画の往復は、`chooseCodec` が先に試す `avc`（MP4）で走っている。**VP9 の経路（WebM への
+  フォールバック）は CI でも手元でも、e2e としてはまだ一度も通っていない**（両方 `true` なので分岐に入らない）。単体では
+  `apps/stage/test/codec.test.ts` が分岐を固定している
 
 ---
 
