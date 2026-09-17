@@ -11,7 +11,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from tests.spec.test_stage_spec_consistency import machine_table, stage_layers
+from tests.spec.test_stage_spec_consistency import machine_table, stage_effects, stage_layers
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STAGE = REPO_ROOT / "apps" / "stage"
@@ -19,6 +19,7 @@ EDITOR = REPO_ROOT / "apps" / "editor"
 PLAYER = REPO_ROOT / "apps" / "player"
 SRC = STAGE / "src"
 LAYERS_TS = SRC / "layers.ts"
+EFFECTS_TS = SRC / "effects.ts"
 
 STAGE_RUNTIME_DEPENDENCIES = {"three": "0.186.0", "mediabunny": "1.57.0"}
 THREE_D_PACKAGES = {"three", "mediabunny", "@types/three"}
@@ -136,3 +137,31 @@ def test_the_ring_layers_in_the_code_are_the_table_of_stage_md() -> None:
         for layer, radius in machine_table(REPO_ROOT / "docs/spec/v2/stage.md", "stage-ring-layers")
     ]
     assert code == table
+
+
+def test_the_effects_in_the_code_are_the_table_of_stage_md() -> None:
+    body = re.search(
+        r"export const EFFECTS[^=]*=\s*\{(.*?)\n\};",
+        EFFECTS_TS.read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    assert body is not None
+    code = {
+        kind: ("" if effect == "null" else effect.strip('"'), strength)
+        for kind, effect, strength in re.findall(
+            r'(\w+):\s*\{\s*effect:\s*("?\w+"?),\s*strength:\s*"(\w+)"\s*\}', body.group(1)
+        )
+    }
+    assert code == stage_effects()
+
+
+def test_the_picture_does_not_read_the_clock_or_math_random() -> None:
+    """stage.md §3.4: 絵は時刻の関数。実時間を読むのはプレビューの時計（main.ts）だけ。"""
+    offenders = [
+        f"{path.relative_to(REPO_ROOT)}: {word}"
+        for path in sorted(SRC.rglob("*.ts"))
+        if path.name != "main.ts"
+        for word in ("Math.random", "Date.now", "performance.now", "new Date(")
+        if word in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == [], offenders
