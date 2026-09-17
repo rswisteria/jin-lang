@@ -1,0 +1,995 @@
+{"seq":0,"tick":-1,"circle":"Play","kind":"enter","name":"Play","pointer":"/circles/1","input":null,"output":{"ball":{"x":160,"y":40,"vx":90,"vy":70},"paddle":140,"score":0}}
+{"seq":1,"tick":-1,"circle":"Play","kind":"rite","name":"begin","pointer":"/circles/1/rites/0","input":[],"output":null}
+{"seq":2,"tick":-1,"circle":"Play","kind":"set","name":"score","pointer":"/circles/1/rites/0/steps/0","input":null,"output":0}
+{"seq":3,"tick":-1,"circle":"Play","kind":"rite","name":"serve","pointer":"/circles/1/rites/1","input":[],"output":null}
+{"seq":4,"tick":-1,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/1/steps/0","input":null,"output":{"x":160,"y":40,"vx":90,"vy":70}}
+{"seq":5,"tick":0,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":6,"tick":0,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":7,"tick":0,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":161.5,"y":40,"vx":90,"vy":70}}
+{"seq":8,"tick":0,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":161.5,"y":41.166666666666664,"vx":90,"vy":70}}
+{"seq":9,"tick":0,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":10,"tick":0,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":11,"tick":0,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":12,"tick":0,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":13,"tick":0,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[161.5,41.166666666666664,3],"output":null}
+{"seq":14,"tick":0,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":15,"tick":0,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",161.5,41.166666666666664,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":16,"tick":1,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":17,"tick":1,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":18,"tick":1,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":163,"y":41.166666666666664,"vx":90,"vy":70}}
+{"seq":19,"tick":1,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":163,"y":42.33333333333333,"vx":90,"vy":70}}
+{"seq":20,"tick":1,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":21,"tick":1,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":22,"tick":1,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":23,"tick":1,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":24,"tick":1,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[163,42.33333333333333,3],"output":null}
+{"seq":25,"tick":1,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":26,"tick":1,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",163,42.33333333333333,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":27,"tick":2,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":28,"tick":2,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":29,"tick":2,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":164.5,"y":42.33333333333333,"vx":90,"vy":70}}
+{"seq":30,"tick":2,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":164.5,"y":43.49999999999999,"vx":90,"vy":70}}
+{"seq":31,"tick":2,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":32,"tick":2,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":33,"tick":2,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":34,"tick":2,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":35,"tick":2,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[164.5,43.49999999999999,3],"output":null}
+{"seq":36,"tick":2,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":37,"tick":2,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",164.5,43.49999999999999,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":38,"tick":3,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":39,"tick":3,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":40,"tick":3,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":166,"y":43.49999999999999,"vx":90,"vy":70}}
+{"seq":41,"tick":3,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":166,"y":44.66666666666666,"vx":90,"vy":70}}
+{"seq":42,"tick":3,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":43,"tick":3,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":44,"tick":3,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":45,"tick":3,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":46,"tick":3,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[166,44.66666666666666,3],"output":null}
+{"seq":47,"tick":3,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":48,"tick":3,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",166,44.66666666666666,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":49,"tick":4,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":50,"tick":4,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":51,"tick":4,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":167.5,"y":44.66666666666666,"vx":90,"vy":70}}
+{"seq":52,"tick":4,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":167.5,"y":45.83333333333332,"vx":90,"vy":70}}
+{"seq":53,"tick":4,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":54,"tick":4,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":55,"tick":4,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":56,"tick":4,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":57,"tick":4,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[167.5,45.83333333333332,3],"output":null}
+{"seq":58,"tick":4,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":59,"tick":4,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",167.5,45.83333333333332,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":60,"tick":5,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":61,"tick":5,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":62,"tick":5,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":169,"y":45.83333333333332,"vx":90,"vy":70}}
+{"seq":63,"tick":5,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":169,"y":46.999999999999986,"vx":90,"vy":70}}
+{"seq":64,"tick":5,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":65,"tick":5,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":66,"tick":5,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":67,"tick":5,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":68,"tick":5,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[169,46.999999999999986,3],"output":null}
+{"seq":69,"tick":5,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":70,"tick":5,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",169,46.999999999999986,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":71,"tick":6,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":72,"tick":6,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":73,"tick":6,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":170.5,"y":46.999999999999986,"vx":90,"vy":70}}
+{"seq":74,"tick":6,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":170.5,"y":48.16666666666665,"vx":90,"vy":70}}
+{"seq":75,"tick":6,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":76,"tick":6,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":77,"tick":6,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":78,"tick":6,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":79,"tick":6,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[170.5,48.16666666666665,3],"output":null}
+{"seq":80,"tick":6,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":81,"tick":6,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",170.5,48.16666666666665,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":82,"tick":7,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":83,"tick":7,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":84,"tick":7,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":172,"y":48.16666666666665,"vx":90,"vy":70}}
+{"seq":85,"tick":7,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":172,"y":49.333333333333314,"vx":90,"vy":70}}
+{"seq":86,"tick":7,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":87,"tick":7,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":88,"tick":7,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":89,"tick":7,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":90,"tick":7,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[172,49.333333333333314,3],"output":null}
+{"seq":91,"tick":7,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":92,"tick":7,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",172,49.333333333333314,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":93,"tick":8,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":94,"tick":8,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":95,"tick":8,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":173.5,"y":49.333333333333314,"vx":90,"vy":70}}
+{"seq":96,"tick":8,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":173.5,"y":50.49999999999998,"vx":90,"vy":70}}
+{"seq":97,"tick":8,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":98,"tick":8,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":99,"tick":8,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":100,"tick":8,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":101,"tick":8,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[173.5,50.49999999999998,3],"output":null}
+{"seq":102,"tick":8,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":103,"tick":8,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",173.5,50.49999999999998,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":104,"tick":9,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":105,"tick":9,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":106,"tick":9,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":175,"y":50.49999999999998,"vx":90,"vy":70}}
+{"seq":107,"tick":9,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":175,"y":51.66666666666664,"vx":90,"vy":70}}
+{"seq":108,"tick":9,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":109,"tick":9,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":110,"tick":9,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":111,"tick":9,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":112,"tick":9,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[175,51.66666666666664,3],"output":null}
+{"seq":113,"tick":9,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":114,"tick":9,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",175,51.66666666666664,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":115,"tick":10,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":116,"tick":10,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":117,"tick":10,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":176.5,"y":51.66666666666664,"vx":90,"vy":70}}
+{"seq":118,"tick":10,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":176.5,"y":52.83333333333331,"vx":90,"vy":70}}
+{"seq":119,"tick":10,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":120,"tick":10,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":121,"tick":10,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":122,"tick":10,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":123,"tick":10,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[176.5,52.83333333333331,3],"output":null}
+{"seq":124,"tick":10,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":125,"tick":10,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",176.5,52.83333333333331,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":126,"tick":11,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":127,"tick":11,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":128,"tick":11,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":178,"y":52.83333333333331,"vx":90,"vy":70}}
+{"seq":129,"tick":11,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":178,"y":53.99999999999997,"vx":90,"vy":70}}
+{"seq":130,"tick":11,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":131,"tick":11,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":132,"tick":11,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":133,"tick":11,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":134,"tick":11,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[178,53.99999999999997,3],"output":null}
+{"seq":135,"tick":11,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":136,"tick":11,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",178,53.99999999999997,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":137,"tick":12,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":138,"tick":12,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":139,"tick":12,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":179.5,"y":53.99999999999997,"vx":90,"vy":70}}
+{"seq":140,"tick":12,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":179.5,"y":55.166666666666636,"vx":90,"vy":70}}
+{"seq":141,"tick":12,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":142,"tick":12,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":143,"tick":12,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":144,"tick":12,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":145,"tick":12,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[179.5,55.166666666666636,3],"output":null}
+{"seq":146,"tick":12,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":147,"tick":12,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",179.5,55.166666666666636,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":148,"tick":13,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":149,"tick":13,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":150,"tick":13,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":181,"y":55.166666666666636,"vx":90,"vy":70}}
+{"seq":151,"tick":13,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":181,"y":56.3333333333333,"vx":90,"vy":70}}
+{"seq":152,"tick":13,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":153,"tick":13,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":154,"tick":13,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":155,"tick":13,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":156,"tick":13,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[181,56.3333333333333,3],"output":null}
+{"seq":157,"tick":13,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":158,"tick":13,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",181,56.3333333333333,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":159,"tick":14,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":160,"tick":14,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":161,"tick":14,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":182.5,"y":56.3333333333333,"vx":90,"vy":70}}
+{"seq":162,"tick":14,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":182.5,"y":57.499999999999964,"vx":90,"vy":70}}
+{"seq":163,"tick":14,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":164,"tick":14,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":165,"tick":14,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":166,"tick":14,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":167,"tick":14,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[182.5,57.499999999999964,3],"output":null}
+{"seq":168,"tick":14,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":169,"tick":14,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",182.5,57.499999999999964,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":170,"tick":15,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":171,"tick":15,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":172,"tick":15,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":184,"y":57.499999999999964,"vx":90,"vy":70}}
+{"seq":173,"tick":15,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":184,"y":58.66666666666663,"vx":90,"vy":70}}
+{"seq":174,"tick":15,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":175,"tick":15,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":176,"tick":15,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":177,"tick":15,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":178,"tick":15,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[184,58.66666666666663,3],"output":null}
+{"seq":179,"tick":15,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":180,"tick":15,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",184,58.66666666666663,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":181,"tick":16,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":182,"tick":16,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":183,"tick":16,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":185.5,"y":58.66666666666663,"vx":90,"vy":70}}
+{"seq":184,"tick":16,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":185.5,"y":59.83333333333329,"vx":90,"vy":70}}
+{"seq":185,"tick":16,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":186,"tick":16,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":187,"tick":16,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":188,"tick":16,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":189,"tick":16,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[185.5,59.83333333333329,3],"output":null}
+{"seq":190,"tick":16,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":191,"tick":16,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",185.5,59.83333333333329,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":192,"tick":17,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":193,"tick":17,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":194,"tick":17,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":187,"y":59.83333333333329,"vx":90,"vy":70}}
+{"seq":195,"tick":17,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":187,"y":60.99999999999996,"vx":90,"vy":70}}
+{"seq":196,"tick":17,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":197,"tick":17,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":198,"tick":17,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":199,"tick":17,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":200,"tick":17,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[187,60.99999999999996,3],"output":null}
+{"seq":201,"tick":17,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":202,"tick":17,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",187,60.99999999999996,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":203,"tick":18,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":204,"tick":18,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":205,"tick":18,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":188.5,"y":60.99999999999996,"vx":90,"vy":70}}
+{"seq":206,"tick":18,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":188.5,"y":62.16666666666662,"vx":90,"vy":70}}
+{"seq":207,"tick":18,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":208,"tick":18,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":209,"tick":18,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":210,"tick":18,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":211,"tick":18,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[188.5,62.16666666666662,3],"output":null}
+{"seq":212,"tick":18,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":213,"tick":18,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",188.5,62.16666666666662,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":214,"tick":19,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":215,"tick":19,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":216,"tick":19,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":190,"y":62.16666666666662,"vx":90,"vy":70}}
+{"seq":217,"tick":19,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":190,"y":63.333333333333286,"vx":90,"vy":70}}
+{"seq":218,"tick":19,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":219,"tick":19,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":220,"tick":19,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":221,"tick":19,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":222,"tick":19,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[190,63.333333333333286,3],"output":null}
+{"seq":223,"tick":19,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":224,"tick":19,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",190,63.333333333333286,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":225,"tick":20,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":226,"tick":20,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":227,"tick":20,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":191.5,"y":63.333333333333286,"vx":90,"vy":70}}
+{"seq":228,"tick":20,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":191.5,"y":64.49999999999996,"vx":90,"vy":70}}
+{"seq":229,"tick":20,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":230,"tick":20,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":231,"tick":20,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":232,"tick":20,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":233,"tick":20,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[191.5,64.49999999999996,3],"output":null}
+{"seq":234,"tick":20,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":235,"tick":20,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",191.5,64.49999999999996,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":236,"tick":21,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":237,"tick":21,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":238,"tick":21,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":193,"y":64.49999999999996,"vx":90,"vy":70}}
+{"seq":239,"tick":21,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":193,"y":65.66666666666663,"vx":90,"vy":70}}
+{"seq":240,"tick":21,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":241,"tick":21,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":242,"tick":21,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":243,"tick":21,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":244,"tick":21,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[193,65.66666666666663,3],"output":null}
+{"seq":245,"tick":21,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":246,"tick":21,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",193,65.66666666666663,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":247,"tick":22,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":248,"tick":22,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":249,"tick":22,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":194.5,"y":65.66666666666663,"vx":90,"vy":70}}
+{"seq":250,"tick":22,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":194.5,"y":66.8333333333333,"vx":90,"vy":70}}
+{"seq":251,"tick":22,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":252,"tick":22,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":253,"tick":22,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":254,"tick":22,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":255,"tick":22,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[194.5,66.8333333333333,3],"output":null}
+{"seq":256,"tick":22,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":257,"tick":22,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",194.5,66.8333333333333,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":258,"tick":23,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":259,"tick":23,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":260,"tick":23,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":196,"y":66.8333333333333,"vx":90,"vy":70}}
+{"seq":261,"tick":23,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":196,"y":67.99999999999997,"vx":90,"vy":70}}
+{"seq":262,"tick":23,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":263,"tick":23,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":264,"tick":23,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":265,"tick":23,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":266,"tick":23,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[196,67.99999999999997,3],"output":null}
+{"seq":267,"tick":23,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":268,"tick":23,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",196,67.99999999999997,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":269,"tick":24,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":270,"tick":24,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":271,"tick":24,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":197.5,"y":67.99999999999997,"vx":90,"vy":70}}
+{"seq":272,"tick":24,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":197.5,"y":69.16666666666664,"vx":90,"vy":70}}
+{"seq":273,"tick":24,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":274,"tick":24,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":275,"tick":24,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":276,"tick":24,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":277,"tick":24,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[197.5,69.16666666666664,3],"output":null}
+{"seq":278,"tick":24,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":279,"tick":24,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",197.5,69.16666666666664,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":280,"tick":25,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":281,"tick":25,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":282,"tick":25,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":199,"y":69.16666666666664,"vx":90,"vy":70}}
+{"seq":283,"tick":25,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":199,"y":70.33333333333331,"vx":90,"vy":70}}
+{"seq":284,"tick":25,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":285,"tick":25,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":286,"tick":25,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":287,"tick":25,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":288,"tick":25,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[199,70.33333333333331,3],"output":null}
+{"seq":289,"tick":25,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":290,"tick":25,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",199,70.33333333333331,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":291,"tick":26,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":292,"tick":26,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":293,"tick":26,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":200.5,"y":70.33333333333331,"vx":90,"vy":70}}
+{"seq":294,"tick":26,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":200.5,"y":71.49999999999999,"vx":90,"vy":70}}
+{"seq":295,"tick":26,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":296,"tick":26,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":297,"tick":26,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":298,"tick":26,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":299,"tick":26,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[200.5,71.49999999999999,3],"output":null}
+{"seq":300,"tick":26,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":301,"tick":26,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",200.5,71.49999999999999,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":302,"tick":27,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":303,"tick":27,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":304,"tick":27,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":202,"y":71.49999999999999,"vx":90,"vy":70}}
+{"seq":305,"tick":27,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":202,"y":72.66666666666666,"vx":90,"vy":70}}
+{"seq":306,"tick":27,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":307,"tick":27,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":308,"tick":27,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":309,"tick":27,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":310,"tick":27,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[202,72.66666666666666,3],"output":null}
+{"seq":311,"tick":27,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":312,"tick":27,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",202,72.66666666666666,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":313,"tick":28,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":314,"tick":28,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":315,"tick":28,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":203.5,"y":72.66666666666666,"vx":90,"vy":70}}
+{"seq":316,"tick":28,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":203.5,"y":73.83333333333333,"vx":90,"vy":70}}
+{"seq":317,"tick":28,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":318,"tick":28,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":319,"tick":28,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":320,"tick":28,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":321,"tick":28,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[203.5,73.83333333333333,3],"output":null}
+{"seq":322,"tick":28,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":323,"tick":28,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",203.5,73.83333333333333,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":324,"tick":29,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":325,"tick":29,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":326,"tick":29,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":205,"y":73.83333333333333,"vx":90,"vy":70}}
+{"seq":327,"tick":29,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":205,"y":75,"vx":90,"vy":70}}
+{"seq":328,"tick":29,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":329,"tick":29,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":330,"tick":29,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":331,"tick":29,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":332,"tick":29,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[205,75,3],"output":null}
+{"seq":333,"tick":29,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":334,"tick":29,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",205,75,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":335,"tick":30,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":336,"tick":30,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":337,"tick":30,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":206.5,"y":75,"vx":90,"vy":70}}
+{"seq":338,"tick":30,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":206.5,"y":76.16666666666667,"vx":90,"vy":70}}
+{"seq":339,"tick":30,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":340,"tick":30,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":341,"tick":30,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":342,"tick":30,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":343,"tick":30,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[206.5,76.16666666666667,3],"output":null}
+{"seq":344,"tick":30,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":345,"tick":30,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",206.5,76.16666666666667,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":346,"tick":31,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":347,"tick":31,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":348,"tick":31,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":208,"y":76.16666666666667,"vx":90,"vy":70}}
+{"seq":349,"tick":31,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":208,"y":77.33333333333334,"vx":90,"vy":70}}
+{"seq":350,"tick":31,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":351,"tick":31,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":352,"tick":31,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":353,"tick":31,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":354,"tick":31,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[208,77.33333333333334,3],"output":null}
+{"seq":355,"tick":31,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":356,"tick":31,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",208,77.33333333333334,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":357,"tick":32,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":358,"tick":32,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":359,"tick":32,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":209.5,"y":77.33333333333334,"vx":90,"vy":70}}
+{"seq":360,"tick":32,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":209.5,"y":78.50000000000001,"vx":90,"vy":70}}
+{"seq":361,"tick":32,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":362,"tick":32,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":363,"tick":32,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":364,"tick":32,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":365,"tick":32,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[209.5,78.50000000000001,3],"output":null}
+{"seq":366,"tick":32,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":367,"tick":32,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",209.5,78.50000000000001,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":368,"tick":33,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":369,"tick":33,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":370,"tick":33,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":211,"y":78.50000000000001,"vx":90,"vy":70}}
+{"seq":371,"tick":33,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":211,"y":79.66666666666669,"vx":90,"vy":70}}
+{"seq":372,"tick":33,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":373,"tick":33,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":374,"tick":33,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":375,"tick":33,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":376,"tick":33,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[211,79.66666666666669,3],"output":null}
+{"seq":377,"tick":33,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":378,"tick":33,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",211,79.66666666666669,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":379,"tick":34,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":380,"tick":34,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":381,"tick":34,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":212.5,"y":79.66666666666669,"vx":90,"vy":70}}
+{"seq":382,"tick":34,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":212.5,"y":80.83333333333336,"vx":90,"vy":70}}
+{"seq":383,"tick":34,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":384,"tick":34,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":385,"tick":34,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":386,"tick":34,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":387,"tick":34,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[212.5,80.83333333333336,3],"output":null}
+{"seq":388,"tick":34,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":389,"tick":34,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",212.5,80.83333333333336,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":390,"tick":35,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":391,"tick":35,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":392,"tick":35,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":214,"y":80.83333333333336,"vx":90,"vy":70}}
+{"seq":393,"tick":35,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":214,"y":82.00000000000003,"vx":90,"vy":70}}
+{"seq":394,"tick":35,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":395,"tick":35,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":396,"tick":35,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":397,"tick":35,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":398,"tick":35,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[214,82.00000000000003,3],"output":null}
+{"seq":399,"tick":35,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":400,"tick":35,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",214,82.00000000000003,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":401,"tick":36,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":402,"tick":36,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":403,"tick":36,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":215.5,"y":82.00000000000003,"vx":90,"vy":70}}
+{"seq":404,"tick":36,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":215.5,"y":83.1666666666667,"vx":90,"vy":70}}
+{"seq":405,"tick":36,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":406,"tick":36,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":407,"tick":36,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":408,"tick":36,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":409,"tick":36,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[215.5,83.1666666666667,3],"output":null}
+{"seq":410,"tick":36,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":411,"tick":36,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",215.5,83.1666666666667,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":412,"tick":37,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":413,"tick":37,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":414,"tick":37,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":217,"y":83.1666666666667,"vx":90,"vy":70}}
+{"seq":415,"tick":37,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":217,"y":84.33333333333337,"vx":90,"vy":70}}
+{"seq":416,"tick":37,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":417,"tick":37,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":418,"tick":37,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":419,"tick":37,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":420,"tick":37,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[217,84.33333333333337,3],"output":null}
+{"seq":421,"tick":37,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":422,"tick":37,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",217,84.33333333333337,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":423,"tick":38,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":424,"tick":38,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":425,"tick":38,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":218.5,"y":84.33333333333337,"vx":90,"vy":70}}
+{"seq":426,"tick":38,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":218.5,"y":85.50000000000004,"vx":90,"vy":70}}
+{"seq":427,"tick":38,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":428,"tick":38,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":429,"tick":38,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":430,"tick":38,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":431,"tick":38,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[218.5,85.50000000000004,3],"output":null}
+{"seq":432,"tick":38,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":433,"tick":38,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",218.5,85.50000000000004,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":434,"tick":39,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":435,"tick":39,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":436,"tick":39,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":220,"y":85.50000000000004,"vx":90,"vy":70}}
+{"seq":437,"tick":39,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":220,"y":86.66666666666671,"vx":90,"vy":70}}
+{"seq":438,"tick":39,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":439,"tick":39,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":440,"tick":39,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":441,"tick":39,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":442,"tick":39,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[220,86.66666666666671,3],"output":null}
+{"seq":443,"tick":39,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":444,"tick":39,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",220,86.66666666666671,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":445,"tick":40,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":446,"tick":40,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":447,"tick":40,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":221.5,"y":86.66666666666671,"vx":90,"vy":70}}
+{"seq":448,"tick":40,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":221.5,"y":87.83333333333339,"vx":90,"vy":70}}
+{"seq":449,"tick":40,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":450,"tick":40,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":451,"tick":40,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":452,"tick":40,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":453,"tick":40,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[221.5,87.83333333333339,3],"output":null}
+{"seq":454,"tick":40,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":455,"tick":40,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",221.5,87.83333333333339,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":456,"tick":41,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":457,"tick":41,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":458,"tick":41,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":223,"y":87.83333333333339,"vx":90,"vy":70}}
+{"seq":459,"tick":41,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":223,"y":89.00000000000006,"vx":90,"vy":70}}
+{"seq":460,"tick":41,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":461,"tick":41,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":462,"tick":41,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":463,"tick":41,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":464,"tick":41,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[223,89.00000000000006,3],"output":null}
+{"seq":465,"tick":41,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":466,"tick":41,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",223,89.00000000000006,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":467,"tick":42,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":468,"tick":42,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":469,"tick":42,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":224.5,"y":89.00000000000006,"vx":90,"vy":70}}
+{"seq":470,"tick":42,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":224.5,"y":90.16666666666673,"vx":90,"vy":70}}
+{"seq":471,"tick":42,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":472,"tick":42,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":473,"tick":42,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":474,"tick":42,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":475,"tick":42,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[224.5,90.16666666666673,3],"output":null}
+{"seq":476,"tick":42,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":477,"tick":42,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",224.5,90.16666666666673,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":478,"tick":43,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":479,"tick":43,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":480,"tick":43,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":226,"y":90.16666666666673,"vx":90,"vy":70}}
+{"seq":481,"tick":43,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":226,"y":91.3333333333334,"vx":90,"vy":70}}
+{"seq":482,"tick":43,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":483,"tick":43,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":484,"tick":43,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":485,"tick":43,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":486,"tick":43,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[226,91.3333333333334,3],"output":null}
+{"seq":487,"tick":43,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":488,"tick":43,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",226,91.3333333333334,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":489,"tick":44,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":490,"tick":44,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":491,"tick":44,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":227.5,"y":91.3333333333334,"vx":90,"vy":70}}
+{"seq":492,"tick":44,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":227.5,"y":92.50000000000007,"vx":90,"vy":70}}
+{"seq":493,"tick":44,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":494,"tick":44,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":495,"tick":44,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":496,"tick":44,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":497,"tick":44,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[227.5,92.50000000000007,3],"output":null}
+{"seq":498,"tick":44,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":499,"tick":44,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",227.5,92.50000000000007,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":500,"tick":45,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":501,"tick":45,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":502,"tick":45,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":229,"y":92.50000000000007,"vx":90,"vy":70}}
+{"seq":503,"tick":45,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":229,"y":93.66666666666674,"vx":90,"vy":70}}
+{"seq":504,"tick":45,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":505,"tick":45,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":506,"tick":45,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":507,"tick":45,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":508,"tick":45,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[229,93.66666666666674,3],"output":null}
+{"seq":509,"tick":45,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":510,"tick":45,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",229,93.66666666666674,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":511,"tick":46,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":512,"tick":46,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":513,"tick":46,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":230.5,"y":93.66666666666674,"vx":90,"vy":70}}
+{"seq":514,"tick":46,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":230.5,"y":94.83333333333341,"vx":90,"vy":70}}
+{"seq":515,"tick":46,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":516,"tick":46,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":517,"tick":46,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":518,"tick":46,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":519,"tick":46,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[230.5,94.83333333333341,3],"output":null}
+{"seq":520,"tick":46,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":521,"tick":46,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",230.5,94.83333333333341,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":522,"tick":47,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":523,"tick":47,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":524,"tick":47,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":232,"y":94.83333333333341,"vx":90,"vy":70}}
+{"seq":525,"tick":47,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":232,"y":96.00000000000009,"vx":90,"vy":70}}
+{"seq":526,"tick":47,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":527,"tick":47,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":528,"tick":47,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":529,"tick":47,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":530,"tick":47,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[232,96.00000000000009,3],"output":null}
+{"seq":531,"tick":47,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":532,"tick":47,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",232,96.00000000000009,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":533,"tick":48,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":534,"tick":48,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":535,"tick":48,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":233.5,"y":96.00000000000009,"vx":90,"vy":70}}
+{"seq":536,"tick":48,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":233.5,"y":97.16666666666676,"vx":90,"vy":70}}
+{"seq":537,"tick":48,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":538,"tick":48,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":539,"tick":48,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":540,"tick":48,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":541,"tick":48,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[233.5,97.16666666666676,3],"output":null}
+{"seq":542,"tick":48,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":543,"tick":48,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",233.5,97.16666666666676,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":544,"tick":49,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":545,"tick":49,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":546,"tick":49,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":235,"y":97.16666666666676,"vx":90,"vy":70}}
+{"seq":547,"tick":49,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":235,"y":98.33333333333343,"vx":90,"vy":70}}
+{"seq":548,"tick":49,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":549,"tick":49,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":550,"tick":49,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":551,"tick":49,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":552,"tick":49,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[235,98.33333333333343,3],"output":null}
+{"seq":553,"tick":49,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":554,"tick":49,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",235,98.33333333333343,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":555,"tick":50,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":556,"tick":50,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":557,"tick":50,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":236.5,"y":98.33333333333343,"vx":90,"vy":70}}
+{"seq":558,"tick":50,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":236.5,"y":99.5000000000001,"vx":90,"vy":70}}
+{"seq":559,"tick":50,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":560,"tick":50,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":561,"tick":50,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":562,"tick":50,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":563,"tick":50,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[236.5,99.5000000000001,3],"output":null}
+{"seq":564,"tick":50,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":565,"tick":50,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",236.5,99.5000000000001,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":566,"tick":51,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":567,"tick":51,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":568,"tick":51,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":238,"y":99.5000000000001,"vx":90,"vy":70}}
+{"seq":569,"tick":51,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":238,"y":100.66666666666677,"vx":90,"vy":70}}
+{"seq":570,"tick":51,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":571,"tick":51,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":572,"tick":51,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":573,"tick":51,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":574,"tick":51,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[238,100.66666666666677,3],"output":null}
+{"seq":575,"tick":51,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":576,"tick":51,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",238,100.66666666666677,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":577,"tick":52,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":578,"tick":52,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":579,"tick":52,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":239.5,"y":100.66666666666677,"vx":90,"vy":70}}
+{"seq":580,"tick":52,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":239.5,"y":101.83333333333344,"vx":90,"vy":70}}
+{"seq":581,"tick":52,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":582,"tick":52,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":583,"tick":52,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":584,"tick":52,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":585,"tick":52,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[239.5,101.83333333333344,3],"output":null}
+{"seq":586,"tick":52,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":587,"tick":52,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",239.5,101.83333333333344,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":588,"tick":53,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":589,"tick":53,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":590,"tick":53,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":241,"y":101.83333333333344,"vx":90,"vy":70}}
+{"seq":591,"tick":53,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":241,"y":103.00000000000011,"vx":90,"vy":70}}
+{"seq":592,"tick":53,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":593,"tick":53,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":594,"tick":53,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":595,"tick":53,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":596,"tick":53,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[241,103.00000000000011,3],"output":null}
+{"seq":597,"tick":53,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":598,"tick":53,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",241,103.00000000000011,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":599,"tick":54,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":600,"tick":54,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":601,"tick":54,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":242.5,"y":103.00000000000011,"vx":90,"vy":70}}
+{"seq":602,"tick":54,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":242.5,"y":104.16666666666679,"vx":90,"vy":70}}
+{"seq":603,"tick":54,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":604,"tick":54,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":605,"tick":54,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":606,"tick":54,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":607,"tick":54,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[242.5,104.16666666666679,3],"output":null}
+{"seq":608,"tick":54,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":609,"tick":54,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",242.5,104.16666666666679,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":610,"tick":55,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":611,"tick":55,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":612,"tick":55,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":244,"y":104.16666666666679,"vx":90,"vy":70}}
+{"seq":613,"tick":55,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":244,"y":105.33333333333346,"vx":90,"vy":70}}
+{"seq":614,"tick":55,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":615,"tick":55,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":616,"tick":55,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":617,"tick":55,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":618,"tick":55,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[244,105.33333333333346,3],"output":null}
+{"seq":619,"tick":55,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":620,"tick":55,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",244,105.33333333333346,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":621,"tick":56,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":622,"tick":56,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":623,"tick":56,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":245.5,"y":105.33333333333346,"vx":90,"vy":70}}
+{"seq":624,"tick":56,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":245.5,"y":106.50000000000013,"vx":90,"vy":70}}
+{"seq":625,"tick":56,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":626,"tick":56,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":627,"tick":56,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":628,"tick":56,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":629,"tick":56,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[245.5,106.50000000000013,3],"output":null}
+{"seq":630,"tick":56,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":631,"tick":56,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",245.5,106.50000000000013,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":632,"tick":57,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":633,"tick":57,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":634,"tick":57,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":247,"y":106.50000000000013,"vx":90,"vy":70}}
+{"seq":635,"tick":57,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":247,"y":107.6666666666668,"vx":90,"vy":70}}
+{"seq":636,"tick":57,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":637,"tick":57,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":638,"tick":57,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":639,"tick":57,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":640,"tick":57,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[247,107.6666666666668,3],"output":null}
+{"seq":641,"tick":57,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":642,"tick":57,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",247,107.6666666666668,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":643,"tick":58,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":644,"tick":58,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":645,"tick":58,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":248.5,"y":107.6666666666668,"vx":90,"vy":70}}
+{"seq":646,"tick":58,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":248.5,"y":108.83333333333347,"vx":90,"vy":70}}
+{"seq":647,"tick":58,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":648,"tick":58,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":649,"tick":58,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":650,"tick":58,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":651,"tick":58,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[248.5,108.83333333333347,3],"output":null}
+{"seq":652,"tick":58,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":653,"tick":58,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",248.5,108.83333333333347,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":654,"tick":59,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":655,"tick":59,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":656,"tick":59,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":250,"y":108.83333333333347,"vx":90,"vy":70}}
+{"seq":657,"tick":59,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":250,"y":110.00000000000014,"vx":90,"vy":70}}
+{"seq":658,"tick":59,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":659,"tick":59,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":660,"tick":59,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":661,"tick":59,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":662,"tick":59,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[250,110.00000000000014,3],"output":null}
+{"seq":663,"tick":59,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":664,"tick":59,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",250,110.00000000000014,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":665,"tick":60,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":666,"tick":60,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":667,"tick":60,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":251.5,"y":110.00000000000014,"vx":90,"vy":70}}
+{"seq":668,"tick":60,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":251.5,"y":111.16666666666681,"vx":90,"vy":70}}
+{"seq":669,"tick":60,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":670,"tick":60,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":671,"tick":60,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":672,"tick":60,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":673,"tick":60,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[251.5,111.16666666666681,3],"output":null}
+{"seq":674,"tick":60,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":675,"tick":60,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",251.5,111.16666666666681,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":676,"tick":61,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":677,"tick":61,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":678,"tick":61,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":253,"y":111.16666666666681,"vx":90,"vy":70}}
+{"seq":679,"tick":61,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":253,"y":112.33333333333348,"vx":90,"vy":70}}
+{"seq":680,"tick":61,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":681,"tick":61,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":682,"tick":61,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":683,"tick":61,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":684,"tick":61,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[253,112.33333333333348,3],"output":null}
+{"seq":685,"tick":61,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":686,"tick":61,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",253,112.33333333333348,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":687,"tick":62,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":688,"tick":62,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":689,"tick":62,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":254.5,"y":112.33333333333348,"vx":90,"vy":70}}
+{"seq":690,"tick":62,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":254.5,"y":113.50000000000016,"vx":90,"vy":70}}
+{"seq":691,"tick":62,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":692,"tick":62,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":693,"tick":62,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":694,"tick":62,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":695,"tick":62,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[254.5,113.50000000000016,3],"output":null}
+{"seq":696,"tick":62,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":697,"tick":62,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",254.5,113.50000000000016,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":698,"tick":63,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":699,"tick":63,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":700,"tick":63,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":256,"y":113.50000000000016,"vx":90,"vy":70}}
+{"seq":701,"tick":63,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":256,"y":114.66666666666683,"vx":90,"vy":70}}
+{"seq":702,"tick":63,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":703,"tick":63,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":704,"tick":63,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":705,"tick":63,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":706,"tick":63,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[256,114.66666666666683,3],"output":null}
+{"seq":707,"tick":63,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":708,"tick":63,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",256,114.66666666666683,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":709,"tick":64,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":710,"tick":64,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":711,"tick":64,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":257.5,"y":114.66666666666683,"vx":90,"vy":70}}
+{"seq":712,"tick":64,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":257.5,"y":115.8333333333335,"vx":90,"vy":70}}
+{"seq":713,"tick":64,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":714,"tick":64,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":715,"tick":64,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":716,"tick":64,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":717,"tick":64,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[257.5,115.8333333333335,3],"output":null}
+{"seq":718,"tick":64,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":719,"tick":64,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",257.5,115.8333333333335,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":720,"tick":65,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":721,"tick":65,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":722,"tick":65,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":259,"y":115.8333333333335,"vx":90,"vy":70}}
+{"seq":723,"tick":65,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":259,"y":117.00000000000017,"vx":90,"vy":70}}
+{"seq":724,"tick":65,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":725,"tick":65,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":726,"tick":65,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":727,"tick":65,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":728,"tick":65,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[259,117.00000000000017,3],"output":null}
+{"seq":729,"tick":65,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":730,"tick":65,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",259,117.00000000000017,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":731,"tick":66,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":732,"tick":66,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":733,"tick":66,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":260.5,"y":117.00000000000017,"vx":90,"vy":70}}
+{"seq":734,"tick":66,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":260.5,"y":118.16666666666684,"vx":90,"vy":70}}
+{"seq":735,"tick":66,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":736,"tick":66,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":737,"tick":66,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":738,"tick":66,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":739,"tick":66,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[260.5,118.16666666666684,3],"output":null}
+{"seq":740,"tick":66,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":741,"tick":66,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",260.5,118.16666666666684,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":742,"tick":67,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":743,"tick":67,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":744,"tick":67,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":262,"y":118.16666666666684,"vx":90,"vy":70}}
+{"seq":745,"tick":67,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":262,"y":119.33333333333351,"vx":90,"vy":70}}
+{"seq":746,"tick":67,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":747,"tick":67,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":748,"tick":67,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":749,"tick":67,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":750,"tick":67,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[262,119.33333333333351,3],"output":null}
+{"seq":751,"tick":67,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":752,"tick":67,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",262,119.33333333333351,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":753,"tick":68,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":754,"tick":68,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":755,"tick":68,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":263.5,"y":119.33333333333351,"vx":90,"vy":70}}
+{"seq":756,"tick":68,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":263.5,"y":120.50000000000018,"vx":90,"vy":70}}
+{"seq":757,"tick":68,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":758,"tick":68,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":759,"tick":68,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":760,"tick":68,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":761,"tick":68,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[263.5,120.50000000000018,3],"output":null}
+{"seq":762,"tick":68,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":763,"tick":68,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",263.5,120.50000000000018,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":764,"tick":69,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":765,"tick":69,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":766,"tick":69,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":265,"y":120.50000000000018,"vx":90,"vy":70}}
+{"seq":767,"tick":69,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":265,"y":121.66666666666686,"vx":90,"vy":70}}
+{"seq":768,"tick":69,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":769,"tick":69,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":770,"tick":69,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":771,"tick":69,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":772,"tick":69,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[265,121.66666666666686,3],"output":null}
+{"seq":773,"tick":69,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":774,"tick":69,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",265,121.66666666666686,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":775,"tick":70,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":776,"tick":70,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":777,"tick":70,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":266.5,"y":121.66666666666686,"vx":90,"vy":70}}
+{"seq":778,"tick":70,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":266.5,"y":122.83333333333353,"vx":90,"vy":70}}
+{"seq":779,"tick":70,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":780,"tick":70,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":781,"tick":70,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":782,"tick":70,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":783,"tick":70,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[266.5,122.83333333333353,3],"output":null}
+{"seq":784,"tick":70,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":785,"tick":70,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",266.5,122.83333333333353,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":786,"tick":71,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":787,"tick":71,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":788,"tick":71,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":268,"y":122.83333333333353,"vx":90,"vy":70}}
+{"seq":789,"tick":71,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":268,"y":124.0000000000002,"vx":90,"vy":70}}
+{"seq":790,"tick":71,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":791,"tick":71,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":792,"tick":71,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":793,"tick":71,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":794,"tick":71,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[268,124.0000000000002,3],"output":null}
+{"seq":795,"tick":71,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":796,"tick":71,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",268,124.0000000000002,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":797,"tick":72,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":798,"tick":72,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":799,"tick":72,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":269.5,"y":124.0000000000002,"vx":90,"vy":70}}
+{"seq":800,"tick":72,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":269.5,"y":125.16666666666687,"vx":90,"vy":70}}
+{"seq":801,"tick":72,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":802,"tick":72,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":803,"tick":72,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":804,"tick":72,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":805,"tick":72,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[269.5,125.16666666666687,3],"output":null}
+{"seq":806,"tick":72,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":807,"tick":72,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",269.5,125.16666666666687,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":808,"tick":73,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":809,"tick":73,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":810,"tick":73,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":271,"y":125.16666666666687,"vx":90,"vy":70}}
+{"seq":811,"tick":73,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":271,"y":126.33333333333354,"vx":90,"vy":70}}
+{"seq":812,"tick":73,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":813,"tick":73,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":814,"tick":73,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":815,"tick":73,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":816,"tick":73,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[271,126.33333333333354,3],"output":null}
+{"seq":817,"tick":73,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":818,"tick":73,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",271,126.33333333333354,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":819,"tick":74,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":820,"tick":74,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":821,"tick":74,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":272.5,"y":126.33333333333354,"vx":90,"vy":70}}
+{"seq":822,"tick":74,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":272.5,"y":127.50000000000021,"vx":90,"vy":70}}
+{"seq":823,"tick":74,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":824,"tick":74,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":825,"tick":74,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":826,"tick":74,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":827,"tick":74,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[272.5,127.50000000000021,3],"output":null}
+{"seq":828,"tick":74,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":829,"tick":74,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",272.5,127.50000000000021,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":830,"tick":75,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":831,"tick":75,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":832,"tick":75,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":274,"y":127.50000000000021,"vx":90,"vy":70}}
+{"seq":833,"tick":75,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":274,"y":128.66666666666688,"vx":90,"vy":70}}
+{"seq":834,"tick":75,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":835,"tick":75,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":836,"tick":75,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":837,"tick":75,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":838,"tick":75,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[274,128.66666666666688,3],"output":null}
+{"seq":839,"tick":75,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":840,"tick":75,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",274,128.66666666666688,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":841,"tick":76,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":842,"tick":76,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":843,"tick":76,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":275.5,"y":128.66666666666688,"vx":90,"vy":70}}
+{"seq":844,"tick":76,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":275.5,"y":129.83333333333354,"vx":90,"vy":70}}
+{"seq":845,"tick":76,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":846,"tick":76,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":847,"tick":76,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":848,"tick":76,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":849,"tick":76,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[275.5,129.83333333333354,3],"output":null}
+{"seq":850,"tick":76,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":851,"tick":76,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",275.5,129.83333333333354,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":852,"tick":77,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":853,"tick":77,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":854,"tick":77,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":277,"y":129.83333333333354,"vx":90,"vy":70}}
+{"seq":855,"tick":77,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":277,"y":131.0000000000002,"vx":90,"vy":70}}
+{"seq":856,"tick":77,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":857,"tick":77,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":858,"tick":77,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":859,"tick":77,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":860,"tick":77,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[277,131.0000000000002,3],"output":null}
+{"seq":861,"tick":77,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":862,"tick":77,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",277,131.0000000000002,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":863,"tick":78,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":864,"tick":78,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":865,"tick":78,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":278.5,"y":131.0000000000002,"vx":90,"vy":70}}
+{"seq":866,"tick":78,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":278.5,"y":132.16666666666686,"vx":90,"vy":70}}
+{"seq":867,"tick":78,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":868,"tick":78,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":869,"tick":78,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":870,"tick":78,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":871,"tick":78,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[278.5,132.16666666666686,3],"output":null}
+{"seq":872,"tick":78,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":873,"tick":78,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",278.5,132.16666666666686,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":874,"tick":79,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":875,"tick":79,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":876,"tick":79,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":280,"y":132.16666666666686,"vx":90,"vy":70}}
+{"seq":877,"tick":79,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":280,"y":133.3333333333335,"vx":90,"vy":70}}
+{"seq":878,"tick":79,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":879,"tick":79,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":880,"tick":79,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":881,"tick":79,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":882,"tick":79,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[280,133.3333333333335,3],"output":null}
+{"seq":883,"tick":79,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":884,"tick":79,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",280,133.3333333333335,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":885,"tick":80,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":886,"tick":80,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":887,"tick":80,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":281.5,"y":133.3333333333335,"vx":90,"vy":70}}
+{"seq":888,"tick":80,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":281.5,"y":134.50000000000017,"vx":90,"vy":70}}
+{"seq":889,"tick":80,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":890,"tick":80,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":891,"tick":80,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":892,"tick":80,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":893,"tick":80,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[281.5,134.50000000000017,3],"output":null}
+{"seq":894,"tick":80,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":895,"tick":80,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",281.5,134.50000000000017,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":896,"tick":81,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":897,"tick":81,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":898,"tick":81,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":283,"y":134.50000000000017,"vx":90,"vy":70}}
+{"seq":899,"tick":81,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":283,"y":135.66666666666683,"vx":90,"vy":70}}
+{"seq":900,"tick":81,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":901,"tick":81,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":902,"tick":81,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":903,"tick":81,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":904,"tick":81,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[283,135.66666666666683,3],"output":null}
+{"seq":905,"tick":81,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":906,"tick":81,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",283,135.66666666666683,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":907,"tick":82,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":908,"tick":82,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":909,"tick":82,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":284.5,"y":135.66666666666683,"vx":90,"vy":70}}
+{"seq":910,"tick":82,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":284.5,"y":136.83333333333348,"vx":90,"vy":70}}
+{"seq":911,"tick":82,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":912,"tick":82,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":913,"tick":82,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":914,"tick":82,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":915,"tick":82,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[284.5,136.83333333333348,3],"output":null}
+{"seq":916,"tick":82,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":917,"tick":82,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",284.5,136.83333333333348,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":918,"tick":83,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":919,"tick":83,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":920,"tick":83,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":286,"y":136.83333333333348,"vx":90,"vy":70}}
+{"seq":921,"tick":83,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":286,"y":138.00000000000014,"vx":90,"vy":70}}
+{"seq":922,"tick":83,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":923,"tick":83,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":924,"tick":83,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":925,"tick":83,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":926,"tick":83,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[286,138.00000000000014,3],"output":null}
+{"seq":927,"tick":83,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":928,"tick":83,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",286,138.00000000000014,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":929,"tick":84,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":930,"tick":84,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":931,"tick":84,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":287.5,"y":138.00000000000014,"vx":90,"vy":70}}
+{"seq":932,"tick":84,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":287.5,"y":139.1666666666668,"vx":90,"vy":70}}
+{"seq":933,"tick":84,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":934,"tick":84,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":935,"tick":84,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":936,"tick":84,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":937,"tick":84,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[287.5,139.1666666666668,3],"output":null}
+{"seq":938,"tick":84,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":939,"tick":84,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",287.5,139.1666666666668,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":940,"tick":85,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":941,"tick":85,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":942,"tick":85,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":289,"y":139.1666666666668,"vx":90,"vy":70}}
+{"seq":943,"tick":85,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":289,"y":140.33333333333346,"vx":90,"vy":70}}
+{"seq":944,"tick":85,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":945,"tick":85,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":946,"tick":85,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":947,"tick":85,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":948,"tick":85,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[289,140.33333333333346,3],"output":null}
+{"seq":949,"tick":85,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":950,"tick":85,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",289,140.33333333333346,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":951,"tick":86,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":952,"tick":86,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":953,"tick":86,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":290.5,"y":140.33333333333346,"vx":90,"vy":70}}
+{"seq":954,"tick":86,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":290.5,"y":141.5000000000001,"vx":90,"vy":70}}
+{"seq":955,"tick":86,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":956,"tick":86,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":957,"tick":86,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":958,"tick":86,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":959,"tick":86,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[290.5,141.5000000000001,3],"output":null}
+{"seq":960,"tick":86,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":961,"tick":86,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",290.5,141.5000000000001,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":962,"tick":87,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":963,"tick":87,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":964,"tick":87,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":292,"y":141.5000000000001,"vx":90,"vy":70}}
+{"seq":965,"tick":87,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":292,"y":142.66666666666677,"vx":90,"vy":70}}
+{"seq":966,"tick":87,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":967,"tick":87,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":968,"tick":87,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":969,"tick":87,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":970,"tick":87,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[292,142.66666666666677,3],"output":null}
+{"seq":971,"tick":87,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":972,"tick":87,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",292,142.66666666666677,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":973,"tick":88,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":974,"tick":88,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":975,"tick":88,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":293.5,"y":142.66666666666677,"vx":90,"vy":70}}
+{"seq":976,"tick":88,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":293.5,"y":143.83333333333343,"vx":90,"vy":70}}
+{"seq":977,"tick":88,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":978,"tick":88,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":979,"tick":88,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":980,"tick":88,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":981,"tick":88,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[293.5,143.83333333333343,3],"output":null}
+{"seq":982,"tick":88,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":983,"tick":88,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",293.5,143.83333333333343,3],["text","SCORE 0",4,4]],"audio":[]}}
+{"seq":984,"tick":89,"circle":"Play","kind":"event","name":"tick","pointer":"/circles/1/boundary/on/0","input":[0.016666666666666666],"output":null}
+{"seq":985,"tick":89,"circle":"Play","kind":"rite","name":"step","pointer":"/circles/1/rites/2","input":[0.016666666666666666],"output":null}
+{"seq":986,"tick":89,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/2","input":null,"output":{"x":295,"y":143.83333333333343,"vx":90,"vy":70}}
+{"seq":987,"tick":89,"circle":"Play","kind":"set","name":"ball","pointer":"/circles/1/rites/2/steps/3","input":null,"output":{"x":295,"y":145.00000000000009,"vx":90,"vy":70}}
+{"seq":988,"tick":89,"circle":"Play","kind":"rite","name":"paint","pointer":"/circles/1/rites/3","input":[],"output":null}
+{"seq":989,"tick":89,"circle":"Play","kind":"cast","name":"canvas.clear","pointer":"/circles/1/rites/3/steps/0","input":["#000"],"output":null}
+{"seq":990,"tick":89,"circle":"Play","kind":"cast","name":"canvas.ink","pointer":"/circles/1/rites/3/steps/1","input":["#fff"],"output":null}
+{"seq":991,"tick":89,"circle":"Play","kind":"cast","name":"canvas.rect","pointer":"/circles/1/rites/3/steps/2","input":[140,172,40,4],"output":null}
+{"seq":992,"tick":89,"circle":"Play","kind":"cast","name":"canvas.circle","pointer":"/circles/1/rites/3/steps/3","input":[295,145.00000000000009,3],"output":null}
+{"seq":993,"tick":89,"circle":"Play","kind":"cast","name":"canvas.text","pointer":"/circles/1/rites/3/steps/4","input":["SCORE 0",4,4],"output":null}
+{"seq":994,"tick":89,"circle":null,"kind":"frame","name":null,"pointer":"/stage","input":null,"output":{"ops":[["clear","#000"],["ink","#fff"],["rect",140,172,40,4],["circle",295,145.00000000000009,3],["text","SCORE 0",4,4]],"audio":[]}}
