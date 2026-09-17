@@ -58,6 +58,11 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
   import の禁止はこれで変わらない。
   規則が**実際に落ちる**ことは `apps/editor/test/dependencyDirection.test.ts` が
   禁止 import を食わせて確かめる
+- **`apps/stage`（鑑賞ページ）は Python パッケージもリポジトリのファイルも読まない**（`schemas/` の例外も無い）。
+  SVG・名前の表・トレースはエディタから postMessage（`stage.scene` / `stage.trace`）で受け取る。
+  **three と mediabunny はここにだけある**（エディタとプレイヤーに入れない・`tests/contract/test_stage_contract.py`）。
+  禁止は eslint の `no-restricted-imports`（`apps/stage/eslint.config.js`）で、落ちることは
+  `apps/stage/test/dependencyDirection.test.ts` が確かめる
 
 この一方向性は **import-linter** で機械的に落とす（`pyproject.toml` の `[tool.importlinter]`）。
 `uv run lint-imports` がローカルでも CI でも走る。契約の正本は
@@ -127,6 +132,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 | v2.1 | 状態を保ったライブリロード（`tick` 結果の `snapshot` → `boot` の `manifest.resume`・`jin.load` の `keep`・jil: 2） | 実装済み |
 | v2.1 | `storage`（`get` / `set`・`boot` の `manifest.storage` → `tick` 結果の `storage`・`localStorage`・録画ヘッダの `storage`・式の `num(str)`・jil: 3） | 実装済み |
 | v2.1 | 式の正準化（`canonical.dumps` が `x-jin-expr` の欄を AST から書き戻す・`jin_core.v2.expr.unparse`・読めない式は元のまま） | 実装済み |
+| v2.1 | 鑑賞ページ（`apps/stage`・金環の 3D・発動の演出・MP4 / WebM / PNG の書き出し・エディタの「鑑賞」モード・`jin editor` の `/stage/`） | 実装済み |
 | v2.1 | `canvas.text` の ASCII 以外の字形（k6x8ゴシックの 7001 字・JIS X 0208 の全区点・`player.js` に同梱・幅は 1 コードポイント = 6 のまま） | 実装済み |
 | v2.1 | 文字列の順序 `cmp(a, b)`（-1 / 0 / 1・コードポイント順 = UTF-8 のバイト順・プレリュードはバイトを比べて `strcoll` を通さない・jil: 4） | 実装済み |
 | v2.1 | `jin run --storage`（記憶の JSON を起動時に読み・終了時に書き戻す・無ければ空・`--input` があれば録画のヘッダが正で読み書きしない・書き戻しは `_write_atomically`） | 実装済み |
@@ -532,6 +538,38 @@ Jin v2.1（式の正準化）の要点（正典は `docs/spec/v2/expr.md` §8、
   （`score+ (1)` を Enter → `score + 1` → 保存が `jin fmt` と一致）。examples-v2 と fixture は元から正準だったので紋章のハッシュと
   SVG スナップショットは動いていない（動いたら印字器が正準な式を書き換えた合図）
 
+Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設計書 `docs/superpowers/specs/2026-09-17-jin-stage-design.md`）:
+
+- **配置の元は SVG だけ。** stage は `viewBox` を `[-1.25, 1.25]` に写すだけで座標を計算しない（`apps/stage/src/scene.ts`）。
+  層は種別・陣の核の半径・ステップの深さから決める（`apps/stage/src/layers.ts` の表は stage.md と等号）。高さは層の値 × 陣の単位
+  （`layerHeight`・層の group は陣ごと。掛けないと入れ子の小陣が塔になる）。`crown` / `crack` などの陣全体の演出は行の pointer の陣を光らせる（`effects.ts` の `glowTarget`）
+- **絵は時刻の関数。** トレースを畳み込んで発火ごとの強さを決め（`effects.ts`。慣れの規則: 毎 tick の繰り返しは 0.15 の
+  うなり、値が変わった `set` と一度きりの kind だけ強い）、時刻 `t` の光を返す。`src/` のうち `main.ts` 以外で
+  `Math.random` / `Date.now` / `performance.now` / `new Date(` を使わない（乱数は `seq` を種にした mulberry32・契約テストが走査）。
+  祖先へ遡るのは `/` 区切りの段一致（`names.ts` の `nearestInScene`。overlay の規則 1 と同じ）
+- **`TraceRow.circle` は null になりうる**（`frame` 行・runtime.md §5）。stage は `frame` を読み飛ばして光らせない
+- **書き出しは 1 コマずつ**（WebCodecs + Mediabunny 1.57.0・`exporter.ts`。実時間の録画はしない）。MP4（H.264）→ WebM（VP9）→ 不可。
+  保証は場面の列までで、ピクセル一致は保証しない。ファイルは `stage.file` で親に渡し、**親がダウンロードさせる**。中止したら何も渡さない（仕上げの最中に押しても）。
+  書き出しは押した瞬間の入力（トレース・構図・銘・範囲）の写しで描き、**途中で届いた `stage.scene` / `stage.trace` は種類ごとに最後の 1 つを
+  取っておき、終わってから当てる**（1 本の書き出しの中で場面を変えない・`main.ts`）
+- **線の太さは描画の高さに比例する**（`linewidth = 基準 × 高さ(CSS px) / 1080`・頭打ちなし）。three 0.186 の `LineSegments2` は
+  `resolution` を CSS px のビューポートで上書きするので、プレビュー（倍率 2 など）と書き出し（出力の大きさ・倍率 1）で画面に対する太さが揃う。
+  目視で決めた値（ブルーム・自発光・光線の上限など）は stage.md §7 に置き場所と根拠つきで並べてある。変えたら表も直す
+- **エディタとの語彙は 4 語**（`stage.scene` / `stage.trace` / `stage.status` / `stage.file`）。書いてよいのは
+  `apps/editor/src/stage/StagePanel.tsx` と `apps/stage/src/messages.ts` だけで、プレイヤーの 7 語とは混ざらない（契約テストが等号で固定）。
+  `StagePanel` は同じ scene / trace を送り直さず（ref で直前の値を覚える・iframe を読み直したら送り直す）、stage は `stage.trace` を
+  受けても巻き戻さない（今の tick を新しい範囲に収めるだけ。書き出しの範囲は人が打ち直していなければ全体へ広げる）
+- **`jin editor` は `/stage/` を `/play/` と同じ規則で配る**（`translate_path` が 2 つの前置きを同じ正規化に通すので `/stage/../` で抜けない。
+  `--stage-dist` > `apps/stage/dist` の順に探し、**同梱版は無い**。サブコマンドは 9 個のまま）。「鑑賞」モードでも実行パネルの iframe は
+  外さない（鑑賞ページも `hidden` で隠すだけ）
+- **API は記憶で書かない。** three 0.186.0 / Mediabunny 1.57.0 / WebCodecs の可否は
+  `delivery/20260904-1445-jin/stage-api-probe.md`
+- 単体テストは `apps/stage/test/`（fixture の `play.svg` はレンダラの出力と一致することを契約テストが見る。
+  レイアウトを変えたら `uv run jin render examples-v2/paddle/paddle.jin --focus Play -o apps/stage/test/fixtures/play.svg`
+  で作り直す）。e2e は `apps/stage/e2e/`（単独で PNG と 1 秒の動画を書き出して Node で読み戻す）と
+  `apps/editor/e2e/stage.spec.ts`（録画を再生して鑑賞モードに行が届く）。防御を壊して赤くなることの実測は
+  `delivery/20260904-1445-jin/stage-mutations/`（10 件。e2e は回さない）
+
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 
 - **サーバ側のプロトコルを増やさない。** トレース JSONL は**ブラウザ**が
@@ -592,6 +630,8 @@ uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同�
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
 cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-tetris-demo.gif / .mp4）を撮り直す（台本は demo/v2-tetris.spec.ts・自動操縦で遊ぶ・要 ffmpeg と apps/player の dist）
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
+cd apps/stage && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # 鑑賞ページの全ゲート（e2e は WebGL と WebCodecs を実ブラウザで）
+uv run python delivery/20260904-1445-jin/stage-mutations/mutate_stage.py   # 鑑賞ページの防御を壊して赤くなることの実測（隔離コピー上・pytest と pnpm の両方）
 uv run jin editor examples/pipeline/pipeline.jin --no-browser            # 視覚エディタ（要 dist。URL を stderr へ）
 uv run jin editor examples/showcase/showcase.jin --no-browser          # 同（9 種すべてが描かれる 3 本目の example）
 uv run jin editor examples-v2/paddle/paddle.jin --no-browser          # Jin v2 の視覚エディタ（式エディタ + 実行パネル。要 apps/editor と apps/player の dist）

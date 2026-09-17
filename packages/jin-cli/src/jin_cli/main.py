@@ -1697,6 +1697,13 @@ def editor(
             help="Jin v2 の実行パネルが使うプレイヤーの場所（既定: apps/player/dist → 同梱版）",
         ),
     ] = None,
+    stage_dist: Annotated[
+        Path | None,
+        typer.Option(
+            "--stage-dist",
+            help="Jin v2 の鑑賞モードが使う鑑賞ページの場所（既定: apps/stage/dist）",
+        ),
+    ] = None,
     host: Annotated[str, typer.Option("--host", help="待ち受けアドレス")] = "127.0.0.1",
     no_browser: Annotated[
         bool, typer.Option("--no-browser", help="ブラウザを開かず URL を stderr に出す")
@@ -1724,6 +1731,7 @@ def editor(
             file,
             dist=dist,
             player_dist=player_dist,
+            stage_dist=stage_dist,
             host=host,
             open_browser=not no_browser,
             announce=lambda line: typer.echo(line, err=True),

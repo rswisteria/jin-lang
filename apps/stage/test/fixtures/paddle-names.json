@@ -1,0 +1,15 @@
+{
+  "Game": { "pointer": "/circles/0", "sigils": {}, "state": {}, "delegates": {} },
+  "Play": {
+    "pointer": "/circles/1",
+    "sigils": { "canvas": "/circles/1/sigils/0", "input": "/circles/1/sigils/1", "audio": "/circles/1/sigils/2" },
+    "state": { "ball": "/circles/1/state/0", "paddle": "/circles/1/state/1", "score": "/circles/1/state/2" },
+    "delegates": {}
+  },
+  "Result": {
+    "pointer": "/circles/2",
+    "sigils": { "canvas": "/circles/2/sigils/0", "ui": "/circles/2/sigils/1" },
+    "state": { "quit": "/circles/2/state/0" },
+    "delegates": {}
+  }
+}

@@ -41,6 +41,7 @@ import {
 import { assertNever, hasDrawing, type ViewState } from "./state/viewState";
 import { SvgCanvas } from "./svg/SvgCanvas";
 import type { JinTarget } from "./svg/hitTest";
+import { rootCircleName, StagePanel } from "./stage/StagePanel";
 import { rowsOf, type TraceRow } from "./trace/parse";
 import { DiagnosticList } from "./ui/DiagnosticList";
 import { StatusBar } from "./ui/StatusBar";
@@ -84,7 +85,7 @@ import {
  * v2 のものに切り替える。v1 の経路は 1 行も変えない。
  */
 /** 面はひとつ、モードはページ内の切り替え（DP-COMMON-18・要件書 §7.1 / §7.2）。 */
-export type Mode = "edit" | "debug";
+export type Mode = "edit" | "debug" | "stage";
 
 /** v1 と v2 の選択を 1 つの state で持つ。v2 は `v2: true` の印で見分ける。 */
 export type AnySelection = Selection | SelectionV2;
@@ -159,6 +160,10 @@ export function App({
 	const [text, setText] = useState("");
 	// v2 の JIL と manifest（`jin/model` / `jin/applyOps` の応答）。実行パネルへ渡す。
 	const [generated, setGenerated] = useState<JinGenerated | null>(null);
+	// 鑑賞ページに渡す**オーバーレイ無し**の SVG（v2 だけ）。トレースを重ねた SVG は色が変わるので渡さない。
+	const [plainSvg, setPlainSvg] = useState<string | null>(null);
+	// プレイヤーが最後に知らせた seed（鑑賞ページの `stage.trace` に添える）。
+	const [playerSeed, setPlayerSeed] = useState<number | null>(null);
 	// v2 のパレット（ステップの種別 / 道具の名前空間）。
 	const [stepKind, setStepKind] = useState("set");
 	const [host, setHost] = useState(namespaces[0] ?? "");
@@ -194,6 +199,11 @@ export function App({
 						manifest: model.manifest ?? null,
 						jilError: model.jilError ?? null,
 					});
+					setPlainSvg(
+						current === null
+							? drawing.svg
+							: (await api.renderSvg(uri, renderOptions(nextFocus, null))).svg,
+					);
 				}
 				setState({
 					kind: model.stale || drawing.stale ? "stale" : "ready",
@@ -231,6 +241,13 @@ export function App({
 	}, [api, uri, refresh]);
 
 	const model = hasDrawing(state) ? state.model : null;
+	// 毎描画で新しい配列にすると `StagePanel` が行を送り直すので、行（`events`）が変わったときだけ作る。
+	// スクラブは `upto` だけを変える（`{ ...replay, upto }`）ので、ここでは新しい行にならない。
+	const replayEvents = replay?.events ?? null;
+	const stageRows = useMemo(
+		() => (replayEvents === null ? [] : rowsOf(replayEvents)),
+		[replayEvents],
+	);
 	const isV2 = model !== null && model["version"] === 2;
 	const selectedPointer = useMemo(
 		() =>
@@ -523,6 +540,7 @@ export function App({
 	const lastGeneration = useRef(0);
 	const onStatus = useCallback(
 		(status: PlayerStatus): void => {
+			setPlayerSeed(status.seed);
 			if (status.generation !== lastGeneration.current) {
 				lastGeneration.current = status.generation;
 				clearTrace();
@@ -764,7 +782,11 @@ export function App({
 			: "";
 
 	return (
-		<main className="jin-app" data-version={isV2 ? "2" : "1"}>
+		<main
+			className="jin-app"
+			data-version={isV2 ? "2" : "1"}
+			data-mode={mode}
+		>
 			<header className="jin-toolbar">
 				<button
 					type="button"
@@ -782,6 +804,16 @@ export function App({
 				>
 					{isV2 ? "実行" : "デバッグ"}
 				</button>
+				{isV2 ? (
+					<button
+						type="button"
+						data-testid="jin-mode-stage"
+						data-active={mode === "stage" ? "1" : "0"}
+						onClick={() => setMode("stage")}
+					>
+						鑑賞
+					</button>
+				) : null}
 				<span className="jin-sep" />
 				<button
 					type="button"
@@ -972,6 +1004,18 @@ export function App({
 				</p>
 			)}
 			{body}
+			{/* 鑑賞モード（docs/spec/v2/stage.md）。実行パネルと同じく、モードを切り替えても外さず隠すだけ。 */}
+			{isV2 && (state.kind === "ready" || state.kind === "stale") ? (
+				<StagePanel
+					svg={plainSvg}
+					model={state.model}
+					rows={stageRows}
+					seed={playerSeed}
+					fileName={decodeURIComponent(uri.split("/").at(-1) ?? "")}
+					circleName={rootCircleName(state.model, focus)}
+					hidden={mode !== "stage"}
+				/>
+			) : null}
 		</main>
 	);
 }

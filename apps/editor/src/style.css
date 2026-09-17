@@ -329,3 +329,23 @@ body {
   color: #7f1d1d;
   font-size: 0.8rem;
 }
+
+/* 鑑賞モード（docs/spec/v2/stage.md）。図と脇のパネルは隠し、鑑賞ページを広く取る。 */
+.jin-app[data-mode="stage"] .jin-body {
+  display: none;
+}
+.jin-stage-panel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+}
+/* `display: flex` は UA の `[hidden] { display: none }` に勝つので、隠すときを明示する。 */
+.jin-stage-panel[hidden] {
+  display: none;
+}
+.jin-stage {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #080503;
+}

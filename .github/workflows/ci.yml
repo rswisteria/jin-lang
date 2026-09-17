@@ -223,6 +223,12 @@ jobs:
         working-directory: apps/player
         run: pnpm install --frozen-lockfile && pnpm build
 
+      # 鑑賞モード（docs/spec/v2/stage.md）は `jin editor` が `/stage/` として配る `apps/stage/dist` を使う。
+      # `e2e/stage.spec.ts` がそれを開くので、ここで一度ビルドする（鑑賞ページ自身のゲートは stage ジョブ）。
+      - name: Build the stage for the stage mode
+        working-directory: apps/stage
+        run: pnpm install --frozen-lockfile && pnpm build
+
       # スモーク層（同 2 層目）。ブラウザの取得はセットアップであり、
       # テスト自体は localhost の ws しか使わない（NFR-TEST-001）。
       - name: Install Playwright browser
@@ -335,4 +341,55 @@ jobs:
         with:
           name: player-playwright-report
           path: apps/player/playwright-report/
+          retention-days: 7
+
+  # 鑑賞ページ（docs/superpowers/specs/2026-09-17-jin-stage-design.md §4）。three / mediabunny はここにだけある。
+  # e2e は GPU なし（SwiftShader）で WebGL と WebCodecs を回す（probe §D の時間を見て timeout を決めた）。
+  # Python は使わない（fixture とレンダラの突合は test ジョブの tests/contract/test_stage_contract.py が見る）。
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # 動画の往復を「コーデックが無い」で黙って飛ばさない（apps/stage/e2e/stage.spec.ts）。
+      JIN_REQUIRE_CODEC: "1"
+    defaults:
+      run:
+        working-directory: apps/stage
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: apps/stage/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: apps/stage/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # 単独ページの往復: 描画・PNG・1 秒の動画を書き出して Node の Mediabunny で読み戻す。
+      - name: E2E (Playwright)
+        run: pnpm e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: stage-playwright-report
+          path: apps/stage/playwright-report/
           retention-days: 7
