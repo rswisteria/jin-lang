@@ -73,6 +73,25 @@ describe("1 コマずつの書き出し（stage.md §5）", () => {
 		expect(encoder.finished).toBe(false);
 	});
 
+	test("仕上げ（finish）の最中に中止したら、仕上がっても null（何も渡さない）", async () => {
+		const encoder = fakeEncoder();
+		const controller = new AbortController();
+		encoder.finish = () => {
+			encoder.finished = true;
+			controller.abort();
+			return Promise.resolve(new Uint8Array([1, 2, 3]));
+		};
+		const bytes = await runExport({
+			range,
+			draw: () => undefined,
+			encoder,
+			signal: controller.signal,
+			onProgress: () => undefined,
+		});
+		expect(encoder.finished).toBe(true);
+		expect(bytes).toBeNull();
+	});
+
 	test("エンコーダが失敗したら cancel してから投げ直す", async () => {
 		const encoder = fakeEncoder();
 		encoder.add = () => Promise.reject(new Error("encode failed"));

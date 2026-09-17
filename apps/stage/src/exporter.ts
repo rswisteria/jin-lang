@@ -42,7 +42,11 @@ export async function runExport(job: ExportJob): Promise<Uint8Array | null> {
 			await job.encoder.cancel();
 			return null;
 		}
-		return await job.encoder.finish();
+		const bytes = await job.encoder.finish();
+		// 仕上げ（finalize）は 60 秒・4K で数秒かかり、その間も中止を押せる。押されていたら何も渡さない
+		// （stage.md §5「中止したら何も渡さない」）。仕上げ終えた出力に cancel は呼ばない。
+		if (job.signal.aborted) return null;
+		return bytes;
 	} catch (error) {
 		await job.encoder.cancel().catch(() => undefined);
 		throw error;
