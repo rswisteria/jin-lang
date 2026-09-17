@@ -23,6 +23,8 @@ export interface StageFrame {
 
 const BACKGROUND = 0x080503;
 /** ブルームは発動の瞬間だけ滲むよう、しきい値を高くする（設計書 §2.1）。 */
+/** 線の太さの基準にする画面の高さ（CSS px）。 */
+const LINE_REFERENCE_HEIGHT = 1080;
 const BLOOM = { strength: 0.7, radius: 0.45, threshold: 0.82 } as const;
 
 export class StageRenderer {
@@ -78,10 +80,12 @@ export class StageRenderer {
 		this.composer.setSize(this.width, this.height);
 		const px = new THREE.Vector2(this.width * pixelRatio, this.height * pixelRatio);
 		this.bloom.resolution.copy(px);
-		// 線の太さは画面の高さ 1080 px を基準に比例させ、プレビューと書き出しで見え方を揃える。
+		// 線の太さ: three 0.186 の LineSegments2 は描くたびに `resolution` を `renderer.getViewport()`（CSS px・倍率を掛けない）で
+		// 上書きするので、`linewidth` は CSS px で、画面の高さに占める割合は `linewidth / height` になる。
+		// 高さ 1080 CSS px のときに基準の太さになるよう `height / 1080` を掛け（頭打ちにしない）、
+		// プレビュー（倍率 2 など）と書き出し（出力の大きさ・倍率 1）で画面の高さに対する太さを揃える。
 		for (const material of this.view?.lineMaterials ?? []) {
-			material.resolution.copy(px);
-			material.linewidth = (material.userData["baseWidth"] ??= material.linewidth) * Math.max(1, px.y / 1080);
+			material.linewidth = (material.userData["baseWidth"] ??= material.linewidth) * (this.height / LINE_REFERENCE_HEIGHT);
 		}
 	}
 

@@ -106,6 +106,13 @@ $ grep -n "class LineSegmentsGeometry" -A5 node_modules/three/examples/jsm/lines
 `linewidth` は CSS ピクセル単位（`worldUnits: true` ならワールド単位）。**`resolution` はキャンバスのピクセルサイズを
 明示的に渡さないと正しい太さで描けない**（デフォルトは `Vector2(0,0)`）。
 
+**訂正（Task 8 のレビュー・three 0.186.0 のソースで確認）**: `LineSegments2` / `Line2` を使う限り、`resolution` を手で渡す必要は無い
+（渡しても効かない）。`LineSegments2.onBeforeRender` が描くたびに `renderer.getViewport(_viewport)` の `z` / `w` で
+`resolution` を上書きする（`examples/jsm/lines/LineSegments2.js` 419〜428 行）。`getViewport` が返すのは `setSize` / `setViewport` に
+渡した CSS px で、`pixelRatio` を掛けていない（`src/renderers/WebGLRenderer.js` 793 行）。シェーダは `offset *= linewidth; offset /= resolution.y;`
+（`LineMaterial.js` 240〜243 行）なので、線の太さは **`linewidth` CSS px（= `linewidth × pixelRatio` デバイス px）**。
+画面の高さに占める割合は `linewidth / 高さ(CSS px)` で、EffectComposer の描画先の解像度には依存しない。
+
 ### A.3 `UnrealBloomPass`
 
 ```
@@ -658,7 +665,7 @@ node readback 1 30 640 360
 
 ## E. 本計画のコードとの差分
 
-brief の Step 3 の `probe.ts` はそのままの形（1 文字も変えず）で動いた。例外は出ていない。差分は次の 2 点（いずれも
+brief の Step 3 の `probe.ts` はそのままの形（1 文字も変えず）で動いた。例外は出ていない。差分は次の 3 点（1・2 は
 「動くが非推奨」という形で、値やロジックは変わらない）:
 
 1. **`CanvasSource` の `bitrate: MB.QUALITY_HIGH` は動くが非推奨**（§B.3）。`bitrate` フィールドと `QUALITY_HIGH`
@@ -666,6 +673,8 @@ brief の Step 3 の `probe.ts` はそのままの形（1 文字も変えず）�
    "mediabunny"`）を使うこと。`canEncodeVideo` の `bitrate` オプションも同様（brief は使っていないので影響なし）。
 2. **`InputVideoTrack.displayWidth` / `.displayHeight`（同期 getter）は動くが非推奨**（§B.5）。後続タスクで
    Node 側の読み戻しコードを書くときは `await track.getDisplayWidth()` / `await track.getDisplayHeight()` を使うこと。
+3. **`LineMaterial.resolution` を手で渡す必要は無い**（§A.2 の訂正。Task 8 のレビューで判明）。`LineSegments2.onBeforeRender` が
+   毎回 CSS px のビューポートで上書きするので、`linewidth` は CSS px。解像度に比例させたいなら `linewidth` 側を変える。
 
 上記以外の差分は無い（`Output` / `BufferTarget` / `Mp4OutputFormat` / `WebMOutputFormat` / `Input` / `ALL_FORMATS` /
 `computeDuration` / `computePacketStats` / `getPrimaryVideoTrack` / three の addon import パス / `THREE.Timer` /

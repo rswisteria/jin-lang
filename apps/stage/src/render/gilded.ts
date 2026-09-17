@@ -123,8 +123,10 @@ export function buildGilded(scene: Scene): GildedModel {
 			glowables.push({ material, base: material.color.clone() });
 			center = new THREE.Vector3(shape.center[0], shape.center[1], LAYER_HEIGHTS[item.layer] ?? 0);
 		} else {
-			const material = new THREE.SpriteMaterial({ map: glyph(shape.text, dim ? GOLD_DIM : GOLD_HOT), transparent: true, depthWrite: false });
-			disposables.push(material);
+			const texture = glyph(shape.text, dim ? GOLD_DIM : GOLD_HOT);
+			const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+			// `Material.dispose()` は `map` を解放しないので、テクスチャも自分で解放する（stage.scene は編集のたびに届く）。
+			disposables.push(texture, material);
 			const sprite = new THREE.Sprite(material);
 			const aspect = shape.text.length > 1 ? 4 : 1;
 			sprite.scale.set(shape.size * 1.6 * aspect, shape.size * 1.6, 1);

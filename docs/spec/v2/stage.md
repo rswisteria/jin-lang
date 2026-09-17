@@ -130,7 +130,7 @@ Task 8 の目視（`apps/stage/dev.html`・paddle の fixture・斜め 45° / �
 | ブルーム（strength / radius / threshold） | 0.7 / 0.45 / 0.82 | `render/stageRenderer.ts` の `BLOOM` | 初期値のまま。光の強さ側を下げれば白く飛ばなかった |
 | 主光源（点光源の強さ / 距離 / 減衰） | 8 / 8 / 1.3 | `render/stageRenderer.ts` の `key` | 初期値のまま |
 | 輪の太さ（陣の輪 / 小さな輪） | 0.009 / 0.005 | `render/gilded.ts` の `RING_TUBE` / `SMALL_RING_TUBE` | 初期値のまま |
-| 線の太さ | 1.4 px（高さ 1080 px 基準で比例） | `render/gilded.ts` の `LINE_WIDTH_PX` | 初期値のまま |
+| 線の太さ | 描画の高さ 1080 CSS px のとき 1.4 CSS px。`linewidth = 1.4 × 高さ(CSS px) / 1080`（頭打ちなし）で、画面の高さに対する太さはプレビュー（倍率 2 など）と書き出し（出力の大きさ・倍率 1）で等しい。three 0.186 の `LineSegments2` は `resolution` を CSS px のビューポートで上書きするので、`linewidth` は CSS px（倍率を掛けたデバイス px で描かれる） | `render/gilded.ts` の `LINE_WIDTH_PX`・`render/stageRenderer.ts` の `LINE_REFERENCE_HEIGHT` | 基準の値は初期値のまま。高さ 842 CSS px・倍率 2 のプレビューで 1.09 CSS px になり、細くはなるが輪の目盛り・スポーク・額縁は読める |
 | 光っていないときの自発光 | **0.12**（初期値 0.35） | `render/gilded.ts` の `BASE_EMISSIVE` | 0.35 だと輪が一様な黄色の板に見え、環境マップの陰影が消えた |
 | 光ったときの自発光の増分（強さ 1 あたり） | **1.6**（初期値 5） | `render/glowView.ts` の `EMISSIVE_GAIN` | 5 だと `ignite`（2.4 秒）の間ずっと陣全体が白く飛んだ |
 | 光ったときの線と文字の色の増分（強さ 1 あたり） | **1.2**（初期値 2.2） | `render/glowView.ts` の `COLOR_GAIN` | 同上 |
