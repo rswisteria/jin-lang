@@ -202,3 +202,35 @@ def test_the_stage_panel_does_not_draw() -> None:
     text = STAGE_PANEL.read_text(encoding="utf-8")
     assert "getContext" not in text
     assert "createElementNS" not in text
+
+
+CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def _ci_job(text: str, name: str) -> str | None:
+    """`ci.yml` のトップレベルのジョブ 1 つの本文（次のジョブの見出しか末尾まで）。"""
+    found = re.search(rf"\n  {re.escape(name)}:\n(.*?)(?=\n  [a-z-]+:\n|\Z)", text, re.DOTALL)
+    return None if found is None else found.group(1)
+
+
+def test_ci_runs_the_stage_gates_and_builds_it_for_the_editor_e2e() -> None:
+    text = CI.read_text(encoding="utf-8")
+    stage_job = _ci_job(text, "stage")
+    assert stage_job is not None, "stage ジョブが無い"
+    assert "working-directory: apps/stage" in stage_job
+    assert "package_json_file: apps/stage/package.json" in stage_job
+    for command in (
+        "pnpm lint",
+        "pnpm build",
+        "pnpm test",
+        "pnpm e2e",
+        "--frozen-lockfile",
+        "playwright install --with-deps chromium",
+    ):
+        assert command in stage_job, command
+    # e2e はビルド済みの dist を開く（harness.ts が dist/ を複製する）ので、ビルドが先。
+    assert stage_job.index("pnpm build") < stage_job.index("pnpm e2e")
+    editor_job = _ci_job(text, "editor")
+    assert editor_job is not None, "editor ジョブが無い"
+    assert "working-directory: apps/stage" in editor_job
+    assert editor_job.index("working-directory: apps/stage") < editor_job.index("pnpm e2e")
