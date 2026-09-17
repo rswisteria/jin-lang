@@ -9,6 +9,14 @@ export const LAYER_HEIGHTS: readonly number[] = [
 	-0.32, 0, 0.07, 0.14, 0.21, 0.28,
 ];
 
+/**
+ * 層の実際の高さ = 表の高さ × 陣の単位（stage.md §2）。入れ子の小陣は幅に比例して低くなる
+ * （単位を掛けないと、縮小された陣が幅と同じ高さの塔になる）。
+ */
+export function layerHeight(layer: LayerIndex, unit: number): number {
+	return (LAYER_HEIGHTS[layer] ?? 0) * unit;
+}
+
 /** stage.md の `stage-layers`。`circle` / `step` / `step-edge` は形から決めるので載せない。 */
 export const KIND_LAYERS: Readonly<Record<string, LayerIndex>> = {
 	stage: 0,

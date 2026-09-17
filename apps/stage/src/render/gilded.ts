@@ -3,7 +3,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
-import { LAYER_HEIGHTS } from "../layers";
+import { LAYER_HEIGHTS, type LayerIndex, layerHeight } from "../layers";
 import type { Scene, SceneItem, Vec2 } from "../scene";
 
 /**
@@ -12,6 +12,9 @@ import type { Scene, SceneItem, Vec2 } from "../scene";
  *
  * 陣の面は root の局所 XY。root を x 軸まわりに −90° 回して、世界では y = 0 の床に寝かせる
  * （局所 z = 層の高さ → 世界の +y）。
+ *
+ * 層の group は**陣ごと**に 6 つ持ち、高さは層の値 × その陣の単位（`layerHeight`）。
+ * 入れ子の小陣を root と同じ高さで積むと、幅と同じ高さの塔になる。
  */
 export const GOLD = new THREE.Color(0xc8943a);
 export const GOLD_LINE = new THREE.Color(0xd9a54f);
@@ -38,9 +41,20 @@ export interface ItemHandle {
 	readonly center: THREE.Vector3;
 }
 
+/** 1 つの陣（額縁など陣に属さない要素は key ""）の層。 */
+export interface CircleLayers {
+	readonly unit: number;
+	/** 添字 = 層。`position.z` の基準は `layerHeight(層, unit)`。 */
+	readonly layers: readonly THREE.Group[];
+}
+
+/** 陣に属さない要素の key。 */
+export const NO_CIRCLE = "";
+
 export interface GildedModel {
 	readonly root: THREE.Group;
-	readonly layers: readonly THREE.Group[];
+	/** key = 陣の pointer（`SceneItem.circle`）。 */
+	readonly circles: ReadonlyMap<string, CircleLayers>;
 	readonly handles: ReadonlyMap<string, readonly ItemHandle[]>;
 	readonly tickers: readonly { readonly group: THREE.Group; readonly speed: number }[];
 	readonly lineMaterials: readonly LineMaterial[];
@@ -52,12 +66,20 @@ export interface GildedModel {
 export function buildGilded(scene: Scene): GildedModel {
 	const root = new THREE.Group();
 	root.rotation.x = -Math.PI / 2;
-	const layers = LAYER_HEIGHTS.map((height) => {
-		const group = new THREE.Group();
-		group.position.z = height;
-		root.add(group);
-		return group;
-	});
+	const circles = new Map<string, CircleLayers>();
+	const layersOf = (item: SceneItem): readonly THREE.Group[] => {
+		const key = item.circle ?? NO_CIRCLE;
+		const existing = circles.get(key);
+		if (existing !== undefined) return existing.layers;
+		const layers = LAYER_HEIGHTS.map((_, i) => {
+			const group = new THREE.Group();
+			group.position.z = layerHeight(i as LayerIndex, item.unit);
+			root.add(group);
+			return group;
+		});
+		circles.set(key, { unit: item.unit, layers });
+		return layers;
+	};
 	const effects = new THREE.Group();
 	root.add(effects);
 	const handles = new Map<string, ItemHandle[]>();
@@ -90,8 +112,9 @@ export function buildGilded(scene: Scene): GildedModel {
 	};
 
 	for (const item of scene.items) {
-		const layer = layers[item.layer];
+		const layer = layersOf(item)[item.layer];
 		if (layer === undefined) continue;
+		const z = layerHeight(item.layer, item.unit);
 		const dim = item.layer === 0;
 		const glowables: Glowable[] = [];
 		let center: THREE.Vector3;
@@ -105,14 +128,14 @@ export function buildGilded(scene: Scene): GildedModel {
 			mesh.position.set(shape.center[0], shape.center[1], 0);
 			layer.add(mesh);
 			glowables.push({ material, base: material.color.clone() });
-			center = new THREE.Vector3(shape.center[0], shape.center[1], LAYER_HEIGHTS[item.layer] ?? 0);
+			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
 			if (item.kind === "circle") tickers.push(ticker(layer, shape.center, shape.radius, item.layer, lineMaterial, disposables));
 		} else if (shape.type === "segments") {
 			const color = dim ? GOLD_DIM : shape.spoke ? GOLD_DIM.clone().lerp(GOLD_LINE, 0.6) : GOLD_LINE;
 			const material = lineMaterial(color);
 			layer.add(segmentsObject(shape.segments, material));
 			glowables.push({ material, base: color.clone() });
-			center = midpoint(shape.segments, LAYER_HEIGHTS[item.layer] ?? 0);
+			center = midpoint(shape.segments, z);
 		} else if (shape.type === "dot") {
 			const material = metal(GOLD);
 			const geometry = new THREE.SphereGeometry(shape.radius, 16, 12);
@@ -121,7 +144,7 @@ export function buildGilded(scene: Scene): GildedModel {
 			mesh.position.set(shape.center[0], shape.center[1], shape.radius);
 			layer.add(mesh);
 			glowables.push({ material, base: material.color.clone() });
-			center = new THREE.Vector3(shape.center[0], shape.center[1], LAYER_HEIGHTS[item.layer] ?? 0);
+			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
 		} else {
 			const texture = glyph(shape.text, dim ? GOLD_DIM : GOLD_HOT);
 			const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
@@ -133,7 +156,7 @@ export function buildGilded(scene: Scene): GildedModel {
 			sprite.position.set(shape.at[0], shape.at[1], 0.01);
 			layer.add(sprite);
 			glowables.push({ material, base: new THREE.Color(1, 1, 1) });
-			center = new THREE.Vector3(shape.at[0], shape.at[1], LAYER_HEIGHTS[item.layer] ?? 0);
+			center = new THREE.Vector3(shape.at[0], shape.at[1], z);
 		}
 		const list = handles.get(item.pointer) ?? [];
 		list.push({ item, glowables, center });
@@ -142,7 +165,7 @@ export function buildGilded(scene: Scene): GildedModel {
 
 	return {
 		root,
-		layers,
+		circles,
 		handles,
 		tickers,
 		lineMaterials,

@@ -35,6 +35,11 @@ export interface SceneItem {
 	readonly layer: LayerIndex;
 	/** 属する陣の `<g data-jin-kind="circle">` の pointer。額縁と型紙の印章は null。 */
 	readonly circle: string | null;
+	/**
+	 * 属する陣の単位（核の描かれた半径 / 0.12・stage.md §2）。高さはこれを掛ける。
+	 * 陣に属さない要素（額縁）と核の無い陣は 1。
+	 */
+	readonly unit: number;
 	readonly shape: Shape;
 }
 
@@ -111,8 +116,9 @@ export function parseScene(svgText: string): Scene {
 		const group = element.closest(CIRCLE_GROUP);
 		const circle = group?.getAttribute("data-jin") ?? null;
 		const shape = shapeOf(element, point, length);
-		const layer = layerOf(kind, pointer, shape, unitOf(group));
-		items.push({ pointer, kind, layer, circle, shape });
+		const unit = unitOf(group);
+		const layer = layerOf(kind, pointer, shape, unit);
+		items.push({ pointer, kind, layer, circle, unit, shape });
 	}
 	return { items, pointers: new Set(items.map((item) => item.pointer)) };
 }

@@ -98,6 +98,8 @@ describe("環の層は属する陣の核から決める", () => {
 			[1, "/circles/1"],
 			[4, "/circles/1"],
 		]);
+		// 単位 = 核の描かれた半径 13.44 / 400（viewBox の半幅 500 → 1.25）/ 0.12 = 0.28。高さはこれを掛ける。
+		for (const item of scene.items) expect(item.unit).toBeCloseTo(0.28, 12);
 	});
 
 	test("paddle の Play 陣: 4 本の環が層 1〜4、額縁は層 0、pointer の集合を持つ", () => {
@@ -109,7 +111,7 @@ describe("環の層は属する陣の核から決める", () => {
 		expect(
 			scene.items
 				.filter((i) => i.kind === "stage")
-				.every((i) => i.layer === 0 && i.circle === null),
+				.every((i) => i.layer === 0 && i.circle === null && i.unit === 1),
 		).toBe(true);
 		expect(scene.pointers.has("/circles/1/state/2")).toBe(true);
 		expect(scene.pointers.has("/circles/1/boundary/on/0")).toBe(true);

@@ -8,6 +8,7 @@ import {
 	EFFECTS,
 	foldTrace,
 	glowsAt,
+	glowTarget,
 	HUM,
 	tickSpan,
 } from "../src/effects";
@@ -53,6 +54,37 @@ describe("演出の表（stage.md §3）", () => {
 		]);
 		expect(EFFECTS["frame"]).toEqual({ effect: null, strength: "none" });
 		expect(Object.keys(DURATION_SECONDS)).toHaveLength(12);
+	});
+});
+
+describe("陣全体の演出は陣を光らせる（設計書 §2.3・stage.md §3.1）", () => {
+	test("finish（crown）と error（crack）はステップの pointer を持っていても陣が target", () => {
+		const firings = foldTrace(
+			[
+				row({ kind: "finish", pointer: "/circles/1/rites/3/steps/2" }),
+				row({ kind: "error", pointer: "/circles/12/rites/0/steps/4/then/1" }),
+				row({ kind: "enter", pointer: "/circles/1" }),
+				row({ kind: "exit", pointer: "/circles/2" }),
+			],
+			NAMES,
+		);
+		expect(firings.map((f) => [f.effect, f.target])).toEqual([
+			["crown", "/circles/1"],
+			["crack", "/circles/12"],
+			["ignite", "/circles/1"],
+			["fade", "/circles/2"],
+		]);
+	});
+
+	test("陣全体でない演出は §3.1 の解決のまま（陣に上げない）", () => {
+		expect(glowTarget("spin", "/circles/1/rites/3")).toBe("/circles/1/rites/3");
+		expect(glowTarget("warn", "/circles/1/boundary/guards/0")).toBe(
+			"/circles/1/boundary/guards/0",
+		);
+		expect(glowTarget("crown", "/circles/1/rites/3/steps/2")).toBe("/circles/1");
+		// 段一致: `/circles/10` を `/circles/1` と読まない。陣の外はそのまま
+		expect(glowTarget("crack", "/circles/10/rites/0")).toBe("/circles/10");
+		expect(glowTarget("crack", "/stage")).toBe("/stage");
 	});
 });
 

@@ -1,4 +1,9 @@
-import { resolveTargets, type StageNames, type TraceRow } from "./names";
+import {
+	circleOf,
+	resolveTargets,
+	type StageNames,
+	type TraceRow,
+} from "./names";
 
 /**
  * 演出（docs/spec/v2/stage.md §3）。**表は stage.md の `stage-effects` と等号**
@@ -39,6 +44,23 @@ export const EFFECTS: Readonly<
 	error: { effect: "crack", strength: "once" },
 	frame: { effect: null, strength: "none" },
 };
+
+/**
+ * 陣全体に効く演出（設計書 §2.3「陣全体が光る / 暗くなる」）。光らせる先は行の pointer の**陣**
+ * （`/circles/i`）で、その配下すべてが光る。`finish` / `error` の行はステップの pointer を持つので
+ * （runtime.md §5）、陣に上げないと手順の部分木だけが光る。
+ */
+export const WHOLE_CIRCLE: ReadonlySet<EffectName> = new Set<EffectName>([
+	"ignite",
+	"fade",
+	"crown",
+	"crack",
+]);
+
+/** 発火の光らせる先。陣全体の演出は行の pointer の陣、それ以外は §3.1 の解決のまま。 */
+export function glowTarget(effect: EffectName, primary: string): string {
+	return WHOLE_CIRCLE.has(effect) ? (circleOf(primary) ?? primary) : primary;
+}
 
 /** 繰り返しが落ち着く明るさ。 */
 export const HUM = 0.15;
@@ -99,7 +121,8 @@ export function foldTrace(
 		const targets = resolveTargets(row, names);
 		if (targets === null) continue;
 		const time = Math.max(row.tick, 0);
-		const key = `${spec.effect}|${targets.primary}`;
+		const target = glowTarget(spec.effect, targets.primary);
+		const key = `${spec.effect}|${target}`;
 		const previous = streaks.get(key);
 		const count =
 			previous === undefined
@@ -127,7 +150,7 @@ export function foldTrace(
 			time,
 			kind: row.kind,
 			effect: spec.effect,
-			target: targets.primary,
+			target,
 			source: targets.source,
 			strength,
 		});

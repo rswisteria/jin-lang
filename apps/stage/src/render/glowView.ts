@@ -3,7 +3,8 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
-import type { Glow } from "../effects";
+import { type Glow, WHOLE_CIRCLE } from "../effects";
+import { LAYER_HEIGHTS, type LayerIndex, layerHeight } from "../layers";
 import { nearestInScene } from "../names";
 import { mulberry32 } from "../random";
 import { BASE_EMISSIVE, EMBER, GOLD_HOT, type GildedModel, type ItemHandle, WARN_RED } from "./gilded";
@@ -19,7 +20,6 @@ const AMBIENT_EMBERS = 260;
 const EMISSIVE_GAIN = 1.6;
 const COLOR_GAIN = 1.2;
 const BEAM_WIDTH_PX = 2.5;
-const WHOLE_CIRCLE = new Set(["ignite", "fade", "crown", "crack"]);
 
 export class GlowView {
 	/**
@@ -85,7 +85,8 @@ export class GlowView {
 	apply(glows: readonly Glow[], tick: number, fps: number, pointers: ReadonlySet<string>): void {
 		const seconds = tick / fps;
 		const levels = new Map<ItemHandle, { level: number; warn: boolean }>();
-		const lift = new Array<number>(this.model.layers.length).fill(0);
+		/** 陣ごとの層の浮き上がり（陣の単位を掛ける前の値）。`ignite` は光った陣だけを浮かせる。 */
+		const lift = new Map<string, number[]>();
 		/** 同じ出どころ → 行き先の光線は 1 本に畳み、強い方を採る（毎 tick の cast が重なって白く飛ばないように）。 */
 		const beams = new Map<string, { from: THREE.Vector3; to: THREE.Vector3; intensity: number }>();
 		let sparkCount = 0;
@@ -96,15 +97,19 @@ export class GlowView {
 		};
 
 		for (const glow of glows) {
-			const target = nearestInScene(pointers, glow.target);
+			const whole = WHOLE_CIRCLE.has(glow.effect);
+			// 陣全体の演出の target は陣（effects.ts の `glowTarget`）。手順の図のように陣そのものが場面に無くても、配下は光らせる。
+			const target = nearestInScene(pointers, glow.target) ?? (whole ? glow.target : null);
 			if (target === null) continue;
 			const warn = glow.effect === "warn";
-			if (WHOLE_CIRCLE.has(glow.effect)) {
+			if (whole) {
 				for (const [pointer, list] of this.model.handles) {
-					if (pointer === target || pointer.startsWith(`${target}/`)) for (const h of list) raise(h, glow.intensity * (glow.effect === "fade" ? 0.5 : 1), false);
+					if (pointer === glow.target || pointer.startsWith(`${glow.target}/`)) for (const h of list) raise(h, glow.intensity * (glow.effect === "fade" ? 0.5 : 1), false);
 				}
 				if (glow.effect === "ignite") {
-					for (let i = 1; i < lift.length; i++) lift[i] = Math.max(lift[i] ?? 0, glow.intensity * 0.05 * i * Math.min(1, glow.progress * 3));
+					const levels = lift.get(glow.target) ?? new Array<number>(LAYER_HEIGHTS.length).fill(0);
+					for (let i = 1; i < levels.length; i++) levels[i] = Math.max(levels[i] ?? 0, glow.intensity * 0.05 * i * Math.min(1, glow.progress * 3));
+					lift.set(glow.target, levels);
 				}
 			} else {
 				for (const h of this.model.handles.get(target) ?? []) raise(h, glow.intensity, warn);
@@ -150,10 +155,12 @@ export class GlowView {
 				}
 			}
 		}
-		this.model.layers.forEach((layer, i) => {
-			layer.position.z = layer.userData["baseZ"] ?? (layer.userData["baseZ"] = layer.position.z);
-			layer.position.z += lift[i] ?? 0;
-		});
+		for (const [circle, { unit, layers }] of this.model.circles) {
+			const levels = lift.get(circle);
+			layers.forEach((layer, i) => {
+				layer.position.z = layerHeight(i as LayerIndex, unit) + (levels?.[i] ?? 0) * unit;
+			});
+		}
 		let beamCount = 0;
 		for (const { from, to, intensity } of beams.values()) {
 			const i = beamCount * 6;

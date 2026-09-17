@@ -10,7 +10,7 @@
 
 ## 2. 層
 
-描かれた要素を陣ごとに 6 層に分けて持ち上げる。高さは外周 1 に対する値。
+描かれた要素を陣ごとに 6 層に分けて持ち上げる。高さは外周 1 に対する値で、実際の高さは高さ × 陣の単位（`circle` の輪の項の「陣の単位」。陣に属さない額縁は 1）。入れ子の小陣は幅に比例して低くなる。
 
 <!-- machine-readable: stage-layers -->
 
@@ -74,6 +74,7 @@
 | `cast` | `name` の `.` の前（sigil 名）を名前の表の `sigils` で引いた pointer | 行の pointer の手順（`/circles/i/rites/j`） |
 | `set` | `name` を名前の表の `state` で引いた pointer | 無し |
 | `transfer` | `name` を名前の表の `delegates` で引いた pointer | 行の pointer の手順 |
+| `enter` / `exit` / `finish` / `error`（陣全体の演出） | 行の pointer の陣（`/circles/i`）。その配下すべてが光る（`finish` / `error` の行はステップの pointer を持つ） | 無し |
 | それ以外 | 行の pointer | 無し |
 
 名前の表で引けなければ行の pointer を使う。その pointer が場面に無ければ、`/` で 1 段ずつ祖先へ遡って最初に場面にある pointer を光らせる（overlay の規則 1 と同じ段一致）。どこにも無ければ光らせない。
@@ -141,7 +142,7 @@
 | 光っていないときの自発光 | **0.12**（初期値 0.35） | `render/gilded.ts` の `BASE_EMISSIVE` | 0.35 だと輪が一様な黄色の板に見え、環境マップの陰影が消えた |
 | 光ったときの自発光の増分（強さ 1 あたり） | **1.6**（初期値 5） | `render/glowView.ts` の `EMISSIVE_GAIN` | 5 だと `ignite`（2.4 秒）の間ずっと陣全体が白く飛んだ |
 | 光ったときの線と文字の色の増分（強さ 1 あたり） | **1.2**（初期値 2.2） | `render/glowView.ts` の `COLOR_GAIN` | 同上 |
-| 陣全体を光らせる演出 | `ignite` / `fade` / `crown` / `crack` は陣の pointer の配下すべて（`fade` は強さ × 0.5）。`ignite` は i 番目の層を強さ × 0.05 × i × min(1, 進み × 3) だけ浮かせる | `render/glowView.ts` の `WHOLE_CIRCLE` | 初期値のまま |
+| 陣全体を光らせる演出 | `ignite` / `fade` / `crown` / `crack` は陣の pointer の配下すべて（`fade` は強さ × 0.5）。`ignite` は光った陣の i 番目の層だけを強さ × 0.05 × i × min(1, 進み × 3) × 陣の単位だけ浮かせる | `effects.ts` の `WHOLE_CIRCLE` / `glowTarget`・`render/glowView.ts` | 初期値のまま |
 | 光線と火花の明るさ | 強さを頂点色に掛ける。同じ出どころ → 行き先の光線は 1 本に畳んで強い方 | `render/glowView.ts` | 色を固定にすると、慣れて HUM に落ちた毎 tick の `cast` が加算で重なり、中心に白い棒ができた |
 | 光線の上限 | 24 本（1 本の `LineSegments2` に枠を持ち `instanceCount` で絞る） | `render/glowView.ts` の `MAX_BEAMS` | 本数は初期値のまま。枠を固定したのは、毎フレーム `setPositions` すると GPU のバッファを作り直し続けるため |
 | 火花（1 回の数 / 上限 / 大きさ） | 18 / 540 / 0.014。`chant` / `release` / `crown` / `flow` で出し、乱数は発火の `seq` を種にした mulberry32 | `render/glowView.ts` の `SPARKS_PER_BURST` / `MAX_SPARKS` | 初期値のまま |

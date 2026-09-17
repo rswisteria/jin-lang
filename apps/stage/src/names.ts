@@ -36,6 +36,11 @@ export function riteOf(pointer: string): string | null {
 	return /^\/circles\/\d+\/rites\/\d+/.exec(pointer)?.[0] ?? null;
 }
 
+/** 行の pointer が属する陣（`/circles/i`）。陣の外（`/stage` など）は null。 */
+export function circleOf(pointer: string): string | null {
+	return /^\/circles\/\d+(?=\/|$)/.exec(pointer)?.[0] ?? null;
+}
+
 export function resolveTargets(
 	row: TraceRow,
 	names: StageNames,

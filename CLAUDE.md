@@ -442,14 +442,15 @@ Jin v2.1（式の正準化）の要点（正典は `docs/spec/v2/expr.md` §8、
 Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設計書 `docs/superpowers/specs/2026-09-17-jin-stage-design.md`）:
 
 - **配置の元は SVG だけ。** stage は `viewBox` を `[-1.25, 1.25]` に写すだけで座標を計算しない（`apps/stage/src/scene.ts`）。
-  層は種別・陣の核の半径・ステップの深さから決める（`apps/stage/src/layers.ts` の表は stage.md と等号）
+  層は種別・陣の核の半径・ステップの深さから決める（`apps/stage/src/layers.ts` の表は stage.md と等号）。高さは層の値 × 陣の単位
+  （`layerHeight`・層の group は陣ごと。掛けないと入れ子の小陣が塔になる）。`crown` / `crack` などの陣全体の演出は行の pointer の陣を光らせる（`effects.ts` の `glowTarget`）
 - **絵は時刻の関数。** トレースを畳み込んで発火ごとの強さを決め（`effects.ts`。慣れの規則: 毎 tick の繰り返しは 0.15 の
   うなり、値が変わった `set` と一度きりの kind だけ強い）、時刻 `t` の光を返す。`src/` のうち `main.ts` 以外で
   `Math.random` / `Date.now` / `performance.now` / `new Date(` を使わない（乱数は `seq` を種にした mulberry32・契約テストが走査）。
   祖先へ遡るのは `/` 区切りの段一致（`names.ts` の `nearestInScene`。overlay の規則 1 と同じ）
 - **`TraceRow.circle` は null になりうる**（`frame` 行・runtime.md §5）。stage は `frame` を読み飛ばして光らせない
 - **書き出しは 1 コマずつ**（WebCodecs + Mediabunny 1.57.0・`exporter.ts`。実時間の録画はしない）。MP4（H.264）→ WebM（VP9）→ 不可。
-  保証は場面の列までで、ピクセル一致は保証しない。ファイルは `stage.file` で親に渡し、**親がダウンロードさせる**。中止したら何も渡さない。
+  保証は場面の列までで、ピクセル一致は保証しない。ファイルは `stage.file` で親に渡し、**親がダウンロードさせる**。中止したら何も渡さない（仕上げの最中に押しても）。
   書き出しは押した瞬間の入力（トレース・構図・銘・範囲）の写しで描き、**途中で届いた `stage.scene` / `stage.trace` は種類ごとに最後の 1 つを
   取っておき、終わってから当てる**（1 本の書き出しの中で場面を変えない・`main.ts`）
 - **線の太さは描画の高さに比例する**（`linewidth = 基準 × 高さ(CSS px) / 1080`・頭打ちなし）。three 0.186 の `LineSegments2` は
