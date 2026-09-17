@@ -66,12 +66,14 @@ test("PNG を書き出す", async ({ page }) => {
 
 test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", async ({ page }) => {
 	const stage = await open(page);
-	await expect(stage.getByTestId("stage-codec")).not.toHaveText("");
-	const codec = await stage.getByTestId("stage-codec").textContent();
-	test.skip(
-		codec === "この環境では動画を書き出せません",
-		"WebCodecs が無い環境（probe §C）",
-	);
+	const codecLabel = stage.getByTestId("stage-codec");
+	await expect(codecLabel).toHaveAttribute("data-codec", /.+/);
+	const codec = await codecLabel.getAttribute("data-codec");
+	// CI の stage ジョブは JIN_REQUIRE_CODEC=1 で走る。どちらのコーデックも無いときに往復を黙って飛ばさない
+	// （Linux の Chromium で canEncodeVideo が通るかは probe §C で未計測）。
+	if (process.env["JIN_REQUIRE_CODEC"] === "1")
+		expect(codec, "JIN_REQUIRE_CODEC=1 なのに動画を書き出せない").not.toBe("none");
+	test.skip(codec === "none", "WebCodecs が無い環境（probe §C）");
 	test.info().annotations.push({ type: "codec", description: codec ?? "" });
 	await stage.getByTestId("stage-start").fill("0");
 	await stage.getByTestId("stage-end").fill("60");
@@ -82,7 +84,7 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 	const [video] = await files(page);
 	expect(video?.name).toMatch(/^paddle-Play-seed7-t0-60\.(mp4|webm)$/);
 	expect(video?.mime).toBe(
-		codec === "MP4（H.264）" ? "video/mp4" : "video/webm",
+		codec === "avc" ? "video/mp4" : "video/webm",
 	);
 	const input = new Input({
 		source: new BufferSource(new Uint8Array(video?.bytes ?? [])),

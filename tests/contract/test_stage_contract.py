@@ -228,6 +228,10 @@ def test_ci_runs_the_stage_gates_and_builds_it_for_the_editor_e2e() -> None:
         "playwright install --with-deps chromium",
     ):
         assert command in stage_job, command
+    # 動画の往復が skip で緑にならない（e2e はこれが立つと skip を失敗にする）。
+    assert 'JIN_REQUIRE_CODEC: "1"' in stage_job
+    stage_e2e = (REPO_ROOT / "apps" / "stage" / "e2e" / "stage.spec.ts").read_text(encoding="utf-8")
+    assert 'process.env["JIN_REQUIRE_CODEC"] === "1"' in stage_e2e
     # e2e はビルド済みの dist を開く（harness.ts が dist/ を複製する）ので、ビルドが先。
     assert stage_job.index("pnpm build") < stage_job.index("pnpm e2e")
     editor_job = _ci_job(text, "editor")

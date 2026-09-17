@@ -249,6 +249,8 @@ async function refreshCodec(): Promise<void> {
 			: choice.container === "mp4"
 				? "MP4（H.264）"
 				: "WebM（VP9）";
+	// e2e は表示文ではなくこの値で書き出せるかを見る（確かめ終えるまで属性が無い）。
+	codecText.dataset["codec"] = choice?.codec ?? "none";
 	exportVideo.disabled = choice === null;
 	report({ codec: choice?.codec ?? null });
 }

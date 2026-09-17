@@ -334,6 +334,9 @@ jobs:
   stage:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # 動画の往復を「コーデックが無い」で黙って飛ばさない（apps/stage/e2e/stage.spec.ts）。
+      JIN_REQUIRE_CODEC: "1"
     defaults:
       run:
         working-directory: apps/stage
