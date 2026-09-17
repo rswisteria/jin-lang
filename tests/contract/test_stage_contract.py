@@ -165,3 +165,40 @@ def test_the_picture_does_not_read_the_clock_or_math_random() -> None:
         if word in path.read_text(encoding="utf-8")
     ]
     assert offenders == [], offenders
+
+
+STAGE_VOCABULARY = {"stage.scene", "stage.trace", "stage.status", "stage.file"}
+STAGE_PANEL = EDITOR / "src" / "stage" / "StagePanel.tsx"
+STAGE_MESSAGES = SRC / "messages.ts"
+
+
+def test_the_editor_and_the_stage_speak_the_same_four_words() -> None:
+    """stage.md §6: 語を書いてよいのは両側 1 ファイルずつ。片方だけに足すと黙って届かない。"""
+    words = re.compile(r'"(stage\.[a-z]+)"')
+    assert set(words.findall(STAGE_PANEL.read_text(encoding="utf-8"))) == STAGE_VOCABULARY
+    assert set(words.findall(STAGE_MESSAGES.read_text(encoding="utf-8"))) == STAGE_VOCABULARY
+    leaked = [
+        f"{path.relative_to(REPO_ROOT)}: {word}"
+        for root, keep in ((EDITOR / "src", STAGE_PANEL), (SRC, STAGE_MESSAGES))
+        for path in sorted(root.rglob("*.ts*"))
+        if path != keep
+        for word in words.findall(path.read_text(encoding="utf-8"))
+    ]
+    assert leaked == [], leaked
+
+
+def test_the_player_vocabulary_and_the_stage_vocabulary_do_not_mix() -> None:
+    jin_words = re.compile(r'"(jin\.[a-z]+)"')
+    stage_words = re.compile(r'"(stage\.[a-z]+)"')
+    assert jin_words.findall(STAGE_PANEL.read_text(encoding="utf-8")) == []
+    for path in sorted(SRC.rglob("*.ts")):
+        assert jin_words.findall(path.read_text(encoding="utf-8")) == [], path
+    for path in sorted((PLAYER / "src").rglob("*.ts")):
+        assert stage_words.findall(path.read_text(encoding="utf-8")) == [], path
+
+
+def test_the_stage_panel_does_not_draw() -> None:
+    """エディタは 3D も描かない（three を import せず、canvas の文脈を取らない）。"""
+    text = STAGE_PANEL.read_text(encoding="utf-8")
+    assert "getContext" not in text
+    assert "createElementNS" not in text
