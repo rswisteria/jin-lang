@@ -1,6 +1,11 @@
 import { type CameraOffset, type CameraPreset, NO_OFFSET } from "./camera";
 import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
-import { parseInbound, type SceneMessage, type StageStatus, statusMessage } from "./messages";
+import {
+	parseInbound,
+	type SceneMessage,
+	type StageStatus,
+	statusMessage,
+} from "./messages";
 import type { TraceRow } from "./names";
 import { StageRenderer } from "./render/stageRenderer";
 import { parseScene, SceneError } from "./scene";
@@ -34,18 +39,30 @@ export const state = {
 	tick: 0,
 	playing: false,
 	offset: NO_OFFSET as CameraOffset,
-	status: { ready: false, rows: 0, codec: null, exporting: null, error: null } as StageStatus,
+	status: {
+		ready: false,
+		rows: 0,
+		codec: null,
+		exporting: null,
+		error: null,
+	} as StageStatus,
 };
 
 function report(patch: Partial<StageStatus>): void {
 	state.status = { ...state.status, ...patch };
-	statusText.textContent = state.status.error ?? (state.status.ready ? "準備完了" : "SVG を待っています");
+	statusText.textContent =
+		state.status.error ??
+		(state.status.ready ? "準備完了" : "SVG を待っています");
 	rowsText.textContent = String(state.status.rows);
-	window.parent.postMessage(statusMessage(state.status), window.location.origin);
+	window.parent.postMessage(
+		statusMessage(state.status),
+		window.location.origin,
+	);
 }
 
 function refire(): void {
-	state.firings = state.scene === null ? [] : foldTrace(state.rows, state.scene.names);
+	state.firings =
+		state.scene === null ? [] : foldTrace(state.rows, state.scene.names);
 	const span = tickSpan(state.rows);
 	scrub.min = String(span.first);
 	scrub.max = String(span.last);
@@ -77,7 +94,13 @@ canvas.addEventListener("pointermove", (event) => {
 	if (dragging === null) return;
 	state.offset = {
 		azimuthDeg: state.offset.azimuthDeg - (event.clientX - dragging.x) * 0.3,
-		elevationDeg: Math.max(-90, Math.min(90, state.offset.elevationDeg + (event.clientY - dragging.y) * 0.2)),
+		elevationDeg: Math.max(
+			-90,
+			Math.min(
+				90,
+				state.offset.elevationDeg + (event.clientY - dragging.y) * 0.2,
+			),
+		),
 	};
 	dragging = { x: event.clientX, y: event.clientY };
 });
@@ -89,7 +112,8 @@ preset.addEventListener("change", () => {
 });
 
 window.addEventListener("message", (event: MessageEvent<unknown>) => {
-	if (event.source !== window.parent || event.origin !== window.location.origin) return;
+	if (event.source !== window.parent || event.origin !== window.location.origin)
+		return;
 	const message = parseInbound(event.data);
 	if (message === null) return;
 	if (message.type === "scene") {
@@ -99,18 +123,35 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 			refire();
 			report({ ready: true, error: null });
 		} catch (error) {
-			report({ ready: false, error: error instanceof SceneError ? `陣を読めません: ${error.message}` : String(error) });
+			report({
+				ready: false,
+				error:
+					error instanceof SceneError
+						? `陣を読めません: ${error.message}`
+						: String(error),
+			});
 		}
 	} else {
 		state.rows = message.value.rows;
 		state.seed = message.value.seed;
 		refire();
-		state.tick = Number(scrub.min);
+		// 巻き戻さない: 走らせている間は行が 1 秒ごとに足されて届くので、今の位置を新しい範囲に収めるだけ。
+		state.tick = Math.min(
+			Math.max(state.tick, Number(scrub.min)),
+			Number(scrub.max),
+		);
+		scrub.value = String(state.tick);
 		report({ rows: state.rows.length });
 	}
 });
 
-new ResizeObserver(() => renderer.resize(host.clientWidth, host.clientHeight, Math.min(window.devicePixelRatio, 2))).observe(host);
+new ResizeObserver(() =>
+	renderer.resize(
+		host.clientWidth,
+		host.clientHeight,
+		Math.min(window.devicePixelRatio, 2),
+	),
+).observe(host);
 
 play.addEventListener("click", () => {
 	state.playing = !state.playing;

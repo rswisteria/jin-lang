@@ -49,7 +49,12 @@ export function rootCircleName(model: Readonly<Record<string, unknown>> | null, 
 
 export function StagePanel(props: StagePanelProps): React.JSX.Element {
 	const frame = useRef<HTMLIFrameElement>(null);
-	const [loaded, setLoaded] = useState(false);
+	// iframe が読み込まれた回数（読み直されたら、直前に送った内容を忘れて送り直す）。
+	const [loads, setLoads] = useState(0);
+	// 最後に送った内容。走らせている間は 1 秒ごと・スクラブのたびに描き直されるが、中身が同じなら送らない
+	// （鑑賞ページは scene で形を作り直し、trace で位置を収め直すので、同じものを送ると無駄に重い）。
+	const lastScene = useRef<string | null>(null);
+	const lastTrace = useRef<{ readonly rows: readonly TraceRow[]; readonly seed: number | null } | null>(null);
 	const [missing, setMissing] = useState<string | null>(null);
 	const [status, setStatus] = useState<StageStatusView | null>(null);
 
@@ -78,14 +83,20 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 	const { svg, fileName, circleName, rows, seed } = props;
 
 	useEffect(() => {
-		if (!loaded || svg === null) return;
+		if (loads === 0 || svg === null) return;
+		const key = JSON.stringify([svg, fps, fileName, circleName, names]);
+		if (key === lastScene.current) return;
+		lastScene.current = key;
 		post({ type: "stage.scene", svg, names, fps, jinName: fileName, circleName });
-	}, [loaded, svg, names, fps, fileName, circleName, post]);
+	}, [loads, svg, names, fps, fileName, circleName, post]);
 
 	useEffect(() => {
-		if (!loaded) return;
+		if (loads === 0) return;
+		const last = lastTrace.current;
+		if (last !== null && last.rows === rows && last.seed === seed) return;
+		lastTrace.current = { rows, seed };
 		post({ type: "stage.trace", rows, seed });
-	}, [loaded, rows, seed, post]);
+	}, [loads, rows, seed, post]);
 
 	useEffect(() => {
 		const handler = (event: MessageEvent<unknown>): void => {
@@ -125,7 +136,11 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 				title="Jin stage"
 				src={STAGE_PATH}
 				sandbox="allow-scripts allow-same-origin"
-				onLoad={() => setLoaded(true)}
+				onLoad={() => {
+					lastScene.current = null;
+					lastTrace.current = null;
+					setLoads((n) => n + 1);
+				}}
 			/>
 		</section>
 	);

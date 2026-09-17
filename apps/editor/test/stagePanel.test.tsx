@@ -7,18 +7,39 @@ afterEach(cleanup);
 
 describe("StagePanel（stage.md §6）", () => {
 	test("iframe は ./stage/ を開き、隠すときは hidden", () => {
-		render(<StagePanel svg="<svg/>" model={{ circles: [] }} rows={[]} seed={null} fileName="paddle.jin" circleName="Play" hidden />);
+		render(
+			<StagePanel
+				svg="<svg/>"
+				model={{ circles: [] }}
+				rows={[]}
+				seed={null}
+				fileName="paddle.jin"
+				circleName="Play"
+				hidden
+			/>,
+		);
 		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
 		expect(frame.getAttribute("src")).toBe("./stage/");
 		expect(screen.getByTestId("jin-stage-panel").hidden).toBe(true);
 	});
 
 	test("iframe が読み込まれたら stage.scene と stage.trace を送る", () => {
-		const rows = [{ seq: 0, tick: -1, circle: "Play", kind: "enter", pointer: "/circles/1" }];
+		const rows = [
+			{
+				seq: 0,
+				tick: -1,
+				circle: "Play",
+				kind: "enter",
+				pointer: "/circles/1",
+			},
+		];
 		render(
 			<StagePanel
 				svg="<svg/>"
-				model={{ stage: { fps: 30 }, circles: [{ name: "Play", sigils: [{ name: "canvas" }] }] }}
+				model={{
+					stage: { fps: 30 },
+					circles: [{ name: "Play", sigils: [{ name: "canvas" }] }],
+				}}
 				rows={rows}
 				seed={7}
 				fileName="paddle.jin"
@@ -28,19 +49,28 @@ describe("StagePanel（stage.md §6）", () => {
 		);
 		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
 		const post = vi.fn();
-		Object.defineProperty(frame, "contentWindow", { value: { postMessage: post } });
+		Object.defineProperty(frame, "contentWindow", {
+			value: { postMessage: post },
+		});
 		// load → setLoaded → effect で送る。state の更新と effect を流し切るため act で包む。
 		act(() => {
 			frame.dispatchEvent(new Event("load"));
 		});
-		const types = post.mock.calls.map(([message]) => (message as { type: string }).type);
+		const types = post.mock.calls.map(
+			([message]) => (message as { type: string }).type,
+		);
 		expect(types).toEqual(["stage.scene", "stage.trace"]);
 		expect(post.mock.calls[0]?.[0]).toMatchObject({
 			svg: "<svg/>",
 			fps: 30,
 			jinName: "paddle.jin",
 			circleName: "Play",
-			names: { Play: { pointer: "/circles/0", sigils: { canvas: "/circles/0/sigils/0" } } },
+			names: {
+				Play: {
+					pointer: "/circles/0",
+					sigils: { canvas: "/circles/0/sigils/0" },
+				},
+			},
 		});
 		expect(post.mock.calls[1]?.[0]).toMatchObject({ rows, seed: 7 });
 	});
@@ -51,5 +81,62 @@ describe("StagePanel（stage.md §6）", () => {
 		expect(rootCircleName({ root: "Game" }, null)).toBe("Game");
 		expect(rootCircleName({ root: "Game" }, "Play/step")).toBe("Play");
 		expect(rootCircleName({}, null)).toBe("");
+	});
+});
+
+describe("StagePanel は同じ内容を送り直さない（stage.md §6）", () => {
+	const model = {
+		stage: { fps: 30 },
+		circles: [{ name: "Play", sigils: [{ name: "canvas" }] }],
+	};
+	const rows = [
+		{ seq: 0, tick: -1, circle: "Play", kind: "enter", pointer: "/circles/1" },
+	];
+
+	function panel(
+		currentRows: typeof rows,
+		currentModel: Record<string, unknown>,
+	): React.JSX.Element {
+		return (
+			<StagePanel
+				svg="<svg/>"
+				model={currentModel}
+				rows={currentRows}
+				seed={7}
+				fileName="paddle.jin"
+				circleName="Play"
+				hidden={false}
+			/>
+		);
+	}
+
+	function loaded() {
+		const view = render(panel(rows, model));
+		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
+		const post = vi.fn();
+		Object.defineProperty(frame, "contentWindow", {
+			value: { postMessage: post },
+		});
+		act(() => {
+			frame.dispatchEvent(new Event("load"));
+		});
+		const types = (): string[] =>
+			post.mock.calls.map(([message]) => (message as { type: string }).type);
+		return { view, types };
+	}
+
+	test("中身が同じ新しい model と同じ svg では stage.scene を送り直さない", () => {
+		const { view, types } = loaded();
+		expect(types()).toEqual(["stage.scene", "stage.trace"]);
+		view.rerender(panel(rows, structuredClone(model)));
+		expect(types()).toEqual(["stage.scene", "stage.trace"]);
+	});
+
+	test("同じ rows の配列では stage.trace を送り直さず、別の配列なら送る", () => {
+		const { view, types } = loaded();
+		view.rerender(panel(rows, model));
+		expect(types()).toEqual(["stage.scene", "stage.trace"]);
+		view.rerender(panel([...rows], model));
+		expect(types()).toEqual(["stage.scene", "stage.trace", "stage.trace"]);
 	});
 });

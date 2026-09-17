@@ -241,10 +241,12 @@ export function App({
 	}, [api, uri, refresh]);
 
 	const model = hasDrawing(state) ? state.model : null;
-	// 毎描画で新しい配列にすると `StagePanel` が行を送り直すので、再生が変わったときだけ作る。
+	// 毎描画で新しい配列にすると `StagePanel` が行を送り直すので、行（`events`）が変わったときだけ作る。
+	// スクラブは `upto` だけを変える（`{ ...replay, upto }`）ので、ここでは新しい行にならない。
+	const replayEvents = replay?.events ?? null;
 	const stageRows = useMemo(
-		() => (replay === null ? [] : rowsOf(replay.events)),
-		[replay],
+		() => (replayEvents === null ? [] : rowsOf(replayEvents)),
+		[replayEvents],
 	);
 	const isV2 = model !== null && model["version"] === 2;
 	const selectedPointer = useMemo(
