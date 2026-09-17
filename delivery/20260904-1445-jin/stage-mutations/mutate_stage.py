@@ -95,6 +95,22 @@ MUTATIONS: list[tuple[str, str, str, str, tuple[str, object]]] = [
         ("pnpm", ("apps/stage", "test")),
     ),
     (
+        # 高さに陣の単位を掛けない（入れ子の小陣が幅と同じ高さの塔になる・最終レビュー #1）。
+        "LAYERS-height-ignores-unit",
+        LAYERS,
+        "return (LAYER_HEIGHTS[layer] ?? 0) * unit;",
+        "return (LAYER_HEIGHTS[layer] ?? 0) * 1;",
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
+        # 陣全体の演出（crown / crack）が行の pointer（ステップ）のまま光らせる（最終レビュー #2）。
+        "EFFECTS-whole-circle-uses-the-raw-pointer",
+        EFFECTS,
+        "const target = glowTarget(spec.effect, targets.primary);",
+        "const target = targets.primary;",
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
         # 値が変わらない set も強く光る。
         "EFFECTS-set-ignores-unchanged-values",
         EFFECTS,
@@ -163,6 +179,14 @@ MUTATIONS: list[tuple[str, str, str, str, tuple[str, object]]] = [
             "\t\t\tjob.onProgress(n + 1, total);\n"
             "\t\t}\n"
         ),
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
+        # 仕上げ（finish）の最中に押された中止を見ず、出来たファイルを渡す（最終レビュー #3）。
+        "EXPORTER-delivers-after-finish",
+        EXPORTER,
+        "\t\tif (job.signal.aborted) return null;\n\t\treturn bytes;",
+        "\t\treturn bytes;",
         ("pnpm", ("apps/stage", "test")),
     ),
     (
