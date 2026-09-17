@@ -122,16 +122,28 @@
 
 ## 7. 実装で確定した値
 
-Task 8 の目視（`apps/stage/dev.html`・paddle の fixture・斜め 45° / 俯瞰 / 低い煽り）で決めた。残りの値は Task 13 でここに揃える。
+要件値ではなく、`apps/stage/src/render/` の実装で目視（`apps/stage/dev.html`・paddle の fixture・斜め 45° / 俯瞰 / 低い煽り）して決めた値。変えたら e2e と手元の書き出しで見え方を確かめ、この表を直す。「初期値」は計画に置いた値で、目視で変えたものだけ太字にしてある。
 
 | 値 | 確定値 | 置き場所 | 根拠 |
 |---|---|---|---|
-| 背景色 | `#080503` | `render/stageRenderer.ts` の `BACKGROUND` | 初期値のまま |
+| 背景色と霧 | `#080503`・`FogExp2` の濃さ 0.1（霧の色は背景と同じ） | `render/stageRenderer.ts` の `BACKGROUND` | 初期値のまま |
+| 環境マップ | `RoomEnvironment` を `PMREMGenerator.fromScene(…, 0.04)`・トーンマップは ACES Filmic | `render/stageRenderer.ts` | 初期値のまま。金属の陰影はこれの映り込みで出る |
 | ブルーム（strength / radius / threshold） | 0.7 / 0.45 / 0.82 | `render/stageRenderer.ts` の `BLOOM` | 初期値のまま。光の強さ側を下げれば白く飛ばなかった |
-| 主光源（点光源の強さ / 距離 / 減衰） | 8 / 8 / 1.3 | `render/stageRenderer.ts` の `key` | 初期値のまま |
+| 主光源 | 点光源 `#ffd8a0`・強さ 8・距離 8・減衰 1.3。位置は (cos 0.5s × 1.4, 1.1, sin 0.5s × 1.4)（s は秒 = tick / fps） | `render/stageRenderer.ts` の `key` と `draw` | 初期値のまま |
+| 補助光 | 平行光 `#ffc27a`・強さ 1.2・位置 (−1.5, 0.6, −2)、環境光 `#3a2a18`・強さ 0.6 | `render/stageRenderer.ts` | 初期値のまま |
+| 視野角 / 近い面 / 遠い面 | 35° / 0.05 / 50（注視点 (0, 0.1, 0)） | `render/stageRenderer.ts` の `camera`・`camera.ts` の `FOV_DEG` | 初期値のまま（構図は §4） |
 | 輪の太さ（陣の輪 / 小さな輪） | 0.009 / 0.005 | `render/gilded.ts` の `RING_TUBE` / `SMALL_RING_TUBE` | 初期値のまま |
+| 金属の素材 | `metalness` 1・`roughness` 0.3・輪の色 `#c8943a`・線の色 `#d9a54f`・目盛りの色 `#5a3c16`・光の色 `#fff0c8`・警告 `#ff2a2a`・火の粉 `#ffb35a` | `render/gilded.ts` の `GOLD` / `GOLD_LINE` / `GOLD_DIM` / `GOLD_HOT` / `WARN_RED` / `EMBER` | 初期値のまま |
 | 線の太さ | 描画の高さ 1080 CSS px のとき 1.4 CSS px。`linewidth = 1.4 × 高さ(CSS px) / 1080`（頭打ちなし）で、画面の高さに対する太さはプレビュー（倍率 2 など）と書き出し（出力の大きさ・倍率 1）で等しい。three 0.186 の `LineSegments2` は `resolution` を CSS px のビューポートで上書きするので、`linewidth` は CSS px（倍率を掛けたデバイス px で描かれる） | `render/gilded.ts` の `LINE_WIDTH_PX`・`render/stageRenderer.ts` の `LINE_REFERENCE_HEIGHT` | 基準の値は初期値のまま。高さ 842 CSS px・倍率 2 のプレビューで 1.09 CSS px になり、細くはなるが輪の目盛り・スポーク・額縁は読める |
+| 光線の太さ | 2.5 CSS px（高さ 1080 基準。線の太さと同じ比例を掛ける） | `render/glowView.ts` の `BEAM_WIDTH_PX` | 初期値のまま（Task 8 の目視で変えていない） |
+| 輪の外の目盛り（飾り） | 本数 max(24, round(半径 × 72))・内側 半径 + 0.014・長さ 0.03（6 本ごと）/ 0.012・回転 ±0.05 / max(半径, 0.3) rad/秒（層の偶奇で向きが逆） | `render/gilded.ts` の `ticker` | 初期値のまま。意味を持たない（設計書 §2.1） |
+| 文字 | SVG の文字をテクスチャに描く（1 文字 128 × 128・84 px、2 文字以上 512 × 128・72 px）。スプライトの高さは SVG の `font-size` × 1.6 | `render/gilded.ts` の `glyph` | 初期値のまま |
 | 光っていないときの自発光 | **0.12**（初期値 0.35） | `render/gilded.ts` の `BASE_EMISSIVE` | 0.35 だと輪が一様な黄色の板に見え、環境マップの陰影が消えた |
 | 光ったときの自発光の増分（強さ 1 あたり） | **1.6**（初期値 5） | `render/glowView.ts` の `EMISSIVE_GAIN` | 5 だと `ignite`（2.4 秒）の間ずっと陣全体が白く飛んだ |
 | 光ったときの線と文字の色の増分（強さ 1 あたり） | **1.2**（初期値 2.2） | `render/glowView.ts` の `COLOR_GAIN` | 同上 |
+| 陣全体を光らせる演出 | `ignite` / `fade` / `crown` / `crack` は陣の pointer の配下すべて（`fade` は強さ × 0.5）。`ignite` は i 番目の層を強さ × 0.05 × i × min(1, 進み × 3) だけ浮かせる | `render/glowView.ts` の `WHOLE_CIRCLE` | 初期値のまま |
 | 光線と火花の明るさ | 強さを頂点色に掛ける。同じ出どころ → 行き先の光線は 1 本に畳んで強い方 | `render/glowView.ts` | 色を固定にすると、慣れて HUM に落ちた毎 tick の `cast` が加算で重なり、中心に白い棒ができた |
+| 光線の上限 | 24 本（1 本の `LineSegments2` に枠を持ち `instanceCount` で絞る） | `render/glowView.ts` の `MAX_BEAMS` | 本数は初期値のまま。枠を固定したのは、毎フレーム `setPositions` すると GPU のバッファを作り直し続けるため |
+| 火花（1 回の数 / 上限 / 大きさ） | 18 / 540 / 0.014。`chant` / `release` / `crown` / `flow` で出し、乱数は発火の `seq` を種にした mulberry32 | `render/glowView.ts` の `SPARKS_PER_BURST` / `MAX_SPARKS` | 初期値のまま |
+| 漂う火の粉（数 / 大きさ / 不透明度） | 260 / 0.012 / 0.8。種は `mulberry32(1)`、半径 √r × 1.1、高さ (位相 + 秒 × (0.04 + r × 0.08)) mod 1.2 | `render/glowView.ts` の `AMBIENT_EMBERS` | 初期値のまま |
+| 銘 | 大きさ round(短辺 × 0.022) px・`500` の明朝系（`"Times New Roman", "Hiragino Mincho ProN", serif`）・`rgba(240, 214, 160, 0.72)`・右下（端から 1 文字ぶん内側） | `render/compose.ts` の `Composer2D.compose` | 初期値のまま |

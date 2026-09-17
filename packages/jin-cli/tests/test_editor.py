@@ -479,6 +479,11 @@ def test_default_stage_dist_is_the_repo_build(tmp_path: Path) -> None:
 
 
 def test_jin_editor_accepts_stage_dist_without_a_new_subcommand() -> None:
+    """オプション名そのものは探さない（`test_cli.py::test_lsp_help_describes_both_transports` と同じ理由）。
+
+    `FORCE_COLOR` が立っていると typer/rich が `-` と `-stage-dist` の間に ANSI の色指定を挟み、
+    `"--stage-dist" in output` は偽になる（実測）。説明文で見る。
+    """
     result = run("editor", "--help")
     assert result.exit_code == 0
-    assert "--stage-dist" in result.output
+    assert "鑑賞ページの場所" in result.output
