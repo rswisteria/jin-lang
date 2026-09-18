@@ -1,13 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-	expect,
-	type Frame,
-	type Locator,
-	type Page,
-	test,
-} from "@playwright/test";
+import { expect, type Frame, type Page, test } from "@playwright/test";
 
 import {
 	expectServerGone,
@@ -15,6 +9,14 @@ import {
 	type RunningEditor,
 	startEditor,
 } from "../e2e/editor";
+import {
+	caption,
+	glideClick,
+	glideTo,
+	installCursor,
+	openEditor,
+	pause,
+} from "./helpers";
 
 /**
  * README の動画の台本（`pnpm demo`）: Jin v2 のサンプル（tetris）をビジュアルエディタで開き、
@@ -47,42 +49,7 @@ let editor: RunningEditor;
 
 test.beforeEach(async ({ context }) => {
 	editor = await startEditor(SOURCE, "tetris.jin");
-	// 擬似カーソル（全フレームに入れる。iframe のプレイヤーにも効く）。
-	await context.addInitScript(() => {
-		window.addEventListener("DOMContentLoaded", () => {
-			const cursor = document.createElement("div");
-			cursor.id = "jin-demo-cursor";
-			cursor.style.cssText =
-				"position:fixed;left:-100px;top:-100px;width:22px;height:22px;pointer-events:none;z-index:2147483647;" +
-				"transform:translate(-4px,-2px);";
-			cursor.innerHTML =
-				'<svg width="22" height="22" viewBox="0 0 22 22"><path d="M3 2 L3 18 L7.5 13.5 L11 20 L13.5 19 L10 12.5 L16 12.5 Z" ' +
-				'fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>';
-			document.body.appendChild(cursor);
-			window.addEventListener(
-				"mousemove",
-				(ev) => {
-					cursor.style.left = `${String(ev.clientX)}px`;
-					cursor.style.top = `${String(ev.clientY)}px`;
-				},
-				true,
-			);
-			window.addEventListener(
-				"mousedown",
-				() => {
-					cursor.style.transform = "translate(-4px,-2px) scale(0.85)";
-				},
-				true,
-			);
-			window.addEventListener(
-				"mouseup",
-				() => {
-					cursor.style.transform = "translate(-4px,-2px)";
-				},
-				true,
-			);
-		});
-	});
+	await installCursor(context);
 });
 
 test.afterEach(async () => {
@@ -90,60 +57,6 @@ test.afterEach(async () => {
 	await expectServerGone(editor.url);
 	expect(stopped).toBe(true);
 });
-
-const pause = (page: Page, ms: number): Promise<void> =>
-	page.waitForTimeout(ms);
-
-/** 画面の左下に字幕を出す（`docs/images/` の動画の各段の説明）。 */
-async function caption(page: Page, text: string): Promise<void> {
-	await page.evaluate((message) => {
-		let bar = document.getElementById("jin-demo-caption");
-		if (bar === null) {
-			bar = document.createElement("div");
-			bar.id = "jin-demo-caption";
-			bar.style.cssText =
-				"position:fixed;left:24px;bottom:18px;max-width:54%;" +
-				"padding:10px 18px;border-radius:8px;background:rgba(20,20,24,0.88);color:#fff;" +
-				"font:600 20px/1.4 system-ui,sans-serif;letter-spacing:0.02em;z-index:2147483646;" +
-				"box-shadow:0 4px 18px rgba(0,0,0,0.35);pointer-events:none;white-space:nowrap;";
-			document.body.appendChild(bar);
-		}
-		bar.textContent = message;
-	}, text);
-}
-
-/** 要素の中心へ滑らかに動いてからクリック（クリックだけだとカーソルが跳ぶ）。 */
-async function glideTo(page: Page, target: Locator): Promise<void> {
-	const box = await target.boundingBox();
-	if (box === null) throw new Error("要素が見えない");
-	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
-		steps: 24,
-	});
-}
-
-async function glideClick(page: Page, target: Locator): Promise<void> {
-	await glideTo(page, target);
-	await pause(page, 250);
-	await target.click();
-}
-
-async function open(page: Page): Promise<void> {
-	await page.goto(editor.url);
-	// 見せるための調整（製品の CSS は変えない）: 右のパネルを広げ、プレイヤーの iframe を高くして、
-	// 176×176 の stage が 3 倍（528×528）で描かれるようにする（プレイヤーの fitCanvas は整数倍）。
-	await page.addStyleTag({
-		content:
-			".jin-side { width: 42rem !important; } .jin-player { height: 42rem !important; }",
-	});
-	await expect(page.getByTestId("jin-status")).toHaveAttribute(
-		"data-state",
-		"ready",
-	);
-	await expect(page.locator("main.jin-app")).toHaveAttribute(
-		"data-version",
-		"2",
-	);
-}
 
 // ---------------------------------------------------------------- 自動操縦
 
@@ -298,7 +211,7 @@ async function autoplay(
 test("tetris をエディタで直して、実行パネルで遊び、録画を読み直してトレースを追う", async ({
 	page,
 }) => {
-	await open(page);
+	await openEditor(page, editor.url);
 	const canvas = page.getByTestId("jin-canvas");
 	await expect(
 		canvas.locator('[data-jin-kind="stage"]').first(),

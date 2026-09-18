@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "e2e": "playwright test",
-    "demo": "playwright test --config playwright.demo.config.ts && node demo/encode.mjs"
+    "demo": "playwright test --config playwright.demo.config.ts v2-tetris && node demo/encode.mjs editor-v2-tetris-demo",
+    "demo:fib": "playwright test --config playwright.demo.config.ts v2-fib-tutorial && node demo/encode.mjs editor-v2-fib-tutorial compact"
   },
   "dependencies": {
     "react": "19.2.8",

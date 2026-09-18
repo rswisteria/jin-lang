@@ -1,9 +1,13 @@
-// `pnpm demo` の後段: `demo-results/` に落ちた Playwright の動画（.webm）を ffmpeg で
-// GIF（README に貼る）と MP4（リンク用）にして `docs/images/` へ書く。
+// `pnpm demo` / `pnpm demo:fib` の後段: `demo-results/` に落ちた Playwright の動画（.webm・最新の 1 本）を
+// ffmpeg で GIF（README に貼る）と MP4（リンク用）にして `docs/images/<名前>.gif / .mp4` へ書く。
 //
-//   cd apps/editor && pnpm demo        # 収録 → 変換（ffmpeg が要る）
+//   cd apps/editor && pnpm demo        # tetris の台本（demo/v2-tetris.spec.ts）を収録 → 変換（ffmpeg が要る）
+//   cd apps/editor && pnpm demo:fib    # fib のチュートリアル（demo/v2-fib-tutorial.spec.ts）
+//   node demo/encode.mjs <名前> [compact]   # 変換だけ（`<名前>` は docs/images/ に書くファイルの basename）
 //
-// 収録の台本は `demo/v2-tetris.spec.ts`。GIF は 10 fps・幅 1120 px・128 色（README で数 MB に収める）。
+// GIF は 10 fps・幅 1120 px・128 色（README で数 MB に収める）。鑑賞モードの 3D（光の粒が毎コマ動く）を含む
+// 長い台本は同じ設定だと 20 MB を超えるので、`compact`（6 fps・幅 800 px・64 色・ディザ無し）で 7 MB 程度に収める。
+// MP4 の設定は共通（動画として見るならこちら）。
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -11,7 +15,18 @@ import { join, resolve } from "node:path";
 const HERE = resolve(import.meta.dirname);
 const RESULTS = join(HERE, "..", "demo-results");
 const OUT_DIR = resolve(HERE, "../../../docs/images");
-const BASENAME = "editor-v2-tetris-demo";
+const BASENAME = process.argv[2];
+if (BASENAME === undefined || !/^[A-Za-z0-9._-]+$/.test(BASENAME)) {
+	throw new Error("使い方: node demo/encode.mjs <docs/images に書く名前> [compact]（例: editor-v2-tetris-demo）");
+}
+const GIF_PROFILES = {
+	default: { fps: 10, width: 1120, colors: 128, dither: "dither=bayer:bayer_scale=5" },
+	compact: { fps: 6, width: 800, colors: 64, dither: "dither=none" },
+};
+const PROFILE = GIF_PROFILES[process.argv[3] ?? "default"];
+if (PROFILE === undefined) {
+	throw new Error(`GIF のプロファイルは ${Object.keys(GIF_PROFILES).join(" / ")} のどれか`);
+}
 
 function newestWebm(dir) {
 	const found = [];
@@ -42,7 +57,7 @@ execFileSync(
 		"-i",
 		source,
 		"-vf",
-		"fps=10,scale=1120:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+		`fps=${PROFILE.fps},scale=${PROFILE.width}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=${PROFILE.colors}:stats_mode=diff[p];[b][p]paletteuse=${PROFILE.dither}:diff_mode=rectangle`,
 		"-loop",
 		"0",
 		gif,

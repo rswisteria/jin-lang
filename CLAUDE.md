@@ -637,6 +637,7 @@ uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同�
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
 cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-tetris-demo.gif / .mp4）を撮り直す（台本は demo/v2-tetris.spec.ts・自動操縦で遊ぶ・要 ffmpeg と apps/player の dist）
+cd apps/editor && pnpm demo:fib           # チュートリアル動画（docs/images/editor-v2-fib-tutorial.gif / .mp4）を撮り直す（台本は demo/v2-fib-tutorial.spec.ts: 空の陣から fib.jin をバイト一致まで組む → 鑑賞モードの 3D → 実行 → 発動の演出を MP4 に書き出す。要 ffmpeg と apps/player / apps/stage の dist。共通部は demo/helpers.ts、変換は demo/encode.mjs <名前> [compact]。fib は 3D の粒で GIF が肥大するので compact）
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 cd apps/stage && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # 鑑賞ページの全ゲート（e2e は WebGL と WebCodecs を実ブラウザで）
 uv run python delivery/20260904-1445-jin/stage-mutations/mutate_stage.py   # 鑑賞ページの防御を壊して赤くなることの実測（隔離コピー上・pytest と pnpm の両方）
