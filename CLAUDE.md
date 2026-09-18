@@ -422,6 +422,9 @@ Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点�
   19 件だけ、`src/v2/` は v2 の 32 件だけを送る（契約テストが両側から固定）。選択は名前で持つ（DP-COMMON-16）が、
   `on` は `event`、`guard` は `assert`、ステップは 陣 + 手順名 + 手順内パス。直接のオペレーションが無い欄は合成で書き、
   **33 個目を作らない**（description / sigil の host / on の event / do。ops.md §5）
+- **loop / if の本文へは「本文に追加」（`jin-add-step-inside`・v2.1）**。「ステップを追加」は選択の直後、ドラッグの
+  落とし先は既にあるステップなので、**空の本文には図に要素が無く、この操作でしか入れられない**（`actions.ts` の
+  `addStepInside` / `insideListOf`。`loop` は `…/steps`、`if` は `…/then` の末尾。`else` と範囲選択には効かない）
 - **実行パネルは同一オリジンの iframe `/play/`**（`apps/editor/src/run/RunPanel.tsx`）。`jin editor` が
   `--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR` の順に探して配る（`translate_path` の正規化を
   通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し（Phase 6 で 7 語に増えた。下の Phase 6 の要点）、

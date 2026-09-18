@@ -172,6 +172,52 @@ export function addStep(
 	];
 }
 
+/**
+ * 選択中の 1 ステップが持つ**本文の列**の pointer（`loop` は `…/steps`、`if` は `…/then`）。
+ * 本文を持たないステップ・範囲選択・ステップ以外は null（ボタンの活性の判定にも使う）。
+ */
+export function insideListOf(
+	model: JinModel,
+	selection: SelectionV2 | null,
+): string | null {
+	if (selection?.kind !== "step" || stepCount(selection) !== 1) return null;
+	const pointer = resolveSelectionV2(model, selection);
+	if (pointer === null) return null;
+	const step = valueAt(model, pointer);
+	if (!isRecord(step)) return null;
+	if (step["do"] === "loop") return `${pointer}/steps`;
+	if (step["do"] === "if") return `${pointer}/then`;
+	return null;
+}
+
+/**
+ * 選択中の `loop` / `if` の**本文の末尾**にステップを足す（`addStep`・v2.1）。
+ *
+ * 「ステップを追加」は選択の直後、ドラッグの落とし先は既にあるステップなので、
+ * **空の本文には図に要素が無く、どちらでも入れられない**（ops.md §5）。この操作だけがその列に届く。
+ * 足したステップを選ぶ。
+ */
+export function addStepInside(
+	model: JinModel,
+	selection: SelectionV2 | null,
+	kind: string,
+): EditV2 {
+	const list = insideListOf(model, selection);
+	if (list === null || selection?.kind !== "step") return NOTHING;
+	const body = valueAt(model, list);
+	const length = Array.isArray(body) ? body.length : 0;
+	return {
+		ops: [
+			{
+				op: "addStep",
+				pointer: list,
+				value: defaultStep(kind, selection.circle),
+			},
+		],
+		select: selectionFromPointerV2(model, `${list}/${String(length)}`),
+	};
+}
+
 /** 選択中の要素を消す。消せる種別だけ（陣 / stage / core は消さない）。 */
 export function removeSelected(
 	model: JinModel,

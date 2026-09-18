@@ -13,8 +13,10 @@ import {
 	addRite,
 	addState,
 	addStep,
+	addStepInside,
 	dropOps,
 	extractSelectedStep,
+	insideListOf,
 	pointerAfterRemoval,
 	removeSelected,
 	toggleStateOut,
@@ -470,6 +472,81 @@ group("図の操作 → オペレーション（ops.md §5）", () => {
 			},
 		]);
 		expect(addStep(MODEL, null, null, "wait")).toEqual([]);
+	});
+
+	test("addStepInside は選択中の loop の steps / if の then の末尾に足し、足したステップを選ぶ", () => {
+		const nested = {
+			...MODEL,
+			circles: [
+				MODEL.circles[0],
+				{
+					...MODEL.circles[1],
+					rites: [
+						{
+							name: "begin",
+							steps: [
+								{ do: "loop", kind: "count", times: "3", steps: [] },
+								{
+									do: "if",
+									cond: "true",
+									then: [{ do: "finish" }],
+									else: [],
+								},
+								{ do: "finish" },
+							],
+						},
+					],
+				},
+			],
+		};
+		const at = (...path: string[]): Extract<SelectionV2, { kind: "step" }> => ({
+			v2,
+			kind: "step",
+			circle: "Play",
+			rite: "begin",
+			path,
+		});
+		// 空の loop の本文へ（図に要素が無いので「直後に足す」でも「ドラッグ」でも入れられない列）。
+		expect(addStepInside(nested, at("steps", "0"), "wait")).toEqual({
+			ops: [
+				{
+					op: "addStep",
+					pointer: "/circles/1/rites/0/steps/0/steps",
+					value: { do: "wait", ticks: "1" },
+				},
+			],
+			select: at("steps", "0", "steps", "0"),
+		});
+		// if は then の末尾（既にある then の後ろ）。
+		expect(addStepInside(nested, at("steps", "1"), "break")).toEqual({
+			ops: [
+				{
+					op: "addStep",
+					pointer: "/circles/1/rites/0/steps/1/then",
+					value: { do: "break" },
+				},
+			],
+			select: at("steps", "1", "then", "1"),
+		});
+		// 本文を持たないステップ・範囲選択・ステップ以外には何もしない。
+		expect(addStepInside(nested, at("steps", "2"), "wait").ops).toEqual([]);
+		expect(
+			addStepInside(nested, { ...at("steps", "0"), count: 2 }, "wait").ops,
+		).toEqual([]);
+		expect(
+			addStepInside(
+				nested,
+				{ v2, kind: "rite", circle: "Play", name: "begin" },
+				"wait",
+			).ops,
+		).toEqual([]);
+		expect(insideListOf(nested, at("steps", "0"))).toBe(
+			"/circles/1/rites/0/steps/0/steps",
+		);
+		expect(insideListOf(nested, at("steps", "1"))).toBe(
+			"/circles/1/rites/0/steps/1/then",
+		);
+		expect(insideListOf(nested, at("steps", "2"))).toBeNull();
 	});
 
 	test("包む / 抽出 / 並べ替え", () => {
