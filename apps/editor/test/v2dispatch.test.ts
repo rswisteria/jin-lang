@@ -10,6 +10,7 @@ import {
 } from "../src/form/schemaForm";
 import {
 	addHostSigil,
+	addOn,
 	addRite,
 	addState,
 	addStep,
@@ -606,6 +607,55 @@ group("図の操作 → オペレーション（ops.md §5）", () => {
 			},
 		]);
 		expect(addStep(MODEL, null, null, "wait")).toEqual([]);
+	});
+
+	test("addOn は選択中の手順を呼ぶ on を、まだ使われていない先頭のイベントで足し、足した on を選ぶ（Issue #95）", () => {
+		const events = ["tick", "key", "pointer", "message", "exit"];
+		const rite: SelectionV2 = { v2, kind: "rite", circle: "Play", name: "begin" };
+		// Play には on tick が既にあるので、次は key。
+		expect(addOn(MODEL, rite, events)).toEqual({
+			ops: [
+				{
+					op: "setOn",
+					pointer: "/circles/1/boundary/on",
+					value: { event: "key", rite: "begin" },
+				},
+			],
+			select: { v2, kind: "on", circle: "Play", event: "key" },
+		});
+		// 境界が無い陣は tick から。
+		const bare = {
+			...MODEL,
+			circles: [MODEL.circles[0], { ...MODEL.circles[1], boundary: undefined }],
+		};
+		expect(addOn(bare, rite, events).ops).toEqual([
+			{
+				op: "setOn",
+				pointer: "/circles/1/boundary/on",
+				value: { event: "tick", rite: "begin" },
+			},
+		]);
+		// 全部使われていれば送らず、理由を返す。
+		const full = {
+			...MODEL,
+			circles: [
+				MODEL.circles[0],
+				{
+					...MODEL.circles[1],
+					boundary: {
+						on: events.map((event) => ({ event, rite: "begin" })),
+						guards: [],
+					},
+				},
+			],
+		};
+		const refused = addOn(full, rite, events);
+		expect(refused.ops).toEqual([]);
+		expect(refused.notice).toContain("すべてのイベント");
+		// 手順以外の選択・候補が空なら何もしない。
+		expect(addOn(MODEL, { v2, kind: "circle", circle: "Play" }, events).ops).toEqual([]);
+		expect(addOn(MODEL, null, events).ops).toEqual([]);
+		expect(addOn(MODEL, rite, []).ops).toEqual([]);
 	});
 
 	test("addStepInside は選択中の loop の steps / if の then の末尾に足し、足したステップを選ぶ", () => {
