@@ -814,7 +814,8 @@
             "$ref": "#/$defs/Param"
           },
           "title": "Params",
-          "type": "array"
+          "type": "array",
+          "x-jin-inline": true
         },
         "returns": {
           "anyOf": [

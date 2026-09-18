@@ -281,6 +281,20 @@ body {
 .jin-expr-row .jin-expr {
   flex: 1;
 }
+.jin-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.jin-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+.jin-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
 .jin-run-panel h2 {
   font-size: 0.95rem;
   margin: 0 0 0.5rem;

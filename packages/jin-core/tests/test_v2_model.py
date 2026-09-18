@@ -277,6 +277,26 @@ def test_expression_fields_carry_the_editor_mark_in_the_schema() -> None:
     assert EXPR_SCHEMA_MARK not in serialize(build_schema())
 
 
+def test_the_rite_params_carry_the_inline_mark_in_the_schema() -> None:
+    """v2.1: エディタは schema の `x-jin-inline` だけを見て、配列の欄を行の表にする（手順の引数）。
+
+    他の配列（state / rites / steps / sigils …）には付けない（図の操作で編集する）。
+    v1 の `jin.schema.json` には現れない。
+    """
+    from jin_core.v2.model import INLINE_SCHEMA_MARK
+
+    defs = build_schema_v2()["$defs"]
+    assert defs["Rite"]["properties"]["params"][INLINE_SCHEMA_MARK] is True
+    marked = [
+        f"{name}.{key}"
+        for name, definition in defs.items()
+        for key, prop in definition.get("properties", {}).items()
+        if prop.get(INLINE_SCHEMA_MARK)
+    ]
+    assert marked == ["Rite.params"], marked
+    assert INLINE_SCHEMA_MARK not in serialize(build_schema())
+
+
 def test_expr_fields_follow_the_mark_without_naming_the_fields() -> None:
     from jin_core.v2.model import CastStep, Circle, Guard, LoopStep, State, expr_fields
 

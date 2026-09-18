@@ -192,6 +192,23 @@ group("v2 の選択の再解決（DP-COMMON-16 の v2 版）", () => {
 			circle: "Play",
 			name: "score",
 		};
+		// 手順の引数（`…/params/k`）の改名は手順の改名ではない（pointer は手順を指すが要素が違う）。
+		// 選択中の手順の名前を引数の新名に書き換えると、選択が「見つかりません」になる（v2.1 で実測）。
+		const rite: SelectionV2 = { v2, kind: "rite", circle: "Play", name: "step" };
+		expect(
+			followRenameV2(
+				rite,
+				{ op: "rename", pointer: "/circles/1/rites/1/params/0", value: "n" },
+				MODEL,
+			),
+		).toBe(rite);
+		expect(
+			followRenameV2(
+				rite,
+				{ op: "rename", pointer: "/circles/1/rites/1", value: "advance" },
+				MODEL,
+			),
+		).toEqual({ ...rite, name: "advance" });
 		expect(
 			followRenameV2(
 				state,

@@ -357,6 +357,9 @@ export function followRenameV2(
 	if (op.pointer === undefined) return selection;
 	const renamed = selectionFromPointerV2(before, op.pointer);
 	if (renamed === null) return selection;
+	// 手順の引数（`…/rites/j/params/k`）や `loop.name` のように、pointer が選択の要素**の中**を指す改名は
+	// その要素の改名ではない（選択の名前を書き換えると要素が見つからなくなる）。要素そのものの pointer のときだけ追随する。
+	if (resolveSelectionV2(before, renamed) !== op.pointer) return selection;
 	const name = op.value;
 	if (
 		renamed.kind === "circle" &&

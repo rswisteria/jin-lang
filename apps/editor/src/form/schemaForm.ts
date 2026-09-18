@@ -30,6 +30,12 @@ export interface JsonSchema {
    * 式エディタを出すかどうかはこの印だけで決める（欄の名前を書き写さない・設計書 §8）。
    */
   readonly "x-jin-expr"?: boolean;
+  /**
+   * Jin v2.1 の**行の表の印**（`jin_core.v2.model.INLINE_SCHEMA_MARK`。`Rite.params` にだけ付く）。
+   * 配列は原則として図の操作で編集するが、この印のある「平らなオブジェクトの配列」だけは
+   * 図に載らないので、行ごとの欄を持つ表にする（欄の名前を書き写さない）。
+   */
+  readonly "x-jin-inline"?: boolean;
 }
 
 /**
@@ -37,7 +43,11 @@ export interface JsonSchema {
  * 配列は原則としてフォームに出さない（図の操作で編集する）が、式の列だけは図に載らないので
  * 行ごとの式エディタとして例外扱いにする。
  */
-export type FieldType = "string" | "boolean" | "number" | "enum" | "exprList";
+/**
+ * `rowList` は **行の表**（`x-jin-inline` の付いた、スカラ欄だけのオブジェクトの配列。`Rite.params`）。
+ * 列は要素の schema から `fieldsOf` で生成する（`columns`）。
+ */
+export type FieldType = "string" | "boolean" | "number" | "enum" | "exprList" | "rowList";
 
 export interface FormField {
   readonly key: string;
@@ -53,6 +63,8 @@ export interface FormField {
   readonly nullable: boolean;
   /** 式の欄（`x-jin-expr`）。`exprList` は要素が式。 */
   readonly expr: boolean;
+  /** `rowList` の列（要素の schema のスカラ欄）。他の型では null。 */
+  readonly columns: readonly FormField[] | null;
 }
 
 /** `#/$defs/State` のような内部参照を解く。外部参照は解かない（この schema に無い）。 */
@@ -100,13 +112,31 @@ function fieldTypeOf(root: JsonSchema, schema: JsonSchema): FieldType | null {
     case "number":
       return "number";
     case "array":
-      // 式の列だけは欄にする（v2 の `args`）。他の配列は図の操作で編集する。
-      return schema.items !== undefined && isExpr(root, schema.items) ? "exprList" : null;
+      // 式の列（v2 の `args`）と、印のある行の表（v2.1 の `params`）だけは欄にする。
+      // 他の配列は図の操作で編集する。
+      if (schema.items === undefined) return null;
+      if (isExpr(root, schema.items)) return "exprList";
+      return schema["x-jin-inline"] === true && rowColumns(root, schema.items) !== null
+        ? "rowList"
+        : null;
     default:
       // 配列・オブジェクト・解けない型はフォームに出さない。
       // 配列（tools / state / delegate）は SVG 側の操作で編集する（要件書 §7.1）。
       return null;
   }
+}
+
+/**
+ * 行の表の列。要素が**スカラ欄だけのオブジェクト**（配列・オブジェクト・式の列を含まない）なら
+ * その欄の並び、そうでなければ null（列が決まらないので表にしない）。
+ */
+export function rowColumns(root: JsonSchema, items: JsonSchema): readonly FormField[] | null {
+  const item = unwrap(root, items).schema;
+  const properties = item.properties;
+  if (item.type !== "object" || properties === undefined) return null;
+  const columns = fieldsOf(root, item);
+  const scalar = columns.every((column) => column.type !== "exprList" && column.type !== "rowList");
+  return scalar && columns.length === Object.keys(properties).length ? columns : null;
 }
 
 /** `x-jin-expr` が付いているか（`anyOf` / `$ref` の内側も見る）。 */
@@ -137,6 +167,7 @@ export function fieldsOf(root: JsonSchema, objectSchema: JsonSchema): readonly F
       options: schema.enum === undefined ? null : schema.enum.map((value) => String(value)),
       nullable,
       expr: type === "exprList" || isExpr(root, schema),
+      columns: type === "rowList" && schema.items !== undefined ? rowColumns(root, schema.items) : null,
     });
   }
   return fields;

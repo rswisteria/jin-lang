@@ -50,9 +50,11 @@ import {
 	addRite,
 	addState,
 	addStep,
+	addStepInside,
 	dropOps,
 	type EditV2,
 	extractSelectedStep,
+	insideListOf,
 	removeSelected,
 	toggleStateOut,
 	wrapSelectedStep,
@@ -878,6 +880,20 @@ export function App({
 							}}
 						>
 							ステップを追加
+						</button>
+						<button
+							type="button"
+							data-testid="jin-add-step-inside"
+							title="選んだ loop / if の本文の末尾にステップを足す（空の本文にはここからしか入れられない）"
+							disabled={
+								model === null || insideListOf(model, selectionV2) === null
+							}
+							onClick={() => {
+								if (model === null) return;
+								void sendEdit(addStepInside(model, selectionV2, stepKind));
+							}}
+						>
+							本文に追加
 						</button>
 						<button
 							type="button"

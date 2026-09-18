@@ -422,6 +422,14 @@ Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点�
   19 件だけ、`src/v2/` は v2 の 32 件だけを送る（契約テストが両側から固定）。選択は名前で持つ（DP-COMMON-16）が、
   `on` は `event`、`guard` は `assert`、ステップは 陣 + 手順名 + 手順内パス。直接のオペレーションが無い欄は合成で書き、
   **33 個目を作らない**（description / sigil の host / on の event / do。ops.md §5）
+- **loop / if の本文へは「本文に追加」（`jin-add-step-inside`・v2.1）**。「ステップを追加」は選択の直後、ドラッグの
+  落とし先は既にあるステップなので、**空の本文には図に要素が無く、この操作でしか入れられない**（`actions.ts` の
+  `addStepInside` / `insideListOf`。`loop` は `…/steps`、`if` は `…/then` の末尾。`else` と範囲選択には効かない）
+- **手順の引数（`Rite.params`）はフォームの行の表**（v2.1）。印は schema の **`x-jin-inline`**（`jin_core.v2.model.
+  INLINE_SCHEMA_MARK`。`Rite.params` にだけ付き、`test_the_rite_params_carry_the_inline_mark_in_the_schema` が
+  「他の配列には付かない」を固定）で、`schemaForm.ts` は印のある「スカラ欄だけのオブジェクトの配列」を `rowList`
+  にする（列は要素 schema `Param` から。欄の名前を書き写さない）。`dispatch.ts` は**名前だけ**の変更を `rename`
+  （参照が追随）、追加 / 削除 / 型を `setRiteSignature` に換算し、新しい行は空き番 + `num`（`defaultRowV2`）
 - **実行パネルは同一オリジンの iframe `/play/`**（`apps/editor/src/run/RunPanel.tsx`）。`jin editor` が
   `--player-dist` > `apps/player/dist` > `jin_wasm.bundle.PLAYER_DIR` の順に探して配る（`translate_path` の正規化を
   通すので `/play/../` で抜けない）。JIL は `jin.load`、操作は `jin.control`、トレースは `jin.trace` で話し（Phase 6 で 7 語に増えた。下の Phase 6 の要点）、
@@ -629,6 +637,7 @@ uv run python delivery/20260904-1445-jin/phase6-mutations/mutate_p6.py   # 同�
 uv run python delivery/20260904-1445-jin/issue9-mutations/mutate_i9.py   # 同上（Issue #9・symlink 走査 / ランディレクトリ解決 / uv allowlist）
 cd apps/editor && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # エディタの全ゲート
 cd apps/editor && pnpm demo               # README の Jin v2 デモ動画（docs/images/editor-v2-tetris-demo.gif / .mp4）を撮り直す（台本は demo/v2-tetris.spec.ts・自動操縦で遊ぶ・要 ffmpeg と apps/player の dist）
+cd apps/editor && pnpm demo:fib           # チュートリアル動画（docs/images/editor-v2-fib-tutorial.gif / .mp4）を撮り直す（台本は demo/v2-fib-tutorial.spec.ts: 空の陣から fib.jin をバイト一致まで組む → 鑑賞モードの 3D → 実行 → 発動の演出を MP4 に書き出す。要 ffmpeg と apps/player / apps/stage の dist。共通部は demo/helpers.ts、変換は demo/encode.mjs <名前> [compact]。fib は 3D の粒で GIF が肥大するので compact）
 cd apps/player && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # プレイヤーの全ゲート（e2e は実ブラウザで録画 → jin run --input → トレース一致。要 uv sync と pnpm build）
 cd apps/stage && pnpm install && pnpm build && pnpm lint && pnpm test && pnpm e2e   # 鑑賞ページの全ゲート（e2e は WebGL と WebCodecs を実ブラウザで）
 uv run python delivery/20260904-1445-jin/stage-mutations/mutate_stage.py   # 鑑賞ページの防御を壊して赤くなることの実測（隔離コピー上・pytest と pnpm の両方）
