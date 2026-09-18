@@ -173,6 +173,50 @@ export function addStep(
 }
 
 /**
+ * 境界のイベントを足す（`setOn`・Issue #95）。
+ *
+ * 選択中の**手順**を呼ぶ `on` を、その陣でまだ使われていない先頭のイベント（`events` は schema の
+ * `OnHandler.event` の enum。名前を書き写さない）で置く。参照先を捏造しない（手順は選択中のもの）。
+ * すべてのイベントが使われていれば送らず `notice` で断る。足した `on` を選ぶ。
+ */
+export function addOn(
+	model: JinModel,
+	selection: SelectionV2 | null,
+	events: readonly string[],
+): EditV2 {
+	if (selection?.kind !== "rite") return NOTHING;
+	const circle = circlePointer(model, selection.circle);
+	if (circle === null) return NOTHING;
+	const boundary = valueAt(model, `${circle}/boundary`);
+	const used = new Set(
+		isRecord(boundary) && Array.isArray(boundary["on"])
+			? boundary["on"].map((on) =>
+					isRecord(on) ? String(on["event"] ?? "") : "",
+				)
+			: [],
+	);
+	const event = events.find((candidate) => !used.has(candidate));
+	if (event === undefined) {
+		return events.length === 0
+			? NOTHING
+			: {
+					ops: [],
+					notice: `${selection.circle} はすべてのイベントに既に手順を結んでいます（フォームで rite を変えてください）`,
+				};
+	}
+	return {
+		ops: [
+			{
+				op: "setOn",
+				pointer: `${circle}/boundary/on`,
+				value: { event, rite: selection.name },
+			},
+		],
+		select: { v2: true, kind: "on", circle: selection.circle, event },
+	};
+}
+
+/**
  * 選択中の 1 ステップが持つ**本文の列**の pointer（`loop` は `…/steps`、`if` は `…/then`）。
  * 本文を持たないステップ・範囲選択・ステップ以外は null（ボタンの活性の判定にも使う）。
  */
