@@ -49,6 +49,11 @@ TypeStr = Annotated[Ident, Field(pattern=r"^[A-Za-z_<>][A-Za-z0-9_<>]*$")]
 EXPR_SCHEMA_MARK = "x-jin-expr"
 Expr = Annotated[Text, Field(json_schema_extra={EXPR_SCHEMA_MARK: True})]
 
+#: `x-jin-inline` は**配列の欄をフォームの表として出す印**（v2.1）。配列は原則として図の操作で
+#: 編集する（state / rites / steps …）が、手順の引数（`Rite.params`）は図に載らないので、
+#: エディタはこの印のある「平らなオブジェクトの配列」だけを行の表にする（欄の名前を書き写さない）。
+INLINE_SCHEMA_MARK = "x-jin-inline"
+
 FlowKind = Literal["sequence", "parallel", "loop"]
 SigilKind = Literal["host", "summon", "agent"]
 LoopKind = Literal["each", "while", "count"]
@@ -323,7 +328,7 @@ class Rite(JinModel):
     """手順（model.md §3.3）。ステップ数の上限（12）は段 3（JIN210）で見る。"""
 
     name: Name
-    params: list[Param] = Field(default_factory=list)
+    params: list[Param] = Field(default_factory=list, json_schema_extra={INLINE_SCHEMA_MARK: True})
     returns: TypeStr | None = None
     steps: list[Step]
 
@@ -434,6 +439,7 @@ class JinFileV2(JinModel):
 __all__ = [
     "DEFAULT_SCHEMA_URL_V2",
     "EXPR_SCHEMA_MARK",
+    "INLINE_SCHEMA_MARK",
     "MAX_FPS",
     "MAX_SEED",
     "MAX_STAGE_SIZE",
