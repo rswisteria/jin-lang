@@ -24,6 +24,10 @@ function isRecord(value: unknown): value is Rec {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isRowList(value: FieldChangeV2["value"]): value is readonly Rec[] {
+	return Array.isArray(value) && value.every(isRecord);
+}
+
 /** 選択の種類 → schema 上の定義（フォームを作る足場）。 */
 export function schemaForV2(
 	root: JsonSchema,
@@ -92,8 +96,74 @@ export function schemaForV2(
 
 export interface FieldChangeV2 {
 	readonly key: string;
-	/** 空欄は `null`。式の列は文字列の配列。 */
-	readonly value: string | boolean | number | null | readonly string[];
+	/** 空欄は `null`。式の列は文字列の配列、行の表（`rowList`）は行の配列。 */
+	readonly value:
+		| string
+		| boolean
+		| number
+		| null
+		| readonly string[]
+		| readonly Rec[];
+}
+
+/**
+ * 行の表（`rowList`）に足す新しい行の既定値（v2.1）。
+ *
+ * 手順の引数は空き番の名前 + `num`（`addState` と同じ「最小の妥当な値」。参照先を捏造しない）。
+ * 他の表は無い（`x-jin-inline` は `Rite.params` にだけ付く）。
+ */
+export function defaultRowV2(
+	selection: SelectionV2,
+	key: string,
+	rows: unknown,
+): Rec {
+	const used = new Set(
+		Array.isArray(rows)
+			? rows.map((row) => (isRecord(row) ? String(row["name"] ?? "") : ""))
+			: [],
+	);
+	const name = (base: string): string => {
+		for (let i = 1; ; i += 1) {
+			if (!used.has(`${base}${String(i)}`)) return `${base}${String(i)}`;
+		}
+	};
+	if (selection.kind === "rite") return { name: name("param"), type: "num" };
+	return { name: name(key) };
+}
+
+/**
+ * 行の表の変更 → オペレーション。**名前だけ**が変わった行は `rename`（式の中の参照が追随する）、
+ * それ以外（追加 / 削除 / 型 / 名前と型の両方）は列ごと置き換える 1 件。何も変わっていなければ空。
+ */
+function rowListOps(
+	op: string,
+	pointer: string,
+	key: string,
+	current: unknown,
+	rows: readonly Rec[],
+): readonly JinOp[] {
+	const before = Array.isArray(current) ? current.filter(isRecord) : [];
+	if (before.length === rows.length) {
+		const renamed: JinOp[] = [];
+		let other = false;
+		rows.forEach((row, index) => {
+			const old = before[index];
+			if (old === undefined) return;
+			const keys = new Set([...Object.keys(old), ...Object.keys(row)]);
+			for (const k of keys) {
+				if (old[k] === row[k]) continue;
+				if (k === "name" && typeof row[k] === "string" && row[k] !== "") {
+					renamed.push({
+						op: "rename",
+						pointer: `${pointer}/${key}/${String(index)}`,
+						value: row[k],
+					});
+				} else other = true;
+			}
+		});
+		if (!other) return renamed;
+	}
+	return [{ op, pointer, value: { [key]: rows } }];
 }
 
 /** ステップの `do` を変えるときの最小の中身。**参照先を捏造しない**（陣名は自陣）。 */
@@ -190,6 +260,15 @@ export function opsForChangeV2(
 		}
 		case "rite":
 			if (change.key === "name") return rename();
+			if (isRowList(change.value)) {
+				return rowListOps(
+					"setRiteSignature",
+					pointer,
+					change.key,
+					isRecord(current) ? current[change.key] : null,
+					change.value,
+				);
+			}
 			return [
 				{ op: "setRiteSignature", pointer, value: { [change.key]: value } },
 			];

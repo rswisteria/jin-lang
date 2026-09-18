@@ -76,6 +76,7 @@ test("v2 ファイルを開く → ステップを足す → 保存 → 正準�
 	);
 	await expect(page.getByTestId("jin-form").locator("label")).toHaveText([
 		"Name",
+		"Params",
 		"Returns",
 	]);
 
@@ -850,6 +851,7 @@ interface SavedStep {
 	readonly do: string;
 	readonly target?: string;
 	readonly then?: readonly SavedStep[];
+	readonly steps?: readonly SavedStep[];
 }
 
 interface SavedModel {
@@ -859,6 +861,7 @@ interface SavedModel {
 		readonly sigils?: readonly Record<string, unknown>[];
 		readonly rites?: readonly {
 			readonly name: string;
+			readonly params?: readonly { name: string; type: string }[];
 			readonly steps: readonly SavedStep[];
 		}[];
 	}[];
@@ -1085,6 +1088,76 @@ async function dragOnto(page: Page, from: Locator, to: Locator): Promise<void> {
 }
 
 /** 保存 → `jin fmt` の出力とバイト一致 → `jin check` が通る。保存したモデルを返す。 */
+test("手順の引数の表（x-jin-inline）と、loop の本文へのステップ追加（v2.1）", async ({
+	page,
+}) => {
+	await open(page);
+	const canvas = page.getByTestId("jin-canvas");
+	// 陣 Play に手順を足し（rite1・誰も呼ばない）、選ぶ → フォームに引数の表（params）が出る。
+	// 行を足すと空き番の名前 + num。
+	await clickOn(
+		page,
+		canvas.locator('[data-jin="/circles/1"][data-jin-kind="circle"]'),
+	);
+	await expect(page.getByTestId("jin-pointer")).toHaveText("/circles/1");
+	await page.getByTestId("jin-add-rite").click();
+	await canvas.locator('text[data-jin="/circles/1/rites/4"]').first().click();
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/4",
+	);
+	await expect(page.getByTestId("jin-row")).toHaveCount(0);
+	await page.getByTestId("jin-row-add").click();
+	await expect(page.getByTestId("jin-row")).toHaveCount(1);
+	const name = page.locator("#jin-field-params-0-name");
+	await expect(name).toHaveValue("param1");
+	await expect(page.locator("#jin-field-params-0-type")).toHaveValue("num");
+	// 名前だけを変える → rename（列ごと置き換えない）。
+	await name.fill("n");
+	await name.press("Tab");
+	// 引数の改名で手順の選択が外れない（`followRenameV2` が手順の改名と取り違えない）。
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/4",
+	);
+	await expect(page.locator("#jin-field-params-0-name")).toHaveValue("n");
+	await expect(page.locator("#jin-field-name")).toHaveValue("rite1");
+
+	// 手順の図を開き、loop を足す → 空の本文には「本文に追加」でだけ入れられる。
+	await canvas
+		.locator('text[data-jin="/circles/1/rites/4"]')
+		.first()
+		.dblclick();
+	await expect(page.getByTestId("jin-focus-clear")).toContainText("Play/rite1");
+	const step = (path: string) =>
+		canvas.locator(
+			`[data-jin="/circles/1/rites/4/steps/${path}"][data-jin-kind="step"]`,
+		);
+	await expect(page.getByTestId("jin-add-step-inside")).toBeDisabled();
+	await page.getByTestId("jin-step-kind").selectOption("loop");
+	await page.getByTestId("jin-add-step").click();
+	await expect(step("0")).toBeAttached();
+	await clickOn(page, step("0"));
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/4/steps/0",
+	);
+	await expect(page.getByTestId("jin-add-step-inside")).toBeEnabled();
+	await page.getByTestId("jin-step-kind").selectOption("wait");
+	await page.getByTestId("jin-add-step-inside").click();
+	// 足したステップが選ばれる（本文の先頭）。
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/4/steps/0/steps/0",
+	);
+	await expect(step("0/steps/0")).toBeAttached();
+	// wait は本文を持たないので、そこからは足せない。
+	await expect(page.getByTestId("jin-add-step-inside")).toBeDisabled();
+
+	const model = await saveAndCheck(page);
+	const added = model.circles[1]!.rites![4]!;
+	expect(added.name).toBe("rite1");
+	expect(added.params).toEqual([{ name: "n", type: "num" }]);
+	expect(added.steps.map((s) => s.do)).toEqual(["loop"]);
+	expect(added.steps[0]!.steps!.map((s) => s.do)).toEqual(["wait"]);
+});
+
 async function saveAndCheck(page: Page): Promise<SavedModel> {
 	await page.getByTestId("jin-save").click();
 	await expect(page.getByTestId("jin-notice")).toContainText("保存しました");

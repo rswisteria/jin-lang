@@ -23,6 +23,7 @@ import {
 	wrapSelectedStep,
 } from "../src/v2/actions";
 import {
+	defaultRowV2,
 	defaultStep,
 	fieldsForSelectionV2,
 	opsForChangeV2,
@@ -101,6 +102,46 @@ group("式の欄の印（x-jin-expr）だけで式エディタを決める", () 
 		).toBe(false);
 	});
 
+	test("配列の欄は x-jin-inline の印があるときだけ行の表（Rite.params）になり、印を消すと欄ごと消える", () => {
+		const rite = resolveRef(ROOT, "#/$defs/Rite")!;
+		const fields = fieldsOf(ROOT, rite);
+		expect(fields.map((f) => [f.key, f.type])).toEqual([
+			["name", "string"],
+			["params", "rowList"],
+			["returns", "string"],
+		]);
+		const params = fields.find((f) => f.key === "params")!;
+		expect(params.columns!.map((c) => [c.key, c.type, c.required])).toEqual([
+			["name", "string", true],
+			["type", "string", true],
+		]);
+		// 印の無い配列（steps / state …）は欄にならない。印を外すと params も同じ。
+		const unmarked = { ...rite.properties!["params"]!, "x-jin-inline": false };
+		const stripped: JsonSchema = {
+			...rite,
+			properties: { ...rite.properties, params: unmarked },
+		};
+		expect(fieldsOf(ROOT, stripped).map((f) => f.key)).toEqual([
+			"name",
+			"returns",
+		]);
+		// 印があっても要素が平らなオブジェクトでなければ表にしない（列が決まらない）。
+		const nested: JsonSchema = {
+			type: "object",
+			properties: {
+				rows: {
+					type: "array",
+					"x-jin-inline": true,
+					items: {
+						type: "object",
+						properties: { list: { type: "array" } },
+					},
+				},
+			},
+		};
+		expect(fieldsOf(ROOT, nested)).toEqual([]);
+	});
+
 	test("印を消すと式エディタが消える（名前で決めていない証拠）", () => {
 		const set = resolveRef(ROOT, "#/$defs/SetStep")!;
 		const stripped: JsonSchema = {
@@ -143,7 +184,7 @@ group("選択 → schema 上の定義（フォームの足場）", () => {
 		).toEqual(["name", "kind", "circle", "rite"]);
 		expect(
 			labels({ v2, kind: "rite", circle: "Play", name: "begin" }, {}),
-		).toEqual(["name", "returns"]);
+		).toEqual(["name", "params", "returns"]);
 		expect(
 			labels(
 				{
@@ -280,6 +321,99 @@ group("欄の変更 → v2 オペレーション（docs/spec/v2/ops.md §2 の 3
 		expect(ops(let_, "name", "w")).toEqual([
 			{ op: "rename", pointer: "/circles/1/rites/0/steps/2", value: "w" },
 		]);
+	});
+
+	test("手順の引数の表: 行の追加 / 削除 / 型は setRiteSignature、名前だけの変更は rename（参照が追随する）", () => {
+		const withParams = {
+			...MODEL,
+			circles: [
+				MODEL.circles[0],
+				{
+					...MODEL.circles[1],
+					rites: [
+						{
+							name: "begin",
+							params: [
+								{ name: "n", type: "num" },
+								{ name: "label", type: "str" },
+							],
+							steps: [],
+						},
+					],
+				},
+			],
+		};
+		const rite: SelectionV2 = { v2, kind: "rite", circle: "Play", name: "begin" };
+		const change = (rows: readonly Record<string, unknown>[]) =>
+			opsForChangeV2(withParams, rite, { key: "params", value: rows });
+		expect(
+			change([
+				{ name: "n", type: "num" },
+				{ name: "label", type: "str" },
+				{ name: "param1", type: "num" },
+			]),
+		).toEqual([
+			{
+				op: "setRiteSignature",
+				pointer: "/circles/1/rites/0",
+				value: {
+					params: [
+						{ name: "n", type: "num" },
+						{ name: "label", type: "str" },
+						{ name: "param1", type: "num" },
+					],
+				},
+			},
+		]);
+		expect(change([{ name: "label", type: "str" }])).toEqual([
+			{
+				op: "setRiteSignature",
+				pointer: "/circles/1/rites/0",
+				value: { params: [{ name: "label", type: "str" }] },
+			},
+		]);
+		expect(
+			change([
+				{ name: "n", type: "num" },
+				{ name: "label", type: "list<str>" },
+			]),
+		).toEqual([
+			{
+				op: "setRiteSignature",
+				pointer: "/circles/1/rites/0",
+				value: {
+					params: [
+						{ name: "n", type: "num" },
+						{ name: "label", type: "list<str>" },
+					],
+				},
+			},
+		]);
+		expect(
+			change([
+				{ name: "count", type: "num" },
+				{ name: "label", type: "str" },
+			]),
+		).toEqual([
+			{ op: "rename", pointer: "/circles/1/rites/0/params/0", value: "count" },
+		]);
+		// 何も変わっていなければ送らない。
+		expect(
+			change([
+				{ name: "n", type: "num" },
+				{ name: "label", type: "str" },
+			]),
+		).toEqual([]);
+		// 新しい行の既定値は空き番の名前と num（addState と同じ「最小の妥当な値」・参照先を捏造しない）。
+		expect(
+			defaultRowV2(rite, "params", [
+				{ name: "n", type: "num" },
+				{ name: "label", type: "str" },
+			]),
+		).toEqual({
+			name: "param1",
+			type: "num",
+		});
 	});
 
 	test("**33 個目を作らず**合成で書く欄（description / sigil の host / on の event / delegate / do）", () => {

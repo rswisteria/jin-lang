@@ -1,4 +1,4 @@
-import type { JsonSchema } from "../form/schemaForm";
+import type { FormField, JsonSchema } from "../form/schemaForm";
 import type { JinApi } from "../rpc/jin";
 import type {
 	JinModel,
@@ -7,6 +7,7 @@ import type {
 	LspCompletionItem,
 } from "../rpc/protocol";
 import {
+	defaultRowV2,
 	type FieldChangeV2,
 	fieldsForSelectionV2,
 	opsForChangeV2,
@@ -124,7 +125,26 @@ export function PropertyPanelV2(
 				return (
 					<div className="jin-field" key={`${pointer}:${field.key}`}>
 						<label htmlFor={id}>{field.label}</label>
-						{field.type === "exprList" ? (
+						{field.type === "rowList" && field.columns !== null ? (
+							<RowListEditor
+								id={id}
+								columns={field.columns}
+								rows={
+									Array.isArray(current)
+										? current.filter(
+												(row): row is Record<string, unknown> =>
+													row !== null &&
+													typeof row === "object" &&
+													!Array.isArray(row),
+											)
+										: []
+								}
+								onCommit={(rows) => emit(rows)}
+								onAdd={(rows) =>
+									emit([...rows, defaultRowV2(selection, field.key, rows)])
+								}
+							/>
+						) : field.type === "exprList" ? (
 							<ExprListEditor
 								id={id}
 								values={
@@ -200,5 +220,107 @@ export function PropertyPanelV2(
 				);
 			})}
 		</form>
+	);
+}
+
+interface RowListEditorProps {
+	readonly id: string;
+	readonly columns: readonly FormField[];
+	readonly rows: readonly Record<string, unknown>[];
+	readonly onCommit: (rows: readonly Record<string, unknown>[]) => void;
+	readonly onAdd: (rows: readonly Record<string, unknown>[]) => void;
+}
+
+/**
+ * 行の表（`rowList`・v2.1）。**列は schema から**（`FormField.columns`）で、この関数に欄の名前は無い。
+ * 行を足す / 消す / 列を書き換えるたびに行の配列ごと `onCommit` へ渡し、オペレーションへの
+ * 換算（`rename` か `setRiteSignature` か）は `dispatch.ts` が行う。
+ */
+function RowListEditor(props: RowListEditorProps): React.JSX.Element {
+	const replace = (index: number, key: string, value: unknown): void => {
+		const rows = props.rows.map((row, i) =>
+			i === index ? { ...row, [key]: value } : row,
+		);
+		props.onCommit(rows);
+	};
+	return (
+		<div className="jin-row-list" data-testid="jin-row-list">
+			{props.rows.map((row, index) => (
+				<div
+					className="jin-row"
+					data-testid="jin-row"
+					key={`${String(index)}:${String(row["name"] ?? "")}`}
+				>
+					{props.columns.map((column) => {
+						const cellId = `${props.id}-${String(index)}-${column.key}`;
+						const cell = row[column.key];
+						const text = cell === null || cell === undefined ? "" : String(cell);
+						return column.type === "enum" && column.options !== null ? (
+							<select
+								id={cellId}
+								key={column.key}
+								aria-label={column.label}
+								defaultValue={text}
+								onChange={(event) =>
+									replace(index, column.key, event.currentTarget.value)
+								}
+							>
+								{column.options.map((option) => (
+									<option key={option} value={option}>
+										{option}
+									</option>
+								))}
+							</select>
+						) : column.type === "boolean" ? (
+							<input
+								id={cellId}
+								key={column.key}
+								type="checkbox"
+								aria-label={column.label}
+								checked={cell === true}
+								onChange={(event) =>
+									replace(index, column.key, event.currentTarget.checked)
+								}
+							/>
+						) : (
+							<input
+								id={cellId}
+								key={column.key}
+								type={column.type === "number" ? "number" : "text"}
+								aria-label={column.label}
+								placeholder={column.label}
+								defaultValue={text}
+								onBlur={(event) => {
+									const raw = event.currentTarget.value;
+									if (raw === text) return;
+									replace(
+										index,
+										column.key,
+										column.type === "number" ? Number(raw) : raw,
+									);
+								}}
+							/>
+						);
+					})}
+					<button
+						type="button"
+						data-testid="jin-row-remove"
+						aria-label="この行を消す"
+						onClick={() =>
+							props.onCommit(props.rows.filter((_, i) => i !== index))
+						}
+					>
+						−
+					</button>
+				</div>
+			))}
+			<button
+				type="button"
+				data-testid="jin-row-add"
+				onClick={() => props.onAdd(props.rows)}
+			>
+				行を足す
+			</button>
+		</div>
 	);
 }
