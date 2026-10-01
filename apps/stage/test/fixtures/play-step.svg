@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="1000.000" viewBox="0.000 0.000 1000.000 1000.000">
+  <g data-jin="/stage" data-jin-kind="stage" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <path data-jin="/stage" data-jin-kind="stage" d="M 28.000 28.000 L 972.000 28.000 L 972.000 972.000 L 28.000 972.000 Z"/>
+    <text data-jin="/stage" data-jin-kind="stage" x="500.000" y="14.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">320×180 @60</text>
+    <path data-jin="/forms/0" data-jin-kind="form" d="M 38.000 38.000 L 66.000 38.000 L 66.000 66.000 L 38.000 66.000 Z"/>
+    <text data-jin="/forms/0" data-jin-kind="form" x="52.000" y="52.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="16.000" text-anchor="middle" dominant-baseline="central">B</text>
+  </g>
+  <g data-jin="/circles/1/rites/2" data-jin-kind="circle" fill="none" stroke="#000000" stroke-width="1.000" stroke-linecap="round" stroke-linejoin="round">
+    <circle data-jin="/circles/1/rites/2" data-jin-kind="circle" cx="500.000" cy="500.000" r="380.000"/>
+    <circle data-jin="/circles/1/rites/2" data-jin-kind="circle" cx="500.000" cy="500.000" r="300.000"/>
+    <path data-jin="/circles/1/rites/2/steps/0" data-jin-kind="step-edge" d="M 522.553 128.208 L 721.707 200.695 M 699.493 203.251 L 721.707 200.695 L 706.333 184.457"/>
+    <path data-jin="/circles/1/rites/2/steps/0/then/0" data-jin-kind="step-edge" d="M 523.984 200.874 L 720.275 208.029 M 699.924 217.294 L 720.275 208.029 L 700.653 197.307"/>
+    <path data-jin="/circles/1/rites/2/steps/1" data-jin-kind="step-edge" d="M 756.259 229.688 L 862.227 413.229 M 843.567 400.909 L 862.227 413.229 L 860.887 390.909"/>
+    <path data-jin="/circles/1/rites/2/steps/1/then/0" data-jin-kind="step-edge" d="M 710.647 286.273 L 856.416 417.927 M 834.871 411.943 L 856.416 417.927 L 848.276 397.101"/>
+    <path data-jin="/circles/1/rites/2/steps/2" data-jin-kind="step-edge" d="M 870.059 457.649 L 833.257 666.365 M 826.882 644.932 L 833.257 666.365 L 846.578 648.405"/>
+    <path data-jin="/circles/1/rites/2/steps/3" data-jin-kind="step-edge" d="M 810.705 705.427 L 648.353 841.656 M 657.246 821.140 L 648.353 841.656 L 670.101 836.461"/>
+    <path data-jin="/circles/1/rites/2/steps/4" data-jin-kind="step-edge" d="M 605.968 857.083 L 394.032 857.083 M 414.032 847.083 L 394.032 857.083 L 414.032 867.083"/>
+    <path data-jin="/circles/1/rites/2/steps/4/then/0" data-jin-kind="step-edge" d="M 579.769 789.289 L 392.869 849.702 M 408.824 834.035 L 392.869 849.702 L 414.975 853.066"/>
+    <path data-jin="/circles/1/rites/2/steps/5" data-jin-kind="step-edge" d="M 351.647 841.656 L 189.295 705.427 M 211.044 710.622 L 189.295 705.427 L 198.188 725.943"/>
+    <path data-jin="/circles/1/rites/2/steps/5/then/0" data-jin-kind="step-edge" d="M 375.155 772.883 L 193.149 699.025 M 215.441 697.279 L 193.149 699.025 L 207.921 715.811"/>
+    <path data-jin="/circles/1/rites/2/steps/6" data-jin-kind="step-edge" d="M 166.743 666.365 L 129.941 457.649 M 143.262 475.609 L 129.941 457.649 L 123.565 479.082"/>
+    <path data-jin="/circles/1/rites/2/steps/6/then/0" data-jin-kind="step-edge" d="M 267.456 686.622 L 254.524 669.251 M 274.489 679.322 L 254.524 669.251 L 258.446 691.265"/>
+    <path data-jin="/circles/1/rites/2/steps/6/then/1" data-jin-kind="step-edge" d="M 230.686 627.963 L 222.109 608.078 M 239.213 622.482 L 222.109 608.078 L 220.848 630.403"/>
+    <path data-jin="/circles/1/rites/2/steps/6/then/2" data-jin-kind="step-edge" d="M 200.700 565.201 L 137.676 454.854 M 156.279 467.261 L 137.676 454.854 L 138.912 477.181"/>
+    <path data-jin="/circles/1/rites/2/steps/7" data-jin-kind="step-edge" d="M 137.773 413.229 L 243.741 229.688 M 242.401 252.008 L 243.741 229.688 L 225.080 242.008"/>
+    <path data-jin="/circles/1/rites/2/steps/7/then/0" data-jin-kind="step-edge" d="M 207.071 436.172 L 250.715 232.371 M 256.305 254.022 L 250.715 232.371 L 236.749 249.834"/>
+    <path data-jin="/circles/1/rites/2/steps/0" data-jin-kind="step" d="M 500.000 144.000 L 500.000 176.000"/>
+    <path data-jin="/circles/1/rites/2/steps/1" data-jin-kind="step" d="M 728.832 227.288 L 708.263 251.802"/>
+    <path data-jin="/circles/1/rites/2/steps/4" data-jin-kind="step" d="M 621.759 834.531 L 610.815 804.460"/>
+    <path data-jin="/circles/1/rites/2/steps/5" data-jin-kind="step" d="M 378.241 834.531 L 389.185 804.460"/>
+    <path data-jin="/circles/1/rites/2/steps/6" data-jin-kind="step" d="M 194.668 693.401 L 258.030 702.471"/>
+    <path data-jin="/circles/1/rites/2/steps/6" data-jin-kind="step" d="M 179.844 667.725 L 203.670 608.316"/>
+    <path data-jin="/circles/1/rites/2/steps/7" data-jin-kind="step" d="M 149.408 438.181 L 192.740 445.822"/>
+    <circle data-jin="/circles/1/rites/2/name" data-jin-kind="core" cx="500.000" cy="500.000" r="48.000"/>
+    <text data-jin="/circles/1/rites/2/name" data-jin-kind="core" x="500.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="18.000" text-anchor="middle" dominant-baseline="central">step</text>
+    <path data-jin="/circles/1/rites/2/steps/0" data-jin-kind="step" d="M 500.000 100.000 L 520.000 120.000 L 500.000 140.000 L 480.000 120.000 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/0/then/0" data-jin-kind="step" d="M 520.000 180.000 L 520.000 220.000 L 480.000 220.000 L 480.000 180.000 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/1" data-jin-kind="step" d="M 744.259 188.903 L 764.259 208.903 L 744.259 228.903 L 724.259 208.903 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/1/then/0" data-jin-kind="step" d="M 721.013 267.722 L 695.301 298.363 L 664.660 272.652 L 690.371 242.010 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/2" data-jin-kind="step" d="M 897.396 450.237 L 858.004 457.183 L 851.058 417.791 L 890.450 410.845 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/3" data-jin-kind="step" d="M 836.410 717.321 L 801.769 697.321 L 821.769 662.679 L 856.410 682.679 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/4" data-jin-kind="step" d="M 629.968 837.083 L 649.968 857.083 L 629.968 877.083 L 609.968 857.083 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/4/then/0" data-jin-kind="step" d="M 590.653 807.542 L 576.972 769.954 L 614.559 756.274 L 628.240 793.861 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/5" data-jin-kind="step" d="M 370.032 837.083 L 390.032 857.083 L 370.032 877.083 L 350.032 857.083 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/5/then/0" data-jin-kind="step" d="M 371.760 793.861 L 385.441 756.274 L 423.028 769.954 L 409.347 807.542 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/6" data-jin-kind="step" d="M 170.910 670.000 L 190.910 690.000 L 170.910 710.000 L 150.910 690.000 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/6/then/0" data-jin-kind="step" d="M 253.516 705.050 L 282.611 677.600 L 310.060 706.695 L 280.965 734.145 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/6/then/1" data-jin-kind="step" d="M 212.872 642.679 L 247.513 622.679 L 267.513 657.321 L 232.872 677.321 Z"/>
+    <circle data-jin="/circles/1/rites/2/steps/6/then/2" data-jin-kind="step" cx="212.603" cy="586.041" r="20.000"/>
+    <line data-jin="/circles/1/rites/2/steps/6/then/2" data-jin-kind="step" x1="193.443" y1="591.777" x2="166.620" y2="599.808"/>
+    <path data-jin="/circles/1/rites/2/steps/7" data-jin-kind="step" d="M 125.773 414.014 L 145.773 434.014 L 125.773 454.014 L 105.773 434.014 Z"/>
+    <path data-jin="/circles/1/rites/2/steps/7/then/0" data-jin-kind="step" d="M 204.558 447.906 L 176.983 443.043 M 175.594 450.922 L 178.372 435.165 M 183.472 452.311 L 186.251 436.554"/>
+    <circle data-jin="/circles/1/rites/2/steps/8" data-jin-kind="step" cx="255.741" cy="208.903" r="20.000"/>
+    <line data-jin="/circles/1/rites/2/steps/8" data-jin-kind="step" x1="268.596" y1="224.224" x2="286.595" y2="245.673"/>
+  </g>
+</svg>

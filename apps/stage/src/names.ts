@@ -9,6 +9,12 @@ export interface CircleNames {
 	readonly sigils: Readonly<Record<string, string>>;
 	readonly state: Readonly<Record<string, string>>;
 	readonly delegates: Readonly<Record<string, string>>;
+	/** sigil 名 → host の名前空間名 / "summon" / "agent"（仕様書 2026-10-01 §4。古いエディタは送らない）。 */
+	readonly sigilKinds?: Readonly<Record<string, string>>;
+	/** state 名 → 型の文字列（"num" / "list<num>" / 型紙名 …）。 */
+	readonly stateTypes?: Readonly<Record<string, string>>;
+	/** root の陣だけ true（地金の決定に使う）。 */
+	readonly isRoot?: boolean;
 }
 
 export type StageNames = Readonly<Record<string, CircleNames>>;

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -57,6 +58,61 @@ def stage_effects() -> dict[str, tuple[str, str]]:
     }
 
 
+def stage_powers() -> dict[str, str]:
+    """力 → 宝玉（stage.md §2.1）。"""
+    return {
+        backticked(power)[0]: backticked(gem)[0]
+        for power, gem in machine_table(STAGE, "stage-powers")
+    }
+
+
+def stage_state_gems() -> dict[str, str]:
+    """記憶の型 → 宝玉（型紙の行は「型紙」のまま）。"""
+    return {
+        (backticked(kind) or [kind])[0]: backticked(gem)[0]
+        for kind, gem in machine_table(STAGE, "stage-state-gems")
+    }
+
+
+def stage_gems() -> dict[str, tuple[int, float, int | None]]:
+    """宝玉 → (色, 屈折率, 2 色目)。色は 0xRRGGBB の整数。"""
+    table: dict[str, tuple[int, float, int | None]] = {}
+    for gem, color, ior, second in machine_table(STAGE, "stage-gems"):
+        seconds = backticked(second)
+        table[backticked(gem)[0]] = (
+            int(backticked(color)[0].lstrip("#"), 16),
+            float(ior),
+            int(seconds[0].lstrip("#"), 16) if seconds else None,
+        )
+    return table
+
+
+def stage_metals() -> list[tuple[str, str, int, float]]:
+    """地金の行（順, 地金, 色, 粗さ）を表の順に。"""
+    return [
+        (order, backticked(metal)[0], int(backticked(color)[0].lstrip("#"), 16), float(roughness))
+        for order, metal, color, roughness in machine_table(STAGE, "stage-metals")
+    ]
+
+
+def test_every_gem_named_by_the_meaning_tables_has_a_color() -> None:
+    named = set(stage_powers().values()) | set(stage_state_gems().values())
+    named |= {"topaz", "diamond", "ruby", "garnet", "emerald", "gold", "onyx", "crystal"}
+    assert named <= set(stage_gems()), named - set(stage_gems())
+
+
+def test_the_powers_are_the_namespaces_of_the_abilities_and_the_two_sigil_kinds() -> None:
+    abilities = json.loads((REPO_ROOT / "schemas" / "abilities.json").read_text(encoding="utf-8"))
+    namespaces = {namespace["name"] for namespace in abilities["namespaces"]}
+    assert set(stage_powers()) == namespaces | {"summon", "agent"}
+
+
+def test_the_metals_start_at_the_root_and_cycle_through_three_others() -> None:
+    metals = stage_metals()
+    assert [order for order, *_ in metals] == ["root", "1", "2", "3"]
+    assert len({metal for _, metal, _, _ in metals}) == 4
+
+
 def test_every_drawn_kind_has_a_layer_or_is_computed_from_its_shape() -> None:
     assert set(stage_layers()) | COMPUTED_KINDS == set(DATA_JIN_KINDS_V2)
     assert not set(stage_layers()) & COMPUTED_KINDS
@@ -73,10 +129,12 @@ def test_the_effect_table_covers_exactly_the_trace_kinds_of_the_runtime() -> Non
     assert len(runtime_kinds) == 13
 
 
-def test_strength_is_one_of_three_words_and_frame_does_not_glow() -> None:
+def test_strength_is_one_of_three_words_and_frame_only_beats() -> None:
+    """設計書 2026-10-01 §5.1: `frame` は陣の鼓動（`pulse`・強さ `beat`）。発動の演出ではない。"""
     effects = stage_effects()
-    assert {strength for _, strength in effects.values()} <= {"once", "habit", "none"}
-    assert effects["frame"] == ("", "none")
+    assert {strength for _, strength in effects.values()} <= {"once", "habit", "beat"}
+    assert effects["frame"] == ("pulse", "beat")
+    assert [kind for kind, (_, strength) in effects.items() if strength == "beat"] == ["frame"]
     once = {kind for kind, (_, strength) in effects.items() if strength == "once"}
     assert once == {"enter", "exit", "emit", "transfer", "finish", "assert", "error"}
 

@@ -765,3 +765,16 @@ brief の Step 3 の `probe.ts` はそのままの形（1 文字も変えず）�
 `channel: "chrome"` は本機に Chrome がインストール済みだったため §5 の代替手順（未インストール時の記録のみ）は
 発生しなかった。Chromium 同梱でも `avc` が `true` だったため、brief が用意した「Chromium で `avc` が false なら
 vp9 に分岐する」の判断も不要だった（§C）。
+
+## F. 宝玉と後処理の部品（three 0.186.0・仕様書 2026-10-01-jin-stage-gem-worldview §6）
+
+証拠は `apps/stage/test/threeApi.test.ts`（vitest・jsdom・描画しない）。import パスとコンストラクタの引数・欄の名前だけを固定する。
+描画の見え方は e2e（`apps/stage/e2e/`）と目視で見る。
+
+| 部品 | import | 実測 |
+|---|---|---|
+| 床の映り込み | `three/addons/objects/Reflector.js` の `Reflector` | `new Reflector(geometry, { textureWidth, textureHeight, color })`。`getRenderTarget()` は `WebGLRenderTarget`、`dispose()` がある（描画先を解放する） |
+| 被写界深度 | `three/addons/postprocessing/BokehPass.js` の `BokehPass` | `new BokehPass(scene, camera, { focus, aperture, maxblur })`。値は `uniforms.focus / aperture / maxblur.value`、`setSize` / `dispose` がある |
+| 自前のパス | `three/addons/postprocessing/ShaderPass.js` の `ShaderPass` | `{ uniforms, vertexShader, fragmentShader }` を受け、`pass.uniforms[name].value` を書き換える。入力のテクスチャは `tDiffuse` |
+| 宝石の分散 | `THREE.MeshPhysicalMaterial` | `dispersion`（r163 以降）・`transmission`・`ior`・`thickness`・`attenuationColor`・`clearcoat` を受ける |
+| 大量の粒子 | `THREE.InstancedMesh` | `setMatrixAt` / `setColorAt`（初回で `instanceColor` が作られる）/ `count` で描く数を絞る（確保した数以下） |

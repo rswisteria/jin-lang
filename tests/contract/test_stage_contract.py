@@ -11,7 +11,16 @@ import re
 import subprocess
 from pathlib import Path
 
-from tests.spec.test_stage_spec_consistency import machine_table, stage_effects, stage_layers
+import pytest
+
+from tests.spec.test_stage_spec_consistency import (
+    machine_table,
+    stage_effects,
+    stage_gems,
+    stage_layers,
+    stage_metals,
+    stage_powers,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STAGE = REPO_ROOT / "apps" / "stage"
@@ -89,26 +98,26 @@ def test_the_stage_reads_no_repository_file() -> None:
     assert offenders == [], offenders
 
 
-def test_the_svg_fixture_is_what_the_renderer_draws_today(tmp_path: Path) -> None:
-    """単体テストの `play.svg` がレンダラの出力とずれていない（ずれたら fixture を作り直す）。"""
-    out = tmp_path / "play.svg"
+@pytest.mark.parametrize(
+    ("example", "focus", "fixture"),
+    [
+        ("examples-v2/paddle/paddle.jin", "Play", "play.svg"),
+        ("examples-v2/paddle/paddle.jin", "Play/step", "play-step.svg"),
+        ("examples-v2/tetris/tetris.jin", "Play", "tetris.svg"),
+    ],
+)
+def test_the_svg_fixture_is_what_the_renderer_draws_today(
+    tmp_path: Path, example: str, focus: str, fixture: str
+) -> None:
+    """単体テストと e2e の SVG がレンダラの出力とずれていない（ずれたら fixture を作り直す）。"""
+    out = tmp_path / fixture
     subprocess.run(
-        [
-            "uv",
-            "run",
-            "jin",
-            "render",
-            "examples-v2/paddle/paddle.jin",
-            "--focus",
-            "Play",
-            "-o",
-            str(out),
-        ],
+        ["uv", "run", "jin", "render", example, "--focus", focus, "-o", str(out)],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
     )
-    assert out.read_bytes() == (STAGE / "test" / "fixtures" / "play.svg").read_bytes()
+    assert out.read_bytes() == (STAGE / "test" / "fixtures" / fixture).read_bytes()
 
 
 def test_the_kind_layers_in_the_code_are_the_table_of_stage_md() -> None:
@@ -153,6 +162,52 @@ def test_the_effects_in_the_code_are_the_table_of_stage_md() -> None:
         )
     }
     assert code == stage_effects()
+
+
+PALETTE_TS = SRC / "palette.ts"
+
+
+def _ts_object(name: str) -> str:
+    body = re.search(
+        rf"export const {name}[^=]*=\s*\{{(.*?)\n\}};",
+        PALETTE_TS.read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    assert body is not None, name
+    return body.group(1)
+
+
+def test_the_powers_in_the_code_are_the_table_of_stage_md() -> None:
+    code = dict(re.findall(r'(\w+):\s*"(\w+)"', _ts_object("POWER_GEMS")))
+    assert code == stage_powers()
+
+
+def test_the_gems_in_the_code_are_the_table_of_stage_md() -> None:
+    code = {
+        gem: (int(color, 16), float(ior), int(second, 16) if second else None)
+        for gem, color, ior, second in re.findall(
+            r"(\w+):\s*\{\s*color:\s*0x([0-9a-f]{6}),\s*ior:\s*([\d.]+)(?:,\s*color2:\s*0x([0-9a-f]{6}))?\s*\}",
+            _ts_object("GEMS"),
+        )
+    }
+    assert code == stage_gems()
+
+
+def test_the_metals_in_the_code_are_the_table_of_stage_md() -> None:
+    code = {
+        metal: (int(color, 16), float(roughness))
+        for metal, color, roughness in re.findall(
+            r"(\w+):\s*\{\s*color:\s*0x([0-9a-f]{6}),\s*roughness:\s*([\d.]+)\s*\}",
+            _ts_object("METALS"),
+        )
+    }
+    table = stage_metals()
+    assert code == {metal: (color, roughness) for _, metal, color, roughness in table}
+    cycle = re.search(
+        r"export const METAL_CYCLE[^=]*=\s*\[(.*?)\];", PALETTE_TS.read_text(encoding="utf-8")
+    )
+    assert cycle is not None
+    assert re.findall(r'"(\w+)"', cycle.group(1)) == [metal for _, metal, _, _ in table[1:]]
 
 
 def test_the_picture_does_not_read_the_clock_or_math_random() -> None:

@@ -76,3 +76,22 @@ describe("カメラ（stage.md §4）", () => {
 		);
 	});
 });
+
+describe("トレースから決まるカメラの足し分（仕様書 2026-10-01 §5.3）", () => {
+	const elevation = (p: readonly number[]): number => (Math.asin(p[1]! / length(p)) * 180) / Math.PI;
+
+	test("距離は掛け、仰角と方位角は足す", () => {
+		const base = cameraPose("oblique", 1, 0);
+		const near = cameraPose("oblique", 1, 0, undefined, { distanceScale: 0.9, elevationDeg: 0, azimuthDeg: 0 });
+		expect(length(near.position)).toBeCloseTo(length(base.position) * 0.9, 10);
+		const up = cameraPose("oblique", 1, 0, undefined, { distanceScale: 1, elevationDeg: 8, azimuthDeg: 0 });
+		expect(elevation(up.position)).toBeCloseTo(PRESET_ELEVATION_DEG.oblique + 8, 8);
+	});
+
+	test("足しても仰角は 5°〜89° に収まる", () => {
+		const high = cameraPose("overhead", 1, 0, { azimuthDeg: 0, elevationDeg: 8 }, { distanceScale: 1, elevationDeg: 8, azimuthDeg: 0 });
+		expect(elevation(high.position)).toBeCloseTo(MAX_ELEVATION_DEG, 8);
+		const low = cameraPose("low", 1, 0, undefined, { distanceScale: 1, elevationDeg: -30, azimuthDeg: 0 });
+		expect(elevation(low.position)).toBeCloseTo(MIN_ELEVATION_DEG, 8);
+	});
+});

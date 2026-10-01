@@ -27,24 +27,41 @@ export const MAX_ELEVATION_DEG = 89;
 
 const RAD = Math.PI / 180;
 
+/** トレースから決まる足し分（`motion.ts` の `cameraNudge`・仕様書 2026-10-01 §5.3）。 */
+export interface CameraNudgeInput {
+	readonly distanceScale: number;
+	readonly elevationDeg: number;
+	readonly azimuthDeg: number;
+}
+
+const NO_NUDGE: CameraNudgeInput = {
+	distanceScale: 1,
+	elevationDeg: 0,
+	azimuthDeg: 0,
+};
+
 export function cameraPose(
 	preset: CameraPreset,
 	aspect: number,
 	seconds: number,
 	offset: CameraOffset = NO_OFFSET,
+	nudge: CameraNudgeInput = NO_NUDGE,
 ): CameraPose {
 	const halfV = (FOV_DEG / 2) * RAD;
 	const halfH = Math.atan(Math.tan(halfV) * aspect);
-	const distance = FIT_RADIUS / Math.sin(Math.min(halfV, halfH));
+	const distance =
+		(FIT_RADIUS / Math.sin(Math.min(halfV, halfH))) * nudge.distanceScale;
 	const elevationDeg = Math.min(
 		MAX_ELEVATION_DEG,
 		Math.max(
 			MIN_ELEVATION_DEG,
-			PRESET_ELEVATION_DEG[preset] + offset.elevationDeg,
+			PRESET_ELEVATION_DEG[preset] + offset.elevationDeg + nudge.elevationDeg,
 		),
 	);
 	const elevation = elevationDeg * RAD;
-	const azimuth = (ORBIT_DEG_PER_SECOND * seconds + offset.azimuthDeg) * RAD;
+	const azimuth =
+		(ORBIT_DEG_PER_SECOND * seconds + offset.azimuthDeg + nudge.azimuthDeg) *
+		RAD;
 	const flat = distance * Math.cos(elevation);
 	return {
 		position: [

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
+	BEAT,
 	DURATION_SECONDS,
 	EFFECTS,
 	foldTrace,
@@ -36,7 +37,7 @@ const row = (fields: Partial<TraceRow>): TraceRow => ({
 });
 
 describe("演出の表（stage.md §3）", () => {
-	test("13 種、frame は光らない", () => {
+	test("13 種、frame は鼓動（pulse / beat・仕様書 2026-10-01 §5.1）", () => {
 		expect(Object.keys(EFFECTS).sort()).toEqual([
 			"assert",
 			"cast",
@@ -52,8 +53,55 @@ describe("演出の表（stage.md §3）", () => {
 			"transfer",
 			"wait",
 		]);
-		expect(EFFECTS["frame"]).toEqual({ effect: null, strength: "none" });
-		expect(Object.keys(DURATION_SECONDS)).toHaveLength(12);
+		expect(EFFECTS["frame"]).toEqual({ effect: "pulse", strength: "beat" });
+		expect(Object.keys(DURATION_SECONDS)).toHaveLength(13);
+	});
+
+	test("長さは仕様書 2026-10-01 §5.4 の値", () => {
+		expect(DURATION_SECONDS).toEqual({
+			ignite: 2.4,
+			fade: 1.6,
+			chant: 1.0,
+			spin: 0.9,
+			beam: 0.8,
+			flash: 0.8,
+			release: 1.4,
+			flow: 1.2,
+			breathe: 1.5,
+			crown: 3.2,
+			warn: 1.4,
+			crack: 2.0,
+			pulse: 0.5,
+		});
+	});
+});
+
+describe("発火の宝玉（仕様書 2026-10-01 §2）", () => {
+	test("cast canvas.rect の発火はサファイア、名前の表で引けない力は金", () => {
+		const names = {
+			Play: {
+				...NAMES["Play"]!,
+				sigilKinds: { canvas: "canvas", input: "input", audio: "audio" },
+			},
+		};
+		const firings = foldTrace(
+			[
+				row({
+					kind: "cast",
+					name: "canvas.rect",
+					pointer: "/circles/1/rites/2/steps/0",
+				}),
+				row({
+					kind: "cast",
+					name: "fits",
+					pointer: "/circles/1/rites/2/steps/1",
+				}),
+			],
+			names,
+		);
+		expect(firings.map((f) => f.gem)).toEqual(["sapphire", "gold"]);
+		const glows = glowsAt(firings, 0.1, 60);
+		expect(glows.map((g) => g.gem)).toEqual(["sapphire", "gold"]);
 	});
 });
 
@@ -81,7 +129,9 @@ describe("陣全体の演出は陣を光らせる（設計書 §2.3・stage.md �
 		expect(glowTarget("warn", "/circles/1/boundary/guards/0")).toBe(
 			"/circles/1/boundary/guards/0",
 		);
-		expect(glowTarget("crown", "/circles/1/rites/3/steps/2")).toBe("/circles/1");
+		expect(glowTarget("crown", "/circles/1/rites/3/steps/2")).toBe(
+			"/circles/1",
+		);
 		// 段一致: `/circles/10` を `/circles/1` と読まない。陣の外はそのまま
 		expect(glowTarget("crack", "/circles/10/rites/0")).toBe("/circles/10");
 		expect(glowTarget("crack", "/stage")).toBe("/stage");
@@ -130,15 +180,33 @@ describe("慣れの規則（stage.md §3.2）", () => {
 		]);
 	});
 
-	test("boot の行（tick −1）は時刻 0、frame は発火しない", () => {
+	test("boot の行（tick −1）は時刻 0、frame は /stage に強さ BEAT の鼓動", () => {
 		const firings = foldTrace(
 			[
 				row({ tick: -1, kind: "enter", pointer: "/circles/1" }),
-				row({ tick: 0, kind: "frame", pointer: "/stage" }),
+				row({ tick: 0, kind: "frame", circle: null, pointer: "/stage" }),
 			],
 			NAMES,
 		);
-		expect(firings.map((f) => [f.kind, f.time])).toEqual([["enter", 0]]);
+		expect(firings.map((f) => [f.kind, f.time])).toEqual([
+			["enter", 0],
+			["frame", 0],
+		]);
+		expect(firings[1]).toMatchObject({
+			effect: "pulse",
+			target: "/stage",
+			source: null,
+			strength: BEAT,
+		});
+	});
+
+	test("frame の鼓動は慣れの対象外（100 tick 続いても BEAT のまま）", () => {
+		const rows = Array.from({ length: 100 }, (_, t) =>
+			row({ tick: t, kind: "frame", circle: null, pointer: "/stage" }),
+		);
+		const firings = foldTrace(rows, NAMES);
+		expect(new Set(firings.map((f) => f.strength))).toEqual(new Set([BEAT]));
+		expect(BEAT).toBe(0.1);
 	});
 
 	// paddle-trace.jsonl は `jin run --ticks 90 --debug` の記録で、score は boot 行（tick −1・output 0）で

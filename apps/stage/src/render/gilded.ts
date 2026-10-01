@@ -3,8 +3,12 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
-import { LAYER_HEIGHTS, type LayerIndex, layerHeight } from "../layers";
+import { anchorsOf } from "../anchors";
+import { LAYER_HEIGHTS, type LayerIndex, layerHeight, ringLayer } from "../layers";
+import type { StageNames } from "../names";
+import { gemOfElement, METALS, metalOf } from "../palette";
 import type { Scene, SceneItem, Vec2 } from "../scene";
+import { buildGem, type GemHandle, glowTexture } from "./gems";
 
 /**
  * Scene → 金環（docs/spec/v2/stage.md §2・設計書 §2.1）。**座標は Scene のまま**使い、
@@ -16,12 +20,8 @@ import type { Scene, SceneItem, Vec2 } from "../scene";
  * 層の group は**陣ごと**に 6 つ持ち、高さは層の値 × その陣の単位（`layerHeight`）。
  * 入れ子の小陣を root と同じ高さで積むと、幅と同じ高さの塔になる。
  */
-export const GOLD = new THREE.Color(0xc8943a);
-export const GOLD_LINE = new THREE.Color(0xd9a54f);
+/** 輪の外の目盛り（意味を持たない飾り）の色。宝玉と地金の色は `palette.ts`。 */
 export const GOLD_DIM = new THREE.Color(0x5a3c16);
-export const GOLD_HOT = new THREE.Color(0xfff0c8);
-export const WARN_RED = new THREE.Color(0xff2a2a);
-const EMBER = new THREE.Color(0xffb35a);
 
 const RING_TUBE = 0.009;
 const SMALL_RING_TUBE = 0.005;
@@ -30,7 +30,10 @@ const LINE_WIDTH_PX = 1.4;
 export const BASE_EMISSIVE = 0.12;
 
 export interface Glowable {
-	readonly material: THREE.MeshStandardMaterial | LineMaterial | THREE.SpriteMaterial;
+	readonly material:
+		| THREE.MeshStandardMaterial
+		| LineMaterial
+		| THREE.SpriteMaterial;
 	readonly base: THREE.Color;
 }
 
@@ -56,30 +59,97 @@ export interface GildedModel {
 	/** key = 陣の pointer（`SceneItem.circle`）。 */
 	readonly circles: ReadonlyMap<string, CircleLayers>;
 	readonly handles: ReadonlyMap<string, readonly ItemHandle[]>;
-	readonly tickers: readonly { readonly group: THREE.Group; readonly speed: number }[];
+	readonly tickers: readonly {
+		readonly group: THREE.Group;
+		readonly speed: number;
+	}[];
 	readonly lineMaterials: readonly LineMaterial[];
 	/** 光線・火花を載せる、root の局所座標の group。 */
 	readonly effects: THREE.Group;
+	/** 宝玉（仕様書 2026-10-01 §3）。key = 要素の pointer。 */
+	readonly gems: ReadonlyMap<string, GemHandle>;
+	/** 層の自転の中心。key = 陣の pointer（陣の輪の中心）。陣に属さない要素（`NO_CIRCLE`）は原点。 */
+	readonly pivots: ReadonlyMap<string, Vec2>;
+	/**
+	 * 入れ子の陣 → 親の陣と、子が載っている親の層（最終レビュー Important #2）。子の層は親のその層の自転について行く。
+	 * 親 = 子の中心を外周の内側に持ち、単位が子より大きい陣のうち最も小さいもの。層 = 親の中心からの距離 / 親の単位に最も近い環。
+	 */
+	readonly nesting: ReadonlyMap<
+		string,
+		{ readonly parent: string; readonly layer: LayerIndex }
+	>;
 	dispose(): void;
 }
 
-export function buildGilded(scene: Scene): GildedModel {
+function nestingOf(
+	pivots: ReadonlyMap<string, Vec2>,
+	outers: ReadonlyMap<string, number>,
+	circles: ReadonlyMap<string, CircleLayers>,
+): Map<string, { parent: string; layer: LayerIndex }> {
+	const nesting = new Map<string, { parent: string; layer: LayerIndex }>();
+	for (const [child, at] of pivots) {
+		const unit = circles.get(child)?.unit;
+		if (child === NO_CIRCLE || unit === undefined) continue;
+		let best: { parent: string; unit: number; distance: number } | null = null;
+		for (const [parent, center] of pivots) {
+			const parentUnit = circles.get(parent)?.unit;
+			const outer = outers.get(parent);
+			if (
+				parent === child ||
+				parentUnit === undefined ||
+				outer === undefined ||
+				!(parentUnit > unit)
+			)
+				continue;
+			const distance = Math.hypot(at[0] - center[0], at[1] - center[1]);
+			if (distance >= outer) continue;
+			if (best === null || parentUnit < best.unit)
+				best = { parent, unit: parentUnit, distance };
+		}
+		if (best !== null)
+			nesting.set(child, {
+				parent: best.parent,
+				layer: ringLayer(best.distance / best.unit),
+			});
+	}
+	return nesting;
+}
+
+/** 段 0（台座）の金細工は地金の色をこの比で暗くする（旧 GOLD_DIM / GOLD の比）。 */
+const DIM_RATIO = 0.42;
+const WHITE = new THREE.Color(1, 1, 1);
+/** 刻印の凹凸の強さ（`bumpScale`）。stage.md §7。 */
+const ENGRAVE_DEPTH = 2;
+
+export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 	const root = new THREE.Group();
 	root.rotation.x = -Math.PI / 2;
 	const circles = new Map<string, CircleLayers>();
-	const layersOf = (item: SceneItem): readonly THREE.Group[] => {
-		const key = item.circle ?? NO_CIRCLE;
+	const layersAt = (
+		circle: string | null,
+		unit: number,
+	): readonly THREE.Group[] => {
+		const key = circle ?? NO_CIRCLE;
 		const existing = circles.get(key);
 		if (existing !== undefined) return existing.layers;
 		const layers = LAYER_HEIGHTS.map((_, i) => {
 			const group = new THREE.Group();
-			group.position.z = layerHeight(i as LayerIndex, item.unit);
+			group.position.z = layerHeight(i as LayerIndex, unit);
 			root.add(group);
 			return group;
 		});
-		circles.set(key, { unit: item.unit, layers });
+		circles.set(key, { unit, layers });
 		return layers;
 	};
+	const layersOf = (item: SceneItem): readonly THREE.Group[] =>
+		layersAt(item.circle, item.unit);
+	/** 陣の地金の色（段 0 は暗く）。 */
+	const metalColor = (item: SceneItem): THREE.Color => {
+		const color = new THREE.Color(METALS[metalOf(item.circle, names)].color);
+		return item.layer === 0 ? color.multiplyScalar(DIM_RATIO) : color;
+	};
+	const metalRoughness = (item: SceneItem): number =>
+		METALS[metalOf(item.circle, names)].roughness;
 	const effects = new THREE.Group();
 	root.add(effects);
 	const handles = new Map<string, ItemHandle[]>();
@@ -88,25 +158,36 @@ export function buildGilded(scene: Scene): GildedModel {
 	const disposables: { dispose(): void }[] = [];
 
 	const lineMaterial = (color: THREE.Color): LineMaterial => {
-		const material = new LineMaterial({ color: color.getHex(), linewidth: LINE_WIDTH_PX });
+		const material = new LineMaterial({
+			color: color.getHex(),
+			linewidth: LINE_WIDTH_PX,
+		});
 		lineMaterials.push(material);
 		disposables.push(material);
 		return material;
 	};
-	const metal = (color: THREE.Color): THREE.MeshStandardMaterial => {
+	const metal = (
+		color: THREE.Color,
+		roughness: number,
+	): THREE.MeshStandardMaterial => {
 		const material = new THREE.MeshStandardMaterial({
 			color,
 			metalness: 1,
-			roughness: 0.3,
+			roughness,
 			emissive: color,
 			emissiveIntensity: BASE_EMISSIVE,
 		});
 		disposables.push(material);
 		return material;
 	};
-	const segmentsObject = (segments: readonly (readonly [Vec2, Vec2])[], material: LineMaterial): LineSegments2 => {
+	const segmentsObject = (
+		segments: readonly (readonly [Vec2, Vec2])[],
+		material: LineMaterial,
+	): LineSegments2 => {
 		const geometry = new LineSegmentsGeometry();
-		geometry.setPositions(segments.flatMap(([a, b]) => [a[0], a[1], 0, b[0], b[1], 0]));
+		geometry.setPositions(
+			segments.flatMap(([a, b]) => [a[0], a[1], 0, b[0], b[1], 0]),
+		);
 		disposables.push(geometry);
 		return new LineSegments2(geometry, material);
 	};
@@ -121,23 +202,44 @@ export function buildGilded(scene: Scene): GildedModel {
 		const shape = item.shape;
 		if (shape.type === "ring") {
 			const tube = item.kind === "circle" ? RING_TUBE : SMALL_RING_TUBE;
-			const material = metal(dim ? GOLD_DIM : GOLD);
-			const geometry = new THREE.TorusGeometry(shape.radius, tube, 12, Math.max(48, Math.round(shape.radius * 320)));
+			const material = metal(metalColor(item), metalRoughness(item));
+			const geometry = new THREE.TorusGeometry(
+				shape.radius,
+				tube,
+				12,
+				Math.max(48, Math.round(shape.radius * 320)),
+			);
 			disposables.push(geometry);
 			const mesh = new THREE.Mesh(geometry, material);
 			mesh.position.set(shape.center[0], shape.center[1], 0);
 			layer.add(mesh);
 			glowables.push({ material, base: material.color.clone() });
 			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
-			if (item.kind === "circle") tickers.push(ticker(layer, shape.center, shape.radius, item.layer, lineMaterial, disposables));
+			if (item.kind === "circle")
+				tickers.push(
+					ticker(
+						layer,
+						shape.center,
+						shape.radius,
+						item.layer,
+						lineMaterial,
+						disposables,
+					),
+				);
 		} else if (shape.type === "segments") {
-			const color = dim ? GOLD_DIM : shape.spoke ? GOLD_DIM.clone().lerp(GOLD_LINE, 0.6) : GOLD_LINE;
+			// 線は地金を少し明るく（旧 GOLD_LINE / GOLD の関係）、スポークは暗い側へ寄せる。
+			const line = metalColor(item).lerp(new THREE.Color(1, 1, 1), 0.1);
+			const color = dim
+				? line
+				: shape.spoke
+					? line.clone().multiplyScalar(DIM_RATIO).lerp(line, 0.6)
+					: line;
 			const material = lineMaterial(color);
 			layer.add(segmentsObject(shape.segments, material));
 			glowables.push({ material, base: color.clone() });
 			center = midpoint(shape.segments, z);
 		} else if (shape.type === "dot") {
-			const material = metal(GOLD);
+			const material = metal(metalColor(item), metalRoughness(item));
 			const geometry = new THREE.SphereGeometry(shape.radius, 16, 12);
 			disposables.push(geometry);
 			const mesh = new THREE.Mesh(geometry, material);
@@ -146,22 +248,70 @@ export function buildGilded(scene: Scene): GildedModel {
 			glowables.push({ material, base: material.color.clone() });
 			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
 		} else {
-			const texture = glyph(shape.text, dim ? GOLD_DIM : GOLD_HOT);
-			const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+			// 刻印（仕様書 2026-10-01 §6）: 白い文字のテクスチャを透明度と凹凸の元にして、地金の板に彫る。
+			// 色ではないので色空間の変換をかけない。書体のファイルは持ち込まない（日本語の名前もそのまま描ける）。
+			const texture = glyph(shape.text, WHITE, THREE.NoColorSpace);
+			const color = metalColor(item).lerp(
+				new THREE.Color(1, 1, 1),
+				dim ? 0 : 0.3,
+			);
+			const material = new THREE.MeshStandardMaterial({
+				color,
+				metalness: 1,
+				roughness: 0.35,
+				alphaMap: texture,
+				bumpMap: texture,
+				bumpScale: ENGRAVE_DEPTH,
+				transparent: true,
+				depthWrite: false,
+				emissive: color,
+				emissiveIntensity: BASE_EMISSIVE,
+			});
 			// `Material.dispose()` は `map` を解放しないので、テクスチャも自分で解放する（stage.scene は編集のたびに届く）。
-			disposables.push(texture, material);
-			const sprite = new THREE.Sprite(material);
 			const aspect = shape.text.length > 1 ? 4 : 1;
-			sprite.scale.set(shape.size * 1.6 * aspect, shape.size * 1.6, 1);
-			sprite.position.set(shape.at[0], shape.at[1], 0.01);
-			layer.add(sprite);
-			glowables.push({ material, base: new THREE.Color(1, 1, 1) });
+			const plate = new THREE.PlaneGeometry(
+				shape.size * 1.6 * aspect,
+				shape.size * 1.6,
+			);
+			disposables.push(texture, material, plate);
+			const mesh = new THREE.Mesh(plate, material);
+			mesh.position.set(shape.at[0], shape.at[1], 0.002);
+			layer.add(mesh);
+			glowables.push({ material, base: color.clone() });
 			center = new THREE.Vector3(shape.at[0], shape.at[1], z);
 		}
 		const list = handles.get(item.pointer) ?? [];
 		list.push({ item, glowables, center });
 		handles.set(item.pointer, list);
 	}
+
+	// 宝玉: 場面の要素の中心に、要素の種別と意味で決まる宝玉をはめる（仕様書 2026-10-01 §3.1）。
+	const gems = new Map<string, GemHandle>();
+	const glowMap = glowTexture();
+	disposables.push(glowMap);
+	for (const anchor of anchorsOf(scene)) {
+		const gem = gemOfElement(anchor.kind, anchor.pointer, names);
+		if (gem === null) continue;
+		const layer = layersAt(anchor.circle, anchor.unit)[anchor.layer];
+		if (layer === undefined) continue;
+		const handle = buildGem(anchor, gem, glowMap, disposables);
+		layer.add(handle.mesh, handle.glow);
+		gems.set(anchor.pointer, handle);
+	}
+
+	// 層の自転の中心: 陣の輪（種別 circle の ring）の中心。外周 = 陣の輪の最大の半径。
+	const pivots = new Map<string, Vec2>([[NO_CIRCLE, [0, 0]]]);
+	const outers = new Map<string, number>();
+	for (const item of scene.items) {
+		if (item.kind !== "circle" || item.shape.type !== "ring") continue;
+		if (item.pointer !== item.circle) continue;
+		if (!pivots.has(item.pointer)) pivots.set(item.pointer, item.shape.center);
+		outers.set(
+			item.pointer,
+			Math.max(outers.get(item.pointer) ?? 0, item.shape.radius),
+		);
+	}
+	const nesting = nestingOf(pivots, outers, circles);
 
 	return {
 		root,
@@ -170,15 +320,22 @@ export function buildGilded(scene: Scene): GildedModel {
 		tickers,
 		lineMaterials,
 		effects,
+		gems,
+		pivots,
+		nesting,
 		dispose: () => {
 			for (const d of disposables) d.dispose();
 		},
 	};
 }
 
-function midpoint(segments: readonly (readonly [Vec2, Vec2])[], z: number): THREE.Vector3 {
+function midpoint(
+	segments: readonly (readonly [Vec2, Vec2])[],
+	z: number,
+): THREE.Vector3 {
 	const sum = new THREE.Vector3();
-	for (const [a, b] of segments) sum.add(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0));
+	for (const [a, b] of segments)
+		sum.add(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0));
 	return sum.multiplyScalar(1 / Math.max(segments.length, 1)).setZ(z);
 }
 
@@ -197,7 +354,14 @@ function ticker(
 		const angle = (k / count) * Math.PI * 2;
 		const inner = radius + 0.014;
 		const outer = inner + (k % 6 === 0 ? 0.03 : 0.012);
-		segments.push(Math.cos(angle) * inner, Math.sin(angle) * inner, 0, Math.cos(angle) * outer, Math.sin(angle) * outer, 0);
+		segments.push(
+			Math.cos(angle) * inner,
+			Math.sin(angle) * inner,
+			0,
+			Math.cos(angle) * outer,
+			Math.sin(angle) * outer,
+			0,
+		);
 	}
 	const geometry = new LineSegmentsGeometry();
 	geometry.setPositions(segments);
@@ -206,11 +370,18 @@ function ticker(
 	group.position.set(center[0], center[1], 0);
 	group.add(new LineSegments2(geometry, lineMaterial(GOLD_DIM)));
 	layer.add(group);
-	return { group, speed: ((layerIndex % 2 === 0 ? 1 : -1) * 0.05) / Math.max(radius, 0.3) };
+	return {
+		group,
+		speed: ((layerIndex % 2 === 0 ? 1 : -1) * 0.05) / Math.max(radius, 0.3),
+	};
 }
 
 /** SVG の文字をそのままテクスチャにする（ルーン文字のグリフフォントは別件・設計書 §2.1）。 */
-function glyph(text: string, color: THREE.Color): THREE.CanvasTexture {
+function glyph(
+	text: string,
+	color: THREE.Color,
+	colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace,
+): THREE.CanvasTexture {
 	const wide = text.length > 1;
 	const canvas = document.createElement("canvas");
 	canvas.width = wide ? 512 : 128;
@@ -224,8 +395,6 @@ function glyph(text: string, color: THREE.Color): THREE.CanvasTexture {
 		context.fillText(text, canvas.width / 2, 70);
 	}
 	const texture = new THREE.CanvasTexture(canvas);
-	texture.colorSpace = THREE.SRGBColorSpace;
+	texture.colorSpace = colorSpace;
 	return texture;
 }
-
-export { EMBER };

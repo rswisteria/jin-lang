@@ -553,7 +553,22 @@ Jin v2.1（式の正準化）の要点（正典は `docs/spec/v2/expr.md` §8、
   （`score+ (1)` を Enter → `score + 1` → 保存が `jin fmt` と一致）。examples-v2 と fixture は元から正準だったので紋章のハッシュと
   SVG スナップショットは動いていない（動いたら印字器が正準な式を書き換えた合図）
 
-Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設計書 `docs/superpowers/specs/2026-09-17-jin-stage-design.md`）:
+Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設計書 `docs/superpowers/specs/2026-09-17-jin-stage-design.md` と
+素材・光・動きを置き換えた `docs/superpowers/specs/2026-10-01-jin-stage-gem-worldview-design.md`）:
+
+- **世界観は「宝玉と金細工」**（設計書 2026-10-01）。色は意味を運ぶ 4 軸: 力の宝玉（`cast` の名前空間 → サファイア / エメラルド …）・
+  記憶の型の宝玉（`set` の state の型）・陣の地金（root はイエロー、他は並び順にローズ / ホワイト / プラチナ）・何が起きたかは**動き**。
+  表は `palette.ts`（three を import しない純関数）で、stage.md §2.1 の 4 つの machine-readable 表（`stage-powers` / `stage-state-gems` /
+  `stage-gems` / `stage-metals`）と契約テストで等号。引けない名前・欄の無い古い表は**例外を投げず金**
+- **名前の表に 3 欄**（`sigilKinds` / `stateTypes` / `isRoot`。エディタの `apps/editor/src/stage/names.ts` が出す。stage 側は任意）。
+  fixture `apps/stage/test/fixtures/tetris-names.json` はエディタの vitest が `buildStageNames` と等号で固定する
+- **純関数と描画を分ける**: `palette.ts` / `motion.ts`（層の自転・浮き沈み・弧・柱・カメラの足し分・`igniteLight`）/ `particles.ts` /
+  `anchors.ts`（宝玉の置き場所 = pointer ごとの最大の輪、無ければ線と点の外接矩形）は three を import せず vitest で固定。
+  描画は `render/`（`gems` / `gilded` / `glowView` / `particleView` / `floor` / `pillar` / `armillary` / `post`）。
+  **光線と粒子の端点は層と同じ変換（陣の中心まわりの自転）を通してから使う**（`GlowView.endpointOf`）
+- **後処理の順**: 描画 → 被写界深度 → ゴッドレイ → ブルーム → 出力（トーンマップは **Neutral**）→ 仕上げ（色収差・ビネット・グレイン）。
+  ACES はサファイアを紫へずらし、仕上げを出力の前に置くと床に同心円の縞が出た（stage.md §7）。グレインは時刻から作る
+- **`frame` は陣の鼓動**（演出 `pulse`・強さ `beat` = 0.1・慣れの対象外）で額縁（`/stage`）だけを灯す
 
 - **配置の元は SVG だけ。** stage は `viewBox` を `[-1.25, 1.25]` に写すだけで座標を計算しない（`apps/stage/src/scene.ts`）。
   層は種別・陣の核の半径・ステップの深さから決める（`apps/stage/src/layers.ts` の表は stage.md と等号）。高さは層の値 × 陣の単位
@@ -562,7 +577,7 @@ Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設
   うなり、値が変わった `set` と一度きりの kind だけ強い）、時刻 `t` の光を返す。`src/` のうち `main.ts` 以外で
   `Math.random` / `Date.now` / `performance.now` / `new Date(` を使わない（乱数は `seq` を種にした mulberry32・契約テストが走査）。
   祖先へ遡るのは `/` 区切りの段一致（`names.ts` の `nearestInScene`。overlay の規則 1 と同じ）
-- **`TraceRow.circle` は null になりうる**（`frame` 行・runtime.md §5）。stage は `frame` を読み飛ばして光らせない
+- **`TraceRow.circle` は null になりうる**（`frame` 行・runtime.md §5）。stage は `frame` の行で名前の表を引かず、額縁を鼓動（`pulse`）で灯すだけ
 - **書き出しは 1 コマずつ**（WebCodecs + Mediabunny 1.57.0・`exporter.ts`。実時間の録画はしない）。MP4（H.264）→ WebM（VP9）→ 不可。
   保証は場面の列までで、ピクセル一致は保証しない。ファイルは `stage.file` で親に渡し、**親がダウンロードさせる**。中止したら何も渡さない（仕上げの最中に押しても）。
   書き出しは押した瞬間の入力（トレース・構図・銘・範囲）の写しで描き、**途中で届いた `stage.scene` / `stage.trace` は種類ごとに最後の 1 つを
@@ -583,7 +598,7 @@ Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設
   レイアウトを変えたら `uv run jin render examples-v2/paddle/paddle.jin --focus Play -o apps/stage/test/fixtures/play.svg`
   で作り直す）。e2e は `apps/stage/e2e/`（単独で PNG と 1 秒の動画を書き出して Node で読み戻す）と
   `apps/editor/e2e/stage.spec.ts`（録画を再生して鑑賞モードに行が届く）。防御を壊して赤くなることの実測は
-  `delivery/20260904-1445-jin/stage-mutations/`（10 件。e2e は回さない）
+  `delivery/20260904-1445-jin/stage-mutations/`（17 件。e2e は回さない）
 
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 

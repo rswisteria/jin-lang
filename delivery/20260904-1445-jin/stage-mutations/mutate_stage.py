@@ -55,6 +55,8 @@ EFFECTS = "apps/stage/src/effects.ts"
 NAMES = "apps/stage/src/names.ts"
 MESSAGES = "apps/stage/src/messages.ts"
 GLOW = "apps/stage/src/render/glowView.ts"
+PALETTE = "apps/stage/src/palette.ts"
+PARTICLES = "apps/stage/src/particles.ts"
 EXPORTER = "apps/stage/src/exporter.ts"
 PANEL = "apps/editor/src/stage/StagePanel.tsx"
 EDITOR_PY = "packages/jin-cli/src/jin_cli/editor.py"
@@ -201,6 +203,39 @@ MUTATIONS: list[tuple[str, str, str, str, tuple[str, object]]] = [
             "            original = self.directory\n"
         ),
         ("py", [T_EDITOR_PY, "-k", "stage"]),
+    ),
+    # ---- 宝玉と金細工の世界観（仕様書 docs/superpowers/specs/2026-10-01-jin-stage-gem-worldview-design.md §9.4）
+    (
+        # 力の宝玉の表を入れ替える（canvas がエメラルドに、input がサファイアに）。
+        "PALETTE-swaps-canvas-and-input",
+        PALETTE,
+        '\tcanvas: "sapphire",\n\tinput: "emerald",\n',
+        '\tcanvas: "emerald",\n\tinput: "sapphire",\n',
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
+        # 粒子の散り方が実時間の乱数を読む（決定性が崩れる）。
+        "PARTICLES-reads-math-random",
+        PARTICLES,
+        "\tconst random = mulberry32(glow.seq);\n",
+        "\tconst random = Math.random;\n",
+        ("py", [T_STAGE_CONTRACT]),
+    ),
+    (
+        # 欄の無い古い名前の表で例外を投げる（金で描くはずが落ちる）。
+        "PALETTE-throws-without-fields",
+        PALETTE,
+        "const kind = circle?.sigilKinds?.[name.slice(0, dot)];",
+        "const kind = (circle as NonNullable<typeof circle>).sigilKinds![name.slice(0, dot)];",
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
+        # 光線と粒子の端点だけ層の変換（自転・浮き沈み）を通さない（宝玉と光線がずれる）。
+        "GLOW-endpoints-ignore-layer-spin",
+        GLOW,
+        "\t\t\t: local.clone().applyMatrix4(group.matrix);",
+        "\t\t\t: local.clone();",
+        ("pnpm", ("apps/stage", "test")),
     ),
 ]
 

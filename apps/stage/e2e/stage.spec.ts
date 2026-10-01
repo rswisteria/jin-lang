@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 
-import { serveHarness } from "./harness";
+import { PADDLE_STEP, serveHarness, TETRIS } from "./harness";
 
 /**
  * 鑑賞ページの往復（docs/spec/v2/stage.md §5・設計書 §4.4）。360p・1 秒で書き出し、
@@ -64,6 +64,83 @@ test("PNG を書き出す", async ({ page }) => {
 	]);
 });
 
+/** 画面のうち、色相が [lo, hi]°・彩度と明度がしきい値以上の画素の割合。 */
+async function hueShare(
+	page: Page,
+	stage: ReturnType<Page["frameLocator"]>,
+	lo: number,
+	hi: number,
+): Promise<number> {
+	void page;
+	return stage.locator("canvas").evaluate(
+		(canvas: HTMLCanvasElement, [from, to]) => {
+			const probe = document.createElement("canvas");
+			probe.width = canvas.width;
+			probe.height = canvas.height;
+			const context = probe.getContext("2d");
+			if (context === null) return 0;
+			context.drawImage(canvas, 0, 0);
+			const data = context.getImageData(0, 0, probe.width, probe.height).data;
+			let hit = 0;
+			for (let i = 0; i < data.length; i += 4) {
+				const r = (data[i] ?? 0) / 255;
+				const g = (data[i + 1] ?? 0) / 255;
+				const b = (data[i + 2] ?? 0) / 255;
+				const max = Math.max(r, g, b);
+				const min = Math.min(r, g, b);
+				const d = max - min;
+				if (max < 0.35 || d / max < 0.45) continue;
+				const h =
+					(max === r
+						? ((g - b) / d) % 6
+						: max === g
+							? (b - r) / d + 2
+							: (r - g) / d + 4) * 60;
+				const hue = (h + 360) % 360;
+				if (hue >= (from ?? 0) && hue <= (to ?? 0)) hit++;
+			}
+			return hit / (data.length / 4);
+		},
+		[lo, hi] as const,
+	);
+}
+
+/**
+ * 色の意味（仕様書 2026-10-01 §2.1）: tetris の場面で、最初の `cast canvas.*`（tick 0・強さ 1）が進み 0.2 ほどで
+ * 光っている tick 10 に、サファイアの色相の画素が画面の 0.02% 以上ある（宝玉の色が実際に出ている）。
+ * 基準は実測（0.045%・960×624）の半分弱。金一色ならほぼ 0% なので区別できる（光線は細く、面積の比は小さい）。
+ */
+test("cast canvas.* の直後、画面にサファイアの色が出ている", async ({
+	page,
+}) => {
+	const tetris = await serveHarness(TETRIS);
+	await page.goto(tetris.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	await stage.getByTestId("stage-scrub").fill("10");
+	await page.waitForTimeout(500);
+	const share = await hueShare(page, stage, 210, 235);
+	expect(share).toBeGreaterThanOrEqual(0.0002);
+	await tetris.close();
+});
+
+/** 手順の図（紋と記憶が無く、核と手順のステップだけ）を送っても、例外を出さずに描ける（Review Focus）。 */
+test("手順の図の場面でも描け、PNG を書き出せる", async ({ page }) => {
+	const step = await serveHarness(PADDLE_STEP);
+	await page.goto(step.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	await stage.getByTestId("stage-export-png").click();
+	await expect.poll(async () => (await files(page)).length).toBe(1);
+	const status = await page.evaluate(
+		() =>
+			(window as unknown as { JIN_STATUS: { error: string | null } })
+				.JIN_STATUS,
+	);
+	expect(status.error).toBeNull();
+	await step.close();
+});
+
 test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", async ({ page }) => {
 	const stage = await open(page);
 	const codecLabel = stage.getByTestId("stage-codec");
@@ -72,7 +149,9 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 	// CI の stage ジョブは JIN_REQUIRE_CODEC=1 で走る。どちらのコーデックも無いときに往復を黙って飛ばさない
 	// （CI と同じ Linux の Chromium 151 では avc / vp9 とも通る。probe §C.1）。
 	if (process.env["JIN_REQUIRE_CODEC"] === "1")
-		expect(codec, "JIN_REQUIRE_CODEC=1 なのに動画を書き出せない").not.toBe("none");
+		expect(codec, "JIN_REQUIRE_CODEC=1 なのに動画を書き出せない").not.toBe(
+			"none",
+		);
 	test.skip(codec === "none", "WebCodecs が無い環境（probe §C）");
 	test.info().annotations.push({ type: "codec", description: codec ?? "" });
 	await stage.getByTestId("stage-start").fill("0");
@@ -83,9 +162,7 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 		.toBe(1);
 	const [video] = await files(page);
 	expect(video?.name).toMatch(/^paddle-Play-seed7-t0-60\.(mp4|webm)$/);
-	expect(video?.mime).toBe(
-		codec === "avc" ? "video/mp4" : "video/webm",
-	);
+	expect(video?.mime).toBe(codec === "avc" ? "video/mp4" : "video/webm");
 	const input = new Input({
 		source: new BufferSource(new Uint8Array(video?.bytes ?? [])),
 		formats: ALL_FORMATS,
@@ -102,4 +179,71 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 	expect(readBack.duration).toBeGreaterThan(0.95);
 	expect(readBack.duration).toBeLessThan(1.05);
 	expect([readBack.width, readBack.height]).toEqual([360, 360]);
+});
+
+/**
+ * 編集のたびに `stage.scene` が届く（仕様書 2026-10-01 Review Focus）。床の映り込みの描画先・後処理・宝玉の素材を
+ * 前の場面の分まで解放し、GPU の資源（geometry / texture）が送り直すたびに増えないこと。
+ */
+test("stage.scene を送り直しても GPU の資源が増え続けない", async ({
+	page,
+}) => {
+	await open(page);
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	type Memory = { geometries: number; textures: number };
+	const memory = (): Promise<Memory> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { memory(): Memory } }
+			).__jinStage.memory(),
+		);
+	const resend = async (): Promise<void> => {
+		await page.evaluate(() =>
+			(window as unknown as { JIN_RESEND(): void }).JIN_RESEND(),
+		);
+		await page.waitForTimeout(400);
+	};
+	await resend();
+	const first = await memory();
+	for (let k = 0; k < 5; k++) await resend();
+	const last = await memory();
+	expect(first.geometries).toBeGreaterThan(0);
+	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
+	expect(last.textures).toBeLessThanOrEqual(first.textures);
+});
+
+/**
+ * 隠れている間は描かない: エディタは鑑賞パネルの iframe を v2 のファイルでは常に載せ、鑑賞モード以外では隠すだけ。
+ * 隠れた iframe で重い 3D（床の映り込み・宝玉の透過・被写界深度…）を描き続けると、ソフトウェア描画の CI でエディタ全体が
+ * 応答しなくなった（PR #100 の editor ジョブ）。iframe を隠すと描画の回数が止まり、見せると再開する。
+ */
+test("iframe が隠れている間は描かない（見せると再開する）", async ({
+	page,
+}) => {
+	await open(page);
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	const draws = (): Promise<number> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { draws(): number } }
+			).__jinStage.draws(),
+		);
+	await expect.poll(draws).toBeGreaterThan(0);
+	await page.evaluate(() => {
+		(document.getElementById("stage") as HTMLIFrameElement).hidden = true;
+	});
+	await page.waitForTimeout(300);
+	const hidden = await draws();
+	await page.waitForTimeout(1000);
+	expect(await draws()).toBe(hidden);
+	await page.evaluate(() => {
+		(document.getElementById("stage") as HTMLIFrameElement).hidden = false;
+	});
+	await expect.poll(draws).toBeGreaterThan(hidden);
 });

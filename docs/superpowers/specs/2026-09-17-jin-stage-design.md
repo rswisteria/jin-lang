@@ -82,6 +82,10 @@ jin editor ─┬─ apps/editor ── jin/renderSvg(LSP)→ SVG / jin/model �
 
 ### 2.1 立体の組み立て
 
+> **素材と光は置き換えた**（2026-10-01）: 金一色の素材・暖色の光・「金以外は警告の赤だけ」は、
+> `docs/superpowers/specs/2026-10-01-jin-stage-gem-worldview-design.md`（宝玉と金細工の世界観）の §2〜§3 / §6 が正典。
+> 6 層の分け方と高さはこの節のまま。
+
 陣ごとに 6 層に分け、上へ浮かせる。層は `<g data-jin="/circles/k">` の中で、**その陣の中心と外周からの相対**で決める(入れ子の小陣は SVG の中で縮小された `<g>` として入っている)。
 
 <!-- machine-readable: stage-layers -->
@@ -117,6 +121,9 @@ jin editor ─┬─ apps/editor ── jin/renderSvg(LSP)→ SVG / jin/model �
 これは配置ではなく名前の対応である。解決できない名前は光らせない(例外を投げない)。
 
 ### 2.3 トレースの 13 種と演出
+
+> **見え方は置き換えた**（2026-10-01）: 13 種の動きは `docs/superpowers/specs/2026-10-01-jin-stage-gem-worldview-design.md`
+> §5.1 が正典（`frame` も陣の鼓動 `pulse` として灯す）。下の表は置き換え前の記録。
 
 <!-- machine-readable: stage-effects -->
 
