@@ -195,6 +195,39 @@ test("手順の図の場面でも描け、PNG を書き出せる", async ({ page
 	await step.close();
 });
 
+/**
+ * 隠れている間は描かない: エディタは鑑賞パネルの iframe を v2 のファイルでは常に載せ、鑑賞モード以外では隠すだけ。
+ * 隠れた iframe で重い 3D（床の映り込み・宝玉の透過・被写界深度…）を描き続けると、ソフトウェア描画の CI でエディタ全体が
+ * 応答しなくなった（PR #100 の editor ジョブ）。iframe を隠すと描画の回数が止まり、見せると再開する。
+ */
+test("iframe が隠れている間は描かない（見せると再開する）", async ({
+	page,
+}) => {
+	await open(page);
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	const draws = (): Promise<number> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { draws(): number } }
+			).__jinStage.draws(),
+		);
+	await expect.poll(draws).toBeGreaterThan(0);
+	await page.evaluate(() => {
+		(document.getElementById("stage") as HTMLIFrameElement).hidden = true;
+	});
+	await page.waitForTimeout(300);
+	const hidden = await draws();
+	await page.waitForTimeout(1000);
+	expect(await draws()).toBe(hidden);
+	await page.evaluate(() => {
+		(document.getElementById("stage") as HTMLIFrameElement).hidden = false;
+	});
+	await expect.poll(draws).toBeGreaterThan(hidden);
+});
+
 test("音: 書き出した動画に音声トラックがあり、長さは映像とほぼ同じ", async ({
 	page,
 }) => {

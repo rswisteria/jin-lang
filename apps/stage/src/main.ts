@@ -49,6 +49,8 @@ const renderer = new StageRenderer(canvas);
 (window as unknown as { __jinStage: { memory(): unknown } }).__jinStage = {
 	memory: () => renderer.memory(),
 	summon: () => renderer.summonShown(),
+	// プレビューで描いた回数（隠れている間は増えない・e2e の口）。
+	draws: () => previewDraws,
 	// 召喚の窓の描画の写し（screen/draw.ts）で表示リストを描いた PNG（プレイヤーと同じ正解と画素一致を見る e2e の口）。
 	renderOps: (ops: readonly Op[], width: number, height: number): string => {
 		const surface = document.createElement("canvas");
@@ -134,8 +136,12 @@ function viewAspect(): number {
 	return Math.max(1, host.clientWidth) / Math.max(1, host.clientHeight);
 }
 
+/** プレビューで描いた回数（e2e の口 `__jinStage.draws()`）。 */
+let previewDraws = 0;
+
 function drawAt(tick: number): void {
 	if (state.scene === null) return;
+	previewDraws++;
 	renderer.draw({
 		tick,
 		fps: state.scene.fps,
@@ -579,7 +585,10 @@ function loop(now: number): void {
 	}
 	tickOut.textContent = String(Math.floor(state.tick));
 	// 書き出し中は出力の大きさの canvas をプレビューで上書きしない。
-	if (exporting === null) {
+	// 隠れている間（エディタが鑑賞パネルの iframe を隠すと描く面が 0 になる）は描かず鳴らさない。重い 3D を描き続けると、
+	// ソフトウェア描画ではエディタ全体が応答しなくなる。書き出し中は出力の大きさの canvas をプレビューで上書きしない。
+	const visible = host.clientWidth > 0 && host.clientHeight > 0;
+	if (exporting === null && visible) {
 		drawAt(state.tick);
 		soundTick(state.tick);
 	}
