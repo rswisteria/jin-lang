@@ -1,4 +1,12 @@
-import { type CameraOffset, type CameraPreset, NO_OFFSET } from "./camera";
+import {
+	type CameraOffset,
+	type CameraPreset,
+	NO_OFFSET,
+	type PanView,
+	panBy,
+	wheelZoomFactor,
+	zoomBy,
+} from "./camera";
 import { chooseCodec } from "./codec";
 import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
 import { runExport } from "./exporter";
@@ -60,6 +68,8 @@ const renderer = new StageRenderer(canvas);
 	summon: () => renderer.summonShown(),
 	// プレビューで描いた回数（隠れている間は増えない・e2e の口）。
 	draws: () => previewDraws,
+	// 手で動かした構図（回す・寄る・ずらす・e2e の口）。
+	camera: () => state.offset,
 	// 召喚の窓の描画の写し（screen/draw.ts）で表示リストを描いた PNG（プレイヤーと同じ正解と画素一致を見る e2e の口）。
 	renderOps: (ops: readonly Op[], width: number, height: number): string => {
 		const surface = document.createElement("canvas");
@@ -169,30 +179,105 @@ function drawAt(tick: number): void {
 	});
 }
 
-// 手で動かす（設計書 §2.5・stage.md §4）: 横 1 px = 0.3°、縦 1 px = 0.2°。仰角の範囲は cameraPose が収める。
-let dragging: { x: number; y: number } | null = null;
+// 手で動かす（設計書 §2.5・stage.md §4）: 左ドラッグで回す（横 1 px = 0.3°、縦 1 px = 0.2°。仰角の範囲は cameraPose が収める）、
+// 右ドラッグか Shift + ドラッグで注視点をずらす、ホイールで寄る・引く、2 本指はピンチで寄る・引く + 動かしてずらす。
+// ダブルクリックと構図の切り替えで全部戻す。書き出し中は構図を動かさない（書き出しは押した瞬間の構図で描く）。
+interface Point {
+	readonly x: number;
+	readonly y: number;
+}
+const touching = new Map<number, Point>();
+let panning = false;
+// ブラウザ自身のスクロールとピンチズームを止める（2 本指を構図の操作に使う）。
+canvas.style.touchAction = "none";
+canvas.title =
+	"左ドラッグ: 回す / 右ドラッグ・Shift + ドラッグ: ずらす / ホイール・ピンチ: 寄る・引く / ダブルクリック: 戻す";
+
+function panView(): PanView {
+	return {
+		preset: preset.value as CameraPreset,
+		aspect: viewAspect(),
+		seconds: state.scene === null ? 0 : state.tick / state.scene.fps,
+		heightPx: host.clientHeight,
+	};
+}
+
+function rotateBy(dx: number, dy: number): CameraOffset {
+	return {
+		...state.offset,
+		azimuthDeg: state.offset.azimuthDeg - dx * 0.3,
+		elevationDeg: Math.max(
+			-90,
+			Math.min(90, state.offset.elevationDeg + dy * 0.2),
+		),
+	};
+}
+
+function spread(points: readonly Point[]): { mid: Point; gap: number } | null {
+	const [a, b] = points;
+	if (a === undefined || b === undefined) return null;
+	return {
+		mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+		gap: Math.hypot(a.x - b.x, a.y - b.y),
+	};
+}
+
+canvas.addEventListener("contextmenu", (event) => {
+	event.preventDefault();
+});
 canvas.addEventListener("pointerdown", (event) => {
-	// 書き出し中は構図を動かさない（書き出しは押した瞬間の構図で描く）。
 	if (exporting !== null) return;
-	dragging = { x: event.clientX, y: event.clientY };
+	touching.set(event.pointerId, { x: event.clientX, y: event.clientY });
+	if (touching.size === 1) panning = event.button === 2 || event.shiftKey;
 	canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener("pointermove", (event) => {
-	if (dragging === null) return;
-	state.offset = {
-		azimuthDeg: state.offset.azimuthDeg - (event.clientX - dragging.x) * 0.3,
-		elevationDeg: Math.max(
-			-90,
-			Math.min(
-				90,
-				state.offset.elevationDeg + (event.clientY - dragging.y) * 0.2,
-			),
-		),
-	};
-	dragging = { x: event.clientX, y: event.clientY };
+	const last = touching.get(event.pointerId);
+	if (last === undefined || exporting !== null) return;
+	const next = { x: event.clientX, y: event.clientY };
+	if (touching.size >= 2) {
+		const before = spread([...touching.values()]);
+		touching.set(event.pointerId, next);
+		const after = spread([...touching.values()]);
+		if (before === null || after === null) return;
+		// 指を開くと寄る（距離の倍率を小さく）。
+		if (before.gap > 0 && after.gap > 0)
+			state.offset = zoomBy(state.offset, before.gap / after.gap);
+		state.offset = panBy(
+			state.offset,
+			after.mid.x - before.mid.x,
+			after.mid.y - before.mid.y,
+			panView(),
+		);
+		return;
+	}
+	touching.set(event.pointerId, next);
+	const dx = next.x - last.x;
+	const dy = next.y - last.y;
+	state.offset = panning
+		? panBy(state.offset, dx, dy, panView())
+		: rotateBy(dx, dy);
 });
-canvas.addEventListener("pointerup", () => {
-	dragging = null;
+function release(event: PointerEvent): void {
+	touching.delete(event.pointerId);
+	if (touching.size === 0) panning = false;
+}
+canvas.addEventListener("pointerup", release);
+canvas.addEventListener("pointercancel", release);
+canvas.addEventListener(
+	"wheel",
+	(event) => {
+		if (exporting !== null) return;
+		event.preventDefault();
+		// deltaMode 1 は行単位（Firefox）。1 行 ≈ 16 px に揃える。
+		const px = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+		state.offset = zoomBy(state.offset, wheelZoomFactor(px));
+	},
+	{ passive: false },
+);
+canvas.addEventListener("dblclick", () => {
+	if (exporting !== null) return;
+	state.offset = NO_OFFSET;
 });
 preset.addEventListener("change", () => {
 	state.offset = NO_OFFSET;
