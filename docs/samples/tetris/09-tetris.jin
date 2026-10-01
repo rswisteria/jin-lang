@@ -611,33 +611,26 @@
             },
             {
               "do": "if",
-              "cond": "input.pressed(\"ArrowUp\")",
+              "cond": "input.pressed(\"ArrowUp\") or input.pressed(\"KeyZ\")",
               "then": [
                 {
-                  "do": "let",
-                  "name": "r",
-                  "expr": "(piece.rot + 1) % 4"
-                },
+                  "do": "cast",
+                  "target": "rotate",
+                  "args": [
+                    "1"
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "input.pressed(\"KeyX\")",
+              "then": [
                 {
                   "do": "cast",
-                  "target": "fits",
+                  "target": "rotate",
                   "args": [
-                    "piece.kind",
-                    "r",
-                    "piece.x",
-                    "piece.y"
-                  ],
-                  "into": "ok"
-                },
-                {
-                  "do": "if",
-                  "cond": "ok",
-                  "then": [
-                    {
-                      "do": "set",
-                      "target": "piece.rot",
-                      "expr": "r"
-                    }
+                    "-1"
                   ]
                 }
               ]
@@ -680,6 +673,80 @@
             {
               "do": "cast",
               "target": "paintPanel"
+            }
+          ]
+        },
+        {
+          "name": "rotate",
+          "params": [
+            {
+              "name": "dir",
+              "type": "num"
+            }
+          ],
+          "steps": [
+            {
+              "do": "let",
+              "name": "r",
+              "expr": "(piece.rot + dir + 4) % 4"
+            },
+            {
+              "do": "let",
+              "name": "kx",
+              "expr": "[0, 1, -1, 2, -2, 0]"
+            },
+            {
+              "do": "let",
+              "name": "ky",
+              "expr": "[0, 0, 0, 0, 0, -1]"
+            },
+            {
+              "do": "let",
+              "name": "ok",
+              "expr": "false"
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "k",
+              "times": "len(kx)",
+              "steps": [
+                {
+                  "do": "cast",
+                  "target": "fits",
+                  "args": [
+                    "piece.kind",
+                    "r",
+                    "piece.x + kx[k]",
+                    "piece.y + ky[k]"
+                  ],
+                  "into": "ok"
+                },
+                {
+                  "do": "if",
+                  "cond": "ok",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "piece.rot",
+                      "expr": "r"
+                    },
+                    {
+                      "do": "set",
+                      "target": "piece.x",
+                      "expr": "piece.x + kx[k]"
+                    },
+                    {
+                      "do": "set",
+                      "target": "piece.y",
+                      "expr": "piece.y + ky[k]"
+                    },
+                    {
+                      "do": "return"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },

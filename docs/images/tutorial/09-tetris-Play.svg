@@ -27,26 +27,28 @@
     <text data-jin="/circles/1/sigils/3" data-jin-kind="sigil" x="280.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">R</text>
     <circle data-jin="/circles/1/rites/0" data-jin-kind="rite" cx="500.000" cy="360.000" r="28.000"/>
     <text data-jin="/circles/1/rites/0" data-jin-kind="rite" x="500.000" y="360.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">B</text>
-    <circle data-jin="/circles/1/rites/1" data-jin-kind="rite" cx="575.690" cy="382.225" r="28.000"/>
-    <text data-jin="/circles/1/rites/1" data-jin-kind="rite" x="575.690" y="382.225" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">F</text>
-    <circle data-jin="/circles/1/rites/2" data-jin-kind="rite" cx="627.348" cy="441.842" r="28.000"/>
-    <text data-jin="/circles/1/rites/2" data-jin-kind="rite" x="627.348" y="441.842" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">S</text>
-    <circle data-jin="/circles/1/rites/3" data-jin-kind="rite" cx="638.575" cy="519.924" r="28.000"/>
-    <text data-jin="/circles/1/rites/3" data-jin-kind="rite" x="638.575" y="519.924" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">L</text>
-    <circle data-jin="/circles/1/rites/4" data-jin-kind="rite" cx="605.805" cy="591.681" r="28.000"/>
-    <text data-jin="/circles/1/rites/4" data-jin-kind="rite" x="605.805" y="591.681" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">C</text>
-    <circle data-jin="/circles/1/rites/5" data-jin-kind="rite" cx="539.443" cy="634.329" r="28.000"/>
-    <text data-jin="/circles/1/rites/5" data-jin-kind="rite" x="539.443" y="634.329" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">C</text>
-    <circle data-jin="/circles/1/rites/6" data-jin-kind="rite" cx="460.557" cy="634.329" r="28.000"/>
-    <text data-jin="/circles/1/rites/6" data-jin-kind="rite" x="460.557" y="634.329" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">F</text>
-    <circle data-jin="/circles/1/rites/7" data-jin-kind="rite" cx="394.195" cy="591.681" r="28.000"/>
-    <text data-jin="/circles/1/rites/7" data-jin-kind="rite" x="394.195" y="591.681" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">H</text>
-    <circle data-jin="/circles/1/rites/8" data-jin-kind="rite" cx="361.425" cy="519.924" r="28.000"/>
-    <text data-jin="/circles/1/rites/8" data-jin-kind="rite" x="361.425" y="519.924" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">P</text>
-    <circle data-jin="/circles/1/rites/9" data-jin-kind="rite" cx="372.652" cy="441.842" r="28.000"/>
-    <text data-jin="/circles/1/rites/9" data-jin-kind="rite" x="372.652" y="441.842" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">P</text>
-    <circle data-jin="/circles/1/rites/10" data-jin-kind="rite" cx="424.310" cy="382.225" r="28.000"/>
-    <text data-jin="/circles/1/rites/10" data-jin-kind="rite" x="424.310" y="382.225" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">P</text>
+    <circle data-jin="/circles/1/rites/1" data-jin-kind="rite" cx="570.000" cy="378.756" r="28.000"/>
+    <text data-jin="/circles/1/rites/1" data-jin-kind="rite" x="570.000" y="378.756" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">F</text>
+    <circle data-jin="/circles/1/rites/2" data-jin-kind="rite" cx="621.244" cy="430.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/2" data-jin-kind="rite" x="621.244" y="430.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">S</text>
+    <circle data-jin="/circles/1/rites/3" data-jin-kind="rite" cx="640.000" cy="500.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/3" data-jin-kind="rite" x="640.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">L</text>
+    <circle data-jin="/circles/1/rites/4" data-jin-kind="rite" cx="621.244" cy="570.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/4" data-jin-kind="rite" x="621.244" y="570.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">C</text>
+    <circle data-jin="/circles/1/rites/5" data-jin-kind="rite" cx="570.000" cy="621.244" r="28.000"/>
+    <text data-jin="/circles/1/rites/5" data-jin-kind="rite" x="570.000" y="621.244" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">C</text>
+    <circle data-jin="/circles/1/rites/6" data-jin-kind="rite" cx="500.000" cy="640.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/6" data-jin-kind="rite" x="500.000" y="640.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">R</text>
+    <circle data-jin="/circles/1/rites/7" data-jin-kind="rite" cx="430.000" cy="621.244" r="28.000"/>
+    <text data-jin="/circles/1/rites/7" data-jin-kind="rite" x="430.000" y="621.244" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">F</text>
+    <circle data-jin="/circles/1/rites/8" data-jin-kind="rite" cx="378.756" cy="570.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/8" data-jin-kind="rite" x="378.756" y="570.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">H</text>
+    <circle data-jin="/circles/1/rites/9" data-jin-kind="rite" cx="360.000" cy="500.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/9" data-jin-kind="rite" x="360.000" y="500.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">P</text>
+    <circle data-jin="/circles/1/rites/10" data-jin-kind="rite" cx="378.756" cy="430.000" r="28.000"/>
+    <text data-jin="/circles/1/rites/10" data-jin-kind="rite" x="378.756" y="430.000" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">P</text>
+    <circle data-jin="/circles/1/rites/11" data-jin-kind="rite" cx="430.000" cy="378.756" r="28.000"/>
+    <text data-jin="/circles/1/rites/11" data-jin-kind="rite" x="430.000" y="378.756" stroke="none" fill="#000000" font-family="sans-serif" font-size="24.000" text-anchor="middle" dominant-baseline="central">P</text>
     <path data-jin="/circles/1/state/0" data-jin-kind="state" d="M 520.000 180.000 L 520.000 220.000 L 480.000 220.000 L 480.000 180.000 Z"/>
     <path data-jin="/circles/1/state/0" data-jin-kind="state" d="M 512.800 187.200 L 512.800 212.800 L 487.200 212.800 L 487.200 187.200 Z"/>
     <path data-jin="/circles/1/state/1" data-jin-kind="state" d="M 689.830 241.612 L 668.204 275.262 L 634.554 253.636 L 656.180 219.986 Z"/>

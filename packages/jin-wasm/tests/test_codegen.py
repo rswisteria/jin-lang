@@ -498,6 +498,67 @@ def test_tetris_ends_in_the_result_screen_when_pieces_pile_up() -> None:
     assert result.public["Play.placed"] > 10
 
 
+def _tetris_with_only_i_pieces(tmp_path: Path) -> tuple[str, dict]:
+    """出るミノを I（kind 0）に固定した写し。I は縦横で幅が 1 と 4 なので壁際の回転に蹴りが要る。"""
+    doc = json.loads((EXAMPLES / "tetris" / "tetris.jin").read_text(encoding="utf-8"))
+    spawn = next(r for r in doc["circles"][1]["rites"] if r["name"] == "spawn")
+    spawn["steps"][0]["expr"] = "Piece{kind: 0, rot: 0, x: 3, y: 0}"
+    path = tmp_path / "tetris-i.jin"
+    path.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    game = generate(load(path), source_name=path.name, debug=False)
+    return game.lua, game.manifest
+
+
+def _taps(*keys: str, start: int = 2) -> list[dict]:
+    """1 tick おきに押して離す（`input.pressed` は押下の遷移だけを見る）。"""
+    events = []
+    for n, key in enumerate(keys):
+        t = start + 2 * n
+        events += [
+            {"tick": t, "kind": "key", "name": key, "down": True},
+            {"tick": t + 1, "kind": "key", "name": key, "down": False},
+        ]
+    return events
+
+
+@pytest.mark.parametrize(
+    ("keys", "rot"),
+    [
+        (("KeyZ",), 1),  # Z は順回転（時計回り）
+        (("ArrowUp",), 1),  # ↑ も順回転のまま
+        (("KeyX",), 3),  # X は逆回転（0 → 3）
+        (("KeyZ", "KeyX"), 0),
+        (("KeyX", "KeyX"), 2),
+    ],
+)
+def test_tetris_rotates_forward_with_z_and_backward_with_x(
+    tmp_path: Path, keys: tuple[str, ...], rot: int
+) -> None:
+    lua, manifest = _tetris_with_only_i_pieces(tmp_path)
+    events = _taps(*keys)
+    result = run_headless(lua, manifest, seed=3, ticks=events[-1]["tick"] + 2, events=events)
+    assert result.error is None
+    assert result.public["Play.piece"]["rot"] == rot
+    assert result.public["Play.piece"]["x"] == 3  # 中央では蹴らない
+
+
+def test_tetris_kicks_off_the_wall_when_rotating_against_it(tmp_path: Path) -> None:
+    """壁蹴り: 縦の I（rot 1・列は x + 2）を左の壁（x = -2）まで寄せて回すと、横の I（rot 2・列は x〜x + 3）は
+    その場では壁にめり込むので、+1 / -1 を試して入らず +2 ずれて x = 0 で回る。右の壁でも同じく -2 ずれる。
+    """
+    lua, manifest = _tetris_with_only_i_pieces(tmp_path)
+    left = _taps("KeyZ", *["ArrowLeft"] * 6, "KeyZ")
+    result = run_headless(lua, manifest, seed=3, ticks=left[-1]["tick"] + 2, events=left)
+    assert result.error is None
+    assert result.public["Play.piece"]["rot"] == 2 and result.public["Play.piece"]["x"] == 0
+
+    # 縦の I（rot 3・列は x + 1）を右の壁（x = 8）まで寄せて逆回転すると、横の I（rot 2）は x = 6 に蹴られる
+    right = _taps("KeyX", *["ArrowRight"] * 6, "KeyX")
+    result = run_headless(lua, manifest, seed=3, ticks=right[-1]["tick"] + 2, events=right)
+    assert result.error is None
+    assert result.public["Play.piece"]["rot"] == 2 and result.public["Play.piece"]["x"] == 6
+
+
 # ---------------------------------------------------------------- othello（5 本目・相手が v1 の陣 = LLM）
 
 _OTHELLO_DIRS = ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1))
