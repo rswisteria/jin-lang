@@ -1,4 +1,6 @@
 import {
+	AudioSample,
+	AudioSampleSource,
 	BufferTarget,
 	CanvasSource,
 	canEncodeAudio,
@@ -10,6 +12,7 @@ import {
 } from "mediabunny";
 
 import type { CodecChoice } from "./codec";
+import { SAMPLE_RATE as AUDIO_SAMPLE_RATE } from "./screen/sound";
 import type { FrameEncoder } from "./exporter";
 import { VIDEO_FPS } from "./timeline";
 
@@ -32,10 +35,33 @@ export function canEncodeAudioTrack(codec: "aac" | "opus"): Promise<boolean> {
 	return canEncodeAudio(codec, { numberOfChannels: 1, sampleRate: 48000 });
 }
 
+/** 音声を 1 回に足す長さ（秒）。エンコーダの背圧に従うため 1 本で足さず、この長さに分ける。 */
+const AUDIO_CHUNK_SECONDS = 1;
+
+/**
+ * 音声のコーデック（probe §G）: MP4 は `aac`、使えなければ `opus`（Mediabunny の MP4 は opus を受ける。同梱 Chromium は
+ * AAC を持たない）。WebM は `opus`。どちらも使えなければ null（無音で書き出す）。
+ */
+async function audioCodecFor(
+	container: CodecChoice["container"],
+	can: (codec: "aac" | "opus") => Promise<boolean>,
+): Promise<"aac" | "opus" | null> {
+	if (container === "mp4" && (await can("aac"))) return "aac";
+	return (await can("opus")) ? "opus" : null;
+}
+
+/**
+ * 映像（canvas）と、あれば音声（48kHz・モノラルの PCM・`screen/sound.ts`）を書き出すエンコーダ。
+ * 音声のコーデックが無ければ映像だけにして `audio: false` を返す（書き出しは止めない・仕様書 2026-10-01-jin-stage-summon §3.3）。
+ */
 export async function createEncoder(
 	canvas: HTMLCanvasElement,
 	choice: CodecChoice,
-): Promise<FrameEncoder> {
+	audio: Float32Array | null,
+	canEncodeAudioCodec: (
+		codec: "aac" | "opus",
+	) => Promise<boolean> = canEncodeAudioTrack,
+): Promise<FrameEncoder & { readonly audio: boolean }> {
 	const target = new BufferTarget();
 	const output = new Output({
 		format:
@@ -49,8 +75,36 @@ export async function createEncoder(
 		quality: new Quality("high"),
 	});
 	output.addVideoTrack(source, { frameRate: VIDEO_FPS });
+	const audioCodec =
+		audio === null
+			? null
+			: await audioCodecFor(choice.container, canEncodeAudioCodec);
+	const audioSource =
+		audioCodec === null
+			? null
+			: new AudioSampleSource({
+					codec: audioCodec,
+					quality: new Quality("high"),
+				});
+	if (audioSource !== null) output.addAudioTrack(audioSource);
 	await output.start();
+	if (audioSource !== null && audio !== null) {
+		const step = AUDIO_CHUNK_SECONDS * AUDIO_SAMPLE_RATE;
+		for (let i = 0; i < audio.length; i += step) {
+			const sample = new AudioSample({
+				data: audio.subarray(i, Math.min(audio.length, i + step)),
+				format: "f32",
+				numberOfChannels: 1,
+				sampleRate: AUDIO_SAMPLE_RATE,
+				timestamp: i / AUDIO_SAMPLE_RATE,
+			});
+			await audioSource.add(sample);
+			sample.close();
+		}
+		audioSource.close();
+	}
 	return {
+		audio: audioSource !== null,
 		add: (timestamp, duration) => source.add(timestamp, duration),
 		finish: async () => {
 			await output.finalize();

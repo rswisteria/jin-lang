@@ -1,0 +1,7 @@
+{"jinrec": 1, "file": "tetris.jin", "seed": 3, "fps": 30, "ticks": 120}
+{"tick": 4, "kind": "key", "name": "Space", "down": true}
+{"tick": 5, "kind": "key", "name": "Space", "down": false}
+{"tick": 34, "kind": "key", "name": "Space", "down": true}
+{"tick": 35, "kind": "key", "name": "Space", "down": false}
+{"tick": 64, "kind": "key", "name": "Space", "down": true}
+{"tick": 65, "kind": "key", "name": "Space", "down": false}

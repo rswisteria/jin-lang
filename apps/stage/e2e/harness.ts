@@ -77,6 +77,8 @@ export const TETRIS: HarnessFixture = {
 	stageSize: { width: 176, height: 176 },
 };
 export const PADDLE_STEP: HarnessFixture = { ...PADDLE, svg: "play-step.svg" };
+/** 音の fixture: tetris でハードドロップを 3 回する録画（tests/fixtures/jinrec/tetris-drops.jinrec）のトレース。 */
+export const TETRIS_DROPS: HarnessFixture = { ...TETRIS, trace: "tetris-drops-trace.jsonl" };
 
 export async function serveHarness(fixture: HarnessFixture = PADDLE): Promise<{
 	url: string;

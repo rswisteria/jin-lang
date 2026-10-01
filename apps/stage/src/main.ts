@@ -5,6 +5,7 @@ import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
 import { drawOps, type Op } from "./screen/draw";
 import { frameAt, framesOf, type ScreenFrame, windowAt } from "./screen/frames";
+import { synthesize, TONE_GAIN } from "./screen/sound";
 import {
 	canEncode,
 	canEncodeAudioTrack,
@@ -65,6 +66,7 @@ const renderer = new StageRenderer(canvas);
 	}),
 } as { memory(): unknown };
 const play = element<HTMLButtonElement>("play");
+const mute = element<HTMLButtonElement>("mute");
 const scrub = element<HTMLInputElement>("scrub");
 const tickOut = element<HTMLOutputElement>("tick");
 const preset = element<HTMLSelectElement>("preset");
@@ -249,6 +251,13 @@ new ResizeObserver(() => {
 play.addEventListener("click", () => {
 	state.playing = !state.playing;
 	play.textContent = state.playing ? "一時停止" : "再生";
+	unlockAudio();
+	lastSoundTick = Math.floor(state.tick);
+});
+mute.addEventListener("click", () => {
+	muted = !muted;
+	mute.setAttribute("aria-pressed", String(muted));
+	mute.textContent = muted ? "音: 切" : "音: 入";
 });
 scrub.addEventListener("input", () => {
 	state.tick = Number(scrub.value);
@@ -267,6 +276,52 @@ const exportPng = element<HTMLButtonElement>("export-png");
 const cancel = element<HTMLButtonElement>("cancel");
 const codecText = element<HTMLSpanElement>("codec");
 const composer = new Composer2D();
+
+/** e2e だけが使う「音声のコーデックが無い」環境（`?noaudio=1`・無音で書き出す分岐を通す）。 */
+const NO_AUDIO =
+	new URLSearchParams(window.location.search).get("noaudio") === "1";
+
+/**
+ * プレビューの音（仕様書 2026-10-01-jin-stage-summon §3.2）: 再生中に tick が進むたびに、その tick のコマの `tone` を
+ * プレイヤーと同じ矩形波・音量で鳴らす。スクラブ中と消音中は鳴らさない。`AudioContext` は再生ボタンの操作で作る
+ * （実時間の時計を読むのは main.ts だけ）。
+ */
+let audioContext: AudioContext | null = null;
+let muted = false;
+let lastSoundTick = Number.NaN;
+
+function unlockAudio(): void {
+	if (typeof AudioContext === "undefined") return;
+	audioContext ??= new AudioContext();
+	if (audioContext.state === "suspended") void audioContext.resume();
+}
+
+function soundTick(tick: number): void {
+	const ctx = audioContext;
+	const whole = Math.floor(tick);
+	const previous = lastSoundTick;
+	lastSoundTick = whole;
+	if (ctx === null || muted || !state.playing || ctx.state !== "running")
+		return;
+	if (!(whole > previous) || whole - previous > 4) return;
+	for (let t = previous + 1; t <= whole; t++) {
+		const frame = frameAt(state.frames, t);
+		if (frame === null || frame.tick !== t) continue;
+		for (const [name, ...args] of frame.audio) {
+			const hz = typeof args[0] === "number" ? args[0] : 0;
+			const ms = typeof args[1] === "number" ? args[1] : 0;
+			if (name !== "tone" || !(hz > 0) || !(ms > 0)) continue;
+			const osc = ctx.createOscillator();
+			osc.type = "square";
+			osc.frequency.value = hz;
+			const gain = ctx.createGain();
+			gain.gain.value = TONE_GAIN;
+			osc.connect(gain).connect(ctx.destination);
+			osc.start();
+			osc.stop(ctx.currentTime + ms / 1000);
+		}
+	}
+}
 
 /** e2e だけが使う長辺の上書き（`?export=360`）。UI の選択肢には出さない。 */
 const overrideLongSide =
@@ -426,15 +481,25 @@ exportVideo.addEventListener("click", () => {
 				report({ exporting: null, error: "この環境では動画を書き出せません" });
 				return;
 			}
-			const bytes = await withExportSize(width, height, async () =>
-				runExport({
+			// 音（仕様書 2026-10-01-jin-stage-summon §3）: 範囲の tone を合成して音声トラックに。
+			// `?noaudio=1` は e2e の口で、音声のコーデックが無い環境（無音で書き出す分岐）を作る。
+			let withAudio = false;
+			const bytes = await withExportSize(width, height, async () => {
+				const encoder = await createEncoder(
+					composer.canvas,
+					choice,
+					synthesize(shot.frames, range),
+					NO_AUDIO ? () => Promise.resolve(false) : undefined,
+				);
+				withAudio = encoder.audio;
+				return runExport({
 					range,
 					draw: (tick) => drawFor(shot, tick, width, height),
-					encoder: await createEncoder(composer.canvas, choice),
+					encoder,
 					signal: controller.signal,
 					onProgress: (done, total) => report({ exporting: { done, total } }),
-				}),
-			);
+				});
+			});
 			if (bytes !== null) {
 				const name = exportFileName({
 					jinName: scene.jinName,
@@ -448,6 +513,9 @@ exportVideo.addEventListener("click", () => {
 				send(name, choice.mime, bytes.slice().buffer);
 			}
 			report({ exporting: null, error: null });
+			if (bytes !== null && !withAudio)
+				statusText.textContent =
+					"準備完了（音声のコーデックが無いため無音で書き出しました）";
 		} catch (error) {
 			report({
 				exporting: null,
@@ -511,7 +579,10 @@ function loop(now: number): void {
 	}
 	tickOut.textContent = String(Math.floor(state.tick));
 	// 書き出し中は出力の大きさの canvas をプレビューで上書きしない。
-	if (exporting === null) drawAt(state.tick);
+	if (exporting === null) {
+		drawAt(state.tick);
+		soundTick(state.tick);
+	}
 	requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

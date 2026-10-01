@@ -1,7 +1,61 @@
 import { expect, type Page, test } from "@playwright/test";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 
-import { PADDLE_STEP, serveHarness, TETRIS } from "./harness";
+import { PADDLE_STEP, serveHarness, TETRIS, TETRIS_DROPS } from "./harness";
+
+/**
+ * 音（仕様書 2026-10-01-jin-stage-summon §3.3）: ハードドロップ 3 回の tetris（tick 4 / 34 / 64 で tone）の 2 秒（tick 0〜120・
+ * harness の fps 60）を書き出し、Node 側で読み戻す。`noaudio` なら iframe を `?noaudio=1` で読み直す（音声のコーデックが無い分岐）。
+ */
+async function exportDrops(
+	page: Page,
+	noaudio: boolean,
+): Promise<{
+	audio: boolean;
+	audioSeconds: number | null;
+	videoSeconds: number;
+	mime: string;
+}> {
+	const harness = await serveHarness(TETRIS_DROPS);
+	await page.goto(harness.url);
+	if (noaudio) {
+		await page.evaluate(() => {
+			(document.getElementById("stage") as HTMLIFrameElement).src =
+				"./stage/?export=360&noaudio=1";
+		});
+	}
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	const codecLabel = stage.getByTestId("stage-codec");
+	await expect(codecLabel).toHaveAttribute("data-codec", /.+/);
+	test.skip(
+		(await codecLabel.getAttribute("data-codec")) === "none",
+		"WebCodecs が無い環境（probe §C）",
+	);
+	await stage.getByTestId("stage-start").fill("0");
+	await stage.getByTestId("stage-end").fill("120");
+	await stage.getByTestId("stage-export-video").click();
+	await expect
+		.poll(async () => (await files(page)).length, { timeout: 170_000 })
+		.toBe(1);
+	const [video] = await files(page);
+	const input = new Input({
+		source: new BufferSource(new Uint8Array(video?.bytes ?? [])),
+		formats: ALL_FORMATS,
+	});
+	const audioTrack = await input.getPrimaryAudioTrack();
+	const videoTrack = await input.getPrimaryVideoTrack();
+	if (videoTrack === null) throw new Error("動画のトラックが読めません");
+	const result = {
+		audio: audioTrack !== null,
+		audioSeconds:
+			audioTrack === null ? null : await audioTrack.computeDuration(),
+		videoSeconds: await videoTrack.computeDuration(),
+		mime: video?.mime ?? "",
+	};
+	await harness.close();
+	return result;
+}
 
 /**
  * 鑑賞ページの往復（docs/spec/v2/stage.md §5・設計書 §4.4）。360p・1 秒で書き出し、
@@ -139,6 +193,27 @@ test("手順の図の場面でも描け、PNG を書き出せる", async ({ page
 	);
 	expect(status.error).toBeNull();
 	await step.close();
+});
+
+test("音: 書き出した動画に音声トラックがあり、長さは映像とほぼ同じ", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	const result = await exportDrops(page, false);
+	test.info().annotations.push({ type: "mime", description: result.mime });
+	expect(result.audio).toBe(true);
+	expect(
+		Math.abs((result.audioSeconds ?? 0) - result.videoSeconds),
+	).toBeLessThanOrEqual(0.1);
+});
+
+test("音: 音声のコーデックが無い環境（?noaudio=1）でも、無音の動画を書き出してファイルを渡す", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	const result = await exportDrops(page, true);
+	expect(result.audio).toBe(false);
+	expect(result.videoSeconds).toBeGreaterThan(1.9);
 });
 
 test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", async ({ page }) => {
