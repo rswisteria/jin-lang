@@ -249,6 +249,23 @@ def test_the_stage_draws_the_drawable_ops_of_the_abilities() -> None:
     assert set(re.findall(r'"(\w+)"', body.group(1))) == members["canvas"] | members["ui"]
 
 
+def test_the_stage_size_range_is_the_schema_range() -> None:
+    """鑑賞ページが受ける舞台の大きさの範囲（messages.ts の写し）は、モデルの schema と同じ。"""
+    schema = json.loads((REPO_ROOT / "schemas" / "jin-v2.schema.json").read_text(encoding="utf-8"))
+    stage = schema["$defs"]["Stage"]["properties"]
+    text = STAGE_MESSAGES.read_text(encoding="utf-8")
+    copied = {
+        name: int(value)
+        for name, value in re.findall(r"export const (M(?:IN|AX)_STAGE_SIZE) = (\d+);", text)
+    }
+    for side in ("width", "height"):
+        assert stage[side]["type"] == "integer"
+        assert copied == {
+            "MIN_STAGE_SIZE": stage[side]["minimum"],
+            "MAX_STAGE_SIZE": stage[side]["maximum"],
+        }
+
+
 def test_ci_diffs_the_stage_glyphs() -> None:
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     stage_job = _ci_job(ci, "stage")

@@ -22,16 +22,27 @@ export interface SceneMessage {
 	} | null;
 }
 
+/**
+ * 舞台の大きさの範囲（モデルの `Stage.width` / `height` と同じ・整数）。stage はリポジトリのファイルを読まないので写しを持ち、
+ * `tests/contract/test_stage_contract.py` が `schemas/jin-v2.schema.json` と突き合わせる。
+ */
+export const MIN_STAGE_SIZE = 16;
+export const MAX_STAGE_SIZE = 1024;
+
+function isStageSide(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= MIN_STAGE_SIZE &&
+		value <= MAX_STAGE_SIZE
+	);
+}
+
+/** 範囲の外は丸めずに null（窓を出さない）。巨大な値で窓の canvas とテクスチャを作らない。 */
 function stageSizeOf(value: unknown): SceneMessage["stageSize"] {
 	if (!isRecord(value)) return null;
 	const { width, height } = value;
-	if (
-		typeof width !== "number" ||
-		typeof height !== "number" ||
-		!(width > 0) ||
-		!(height > 0)
-	)
-		return null;
+	if (!isStageSide(width) || !isStageSide(height)) return null;
 	return { width, height };
 }
 
