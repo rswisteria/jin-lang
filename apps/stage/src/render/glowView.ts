@@ -313,29 +313,49 @@ export class GlowView {
 	): void {
 		const spin = new THREE.Quaternion();
 		const tilt = new THREE.Quaternion();
-		const pivot = new THREE.Vector3();
-		const turned = new THREE.Vector3();
-		for (const [circle, { unit, layers }] of this.model.circles) {
+		const turn = new THREE.Matrix4();
+		const toPivot = new THREE.Matrix4();
+		const fromPivot = new THREE.Matrix4();
+		const lift = new THREE.Matrix4();
+		const scale = new THREE.Vector3();
+		/** 陣ごと・層ごとの「高さを除いた」変換（入れ子の子がこれを公転として受け継ぐ）。 */
+		const orbits = new Map<string, THREE.Matrix4[]>();
+		// 親を子より先に置く（単位の大きい順）。
+		const order = [...this.model.circles.entries()].sort(
+			(a, b) => b[1].unit - a[1].unit,
+		);
+		for (const [circle, { unit, layers }] of order) {
 			const [px, py] = this.model.pivots.get(circle) ?? [0, 0];
-			pivot.set(px, py, 0);
+			toPivot.makeTranslation(px, py, 0);
+			fromPivot.makeTranslation(-px, -py, 0);
 			const levels = offsets.get(circle);
 			tilt.setFromAxisAngle(new THREE.Vector3(1, 0, 0), tilts.get(circle) ?? 0);
+			const nest = this.model.nesting.get(circle);
+			const inherited =
+				nest === undefined ? undefined : orbits.get(nest.parent)?.[nest.layer];
+			const own: THREE.Matrix4[] = [];
 			layers.forEach((layer, i) => {
 				spin.setFromAxisAngle(
 					new THREE.Vector3(0, 0, 1),
 					layerSpin(i as LayerIndex, seconds),
 				);
-				layer.quaternion.copy(tilt).multiply(spin);
-				turned.copy(pivot).applyQuaternion(layer.quaternion);
-				layer.position.set(
-					px - turned.x,
-					py - turned.y,
-					-turned.z +
-						layerHeight(i as LayerIndex, unit) +
-						(levels?.[i] ?? 0) * unit,
+				// 陣の中心まわりの自転と傾き → 親の層の公転（あれば）→ 高さ（root の z・傾けない）。
+				turn.makeRotationFromQuaternion(tilt.clone().multiply(spin));
+				const orbit = new THREE.Matrix4()
+					.multiplyMatrices(toPivot, turn)
+					.multiply(fromPivot);
+				if (inherited !== undefined) orbit.premultiply(inherited);
+				own.push(orbit);
+				lift.makeTranslation(
+					0,
+					0,
+					layerHeight(i as LayerIndex, unit) + (levels?.[i] ?? 0) * unit,
 				);
+				layer.matrix.multiplyMatrices(lift, orbit);
+				layer.matrix.decompose(layer.position, layer.quaternion, scale);
 				layer.updateMatrix();
 			});
+			orbits.set(circle, own);
 		}
 	}
 

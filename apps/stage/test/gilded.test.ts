@@ -206,6 +206,33 @@ describe("宝玉と地金（仕様書 2026-10-01 §2.3 / §3）", () => {
 	});
 });
 
+describe("入れ子の小陣は親の層の自転について行く（最終レビュー Important #2）", () => {
+	test("子の陣は、親の陣の、自分が載っている層（0.55 の環 = 層 3）と同じだけ親の中心のまわりを回る", () => {
+		const model = buildGilded(scene);
+		expect(model.nesting.get("/circles/1")).toEqual({
+			parent: "/circles/0",
+			layer: 3,
+		});
+		expect(model.nesting.has("/circles/0")).toBe(false);
+		const view = new GlowView(model);
+		const seconds = 20;
+		view.apply([], seconds * 60, 60, scene.pointers);
+		const parent = model.pivots.get("/circles/0");
+		const child = model.pivots.get("/circles/1");
+		if (parent === undefined || child === undefined)
+			throw new Error("pivot が無い");
+		const [x, y] = rotateAbout(child, parent, layerSpin(3, seconds));
+		const core = view.endpointOf("/circles/1/core");
+		expect(core?.x).toBeCloseTo(x, 9);
+		expect(core?.y).toBeCloseTo(y, 9);
+		// 端点は核の宝玉（要素の上に浮かせて置く）の位置。
+		const lifted = model.gems.get("/circles/1/core")?.mesh.position.z ?? 0;
+		expect(core?.z).toBeCloseTo(layerHeight(5, 0.28) + lifted, 9);
+		view.dispose();
+		model.dispose();
+	});
+});
+
 describe("宝玉の色の光と層の自転（仕様書 2026-10-01 §5）", () => {
 	const play = parseScene(
 		readFileSync(join(__dirname, "fixtures", "play.svg"), "utf8"),

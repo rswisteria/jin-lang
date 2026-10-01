@@ -4,7 +4,7 @@ import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
 import { anchorsOf } from "../anchors";
-import { LAYER_HEIGHTS, type LayerIndex, layerHeight } from "../layers";
+import { LAYER_HEIGHTS, type LayerIndex, layerHeight, ringLayer } from "../layers";
 import type { StageNames } from "../names";
 import { gemOfElement, METALS, metalOf } from "../palette";
 import type { Scene, SceneItem, Vec2 } from "../scene";
@@ -70,7 +70,49 @@ export interface GildedModel {
 	readonly gems: ReadonlyMap<string, GemHandle>;
 	/** 層の自転の中心。key = 陣の pointer（陣の輪の中心）。陣に属さない要素（`NO_CIRCLE`）は原点。 */
 	readonly pivots: ReadonlyMap<string, Vec2>;
+	/**
+	 * 入れ子の陣 → 親の陣と、子が載っている親の層（最終レビュー Important #2）。子の層は親のその層の自転について行く。
+	 * 親 = 子の中心を外周の内側に持ち、単位が子より大きい陣のうち最も小さいもの。層 = 親の中心からの距離 / 親の単位に最も近い環。
+	 */
+	readonly nesting: ReadonlyMap<
+		string,
+		{ readonly parent: string; readonly layer: LayerIndex }
+	>;
 	dispose(): void;
+}
+
+function nestingOf(
+	pivots: ReadonlyMap<string, Vec2>,
+	outers: ReadonlyMap<string, number>,
+	circles: ReadonlyMap<string, CircleLayers>,
+): Map<string, { parent: string; layer: LayerIndex }> {
+	const nesting = new Map<string, { parent: string; layer: LayerIndex }>();
+	for (const [child, at] of pivots) {
+		const unit = circles.get(child)?.unit;
+		if (child === NO_CIRCLE || unit === undefined) continue;
+		let best: { parent: string; unit: number; distance: number } | null = null;
+		for (const [parent, center] of pivots) {
+			const parentUnit = circles.get(parent)?.unit;
+			const outer = outers.get(parent);
+			if (
+				parent === child ||
+				parentUnit === undefined ||
+				outer === undefined ||
+				!(parentUnit > unit)
+			)
+				continue;
+			const distance = Math.hypot(at[0] - center[0], at[1] - center[1]);
+			if (distance >= outer) continue;
+			if (best === null || parentUnit < best.unit)
+				best = { parent, unit: parentUnit, distance };
+		}
+		if (best !== null)
+			nesting.set(child, {
+				parent: best.parent,
+				layer: ringLayer(best.distance / best.unit),
+			});
+	}
+	return nesting;
 }
 
 /** 段 0（台座）の金細工は地金の色をこの比で暗くする（旧 GOLD_DIM / GOLD の比）。 */
@@ -257,13 +299,19 @@ export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 		gems.set(anchor.pointer, handle);
 	}
 
-	// 層の自転の中心: 陣の輪（種別 circle の ring）の中心。
+	// 層の自転の中心: 陣の輪（種別 circle の ring）の中心。外周 = 陣の輪の最大の半径。
 	const pivots = new Map<string, Vec2>([[NO_CIRCLE, [0, 0]]]);
+	const outers = new Map<string, number>();
 	for (const item of scene.items) {
 		if (item.kind !== "circle" || item.shape.type !== "ring") continue;
-		if (item.pointer === item.circle && !pivots.has(item.pointer))
-			pivots.set(item.pointer, item.shape.center);
+		if (item.pointer !== item.circle) continue;
+		if (!pivots.has(item.pointer)) pivots.set(item.pointer, item.shape.center);
+		outers.set(
+			item.pointer,
+			Math.max(outers.get(item.pointer) ?? 0, item.shape.radius),
+		);
 	}
+	const nesting = nestingOf(pivots, outers, circles);
 
 	return {
 		root,
@@ -274,6 +322,7 @@ export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 		effects,
 		gems,
 		pivots,
+		nesting,
 		dispose: () => {
 			for (const d of disposables) d.dispose();
 		},
