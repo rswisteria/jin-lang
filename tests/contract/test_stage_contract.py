@@ -210,6 +210,39 @@ def test_the_metals_in_the_code_are_the_table_of_stage_md() -> None:
     assert re.findall(r'"(\w+)"', cycle.group(1)) == [metal for _, metal, _, _ in table[1:]]
 
 
+SCREEN = SRC / "screen"
+PLAYER_SRC = PLAYER / "src"
+
+
+def test_the_stage_glyphs_are_the_generated_copy() -> None:
+    """召喚の窓の字形（仕様書 2026-10-01-jin-stage-summon §2.2）は生成器が 2 か所に書く生成物で、プレイヤーとバイト一致。"""
+    import sys
+
+    check = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "generate_glyphs.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+    assert (SCREEN / "glyphs.ts").read_bytes() == (PLAYER_SRC / "glyphs.ts").read_bytes()
+
+
+def test_the_stage_ascii_font_is_a_byte_copy_of_the_player() -> None:
+    """ASCII の 5×7（`font.ts`）は写し。apps 同士は import しないので、バイト一致で守る。"""
+    assert (SCREEN / "font.ts").read_bytes() == (PLAYER_SRC / "font.ts").read_bytes()
+
+
+def test_ci_diffs_the_stage_glyphs() -> None:
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    stage_job = _ci_job(ci, "stage")
+    assert stage_job is not None
+    assert (
+        "uv run python scripts/generate_glyphs.py --stdout | diff -u apps/stage/src/screen/glyphs.ts -"
+        in stage_job
+    )
+
+
 def test_the_picture_does_not_read_the_clock_or_math_random() -> None:
     """stage.md §3.4: 絵は時刻の関数。実時間を読むのはプレビューの時計（main.ts）だけ。"""
     offenders = [
