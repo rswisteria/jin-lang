@@ -5,7 +5,7 @@ import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
 import { drawOps, type Op } from "./screen/draw";
 import { frameAt, framesOf, type ScreenFrame, windowAt } from "./screen/frames";
-import { synthesize, TONE_GAIN } from "./screen/sound";
+import { previewTones, synthesize, TONE_GAIN } from "./screen/sound";
 import {
 	canEncode,
 	canEncodeAudioTrack,
@@ -311,23 +311,21 @@ function soundTick(tick: number): void {
 	lastSoundTick = whole;
 	if (ctx === null || muted || !state.playing || ctx.state !== "running")
 		return;
-	if (!(whole > previous) || whole - previous > 4) return;
-	for (let t = previous + 1; t <= whole; t++) {
-		const frame = frameAt(state.frames, t);
-		if (frame === null || frame.tick !== t) continue;
-		for (const [name, ...args] of frame.audio) {
-			const hz = typeof args[0] === "number" ? args[0] : 0;
-			const ms = typeof args[1] === "number" ? args[1] : 0;
-			if (name !== "tone" || !(hz > 0) || !(ms > 0)) continue;
-			const osc = ctx.createOscillator();
-			osc.type = "square";
-			osc.frequency.value = hz;
-			const gain = ctx.createGain();
-			gain.gain.value = TONE_GAIN;
-			osc.connect(gain).connect(ctx.destination);
-			osc.start();
-			osc.stop(ctx.currentTime + ms / 1000);
-		}
+	if (state.scene === null) return;
+	for (const { hz, seconds } of previewTones(
+		state.frames,
+		previous,
+		whole,
+		state.scene.fps,
+	)) {
+		const osc = ctx.createOscillator();
+		osc.type = "square";
+		osc.frequency.value = hz;
+		const gain = ctx.createGain();
+		gain.gain.value = TONE_GAIN;
+		osc.connect(gain).connect(ctx.destination);
+		osc.start();
+		osc.stop(ctx.currentTime + seconds);
 	}
 }
 

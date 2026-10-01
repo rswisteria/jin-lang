@@ -1,5 +1,5 @@
 import { type ExportRange, frameCount, VIDEO_FPS } from "../timeline";
-import type { ScreenFrame } from "./frames";
+import { frameAt, type ScreenFrame } from "./frames";
 
 /**
  * 書き出しの音（仕様書 docs/superpowers/specs/2026-10-01-jin-stage-summon-design.md §3.1）。`frame` 行の `audio` の
@@ -12,6 +12,12 @@ import type { ScreenFrame } from "./frames";
 export const SAMPLE_RATE = 48000;
 export const TONE_GAIN = 0.08;
 export const FADE_SECONDS = 0.005;
+
+/**
+ * プレビューで溜まった音を追いかけて鳴らす上限の秒。描画の間隔がこれを超えて空いた（タブから戻った・止まっていた）ときは、
+ * 間の音を一度に鳴らさずに捨てる。
+ */
+export const CATCHUP_SECONDS = 1;
 
 export interface ToneEvent {
 	/** 動画の頭からの秒。 */
@@ -85,4 +91,35 @@ export function synthesize(
 	for (let i = 0; i < pcm.length; i++)
 		pcm[i] = Math.min(1, Math.max(-1, pcm[i] ?? 0));
 	return pcm;
+}
+
+export interface PreviewTone {
+	readonly hz: number;
+	readonly seconds: number;
+}
+
+/**
+ * プレビューで今鳴らす音（仕様書 §3.2）: 前回の tick の次から今の tick までのコマの `tone`。描画が遅くて 1 回で
+ * 何 tick 進んでも間の音を落とさない。進んでいない・巻き戻った・前回が無い・`CATCHUP_SECONDS` を超えて空いたときは鳴らさない。
+ */
+export function previewTones(
+	frames: readonly ScreenFrame[],
+	previous: number,
+	current: number,
+	fps: number,
+): readonly PreviewTone[] {
+	if (!(current > previous) || (current - previous) / fps > CATCHUP_SECONDS)
+		return [];
+	const tones: PreviewTone[] = [];
+	for (let t = previous + 1; t <= current; t++) {
+		const frame = frameAt(frames, t);
+		if (frame === null || frame.tick !== t) continue;
+		for (const [name, ...args] of frame.audio) {
+			const hz = typeof args[0] === "number" ? args[0] : 0;
+			const ms = typeof args[1] === "number" ? args[1] : 0;
+			if (name !== "tone" || !(hz > 0) || !(ms > 0)) continue;
+			tones.push({ hz, seconds: ms / 1000 });
+		}
+	}
+	return tones;
 }
