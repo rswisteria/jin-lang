@@ -6,6 +6,7 @@ PyYAML を依存に足さないため、行単位の構造検査で見る（対�
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from pathlib import Path
@@ -379,9 +380,45 @@ def test_ci_runs_the_editor_gates(ci_text: str) -> None:
         "pnpm build",
         "pnpm test",
         "pnpm e2e",
-        "playwright install",
     ):
         assert step in ci_text, f"editor job に `{step}` が無い"
+
+
+# e2e を走らせるジョブ → そのジョブが e2e を回すアプリ。
+PLAYWRIGHT_JOBS = {"editor": "editor", "player": "player", "stage": "stage"}
+
+
+def _job_body(ci_text: str, name: str) -> str | None:
+    """`ci.yml` のトップレベルのジョブ 1 つの本文（次のジョブの見出しか末尾まで）。"""
+    found = re.search(rf"\n  {re.escape(name)}:\n(.*?)(?=\n  [a-z-]+:\n|\Z)", ci_text, re.DOTALL)
+    return None if found is None else found.group(1)
+
+
+@pytest.mark.parametrize("job", sorted(PLAYWRIGHT_JOBS))
+def test_playwright_jobs_run_in_the_image_of_the_pinned_playwright(ci_text: str, job: str) -> None:
+    """e2e のジョブはブラウザと依存が入った Playwright の公式イメージで走る（apt のミラーの遅さで数分〜9 分ぶれた）。
+
+    イメージの版はそのアプリが固定している `@playwright/test` と同じでなければならない（ずれるとイメージの中の
+    ブラウザの版と Playwright が探す版が食い違い、e2e が起動しない）。片方だけ上げたらここで落ちる。
+    """
+    body = _job_body(ci_text, job)
+    assert body is not None, f"{job} job が無い"
+    app = REPO_ROOT / "apps" / PLAYWRIGHT_JOBS[job] / "package.json"
+    pinned = json.loads(app.read_text(encoding="utf-8"))["devDependencies"]["@playwright/test"]
+    assert re.fullmatch(r"\d+\.\d+\.\d+", pinned), (
+        f"{app} の @playwright/test が完全一致の版でない: {pinned}"
+    )
+    assert f"image: mcr.microsoft.com/playwright:v{pinned}-noble" in body, (
+        f"{job} job が @playwright/test {pinned} の Playwright のイメージで走っていない"
+    )
+    # Chromium は /dev/shm（docker の既定は 64MB）を使い切って落ちる。Playwright の文書どおり --ipc=host。
+    assert "--ipc=host" in body, f"{job} job のコンテナに --ipc=host が無い"
+    assert "pnpm e2e" in body
+
+
+def test_no_job_installs_browsers_or_their_apt_dependencies(ci_text: str) -> None:
+    """ブラウザと依存はイメージに入っている。`playwright install`（`--with-deps` は apt）を CI に戻さない。"""
+    assert "playwright install" not in ci_text
 
 
 def test_ci_detects_plugin_reference_drift(ci_text: str) -> None:

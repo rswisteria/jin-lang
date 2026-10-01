@@ -346,9 +346,11 @@ def test_ci_runs_the_stage_gates_and_builds_it_for_the_editor_e2e() -> None:
         "pnpm test",
         "pnpm e2e",
         "--frozen-lockfile",
-        "playwright install --with-deps chromium",
     ):
         assert command in stage_job, command
+    # ブラウザ（WebGL / WebCodecs の chromium）は Playwright の公式イメージに入っている
+    # （版の突き合わせは tests/contract/test_ci_contract.py）。
+    assert "image: mcr.microsoft.com/playwright:" in stage_job
     # 動画の往復が skip で緑にならない（e2e はこれが立つと skip を失敗にする）。
     assert 'JIN_REQUIRE_CODEC: "1"' in stage_job
     stage_e2e = (REPO_ROOT / "apps" / "stage" / "e2e" / "stage.spec.ts").read_text(encoding="utf-8")
