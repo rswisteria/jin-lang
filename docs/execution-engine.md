@@ -101,7 +101,7 @@ sequenceDiagram
   G->>H: game.lua | game.wasm + game.manifest.json
   H->>H: boot(seed, manifest)
   loop t = 0, 1, 2, …（飛ばさない）
-    H->>H: inputs = InputReducer.apply(events)
+    H->>H: inputs = InputState.apply(events)（TS は InputReducer）
     H->>H: tick(t, inputs) → 結果の JSON
   end
 ```
@@ -357,8 +357,9 @@ wasm にコルーチンは無いので、`Program` の `waits` が真の手順�
 - `wait until` の式は最も内側のフレームを受ける `$u<n>(frame)` にする
 - 再開はランタイム部の `$resume_waits` が陣の順に待ちを見て、`$prog_until` / `$prog_resume(rite, frame)` を呼ぶ
 
-制約: 早送り中に再開点を含まない loop に入ると抜けられない（ヘッダを飛ばすため）ので、その形にならないことを
-`test_codegen.py` のスナップショットと `test_runtime.py` の wait の網が固定する。
+制約: 早送り中に再開点を含まない loop に入ると抜けられない（ヘッダを飛ばすため。だから再開点を含まない loop は
+loop ごと飛ばす）。loop の中の `wait ticks` / `wait until`・局所・待つ手順への `cast` が Lua と同じ列を出すことは
+`packages/jin-wasmgc/tests/test_runtime.py` の `test_wait_ticks_and_until_inside_loops_with_locals_and_a_waiting_cast` が固定する。
 
 ### 5.6 wasmtime ホスト（`jin_wasmgc.runtime`）
 
