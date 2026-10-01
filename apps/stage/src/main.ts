@@ -4,7 +4,14 @@ import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
 import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
 import { drawOps, type Op } from "./screen/draw";
-import { frameAt, framesOf, type ScreenFrame, windowAt } from "./screen/frames";
+import {
+	frameAt,
+	framesOf,
+	type ScreenFrame,
+	type WindowMarks,
+	windowAt,
+	windowMarks,
+} from "./screen/frames";
 import { previewTones, synthesize, TONE_GAIN } from "./screen/sound";
 import {
 	canEncode,
@@ -86,6 +93,8 @@ export const state = {
 	firings: [] as readonly Firing[],
 	/** 召喚の窓のコマ（トレースの frame 行・screen/frames.ts）。 */
 	frames: [] as readonly ScreenFrame[],
+	/** 窓の開閉とエラーの tick（refire で一度だけ求める・描くたびに行を読み直さない）。 */
+	marks: null as WindowMarks | null,
 	tick: 0,
 	playing: false,
 	offset: NO_OFFSET as CameraOffset,
@@ -124,6 +133,10 @@ function refire(): void {
 	state.firings =
 		state.scene === null ? [] : foldTrace(state.rows, state.scene.names);
 	state.frames = framesOf(state.rows);
+	state.marks =
+		state.scene === null
+			? null
+			: windowMarks(state.rows, state.frames, state.scene.names);
 	const span = tickSpan(state.rows);
 	scrub.min = String(span.first);
 	scrub.max = String(span.last);
@@ -152,13 +165,7 @@ function drawAt(tick: number): void {
 		aspect: viewAspect(),
 		offset: state.offset,
 		screen: frameAt(state.frames, tick),
-		window: windowAt(
-			state.rows,
-			state.frames,
-			state.scene.names,
-			tick,
-			state.scene.fps,
-		),
+		window: windowAt(state.marks, state.frames, tick, state.scene.fps),
 	});
 }
 
@@ -377,6 +384,7 @@ interface ExportSnapshot {
 	readonly firings: readonly Firing[];
 	readonly rows: readonly TraceRow[];
 	readonly frames: readonly ScreenFrame[];
+	readonly marks: WindowMarks | null;
 	readonly preset: CameraPreset;
 	readonly offset: CameraOffset;
 	readonly caption: string | null;
@@ -389,6 +397,7 @@ function snapshot(scene: SceneMessage): ExportSnapshot {
 		firings: state.firings,
 		rows: state.rows,
 		frames: state.frames,
+		marks: state.marks,
 		preset: preset.value as CameraPreset,
 		offset: state.offset,
 		caption: caption.checked ? captionText(scene.circleName) : null,
@@ -409,13 +418,7 @@ function drawFor(
 		aspect: width / height,
 		offset: shot.offset,
 		screen: frameAt(shot.frames, tick),
-		window: windowAt(
-			shot.rows,
-			shot.frames,
-			shot.scene.names,
-			tick,
-			shot.scene.fps,
-		),
+		window: windowAt(shot.marks, shot.frames, tick, shot.scene.fps),
 	});
 	composer.compose(canvas, shot.caption);
 }

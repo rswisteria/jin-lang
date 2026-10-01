@@ -7,6 +7,7 @@ import {
 	OPEN_SECONDS,
 	PULSE_SECONDS,
 	windowAt,
+	windowMarks,
 } from "../src/screen/frames";
 
 const FPS = 30;
@@ -85,7 +86,7 @@ describe("窓の開閉と縁の光（§1.3 / §1.4）", () => {
 	];
 	const frames = framesOf(rows);
 	const at = (t: number, names: StageNames = NAMES) =>
-		windowAt(rows, frames, names, t, FPS);
+		windowAt(windowMarks(rows, frames, names), frames, t, FPS);
 
 	test("root の enter から OPEN_SECONDS で開き、root の finish から閉じる", () => {
 		expect(at(0).open).toBe(0);
@@ -101,7 +102,7 @@ describe("窓の開閉と縁の光（§1.3 / §1.4）", () => {
 			frame(0),
 			frame(60),
 		];
-		expect(windowAt(child, framesOf(child), NAMES, 60, FPS).open).toBe(1);
+		expect(windowAt(windowMarks(child, framesOf(child), NAMES), framesOf(child), 60, FPS).open).toBe(1);
 	});
 
 	test("子の陣の exit / finish では閉じない（閉じるのは root の終わりだけ）", () => {
@@ -111,12 +112,12 @@ describe("窓の開閉と縁の光（§1.3 / §1.4）", () => {
 			row({ tick: 30, kind: "exit", circle: "Play", pointer: "/circles/1" }),
 			frame(60),
 		];
-		expect(windowAt(child, framesOf(child), NAMES, 60, FPS).open).toBe(1);
+		expect(windowAt(windowMarks(child, framesOf(child), NAMES), framesOf(child), 60, FPS).open).toBe(1);
 	});
 
 	test("enter 行の無いトレースでも、最初の frame で開く", () => {
 		const bare = [frame(0), frame(60)];
-		expect(windowAt(bare, framesOf(bare), NAMES, 60, FPS).open).toBe(1);
+		expect(windowAt(windowMarks(bare, framesOf(bare), NAMES), framesOf(bare), 60, FPS).open).toBe(1);
 	});
 
 	test("isRoot の無い表では最初の frame で開き、閉じない", () => {
@@ -136,9 +137,9 @@ describe("窓の開閉と縁の光（§1.3 / §1.4）", () => {
 			row({ tick: 40, kind: "error", pointer: "/circles/0/rites/0/steps/1" }),
 		];
 		const f = framesOf(broken);
-		expect(windowAt(broken, f, NAMES, 39, FPS).errorPulse).toBe(0);
+		expect(windowAt(windowMarks(broken, f, NAMES), f, 39, FPS).errorPulse).toBe(0);
 		const values = [41, 43, 45, 47].map(
-			(t) => windowAt(broken, f, NAMES, t, FPS).errorPulse,
+			(t) => windowAt(windowMarks(broken, f, NAMES), f, t, FPS).errorPulse,
 		);
 		for (const v of values) {
 			expect(v).toBeGreaterThanOrEqual(0);
@@ -147,8 +148,19 @@ describe("窓の開閉と縁の光（§1.3 / §1.4）", () => {
 		expect(new Set(values.map((v) => v.toFixed(3))).size).toBeGreaterThan(1);
 	});
 
+	test("開く・閉じる・エラーの tick はトレースから一度だけ求める（描くたびに行を読み直さない）", () => {
+		expect(windowMarks(rows, frames, NAMES)).toEqual({
+			openAt: 0,
+			closeAt: 90,
+			errorAt: null,
+		});
+		const bare = [row({ tick: -1, kind: "enter" })];
+		expect(windowMarks(bare, framesOf(bare), NAMES)).toBeNull();
+		expect(windowAt(null, [], 100, FPS).open).toBe(0);
+	});
+
 	test("frame の無いトレースでは窓を開かない", () => {
 		const bare = [row({ tick: -1, kind: "enter" })];
-		expect(windowAt(bare, framesOf(bare), NAMES, 100, FPS).open).toBe(0);
+		expect(windowAt(windowMarks(bare, framesOf(bare), NAMES), framesOf(bare), 100, FPS).open).toBe(0);
 	});
 });

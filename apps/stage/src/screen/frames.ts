@@ -107,16 +107,21 @@ function rootPointer(names: StageNames): string | null {
 	return null;
 }
 
-export function windowAt(
+/** 窓が開く・閉じる・実行時エラーの tick（時刻によらない。トレースと名前の表が変わったときに一度だけ求める）。 */
+export interface WindowMarks {
+	readonly openAt: number;
+	readonly closeAt: number | null;
+	readonly errorAt: number | null;
+}
+
+/** コマが無ければ null（窓を開かない）。 */
+export function windowMarks(
 	rows: readonly TraceRow[],
 	frames: readonly ScreenFrame[],
 	names: StageNames,
-	t: number,
-	fps: number,
-): WindowState {
+): WindowMarks | null {
 	const first = frames[0];
-	const closed = { open: 0, tonePulse: 0, playFlash: 0, errorPulse: 0 };
-	if (first === undefined || t < first.tick) return closed;
+	if (first === undefined) return null;
 	// 開く: 最初の enter 行（プログラムの起動）。root が核なし陣（flow だけ）だと root 自身は enter 行を出さないので、
 	// どの陣の enter でも開く。enter 行が無ければ最初の frame。閉じる: root の exit / finish だけ（子の陣の終わりでは閉じない）。
 	const root = rootPointer(names);
@@ -137,6 +142,20 @@ export function windowAt(
 	}
 	openAt ??= first.tick;
 	if (closeAt !== null && closeAt < openAt) closeAt = null;
+	return { openAt, closeAt, errorAt };
+}
+
+/** 時刻 `t` の窓。行は読まない（`windowMarks` と、直近の音を探すコマの二分探索だけ）。 */
+export function windowAt(
+	marks: WindowMarks | null,
+	frames: readonly ScreenFrame[],
+	t: number,
+	fps: number,
+): WindowState {
+	const closed = { open: 0, tonePulse: 0, playFlash: 0, errorPulse: 0 };
+	const first = frames[0];
+	if (marks === null || first === undefined || t < first.tick) return closed;
+	const { openAt, closeAt, errorAt } = marks;
 	let open = clamp01((t - openAt) / fps / OPEN_SECONDS);
 	if (closeAt !== null && t >= closeAt)
 		open *= 1 - clamp01((t - closeAt) / fps / OPEN_SECONDS);
