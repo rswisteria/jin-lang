@@ -1,7 +1,10 @@
+import * as THREE from "three";
 import { describe, expect, test } from "vitest";
 
 import type { Glow } from "../src/effects";
 import { layerHeight } from "../src/layers";
+import type { StageNames } from "../src/names";
+import { GEMS, METALS } from "../src/palette";
 import { buildGilded, NO_CIRCLE } from "../src/render/gilded";
 import { GlowView } from "../src/render/glowView";
 import { parseScene } from "../src/scene";
@@ -27,14 +30,23 @@ const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="1000.000" height="10
 
 const scene = parseScene(SVG);
 
-const heights = (model: ReturnType<typeof buildGilded>, circle: string): number[] =>
+const heights = (
+	model: ReturnType<typeof buildGilded>,
+	circle: string,
+): number[] =>
 	(model.circles.get(circle)?.layers ?? []).map((g) => g.position.z);
 
 describe("層の高さは陣の単位を掛ける（stage.md §2）", () => {
 	test("入れ子の小陣は幅に比例して低い（塔にならない）", () => {
 		const model = buildGilded(scene);
-		expect([...model.circles.keys()].sort()).toEqual([NO_CIRCLE, "/circles/0", "/circles/1"]);
-		expect(heights(model, "/circles/0")).toEqual([-0.32, 0, 0.07, 0.14, 0.21, 0.28]);
+		expect([...model.circles.keys()].sort()).toEqual([
+			NO_CIRCLE,
+			"/circles/0",
+			"/circles/1",
+		]);
+		expect(heights(model, "/circles/0")).toEqual([
+			-0.32, 0, 0.07, 0.14, 0.21, 0.28,
+		]);
 		const nested = heights(model, "/circles/1");
 		expect(nested[5]).toBeCloseTo(0.28 * 0.28, 12);
 		expect(nested[0]).toBeCloseTo(-0.32 * 0.28, 12);
@@ -67,7 +79,9 @@ describe("陣全体の演出（設計書 §2.3）", () => {
 		const model = buildGilded(scene);
 		const view = new GlowView(model);
 		view.apply([glow({})], 30, 60, scene.pointers);
-		expect(heights(model, "/circles/0")).toEqual([-0.32, 0, 0.07, 0.14, 0.21, 0.28]);
+		expect(heights(model, "/circles/0")).toEqual([
+			-0.32, 0, 0.07, 0.14, 0.21, 0.28,
+		]);
 		const nested = heights(model, "/circles/1");
 		// 層 i の浮き = 強さ × 0.05 × i × min(1, 進み × 3) × 単位
 		expect(nested[5]).toBeCloseTo((0.28 + 1 * 0.05 * 5 * 1) * 0.28, 12);
@@ -84,12 +98,80 @@ describe("陣全体の演出（設計書 §2.3）", () => {
 		view.apply([glow({ effect: "crown" })], 30, 60, scene.pointers);
 		const emissive = (pointer: string): number[] =>
 			(model.handles.get(pointer) ?? []).flatMap((h) =>
-				h.glowables.map((g) => ("emissiveIntensity" in g.material ? g.material.emissiveIntensity : Number.NaN)),
+				h.glowables.map((g) =>
+					"emissiveIntensity" in g.material
+						? g.material.emissiveIntensity
+						: Number.NaN,
+				),
 			);
-		for (const pointer of ["/circles/1", "/circles/1/core", "/circles/1/rites/0"])
+		for (const pointer of [
+			"/circles/1",
+			"/circles/1/core",
+			"/circles/1/rites/0",
+		])
 			for (const value of emissive(pointer)) expect(value).toBeGreaterThan(0.5);
 		for (const value of emissive("/circles/0")) expect(value).toBeLessThan(0.5);
 		view.dispose();
+		model.dispose();
+	});
+});
+
+describe("宝玉と地金（仕様書 2026-10-01 §2.3 / §3）", () => {
+	const names: StageNames = {
+		Game: {
+			pointer: "/circles/0",
+			sigils: {},
+			state: {},
+			delegates: {},
+			isRoot: true,
+		},
+		Play: { pointer: "/circles/1", sigils: {}, state: {}, delegates: {} },
+	};
+
+	test("核にはダイヤの宝玉をはめ、屈折率は宝玉の値", () => {
+		const model = buildGilded(scene, names);
+		const core = model.gems.get("/circles/0/core");
+		expect(core?.gem).toBe("diamond");
+		expect(core?.material.ior).toBeCloseTo(GEMS.diamond.ior, 6);
+		expect(core?.material.transmission).toBeGreaterThan(0.5);
+		expect(model.gems.has("/circles/1/rites/0")).toBe(false);
+		model.dispose();
+	});
+
+	test("金細工の色は陣の地金（root はイエロー、次はローズ）", () => {
+		const model = buildGilded(scene, names);
+		const ringColor = (pointer: string): number | undefined => {
+			const material = model.handles.get(pointer)?.[0]?.glowables[0]?.material;
+			return material instanceof THREE.MeshStandardMaterial
+				? material.color.getHex()
+				: undefined;
+		};
+		expect(ringColor("/circles/0")).toBe(
+			new THREE.Color(METALS.yellow.color).getHex(),
+		);
+		expect(ringColor("/circles/1")).toBe(
+			new THREE.Color(METALS.rose.color).getHex(),
+		);
+		model.dispose();
+	});
+
+	test("名前の表が無くても組み立てられ、核の宝玉は置かれる", () => {
+		const model = buildGilded(scene);
+		expect(model.gems.get("/circles/1/core")?.gem).toBe("diamond");
+		model.dispose();
+	});
+
+	test("自転の中心は陣の輪の中心（額縁は原点）", () => {
+		const model = buildGilded(scene, names);
+		const ring = (pointer: string): readonly [number, number] | undefined => {
+			const shape = scene.items.find(
+				(i) => i.pointer === pointer && i.kind === "circle",
+			)?.shape;
+			return shape?.type === "ring" ? shape.center : undefined;
+		};
+		expect(model.pivots.get("/circles/0")).toEqual(ring("/circles/0"));
+		expect(model.pivots.get("/circles/1")).toEqual(ring("/circles/1"));
+		expect(model.pivots.get(NO_CIRCLE)).toEqual([0, 0]);
 		model.dispose();
 	});
 });

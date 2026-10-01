@@ -3,8 +3,12 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 
+import { anchorsOf } from "../anchors";
 import { LAYER_HEIGHTS, type LayerIndex, layerHeight } from "../layers";
+import type { StageNames } from "../names";
+import { gemOfElement, METALS, metalOf } from "../palette";
 import type { Scene, SceneItem, Vec2 } from "../scene";
+import { buildGem, type GemHandle, glowTexture } from "./gems";
 
 /**
  * Scene → 金環（docs/spec/v2/stage.md §2・設計書 §2.1）。**座標は Scene のまま**使い、
@@ -30,7 +34,10 @@ const LINE_WIDTH_PX = 1.4;
 export const BASE_EMISSIVE = 0.12;
 
 export interface Glowable {
-	readonly material: THREE.MeshStandardMaterial | LineMaterial | THREE.SpriteMaterial;
+	readonly material:
+		| THREE.MeshStandardMaterial
+		| LineMaterial
+		| THREE.SpriteMaterial;
 	readonly base: THREE.Color;
 }
 
@@ -56,30 +63,52 @@ export interface GildedModel {
 	/** key = 陣の pointer（`SceneItem.circle`）。 */
 	readonly circles: ReadonlyMap<string, CircleLayers>;
 	readonly handles: ReadonlyMap<string, readonly ItemHandle[]>;
-	readonly tickers: readonly { readonly group: THREE.Group; readonly speed: number }[];
+	readonly tickers: readonly {
+		readonly group: THREE.Group;
+		readonly speed: number;
+	}[];
 	readonly lineMaterials: readonly LineMaterial[];
 	/** 光線・火花を載せる、root の局所座標の group。 */
 	readonly effects: THREE.Group;
+	/** 宝玉（仕様書 2026-10-01 §3）。key = 要素の pointer。 */
+	readonly gems: ReadonlyMap<string, GemHandle>;
+	/** 層の自転の中心。key = 陣の pointer（陣の輪の中心）。陣に属さない要素（`NO_CIRCLE`）は原点。 */
+	readonly pivots: ReadonlyMap<string, Vec2>;
 	dispose(): void;
 }
 
-export function buildGilded(scene: Scene): GildedModel {
+/** 段 0（台座）の金細工は地金の色をこの比で暗くする（旧 GOLD_DIM / GOLD の比）。 */
+const DIM_RATIO = 0.42;
+
+export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 	const root = new THREE.Group();
 	root.rotation.x = -Math.PI / 2;
 	const circles = new Map<string, CircleLayers>();
-	const layersOf = (item: SceneItem): readonly THREE.Group[] => {
-		const key = item.circle ?? NO_CIRCLE;
+	const layersAt = (
+		circle: string | null,
+		unit: number,
+	): readonly THREE.Group[] => {
+		const key = circle ?? NO_CIRCLE;
 		const existing = circles.get(key);
 		if (existing !== undefined) return existing.layers;
 		const layers = LAYER_HEIGHTS.map((_, i) => {
 			const group = new THREE.Group();
-			group.position.z = layerHeight(i as LayerIndex, item.unit);
+			group.position.z = layerHeight(i as LayerIndex, unit);
 			root.add(group);
 			return group;
 		});
-		circles.set(key, { unit: item.unit, layers });
+		circles.set(key, { unit, layers });
 		return layers;
 	};
+	const layersOf = (item: SceneItem): readonly THREE.Group[] =>
+		layersAt(item.circle, item.unit);
+	/** 陣の地金の色（段 0 は暗く）。 */
+	const metalColor = (item: SceneItem): THREE.Color => {
+		const color = new THREE.Color(METALS[metalOf(item.circle, names)].color);
+		return item.layer === 0 ? color.multiplyScalar(DIM_RATIO) : color;
+	};
+	const metalRoughness = (item: SceneItem): number =>
+		METALS[metalOf(item.circle, names)].roughness;
 	const effects = new THREE.Group();
 	root.add(effects);
 	const handles = new Map<string, ItemHandle[]>();
@@ -88,25 +117,36 @@ export function buildGilded(scene: Scene): GildedModel {
 	const disposables: { dispose(): void }[] = [];
 
 	const lineMaterial = (color: THREE.Color): LineMaterial => {
-		const material = new LineMaterial({ color: color.getHex(), linewidth: LINE_WIDTH_PX });
+		const material = new LineMaterial({
+			color: color.getHex(),
+			linewidth: LINE_WIDTH_PX,
+		});
 		lineMaterials.push(material);
 		disposables.push(material);
 		return material;
 	};
-	const metal = (color: THREE.Color): THREE.MeshStandardMaterial => {
+	const metal = (
+		color: THREE.Color,
+		roughness: number,
+	): THREE.MeshStandardMaterial => {
 		const material = new THREE.MeshStandardMaterial({
 			color,
 			metalness: 1,
-			roughness: 0.3,
+			roughness,
 			emissive: color,
 			emissiveIntensity: BASE_EMISSIVE,
 		});
 		disposables.push(material);
 		return material;
 	};
-	const segmentsObject = (segments: readonly (readonly [Vec2, Vec2])[], material: LineMaterial): LineSegments2 => {
+	const segmentsObject = (
+		segments: readonly (readonly [Vec2, Vec2])[],
+		material: LineMaterial,
+	): LineSegments2 => {
 		const geometry = new LineSegmentsGeometry();
-		geometry.setPositions(segments.flatMap(([a, b]) => [a[0], a[1], 0, b[0], b[1], 0]));
+		geometry.setPositions(
+			segments.flatMap(([a, b]) => [a[0], a[1], 0, b[0], b[1], 0]),
+		);
 		disposables.push(geometry);
 		return new LineSegments2(geometry, material);
 	};
@@ -121,23 +161,44 @@ export function buildGilded(scene: Scene): GildedModel {
 		const shape = item.shape;
 		if (shape.type === "ring") {
 			const tube = item.kind === "circle" ? RING_TUBE : SMALL_RING_TUBE;
-			const material = metal(dim ? GOLD_DIM : GOLD);
-			const geometry = new THREE.TorusGeometry(shape.radius, tube, 12, Math.max(48, Math.round(shape.radius * 320)));
+			const material = metal(metalColor(item), metalRoughness(item));
+			const geometry = new THREE.TorusGeometry(
+				shape.radius,
+				tube,
+				12,
+				Math.max(48, Math.round(shape.radius * 320)),
+			);
 			disposables.push(geometry);
 			const mesh = new THREE.Mesh(geometry, material);
 			mesh.position.set(shape.center[0], shape.center[1], 0);
 			layer.add(mesh);
 			glowables.push({ material, base: material.color.clone() });
 			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
-			if (item.kind === "circle") tickers.push(ticker(layer, shape.center, shape.radius, item.layer, lineMaterial, disposables));
+			if (item.kind === "circle")
+				tickers.push(
+					ticker(
+						layer,
+						shape.center,
+						shape.radius,
+						item.layer,
+						lineMaterial,
+						disposables,
+					),
+				);
 		} else if (shape.type === "segments") {
-			const color = dim ? GOLD_DIM : shape.spoke ? GOLD_DIM.clone().lerp(GOLD_LINE, 0.6) : GOLD_LINE;
+			// 線は地金を少し明るく（旧 GOLD_LINE / GOLD の関係）、スポークは暗い側へ寄せる。
+			const line = metalColor(item).lerp(new THREE.Color(1, 1, 1), 0.1);
+			const color = dim
+				? line
+				: shape.spoke
+					? line.clone().multiplyScalar(DIM_RATIO).lerp(line, 0.6)
+					: line;
 			const material = lineMaterial(color);
 			layer.add(segmentsObject(shape.segments, material));
 			glowables.push({ material, base: color.clone() });
 			center = midpoint(shape.segments, z);
 		} else if (shape.type === "dot") {
-			const material = metal(GOLD);
+			const material = metal(metalColor(item), metalRoughness(item));
 			const geometry = new THREE.SphereGeometry(shape.radius, 16, 12);
 			disposables.push(geometry);
 			const mesh = new THREE.Mesh(geometry, material);
@@ -147,7 +208,11 @@ export function buildGilded(scene: Scene): GildedModel {
 			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
 		} else {
 			const texture = glyph(shape.text, dim ? GOLD_DIM : GOLD_HOT);
-			const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+			const material = new THREE.SpriteMaterial({
+				map: texture,
+				transparent: true,
+				depthWrite: false,
+			});
 			// `Material.dispose()` は `map` を解放しないので、テクスチャも自分で解放する（stage.scene は編集のたびに届く）。
 			disposables.push(texture, material);
 			const sprite = new THREE.Sprite(material);
@@ -163,6 +228,28 @@ export function buildGilded(scene: Scene): GildedModel {
 		handles.set(item.pointer, list);
 	}
 
+	// 宝玉: 場面の要素の中心に、要素の種別と意味で決まる宝玉をはめる（仕様書 2026-10-01 §3.1）。
+	const gems = new Map<string, GemHandle>();
+	const glowMap = glowTexture();
+	disposables.push(glowMap);
+	for (const anchor of anchorsOf(scene)) {
+		const gem = gemOfElement(anchor.kind, anchor.pointer, names);
+		if (gem === null) continue;
+		const layer = layersAt(anchor.circle, anchor.unit)[anchor.layer];
+		if (layer === undefined) continue;
+		const handle = buildGem(anchor, gem, glowMap, disposables);
+		layer.add(handle.mesh, handle.glow);
+		gems.set(anchor.pointer, handle);
+	}
+
+	// 層の自転の中心: 陣の輪（種別 circle の ring）の中心。
+	const pivots = new Map<string, Vec2>([[NO_CIRCLE, [0, 0]]]);
+	for (const item of scene.items) {
+		if (item.kind !== "circle" || item.shape.type !== "ring") continue;
+		if (item.pointer === item.circle && !pivots.has(item.pointer))
+			pivots.set(item.pointer, item.shape.center);
+	}
+
 	return {
 		root,
 		circles,
@@ -170,15 +257,21 @@ export function buildGilded(scene: Scene): GildedModel {
 		tickers,
 		lineMaterials,
 		effects,
+		gems,
+		pivots,
 		dispose: () => {
 			for (const d of disposables) d.dispose();
 		},
 	};
 }
 
-function midpoint(segments: readonly (readonly [Vec2, Vec2])[], z: number): THREE.Vector3 {
+function midpoint(
+	segments: readonly (readonly [Vec2, Vec2])[],
+	z: number,
+): THREE.Vector3 {
 	const sum = new THREE.Vector3();
-	for (const [a, b] of segments) sum.add(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0));
+	for (const [a, b] of segments)
+		sum.add(new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0));
 	return sum.multiplyScalar(1 / Math.max(segments.length, 1)).setZ(z);
 }
 
@@ -197,7 +290,14 @@ function ticker(
 		const angle = (k / count) * Math.PI * 2;
 		const inner = radius + 0.014;
 		const outer = inner + (k % 6 === 0 ? 0.03 : 0.012);
-		segments.push(Math.cos(angle) * inner, Math.sin(angle) * inner, 0, Math.cos(angle) * outer, Math.sin(angle) * outer, 0);
+		segments.push(
+			Math.cos(angle) * inner,
+			Math.sin(angle) * inner,
+			0,
+			Math.cos(angle) * outer,
+			Math.sin(angle) * outer,
+			0,
+		);
 	}
 	const geometry = new LineSegmentsGeometry();
 	geometry.setPositions(segments);
@@ -206,7 +306,10 @@ function ticker(
 	group.position.set(center[0], center[1], 0);
 	group.add(new LineSegments2(geometry, lineMaterial(GOLD_DIM)));
 	layer.add(group);
-	return { group, speed: ((layerIndex % 2 === 0 ? 1 : -1) * 0.05) / Math.max(radius, 0.3) };
+	return {
+		group,
+		speed: ((layerIndex % 2 === 0 ? 1 : -1) * 0.05) / Math.max(radius, 0.3),
+	};
 }
 
 /** SVG の文字をそのままテクスチャにする（ルーン文字のグリフフォントは別件・設計書 §2.1）。 */

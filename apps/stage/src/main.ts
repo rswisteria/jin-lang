@@ -165,7 +165,7 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 function applyInbound(message: Inbound): void {
 	if (message.type === "scene") {
 		try {
-			renderer.setScene(parseScene(message.value.svg));
+			renderer.setScene(parseScene(message.value.svg), message.value.names);
 			state.scene = message.value;
 			refire();
 			report({ ready: true, error: null });
