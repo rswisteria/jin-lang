@@ -384,14 +384,27 @@ test("召喚の窓のある場面でも、stage.scene を送り直して GPU の
 				window as unknown as { __jinStage: { memory(): Memory } }
 			).__jinStage.memory(),
 		);
+	type Shown = { visible: boolean; tick: number | null };
+	const shown = (): Promise<Shown> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { summon(): Shown } }
+			).__jinStage.summon(),
+		);
+	// 送り直すたびに、窓が開いている tick（60）で描かせる。窓が描かれて初めてテクスチャが GPU に載るので、
+	// t = 0（窓は閉じている）のままでは、前の場面のテクスチャを解放しなくてもこのテストは緑になる（最終レビュー Important 1）。
 	const resend = async (): Promise<void> => {
 		await page.evaluate(() =>
 			(window as unknown as { JIN_RESEND(): void }).JIN_RESEND(),
 		);
-		await page.waitForTimeout(400);
+		await page.waitForTimeout(300);
+		await stage.getByTestId("stage-scrub").fill("60");
+		await expect.poll(shown).toEqual({ visible: true, tick: 60 });
+		await page.waitForTimeout(200);
 	};
 	await resend();
 	const first = await memory();
+	expect(first.textures).toBeGreaterThan(0);
 	for (let k = 0; k < 5; k++) await resend();
 	const last = await memory();
 	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
