@@ -126,6 +126,30 @@ def test_the_hooks_run_jin_check_on_dot_jin_writes() -> None:
     assert "SessionStart" in hooks["hooks"]
 
 
+def test_the_hook_commands_quote_the_plugin_root() -> None:
+    """`${CLAUDE_PLUGIN_ROOT}` を二重引用符で囲む。
+
+    展開したパスに空白があると語に割れて hook が起動しない。`claude plugin validate --strict` は
+    2.1.286 でこれを警告（= strict では失敗）にした。CLI の版は CI で固定していないので、
+    plugin ジョブより先にここで落とす。
+    """
+    hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    commands = [
+        hook["command"]
+        for entries in hooks["hooks"].values()
+        for entry in entries
+        for hook in entry["hooks"]
+        if hook.get("type") == "command"
+    ]
+    assert commands, "command の hook を 1 つも拾えていない"
+    bare = [
+        c
+        for c in commands
+        if "${CLAUDE_PLUGIN_ROOT}" in c and not c.startswith('"${CLAUDE_PLUGIN_ROOT}')
+    ]
+    assert not bare, f"引用符の無い ${{CLAUDE_PLUGIN_ROOT}}: {bare}"
+
+
 @pytest.mark.parametrize("name", ["check_jin.sh", "check_install.sh"])
 def test_the_hook_scripts_are_executable(name: str) -> None:
     """hook のスクリプトに実行ビットが立っていること。

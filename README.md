@@ -56,7 +56,7 @@ uv run jin run examples-v2/othello/othello.jin --model fake --storage /tmp/auto.
 uv run jin run examples-v2/othello/othello.jin --storage /tmp/auto.json --ticks 400 --record /tmp/othello.jinrec   # 実モデル（v1 と同じ環境変数で Gemini など）。録画はエディタの実行パネルで再生できる
 ```
 
-仕様は [設計書](docs/superpowers/specs/2026-09-13-jin-v2-general-design.md) と [`docs/spec/v2/`](docs/spec/v2/) にあります。動画は `cd apps/editor && pnpm demo` で撮り直せます（Playwright の収録を ffmpeg で GIF / MP4 に変換します）。
+仕様は [設計書](docs/superpowers/specs/2026-09-13-jin-v2-general-design.md) と [`docs/spec/v2/`](docs/spec/v2/) にあります。実行エンジン（共有の解析・Lua/JIL 経路・wasm-GC 経路・ホスト）の実装の地図は [実行エンジンのアーキテクチャ](docs/execution-engine.md) にあります。動画は `cd apps/editor && pnpm demo` で撮り直せます（Playwright の収録を ffmpeg で GIF / MP4 に変換します）。
 
 ## エディタの実行方法
 

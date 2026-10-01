@@ -14,6 +14,10 @@ Jin(陣) は Google ADK 上の LLM エージェントを魔法陣として記述
 | `docs/spec/diagnostics.md` | 診断コード一覧（JINxxx） |
 | `docs/spec/ops.md` | 意味編集オペレーション一覧 |
 
+Jin v2 の実行エンジンの実装の地図（モジュールの責務・tick の段と関数の対応・パリティの網・変えるときの手引き）は
+`docs/execution-engine.md`。**正典ではない**（契約は runtime.md / jil.md）。パスの実在と行番号を書かないことは
+`tests/contract/test_docs_execution_engine.py` が見る。
+
 意味モデルの**唯一の真実**は `packages/jin-core/src/jin_core/model.py` の Pydantic 定義である。
 モデルを変えたら `uv run python scripts/generate_schema.py` を実行して `schemas/jin.schema.json` をコミットする
 （CI がドリフトを検出する）。
