@@ -162,7 +162,11 @@ export class StageRenderer {
 		this.camera.aspect = frame.aspect;
 		this.camera.position.set(...pose.position);
 		const opened = this.summon.openness(frame.window);
-		this.target.copy(LOOK_AT).setY(LOOK_AT.y + WINDOW.lookUp * opened);
+		// 注視点: 陣の核の高さ + 手でずらした床の上のずれ（stage.md §4）+ 召喚の窓の持ち上げ。
+		this.target
+			.copy(LOOK_AT)
+			.add(new THREE.Vector3(...pose.target))
+			.setY(LOOK_AT.y + WINDOW.lookUp * opened);
 		this.camera.lookAt(this.target);
 		this.camera.updateProjectionMatrix();
 		this.key.position.set(

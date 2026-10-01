@@ -106,6 +106,53 @@ test("陣が描かれ、トレースの行数が届く", async ({ page }) => {
 	expect(lit).toBeGreaterThan(20);
 });
 
+test("ホイールで寄り、右ドラッグで注視点をずらし、ダブルクリックで戻す（stage.md §4）", async ({
+	page,
+}) => {
+	// CI のソフトウェア描画では 1 コマが重く、実入力 1 つごとに描画の合間を待つ。入力の数を最小にし、制限を延ばす。
+	test.setTimeout(300_000);
+	const stage = await open(page);
+	const canvas = stage.locator("canvas");
+	type Offset = {
+		azimuthDeg: number;
+		elevationDeg: number;
+		zoom?: number;
+		pan?: [number, number];
+	};
+	const camera = (): Promise<Offset> =>
+		canvas.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { camera(): Offset } }
+			).__jinStage.camera(),
+		);
+	const box = await canvas.boundingBox();
+	if (box === null) throw new Error("canvas が描かれていません");
+	const cx = box.x + box.width / 2;
+	const cy = box.y + box.height / 2;
+
+	await page.mouse.move(cx, cy);
+	await page.mouse.wheel(0, -400);
+	await expect.poll(async () => (await camera()).zoom ?? 1).toBeLessThan(0.9);
+
+	await page.mouse.down({ button: "right" });
+	await page.mouse.move(cx + 120, cy + 40);
+	await page.mouse.up({ button: "right" });
+	const panned = await camera();
+	expect(Math.hypot(...(panned.pan ?? [0, 0]))).toBeGreaterThan(0.05);
+	// 右ドラッグは回さない。
+	expect(panned.azimuthDeg).toBe(0);
+	expect(panned.elevationDeg).toBe(0);
+
+	// 要素への dblclick は「止まっているか」を描画 2 回分待つので、座標に直接打つ。
+	await page.mouse.dblclick(cx, cy);
+	expect(await camera()).toEqual({
+		azimuthDeg: 0,
+		elevationDeg: 0,
+		zoom: 1,
+		pan: [0, 0],
+	});
+});
+
 test("PNG を書き出す", async ({ page }) => {
 	const stage = await open(page);
 	await stage.getByTestId("stage-export-png").click();
