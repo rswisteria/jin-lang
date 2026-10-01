@@ -222,7 +222,7 @@
 
 設計書 `docs/superpowers/specs/2026-10-01-jin-stage-summon-design.md`。陣の上空に、トレースの `frame` 行の表示リスト（ゲーム画面）を映す光の窓。
 
-- **舞台の大きさ**は `stage.scene` の `stageSize`（§6）。無い・壊れていれば窓を出さない
+- **舞台の大きさ**は `stage.scene` の `stageSize`（§6）。無い・壊れている・モデルと同じ範囲（整数・16〜1024・`messages.ts` の `MIN_STAGE_SIZE` / `MAX_STAGE_SIZE`。契約テストが schema と突き合わせる）の外なら、丸めずに窓を出さない（巨大な窓の canvas とテクスチャを作らない）
 - **画面**: 時刻 `t` の tick 以前で最新の `frame` 行の `ops` を、論理解像度の 2D キャンバスに描き、補間なし（`NearestFilter`）で拡大して板に貼る（トーンマップを通さない）。
   描画は `screen/draw.ts`（プレイヤーの `canvas.ts` の写し）。`sprite` は素材が届かないので 6×6 のサファイアの菱形の印
 - **写しの守り方**: 字形 `screen/glyphs.ts` は `scripts/generate_glyphs.py` がプレイヤーと同じ内容を書く生成物（`--check` と CI の diff）、`screen/font.ts` はプレイヤーとバイト一致、

@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import {
 	fileMessage,
+	MAX_STAGE_SIZE,
+	MIN_STAGE_SIZE,
 	parseInbound,
 	STAGE_FILE,
 	STAGE_STATUS,
@@ -62,6 +64,38 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 			{ width: -1, height: 10 },
 			{ width: "1", height: 10 },
 			{ width: 10 },
+		])
+			expect(sizeOf(broken)).toBeNull();
+	});
+
+	test("stageSize はモデルと同じ範囲（整数・MIN_STAGE_SIZE〜MAX_STAGE_SIZE）だけ受ける。外れたら丸めずに null（巨大な窓のテクスチャを作らない）", () => {
+		const sizeOf = (stageSize: unknown) => {
+			const parsed = parseInbound({
+				type: "stage.scene",
+				svg: "<svg/>",
+				names: {},
+				fps: 30,
+				jinName: "t.jin",
+				circleName: "Play",
+				stageSize,
+			});
+			return parsed?.type === "scene" ? parsed.value.stageSize : "rejected";
+		};
+		expect(MIN_STAGE_SIZE).toBe(16);
+		expect(MAX_STAGE_SIZE).toBe(1024);
+		for (const ok of [
+			{ width: MIN_STAGE_SIZE, height: MIN_STAGE_SIZE },
+			{ width: MAX_STAGE_SIZE, height: MAX_STAGE_SIZE },
+			{ width: MIN_STAGE_SIZE, height: MAX_STAGE_SIZE },
+		])
+			expect(sizeOf(ok)).toEqual(ok);
+		for (const broken of [
+			{ width: MAX_STAGE_SIZE + 1, height: 100 },
+			{ width: 100, height: 1e9 },
+			{ width: Number.POSITIVE_INFINITY, height: 100 },
+			{ width: MIN_STAGE_SIZE - 1, height: 100 },
+			{ width: 100.5, height: 100 },
+			{ width: 100, height: Number.NaN },
 		])
 			expect(sizeOf(broken)).toBeNull();
 	});
