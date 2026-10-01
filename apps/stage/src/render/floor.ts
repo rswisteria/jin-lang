@@ -19,7 +19,7 @@ export const FLOOR_Z = -0.45;
 const FLOOR_RADIUS = 3;
 /** 映り込みに掛ける色（Reflector は overlay で混ぜる。暗いほど映り込みが控えめ）。 */
 const FLOOR_COLOR = 0x05060a;
-const MAX_RIPPLES = 32;
+export const MAX_RIPPLES = 32;
 
 export class Floor {
 	readonly object = new THREE.Group();

@@ -124,6 +124,40 @@ describe("粒子の 1 系統（仕様書 2026-10-01 §5.1 / §6）", () => {
 		expect(collect([], () => null, 0).length).toBe(AMBIENT_COUNT);
 	});
 
+	test("古い beam で枠が埋まっていても、新しい一度きりの演出（crown）の粒子は描かれる（最終レビュー Important #3）", () => {
+		const beams = Array.from({ length: 300 }, (_, i) =>
+			glow({ effect: "beam", seq: i, progress: 0.9 }),
+		);
+		const crown = glow({
+			effect: "crown",
+			seq: 1000,
+			gem: "gold",
+			progress: 0.2,
+		});
+		const particles = collect(
+			[...beams, crown],
+			() => ({ at: AT, from: FROM, size: 0.03 }),
+			1,
+		);
+		expect(particles.length).toBe(MAX_PARTICLES);
+		// シトリンは crown の火の粉にだけあり、漂う粒子（ambient）と古い beam（サファイア）には無い。
+		expect(particles.some((p) => p.color === 0xffc83a)).toBe(true);
+	});
+
+	test("同じ種類なら新しい発火から枠に入る", () => {
+		const old = Array.from({ length: 300 }, (_, i) =>
+			glow({ effect: "beam", seq: i, gem: "emerald" }),
+		);
+		const fresh = glow({ effect: "beam", seq: 999, gem: "topaz" });
+		const particles = collect(
+			[...old, fresh],
+			() => ({ at: AT, from: FROM, size: 0.03 }),
+			1,
+		);
+		// トパーズは漂う粒子にも古い beam（エメラルド）にも無い。
+		expect(particles.some((p) => p.color === 0xff8a3d)).toBe(true);
+	});
+
 	test("crown を 200 個重ねても MAX_PARTICLES を超えない", () => {
 		const glows = Array.from({ length: 200 }, (_, i) =>
 			glow({ effect: "crown", seq: i }),

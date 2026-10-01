@@ -16,10 +16,10 @@ import {
 	type Vec3,
 } from "../motion";
 import type { Vec2 } from "../scene";
-import type { Ripple } from "./floor";
+import { MAX_RIPPLES, type Ripple } from "./floor";
 import { circleOf, nearestInScene } from "../names";
 import { GEMS, gemColorAt } from "../palette";
-import { type BurstPlace, collect } from "../particles";
+import { type BurstPlace, byPriority, collect } from "../particles";
 import { mulberry32 } from "../random";
 import type { GemHandle } from "./gems";
 import {
@@ -391,7 +391,7 @@ export class GlowView {
 	): void {
 		const ripples: Ripple[] = [];
 		let pillar: GlowView["pillar"] = null;
-		for (const glow of glows) {
+		for (const glow of byPriority(glows)) {
 			if (glow.effect === "beam") {
 				const target = nearestInScene(pointers, glow.target);
 				const at = target === null ? null : this.endpointOf(target);
@@ -428,7 +428,7 @@ export class GlowView {
 				};
 			}
 		}
-		this.ripples = ripples;
+		this.ripples = ripples.slice(0, MAX_RIPPLES);
 		this.pillar = pillar;
 	}
 
@@ -509,7 +509,7 @@ export class GlowView {
 			string,
 			{ from: Vec3; to: Vec3; intensity: number; color: number }
 		>();
-		for (const glow of glows) {
+		for (const glow of byPriority(glows)) {
 			if (
 				(glow.effect !== "beam" && glow.effect !== "flow") ||
 				glow.source === null
@@ -600,7 +600,7 @@ export class GlowView {
 		pointers: ReadonlySet<string>,
 	): void {
 		let used = 0;
-		for (const glow of glows) {
+		for (const glow of byPriority(glows)) {
 			if (glow.effect !== "spin" || used >= MAX_GHOSTS) continue;
 			const target = nearestInScene(pointers, glow.target);
 			const handle =

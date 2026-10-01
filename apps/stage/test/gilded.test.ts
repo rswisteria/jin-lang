@@ -288,6 +288,27 @@ describe("宝玉の色の光と層の自転（仕様書 2026-10-01 §5）", () =
 		model.dispose();
 	});
 
+	test("古い beam の波紋が多くても、新しい warn のルビーの環が床の 32 枠に入る（最終レビュー Important #3）", () => {
+		const model = buildGilded(play, names);
+		const view = new GlowView(model);
+		const beams = Array.from({ length: 40 }, (_, i) =>
+			beam({ seq: i, progress: 0.5 }),
+		);
+		const warn = beam({
+			effect: "warn",
+			seq: 500,
+			gem: "ruby",
+			target: "/circles/1/boundary/guards/0",
+			source: null,
+			progress: 0.3,
+		});
+		view.apply([...beams, warn], 0, 60, play.pointers);
+		expect(view.ripples.length).toBeLessThanOrEqual(32);
+		expect(view.ripples.some((r) => r.color === GEMS.ruby.color)).toBe(true);
+		view.dispose();
+		model.dispose();
+	});
+
 	test("層の自転で光線の端点も同じ角だけ陣の中心まわりに回る", () => {
 		const model = buildGilded(play, names);
 		const view = new GlowView(model);

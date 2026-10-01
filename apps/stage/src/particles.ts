@@ -1,4 +1,4 @@
-import type { Glow } from "./effects";
+import type { EffectName, Glow } from "./effects";
 import { arcPoint, type Vec3 } from "./motion";
 import { GEMS, type GemId, gemColorAt } from "./palette";
 import { mulberry32 } from "./random";
@@ -252,6 +252,29 @@ export function ambient(seconds: number): readonly Particle[] {
 	return out;
 }
 
+/** 一度きりの演出（stage.md §3 の強さ `once` の行の演出）。枠には毎 tick 繰り返す演出より先に割り当てる。 */
+export const ONCE_EFFECTS: ReadonlySet<EffectName> = new Set<EffectName>([
+	"ignite",
+	"fade",
+	"release",
+	"flow",
+	"crown",
+	"warn",
+	"crack",
+]);
+
+/**
+ * 枠に割り当てる順: 一度きりの演出を先に、その中も残りも新しい発火（`seq` の大きい方）から
+ * （最終レビュー Important #3: 古い順に詰めると、密なトレースで新しい発火と一度きりの演出が描かれない）。
+ */
+export function byPriority(glows: readonly Glow[]): readonly Glow[] {
+	return [...glows].sort((a, b) => {
+		const once =
+			Number(ONCE_EFFECTS.has(b.effect)) - Number(ONCE_EFFECTS.has(a.effect));
+		return once !== 0 ? once : b.seq - a.seq;
+	});
+}
+
 export interface BurstPlace {
 	readonly at: Vec3;
 	readonly from: Vec3 | null;
@@ -265,7 +288,7 @@ export function collect(
 	seconds: number,
 ): readonly Particle[] {
 	const out: Particle[] = [...ambient(seconds)];
-	for (const glow of glows) {
+	for (const glow of byPriority(glows)) {
 		if (out.length >= MAX_PARTICLES) break;
 		const place = resolve(glow);
 		if (place === null) continue;
