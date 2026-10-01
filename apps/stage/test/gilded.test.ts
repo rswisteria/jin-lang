@@ -69,6 +69,7 @@ describe("陣全体の演出（設計書 §2.3）", () => {
 		seq: 1,
 		target: "/circles/1",
 		source: null,
+		gem: "gold",
 		effect: "ignite",
 		intensity: 1,
 		progress: 0.5,

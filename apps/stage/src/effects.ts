@@ -4,6 +4,7 @@ import {
 	type StageNames,
 	type TraceRow,
 } from "./names";
+import { type GemId, gemOfRow } from "./palette";
 
 /**
  * 演出（docs/spec/v2/stage.md §3）。**表は stage.md の `stage-effects` と等号**
@@ -21,8 +22,10 @@ export type EffectName =
 	| "breathe"
 	| "crown"
 	| "warn"
-	| "crack";
-export type Strength = "once" | "habit" | "none";
+	| "crack"
+	| "pulse";
+/** `beat` は常に `BEAT`（慣れの対象外・仕様書 2026-10-01 §5.1 の `frame`）。 */
+export type Strength = "once" | "habit" | "beat";
 
 export const EFFECTS: Readonly<
 	Record<
@@ -42,7 +45,7 @@ export const EFFECTS: Readonly<
 	finish: { effect: "crown", strength: "once" },
 	assert: { effect: "warn", strength: "once" },
 	error: { effect: "crack", strength: "once" },
-	frame: { effect: null, strength: "none" },
+	frame: { effect: "pulse", strength: "beat" },
 };
 
 /**
@@ -66,20 +69,25 @@ export function glowTarget(effect: EffectName, primary: string): string {
 export const HUM = 0.15;
 /** この回数連続したら HUM に落ちる。 */
 export const HABIT_AFTER = 3;
+/** `frame` の鼓動の強さ（陣の鼓動であって発動の演出ではない）。 */
+export const BEAT = 0.1;
+/** `frame` 行が光らせる先（額縁）。行の `circle` は null（runtime.md §5）。 */
+export const PULSE_TARGET = "/stage";
 
 export const DURATION_SECONDS: Readonly<Record<EffectName, number>> = {
 	ignite: 2.4,
 	fade: 1.6,
-	chant: 0.8,
+	chant: 1.0,
 	spin: 0.9,
-	beam: 0.6,
-	flash: 0.7,
-	release: 1.2,
+	beam: 0.8,
+	flash: 0.8,
+	release: 1.4,
 	flow: 1.2,
 	breathe: 1.5,
-	crown: 2.8,
+	crown: 3.2,
 	warn: 1.4,
 	crack: 2.0,
+	pulse: 0.5,
 };
 
 const LONGEST_SECONDS = Math.max(...Object.values(DURATION_SECONDS));
@@ -95,6 +103,8 @@ export interface Firing {
 	readonly target: string;
 	readonly source: string | null;
 	readonly strength: number;
+	/** 光の宝玉（仕様書 2026-10-01 §2。`palette.ts` の `gemOfRow`）。 */
+	readonly gem: GemId;
 }
 
 export interface Glow {
@@ -102,6 +112,7 @@ export interface Glow {
 	readonly target: string;
 	readonly source: string | null;
 	readonly effect: EffectName;
+	readonly gem: GemId;
 	readonly intensity: number;
 	/** 0 以上 1 未満の進み。 */
 	readonly progress: number;
@@ -118,6 +129,20 @@ export function foldTrace(
 	for (const row of rows) {
 		const spec = EFFECTS[row.kind];
 		if (spec === undefined || spec.effect === null) continue;
+		if (spec.strength === "beat") {
+			// frame: 陣の鼓動。行の circle は null で名前の表を引けないので、額縁を BEAT で（慣れの対象外）。
+			firings.push({
+				seq: row.seq,
+				time: Math.max(row.tick, 0),
+				kind: row.kind,
+				effect: spec.effect,
+				target: PULSE_TARGET,
+				source: null,
+				strength: BEAT,
+				gem: "gold",
+			});
+			continue;
+		}
 		const targets = resolveTargets(row, names);
 		if (targets === null) continue;
 		const time = Math.max(row.tick, 0);
@@ -153,6 +178,7 @@ export function foldTrace(
 			target,
 			source: targets.source,
 			strength,
+			gem: gemOfRow(row, names),
 		});
 	}
 	return firings;
@@ -182,6 +208,7 @@ export function glowsAt(
 			target: firing.target,
 			source: firing.source,
 			effect: firing.effect,
+			gem: firing.gem,
 			intensity: firing.strength * envelope,
 			progress,
 		});

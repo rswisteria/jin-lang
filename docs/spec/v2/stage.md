@@ -146,7 +146,7 @@
 | `finish` | `crown` | `once` |
 | `assert` | `warn` | `once` |
 | `error` | `crack` | `once` |
-| `frame` | — | `none` |
+| `frame` | `pulse` | `beat` |
 
 <!-- /machine-readable -->
 
@@ -160,6 +160,7 @@
 | `set` | `name` を名前の表の `state` で引いた pointer | 無し |
 | `transfer` | `name` を名前の表の `delegates` で引いた pointer | 行の pointer の手順 |
 | `enter` / `exit` / `finish` / `error`（陣全体の演出） | 行の pointer の陣（`/circles/i`）。その配下すべてが光る（`finish` / `error` の行はステップの pointer を持つ） | 無し |
+| `frame`（陣の鼓動 `pulse`） | `/stage`（額縁。行の `circle` は null で名前の表を引かない） | 無し |
 | それ以外 | 行の pointer | 無し |
 
 名前の表で引けなければ行の pointer を使う。その pointer が場面に無ければ、`/` で 1 段ずつ祖先へ遡って最初に場面にある pointer を光らせる（overlay の規則 1 と同じ段一致）。どこにも無ければ光らせない。
@@ -167,13 +168,14 @@
 ### 3.2 慣れの規則
 
 - 強さ `once` の行は常に 1
+- 強さ `beat` の行（`frame`）は常に 0.1（`BEAT`）。慣れの対象外で、光線も火花も出さない。陣の鼓動であって発動の演出ではない（設計書 2026-10-01 §5.1）
 - 強さ `habit` の行は、同じ（演出, 光らせる pointer）が前の tick か同じ tick にも出ていれば連続回数を 1 増やし（同じ tick の中では増やさない）、そうでなければ 0 に戻す。強さ = 連続回数が 3 以上なら 0.15、それ未満なら `1 − 連続回数 × (1 − 0.15) / 3`
 - `set` は、同じ陣の同じ state の直前の値と `JSON.stringify` が一致すれば強さ 0.15
 - 行の時刻は `max(tick, 0)`（`boot` の行の tick −1 は 0 に置く）
 
 ### 3.3 光の時間変化
 
-演出ごとの長さ（秒）: `ignite` 2.4 / `fade` 1.6 / `chant` 0.8 / `spin` 0.9 / `beam` 0.6 / `flash` 0.7 / `release` 1.2 / `flow` 1.2 / `breathe` 1.5 / `crown` 2.8 / `warn` 1.4 / `crack` 2.0。時刻 `t`（tick 単位の実数）での進み `p = (t − 行の時刻) / fps / 長さ`、`0 ≤ p < 1` の間だけ光り、明るさ = 強さ × 包絡（`p < 0.15` なら `p / 0.15`、それ以外は `1 − (p − 0.15) / 0.85`）。
+演出ごとの長さ（秒）: `ignite` 2.4 / `fade` 1.6 / `chant` 1.0 / `spin` 0.9 / `beam` 0.8 / `flash` 0.8 / `release` 1.4 / `flow` 1.2 / `breathe` 1.5 / `crown` 3.2 / `warn` 1.4 / `crack` 2.0 / `pulse` 0.5（設計書 2026-10-01 §5.4 の初期値）。時刻 `t`（tick 単位の実数）での進み `p = (t − 行の時刻) / fps / 長さ`、`0 ≤ p < 1` の間だけ光り、明るさ = 強さ × 包絡（`p < 0.15` なら `p / 0.15`、それ以外は `1 − (p − 0.15) / 0.85`）。
 
 ### 3.4 決定性
 
@@ -204,7 +206,7 @@
 
 名前の表: `{ [陣名]: { pointer, sigils: {名前: pointer}, state: {名前: pointer}, delegates: {陣名: pointer} } }`。
 
-`stage.trace` の `rows` は runtime.md §5 の行をそのまま載せる。`frame` 行の `circle` は null で、stage はそれを受けて読み飛ばす（光らせない）。
+`stage.trace` の `rows` は runtime.md §5 の行をそのまま載せる。`frame` 行の `circle` は null で、stage は名前の表を引かずに額縁（`/stage`）を鼓動（`pulse`・強さ 0.1）で灯す（§3.1）。
 
 ## 7. 実装で確定した値
 

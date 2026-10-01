@@ -129,10 +129,12 @@ def test_the_effect_table_covers_exactly_the_trace_kinds_of_the_runtime() -> Non
     assert len(runtime_kinds) == 13
 
 
-def test_strength_is_one_of_three_words_and_frame_does_not_glow() -> None:
+def test_strength_is_one_of_three_words_and_frame_only_beats() -> None:
+    """設計書 2026-10-01 §5.1: `frame` は陣の鼓動（`pulse`・強さ `beat`）。発動の演出ではない。"""
     effects = stage_effects()
-    assert {strength for _, strength in effects.values()} <= {"once", "habit", "none"}
-    assert effects["frame"] == ("", "none")
+    assert {strength for _, strength in effects.values()} <= {"once", "habit", "beat"}
+    assert effects["frame"] == ("pulse", "beat")
+    assert [kind for kind, (_, strength) in effects.items() if strength == "beat"] == ["frame"]
     once = {kind for kind, (_, strength) in effects.items() if strength == "once"}
     assert once == {"enter", "exit", "emit", "transfer", "finish", "assert", "error"}
 
