@@ -39,8 +39,10 @@ const canvas = document.createElement("canvas");
 host.appendChild(canvas);
 const renderer = new StageRenderer(canvas);
 // e2e の口（GPU の資源が送り直しで増えないことを見る）。window に生やすのは main.ts だけ。
-(window as unknown as { __jinStage: { memory(): unknown } }).__jinStage = {
+(window as unknown as { __jinStage: { memory(): unknown; draws(): number } }).__jinStage = {
 	memory: () => renderer.memory(),
+	// プレビューで描いた回数（隠れている間は増えない・e2e の口）。
+	draws: () => previewDraws,
 };
 const play = element<HTMLButtonElement>("play");
 const scrub = element<HTMLInputElement>("scrub");
@@ -107,8 +109,12 @@ function viewAspect(): number {
 	return Math.max(1, host.clientWidth) / Math.max(1, host.clientHeight);
 }
 
+/** プレビューで描いた回数（e2e の口 `__jinStage.draws()`）。 */
+let previewDraws = 0;
+
 function drawAt(tick: number): void {
 	if (state.scene === null) return;
+	previewDraws++;
 	renderer.draw({
 		tick,
 		fps: state.scene.fps,
@@ -462,7 +468,9 @@ function loop(now: number): void {
 	}
 	tickOut.textContent = String(Math.floor(state.tick));
 	// 書き出し中は出力の大きさの canvas をプレビューで上書きしない。
-	if (exporting === null) drawAt(state.tick);
+	// 隠れている間（エディタが鑑賞パネルの iframe を隠すと描く面が 0 になる）は描かない。重い 3D を描き続けると、
+	// ソフトウェア描画ではエディタ全体が応答しなくなる。書き出し中は出力の大きさの canvas をプレビューで上書きしない。
+	if (exporting === null && host.clientWidth > 0 && host.clientHeight > 0) drawAt(state.tick);
 	requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
