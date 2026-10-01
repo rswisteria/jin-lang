@@ -43,6 +43,91 @@
 - `step` / `step-edge`（手順の図）: pointer の `steps` / `then` / `else` の段数 − 1 を深さとし、層 = min(深さ, 3) + 1（深さ 0 → 層 1。v2 layout.md §3 の環 0.95 → 0.35 と同じ向き）
 - 塗りのある `<circle>`（紋章の点）は種別の層のまま「点」として描く
 
+### 2.1 宝玉と地金
+
+設計書 `docs/superpowers/specs/2026-10-01-jin-stage-gem-worldview-design.md` §2。金細工の陣に宝玉がはめ込まれ、
+発動するとその力の宝玉が灯り、光が宝玉の色で走る。色は**意味**を運ぶ（何の力か・何の値か・どの陣か）。
+実装は `apps/stage/src/palette.ts`（three を import しない純関数）で、4 つの表と等号（`tests/contract/test_stage_contract.py`）。
+
+力（`cast` の `name` の `.` の前の sigil を名前の表の `sigilKinds` で引いた値）→ 宝玉。`.` の無い `cast`（自陣の手順）と
+引けない力は金。
+
+<!-- machine-readable: stage-powers -->
+
+| 力 | 宝玉 |
+|---|---|
+| `canvas` | `sapphire` |
+| `input` | `emerald` |
+| `ui` | `peridot` |
+| `audio` | `amethyst` |
+| `random` | `opal` |
+| `storage` | `amber` |
+| `agent` | `moonstone` |
+| `summon` | `gold` |
+
+<!-- /machine-readable -->
+
+行の kind が決める宝玉: `transfer` → `topaz`・`emit` → `diamond`・`assert` → `ruby`・`error` → `garnet`・
+`event` は `name` が `key` / `pointer` なら `emerald`、`message` なら `diamond`、それ以外は `gold`。
+`set` は記憶の型の宝玉（下の表）で、`bool` の値が `false` なら `onyx`。それ以外の kind は `gold`。
+
+記憶の型（名前の表の `stateTypes`）→ 宝玉。型が無い・読めなければ金。
+
+<!-- machine-readable: stage-state-gems -->
+
+| 型 | 宝玉 |
+|---|---|
+| `num` | `citrine` |
+| `str` | `aquamarine` |
+| `bool` | `pearl` |
+| `list<…>` | `tourmaline` |
+| 型紙 | `spinel` |
+
+<!-- /machine-readable -->
+
+宝玉 → 色と屈折率（色は初期値。目視で変えたら §7 に根拠を残す）。`opal` の色は時刻と `seq` で色相が巡り（毎秒 0.15 周・
+彩度 0.6・明度 0.7）、表の色は使わない。2 色目は `tourmaline` のグラデーションの先と `onyx` の光の銀。
+
+<!-- machine-readable: stage-gems -->
+
+| 宝玉 | 色 | 屈折率 | 2 色目 |
+|---|---|---|---|
+| `sapphire` | `#2f6bff` | 1.77 | |
+| `emerald` | `#1fd47a` | 1.58 | |
+| `peridot` | `#a8e83a` | 1.67 | |
+| `amethyst` | `#a05cff` | 1.54 | |
+| `opal` | `#d8e8f0` | 1.45 | |
+| `amber` | `#ffa62b` | 1.54 | |
+| `moonstone` | `#cfe3ff` | 1.52 | |
+| `gold` | `#ffd27a` | 1.5 | |
+| `topaz` | `#ff8a3d` | 1.62 | |
+| `diamond` | `#ffffff` | 2.42 | |
+| `ruby` | `#ff2a4a` | 1.77 | |
+| `garnet` | `#b0102a` | 1.79 | |
+| `citrine` | `#ffc83a` | 1.55 | |
+| `aquamarine` | `#5fd8e8` | 1.58 | |
+| `pearl` | `#f4f0e8` | 1.53 | |
+| `onyx` | `#14141a` | 1.54 | `#c8ccd8` |
+| `tourmaline` | `#3ad08a` | 1.62 | `#ff7aa8` |
+| `spinel` | `#ff3a7a` | 1.72 | |
+| `crystal` | `#e8f0ff` | 1.54 | |
+
+<!-- /machine-readable -->
+
+陣の地金。root（名前の表の `isRoot`）は `yellow`。root 以外は pointer `/circles/i` の i の順（root を除いて数える）に
+表の 2 行目からを巡る。陣に属さない要素（額縁・型紙の印章）は `yellow`。`isRoot` がどこにも無い表では全部の陣を巡らせる。
+
+<!-- machine-readable: stage-metals -->
+
+| 順 | 地金 | 色 | 粗さ |
+|---|---|---|---|
+| root | `yellow` | `#d4a24a` | 0.3 |
+| 1 | `rose` | `#d68a6e` | 0.32 |
+| 2 | `white` | `#d8d4c8` | 0.28 |
+| 3 | `platinum` | `#b8bcc4` | 0.24 |
+
+<!-- /machine-readable -->
+
 ## 3. 演出
 
 <!-- machine-readable: stage-effects -->
