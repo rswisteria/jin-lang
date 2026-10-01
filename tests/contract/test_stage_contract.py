@@ -11,6 +11,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from tests.spec.test_stage_spec_consistency import (
     machine_table,
     stage_effects,
@@ -96,26 +98,26 @@ def test_the_stage_reads_no_repository_file() -> None:
     assert offenders == [], offenders
 
 
-def test_the_svg_fixture_is_what_the_renderer_draws_today(tmp_path: Path) -> None:
-    """単体テストの `play.svg` がレンダラの出力とずれていない（ずれたら fixture を作り直す）。"""
-    out = tmp_path / "play.svg"
+@pytest.mark.parametrize(
+    ("example", "focus", "fixture"),
+    [
+        ("examples-v2/paddle/paddle.jin", "Play", "play.svg"),
+        ("examples-v2/paddle/paddle.jin", "Play/step", "play-step.svg"),
+        ("examples-v2/tetris/tetris.jin", "Play", "tetris.svg"),
+    ],
+)
+def test_the_svg_fixture_is_what_the_renderer_draws_today(
+    tmp_path: Path, example: str, focus: str, fixture: str
+) -> None:
+    """単体テストと e2e の SVG がレンダラの出力とずれていない（ずれたら fixture を作り直す）。"""
+    out = tmp_path / fixture
     subprocess.run(
-        [
-            "uv",
-            "run",
-            "jin",
-            "render",
-            "examples-v2/paddle/paddle.jin",
-            "--focus",
-            "Play",
-            "-o",
-            str(out),
-        ],
+        ["uv", "run", "jin", "render", example, "--focus", focus, "-o", str(out)],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
     )
-    assert out.read_bytes() == (STAGE / "test" / "fixtures" / "play.svg").read_bytes()
+    assert out.read_bytes() == (STAGE / "test" / "fixtures" / fixture).read_bytes()
 
 
 def test_the_kind_layers_in_the_code_are_the_table_of_stage_md() -> None:

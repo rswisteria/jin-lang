@@ -1,0 +1,71 @@
+{
+  "Game": {
+    "pointer": "/circles/0",
+    "sigils": {},
+    "state": {},
+    "delegates": {},
+    "sigilKinds": {},
+    "stateTypes": {},
+    "isRoot": true
+  },
+  "Play": {
+    "pointer": "/circles/1",
+    "sigils": {
+      "canvas": "/circles/1/sigils/0",
+      "input": "/circles/1/sigils/1",
+      "audio": "/circles/1/sigils/2",
+      "random": "/circles/1/sigils/3"
+    },
+    "state": {
+      "board": "/circles/1/state/0",
+      "piece": "/circles/1/state/1",
+      "next": "/circles/1/state/2",
+      "score": "/circles/1/state/3",
+      "lines": "/circles/1/state/4",
+      "placed": "/circles/1/state/5",
+      "speed": "/circles/1/state/6",
+      "soft": "/circles/1/state/7",
+      "over": "/circles/1/state/8",
+      "shapes": "/circles/1/state/9",
+      "colors": "/circles/1/state/10"
+    },
+    "delegates": {},
+    "sigilKinds": {
+      "canvas": "canvas",
+      "input": "input",
+      "audio": "audio",
+      "random": "random"
+    },
+    "stateTypes": {
+      "board": "list<num>",
+      "piece": "Piece",
+      "next": "num",
+      "score": "num",
+      "lines": "num",
+      "placed": "num",
+      "speed": "num",
+      "soft": "num",
+      "over": "bool",
+      "shapes": "list<num>",
+      "colors": "list<str>"
+    }
+  },
+  "Result": {
+    "pointer": "/circles/2",
+    "sigils": {
+      "canvas": "/circles/2/sigils/0",
+      "ui": "/circles/2/sigils/1"
+    },
+    "state": {
+      "quit": "/circles/2/state/0"
+    },
+    "delegates": {},
+    "sigilKinds": {
+      "canvas": "canvas",
+      "ui": "ui"
+    },
+    "stateTypes": {
+      "quit": "bool"
+    }
+  }
+}

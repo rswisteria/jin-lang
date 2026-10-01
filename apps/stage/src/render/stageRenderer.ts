@@ -58,7 +58,8 @@ export class StageRenderer {
 			antialias: true,
 			preserveDrawingBuffer: true,
 		});
-		this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+		// Khronos PBR Neutral: 宝石の色相と彩度を保つ（ACES は彩度の高い青を紫へずらし、サファイアがアメジストに見えた・stage.md §7）。
+		this.renderer.toneMapping = THREE.NeutralToneMapping;
 		this.scene.background = new THREE.Color(BACKGROUND);
 		this.scene.fog = new THREE.FogExp2(FOG.color, FOG.density);
 		// 環境マップの映り込みを抑えて、地金の色（彩度）を残す。

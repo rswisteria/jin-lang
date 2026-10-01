@@ -51,7 +51,7 @@ describe("粒子の 1 系統（仕様書 2026-10-01 §5.1 / §6）", () => {
 			0.03,
 			0,
 		);
-		expect(particles.length).toBe(8);
+		expect(particles.length).toBe(16);
 		for (const particle of particles) {
 			const nearest = Math.min(
 				...Array.from({ length: 201 }, (_, i) =>

@@ -1,16 +1,54 @@
 <!doctype html>
 <html lang="ja">
-	<body style="margin:0;background:#111">
+	<!--
+		目視の確認用（`pnpm dev` → /dev.html・仕様書 2026-10-01 §9.4）。fixture と kind を選ぶと、その kind の行だけを流す。
+		fixture のトレースにその kind の行が無ければ、tick 5 に 1 行だけ合成する（演出の見え方を確かめるため）。
+	-->
+	<body style="margin:0;background:#111;color:#ddd;font:13px system-ui">
+		<div style="position:fixed;top:8px;right:8px;z-index:1;display:flex;gap:8px;background:#0008;padding:6px;border-radius:4px">
+			<label>fixture
+				<select id="fixture">
+					<option value="paddle">paddle（陣）</option>
+					<option value="tetris">tetris（陣）</option>
+					<option value="step">paddle（手順の図）</option>
+				</select>
+			</label>
+			<label>kind
+				<select id="kind">
+					<option value="">全部</option>
+					<option>enter</option><option>exit</option><option>event</option><option>rite</option><option>cast</option>
+					<option>set</option><option>emit</option><option>transfer</option><option>wait</option><option>finish</option>
+					<option>assert</option><option>error</option><option>frame</option>
+				</select>
+			</label>
+		</div>
 		<iframe id="stage" src="/index.html" style="width:100vw;height:100vh;border:0"></iframe>
 		<script type="module">
+			const FIXTURES = {
+				paddle: { svg: "play.svg", names: "paddle-names.json", trace: "paddle-trace.jsonl", jin: "paddle.jin" },
+				tetris: { svg: "tetris.svg", names: "tetris-names.json", trace: "tetris-trace.jsonl", jin: "tetris.jin" },
+				step: { svg: "play-step.svg", names: "paddle-names.json", trace: "paddle-trace.jsonl", jin: "paddle.jin" },
+			};
 			const frame = document.getElementById("stage");
-			frame.addEventListener("load", async () => {
-				const svg = await (await fetch("/test/fixtures/play.svg")).text();
-				const names = await (await fetch("/test/fixtures/paddle-names.json")).json();
-				const rows = (await (await fetch("/test/fixtures/paddle-trace.jsonl")).text()).split("\n").filter(Boolean).map((l) => JSON.parse(l));
-				frame.contentWindow.postMessage({ type: "stage.scene", svg, names, fps: 60, jinName: "paddle.jin", circleName: "Play" }, location.origin);
+			const fixture = document.getElementById("fixture");
+			const kind = document.getElementById("kind");
+			const load = async (name) => (await fetch(`/test/fixtures/${name}`)).text();
+			async function send() {
+				const f = FIXTURES[fixture.value];
+				const svg = await load(f.svg);
+				const names = JSON.parse(await load(f.names));
+				let rows = (await load(f.trace)).split("\n").filter(Boolean).map((l) => JSON.parse(l));
+				if (kind.value !== "") {
+					rows = rows.filter((row) => row.kind === kind.value);
+					if (rows.length === 0)
+						rows = [{ seq: 0, tick: 5, circle: kind.value === "frame" ? null : "Play", kind: kind.value, name: "", pointer: kind.value === "frame" ? "/stage" : "/circles/1", input: null, output: kind.value === "wait" ? "suspend" : null }];
+				}
+				frame.contentWindow.postMessage({ type: "stage.scene", svg, names, fps: 60, jinName: f.jin, circleName: "Play" }, location.origin);
 				frame.contentWindow.postMessage({ type: "stage.trace", rows, seed: 7 }, location.origin);
-			});
+			}
+			frame.addEventListener("load", send);
+			fixture.addEventListener("change", send);
+			kind.addEventListener("change", send);
 		</script>
 	</body>
 </html>

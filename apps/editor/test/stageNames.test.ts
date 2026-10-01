@@ -52,6 +52,19 @@ describe("名前の表（stage.md §6）", () => {
 		expect("isRoot" in (names["Play"] ?? {})).toBe(false);
 	});
 
+	test("鑑賞ページの fixture（apps/stage/test/fixtures/tetris-names.json）はこの関数の出力と等しい", () => {
+		const model = JSON.parse(
+			readFileSync(join(REPO, "examples-v2/tetris/tetris.jin"), "utf8"),
+		) as Record<string, unknown>;
+		const fixture = JSON.parse(
+			readFileSync(
+				join(REPO, "apps/stage/test/fixtures/tetris-names.json"),
+				"utf8",
+			),
+		) as unknown;
+		expect(buildStageNames(model)).toEqual(fixture);
+	});
+
 	test("othello: agent と summon の sigil は kind をそのまま", () => {
 		const model = JSON.parse(
 			readFileSync(join(REPO, "examples-v2/othello/othello.jin"), "utf8"),

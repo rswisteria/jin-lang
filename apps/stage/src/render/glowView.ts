@@ -43,10 +43,10 @@ const MAX_SEGMENTS = MAX_BEAMS * ARC_SEGMENTS;
 const EMISSIVE_GAIN = 1.6;
 const COLOR_GAIN = 1.2;
 /** 宝玉が灯ったときの自発光の増分（強さ 1 あたり）。 */
-const GEM_EMISSIVE_GAIN = 2.2;
+const GEM_EMISSIVE_GAIN = 1.4;
 /** cast で核の宝玉が受ける光の割合（核は発動した力の色を映す）。 */
 const CORE_ECHO = 0.35;
-const BEAM_WIDTH_PX = 2.5;
+const BEAM_WIDTH_PX = 3.5;
 /** spin の写しの輪の上限。 */
 const MAX_GHOSTS = 16;
 /** crack の亀裂の本数と 1 本の折れ数。 */

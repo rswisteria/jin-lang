@@ -55,21 +55,40 @@ function inside(dir: string, file: string): boolean {
 	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-export async function serveHarness(): Promise<{
+/** 親ページが送る fixture（`test/fixtures/` のファイル名）。既定は paddle の陣。 */
+export interface HarnessFixture {
+	readonly svg: string;
+	readonly names: string;
+	readonly trace: string;
+}
+
+export const PADDLE: HarnessFixture = {
+	svg: "play.svg",
+	names: "paddle-names.json",
+	trace: "paddle-trace.jsonl",
+};
+export const TETRIS: HarnessFixture = {
+	svg: "tetris.svg",
+	names: "tetris-names.json",
+	trace: "tetris-trace.jsonl",
+};
+export const PADDLE_STEP: HarnessFixture = { ...PADDLE, svg: "play-step.svg" };
+
+export async function serveHarness(fixture: HarnessFixture = PADDLE): Promise<{
 	url: string;
 	close(): Promise<void>;
 }> {
 	const dir = mkdtempSync(join(tmpdir(), "jin-stage-e2e-"));
 	cpSync(join(STAGE_ROOT, "dist"), join(dir, "stage"), { recursive: true });
-	const rows = readFileSync(join(FIXTURES, "paddle-trace.jsonl"), "utf8")
+	const rows = readFileSync(join(FIXTURES, fixture.trace), "utf8")
 		.split("\n")
 		.filter((line) => line.trim() !== "")
 		.map((line) => JSON.parse(line) as unknown);
 	writeFileSync(
 		join(dir, "index.html"),
 		PARENT(
-			JSON.stringify(readFileSync(join(FIXTURES, "play.svg"), "utf8")),
-			readFileSync(join(FIXTURES, "paddle-names.json"), "utf8"),
+			JSON.stringify(readFileSync(join(FIXTURES, fixture.svg), "utf8")),
+			readFileSync(join(FIXTURES, fixture.names), "utf8"),
 			JSON.stringify(rows),
 		),
 	);

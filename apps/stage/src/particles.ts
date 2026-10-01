@@ -26,7 +26,7 @@ const COUNTS = {
 	crown: 48,
 	flow: 24,
 	breathe: 12,
-	beam: 8,
+	beam: 16,
 	flash: 6,
 } as const;
 
@@ -173,8 +173,8 @@ export function burst(
 		case "beam":
 			if (from === null) break;
 			for (let k = 0; k < COUNTS.beam; k++) {
-				const t = Math.min(1, Math.max(0, p * 1.6 - k * 0.05));
-				push(arcPoint(from, at, t));
+				const t = Math.min(1, Math.max(0, p * 1.6 - k * 0.025));
+				push(arcPoint(from, at, t), color, alpha, SIZE * 1.8);
 			}
 			break;
 		case "flash":

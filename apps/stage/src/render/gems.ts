@@ -19,8 +19,10 @@ export const CUT_OF_KIND: Readonly<Record<string, Cut>> = {
 };
 
 /** 宝玉の大きさ = 置き場所の半径 × この比（核は `CORE_GEM_SCALE`）。stage.md §7。 */
-export const GEM_SCALE = 0.55;
+export const GEM_SCALE = 0.8;
 export const CORE_GEM_SCALE = 0.5;
+/** 内側から光るスプライトの大きさ = 宝玉の半径 × この値。 */
+const GLOW_SCALE = 7;
 
 /** 透けない・半ば透ける宝玉の透過（それ以外は 0.9）。 */
 const TRANSMISSION: Partial<Record<GemId, number>> = {
@@ -176,7 +178,7 @@ export function buildGem(
 		blending: THREE.AdditiveBlending,
 	});
 	const glow = new THREE.Sprite(glowMaterial);
-	glow.scale.set(r * 4, r * 4, 1);
+	glow.scale.set(r * GLOW_SCALE, r * GLOW_SCALE, 1);
 	glow.position.set(anchor.center[0], anchor.center[1], r * 0.5);
 	disposables.push(geometry, material, glowMaterial);
 	return { anchor, gem, mesh, material, glow };

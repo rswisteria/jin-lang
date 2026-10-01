@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 
-import { serveHarness } from "./harness";
+import { PADDLE_STEP, serveHarness, TETRIS } from "./harness";
 
 /**
  * 鑑賞ページの往復（docs/spec/v2/stage.md §5・設計書 §4.4）。360p・1 秒で書き出し、
@@ -62,6 +62,83 @@ test("PNG を書き出す", async ({ page }) => {
 	expect(png?.bytes.slice(0, 8)).toEqual([
 		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 	]);
+});
+
+/** 画面のうち、色相が [lo, hi]°・彩度と明度がしきい値以上の画素の割合。 */
+async function hueShare(
+	page: Page,
+	stage: ReturnType<Page["frameLocator"]>,
+	lo: number,
+	hi: number,
+): Promise<number> {
+	void page;
+	return stage.locator("canvas").evaluate(
+		(canvas: HTMLCanvasElement, [from, to]) => {
+			const probe = document.createElement("canvas");
+			probe.width = canvas.width;
+			probe.height = canvas.height;
+			const context = probe.getContext("2d");
+			if (context === null) return 0;
+			context.drawImage(canvas, 0, 0);
+			const data = context.getImageData(0, 0, probe.width, probe.height).data;
+			let hit = 0;
+			for (let i = 0; i < data.length; i += 4) {
+				const r = (data[i] ?? 0) / 255;
+				const g = (data[i + 1] ?? 0) / 255;
+				const b = (data[i + 2] ?? 0) / 255;
+				const max = Math.max(r, g, b);
+				const min = Math.min(r, g, b);
+				const d = max - min;
+				if (max < 0.35 || d / max < 0.45) continue;
+				const h =
+					(max === r
+						? ((g - b) / d) % 6
+						: max === g
+							? (b - r) / d + 2
+							: (r - g) / d + 4) * 60;
+				const hue = (h + 360) % 360;
+				if (hue >= (from ?? 0) && hue <= (to ?? 0)) hit++;
+			}
+			return hit / (data.length / 4);
+		},
+		[lo, hi] as const,
+	);
+}
+
+/**
+ * 色の意味（仕様書 2026-10-01 §2.1）: tetris の場面で、最初の `cast canvas.*`（tick 0・強さ 1）が進み 0.2 ほどで
+ * 光っている tick 10 に、サファイアの色相の画素が画面の 0.02% 以上ある（宝玉の色が実際に出ている）。
+ * 基準は実測（0.045%・960×624）の半分弱。金一色ならほぼ 0% なので区別できる（光線は細く、面積の比は小さい）。
+ */
+test("cast canvas.* の直後、画面にサファイアの色が出ている", async ({
+	page,
+}) => {
+	const tetris = await serveHarness(TETRIS);
+	await page.goto(tetris.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	await stage.getByTestId("stage-scrub").fill("10");
+	await page.waitForTimeout(500);
+	const share = await hueShare(page, stage, 210, 235);
+	expect(share).toBeGreaterThanOrEqual(0.0002);
+	await tetris.close();
+});
+
+/** 手順の図（紋と記憶が無く、核と手順のステップだけ）を送っても、例外を出さずに描ける（Review Focus）。 */
+test("手順の図の場面でも描け、PNG を書き出せる", async ({ page }) => {
+	const step = await serveHarness(PADDLE_STEP);
+	await page.goto(step.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	await stage.getByTestId("stage-export-png").click();
+	await expect.poll(async () => (await files(page)).length).toBe(1);
+	const status = await page.evaluate(
+		() =>
+			(window as unknown as { JIN_STATUS: { error: string | null } })
+				.JIN_STATUS,
+	);
+	expect(status.error).toBeNull();
+	await step.close();
 });
 
 test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", async ({ page }) => {
