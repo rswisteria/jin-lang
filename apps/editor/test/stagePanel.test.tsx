@@ -161,3 +161,45 @@ describe("StagePanel は同じ内容を送り直さない（stage.md §6）", ()
 		expect(types()).toEqual(["stage.scene", "stage.trace", "stage.trace"]);
 	});
 });
+
+describe("StagePanel は舞台の大きさを stage.scene の stageSize で送る（仕様書 2026-10-01-jin-stage-summon §2.1）", () => {
+	function panel(stage: Record<string, unknown>): React.JSX.Element {
+		return (
+			<StagePanel
+				svg="<svg/>"
+				model={{ stage, circles: [{ name: "Play", sigils: [] }] }}
+				rows={[]}
+				seed={7}
+				fileName="tetris.jin"
+				circleName="Play"
+				hidden={false}
+			/>
+		);
+	}
+
+	test("舞台のあるモデルでは stageSize が数の { width, height } で届き、大きさが変われば送り直す", () => {
+		const view = render(panel({ width: 176, height: 120, fps: 30 }));
+		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
+		const post = vi.fn();
+		Object.defineProperty(frame, "contentWindow", {
+			value: { postMessage: post },
+		});
+		act(() => {
+			frame.dispatchEvent(new Event("load"));
+		});
+		const scenes = (): unknown[] =>
+			post.mock.calls
+				.map(([message]) => message as { type: string; stageSize?: unknown })
+				.filter((message) => message.type === "stage.scene")
+				.map((message) => message.stageSize);
+		expect(scenes()).toEqual([{ width: 176, height: 120 }]);
+		// 同じ大きさなら送り直さない。
+		view.rerender(panel({ width: 176, height: 120, fps: 30 }));
+		expect(scenes()).toHaveLength(1);
+		view.rerender(panel({ width: 320, height: 240, fps: 30 }));
+		expect(scenes()).toEqual([
+			{ width: 176, height: 120 },
+			{ width: 320, height: 240 },
+		]);
+	});
+});
