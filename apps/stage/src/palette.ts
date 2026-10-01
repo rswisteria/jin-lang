@@ -138,9 +138,10 @@ export function gemOfRow(row: TraceRow, names: StageNames): GemId {
 	const circle = row.circle === null ? undefined : names[row.circle];
 	const name = typeof row.name === "string" ? row.name : "";
 	if (row.kind === "cast") {
+		// host の能力は `ns.member`、agent / summon の sigil は sigil 名だけ（`.` を含まない・runtime.md §11）。
+		// 効果（push / clear）も `.` を含まないが、sigil ではないので引けず金。
 		const dot = name.indexOf(".");
-		if (dot < 0) return "gold";
-		const kind = circle?.sigilKinds?.[name.slice(0, dot)];
+		const kind = circle?.sigilKinds?.[dot < 0 ? name : name.slice(0, dot)];
 		return (kind === undefined ? undefined : POWER_GEMS[kind]) ?? "gold";
 	}
 	if (row.kind === "set") {

@@ -67,6 +67,23 @@ describe("行 → 力の宝玉（仕様書 ① §2.1）", () => {
 			"emerald",
 		);
 	});
+	test("agent の cast（name は sigil 名だけで . を含まない）はムーンストーン、効果（push 等）は金", () => {
+		const names: StageNames = {
+			Play: {
+				pointer: "/circles/1",
+				sigils: { rival: "/circles/1/sigils/2", legal: "/circles/1/sigils/3" },
+				state: {},
+				delegates: {},
+				sigilKinds: { rival: "agent", legal: "summon" },
+			},
+		};
+		expect(gemOfRow(row({ kind: "cast", name: "rival" }), names)).toBe(
+			"moonstone",
+		);
+		expect(gemOfRow(row({ kind: "cast", name: "legal" }), names)).toBe("gold");
+		expect(gemOfRow(row({ kind: "cast", name: "push" }), names)).toBe("gold");
+	});
+
 	test("自陣の手順の呼び出しと未知の名前空間は金", () => {
 		expect(gemOfRow(row({ kind: "cast", name: "fits" }), NAMES)).toBe("gold");
 		expect(gemOfRow(row({ kind: "cast", name: "nope.x" }), NAMES)).toBe("gold");

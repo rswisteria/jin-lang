@@ -49,8 +49,9 @@
 発動するとその力の宝玉が灯り、光が宝玉の色で走る。色は**意味**を運ぶ（何の力か・何の値か・どの陣か）。
 実装は `apps/stage/src/palette.ts`（three を import しない純関数）で、4 つの表と等号（`tests/contract/test_stage_contract.py`）。
 
-力（`cast` の `name` の `.` の前の sigil を名前の表の `sigilKinds` で引いた値）→ 宝玉。`.` の無い `cast`（自陣の手順）と
-引けない力は金。
+力（`cast` の `name` の sigil を名前の表の `sigilKinds` で引いた値）→ 宝玉。host の能力の行は `name` が `ns.member`
+（`.` の前が sigil 名）、`agent` / `summon` の sigil への行は sigil 名だけ（runtime.md §11）。自陣の手順の呼び出しは `cast` 行を
+出さない（`rite` 行だけ）。効果（`push` / `clear`）の行と引けない力は金。
 
 <!-- machine-readable: stage-powers -->
 
