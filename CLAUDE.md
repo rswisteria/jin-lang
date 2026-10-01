@@ -400,7 +400,7 @@ Jin v2 Phase 4（`apps/player`）の要点（正典は `docs/spec/v2/runtime.md`
 - **`canvas.text` の ASCII 以外の字形は `src/glyphs.ts`（生成物・手で編集しない）**（v2.1・設計書 §11 #49）。
   原本は `apps/player/fonts/k6x8/k6x8_gothic.bdf`（改変しない。digest を `scripts/generate_glyphs.py` の
   `BDF_SHA256` と同じディレクトリの README に固定）。直したら `uv run python scripts/generate_glyphs.py` で
-  再生成する（pytest の `--check` と CI の player ジョブの `--stdout | diff` が 2 重に見る）。ASCII は `src/font.ts` の
+  再生成する（**鑑賞ページの写し `apps/stage/src/screen/glyphs.ts` にも同じ内容を書く**。pytest の `--check` と CI の player / stage ジョブの `--stdout | diff` が 2 重に見る）。ASCII は `src/font.ts` の
   5×7 のまま、幅は字形によらず 1 コードポイント = 6。字形は `stage.assets` の font にしない（埋め込みのプレイヤーは
   asset を読めないので、エディタの実行パネルで描けなくなる）
 
@@ -569,6 +569,13 @@ Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設
 - **後処理の順**: 描画 → 被写界深度 → ゴッドレイ → ブルーム → 出力（トーンマップは **Neutral**）→ 仕上げ（色収差・ビネット・グレイン）。
   ACES はサファイアを紫へずらし、仕上げを出力の前に置くと床に同心円の縞が出た（stage.md §7）。グレインは時刻から作る
 - **`frame` は陣の鼓動**（演出 `pulse`・強さ `beat` = 0.1・慣れの対象外）で額縁（`/stage`）だけを灯す
+- **召喚の窓と音**（設計書 `docs/superpowers/specs/2026-10-01-jin-stage-summon-design.md`・stage.md §5 / §5.1）: `frame` 行の表示リストを陣の上空の窓に
+  ドットのまま映し（`render/summonWindow.ts`）、`tone` を合成して書き出しの音声トラックにする（`screen/sound.ts`・MP4 は aac → 無ければ opus）。
+  舞台の大きさは `stage.scene` の欄 `stageSize`（無ければ窓を出さない）。**描画と字形はプレイヤーの写し**（apps 同士は import しない）:
+  `screen/glyphs.ts` は `scripts/generate_glyphs.py` が**プレイヤーと 2 か所に書く生成物**、`screen/font.ts` はプレイヤーとバイト一致、
+  `screen/draw.ts` の命令は `abilities.json` と等号（契約テスト）、描き方は両アプリの e2e が同じ正解 `tests/fixtures/screen/*.png` と画素一致。
+  プレイヤーの描画を変えたら `cd apps/player && UPDATE_SCREEN_GOLDEN=1 pnpm e2e -g 召喚の窓` で正解を作り直し、鑑賞ページの `draw.ts` も揃える。
+  窓の開閉は最初の `enter` 行（核なし陣の root は `enter` を出さない）と root の `exit` / `finish`（`screen/frames.ts`）
 
 - **配置の元は SVG だけ。** stage は `viewBox` を `[-1.25, 1.25]` に写すだけで座標を計算しない（`apps/stage/src/scene.ts`）。
   層は種別・陣の核の半径・ステップの深さから決める（`apps/stage/src/layers.ts` の表は stage.md と等号）。高さは層の値 × 陣の単位
@@ -598,7 +605,7 @@ Jin v2.1（鑑賞ページ）の要点（正典は `docs/spec/v2/stage.md`、設
   レイアウトを変えたら `uv run jin render examples-v2/paddle/paddle.jin --focus Play -o apps/stage/test/fixtures/play.svg`
   で作り直す）。e2e は `apps/stage/e2e/`（単独で PNG と 1 秒の動画を書き出して Node で読み戻す）と
   `apps/editor/e2e/stage.spec.ts`（録画を再生して鑑賞モードに行が届く）。防御を壊して赤くなることの実測は
-  `delivery/20260904-1445-jin/stage-mutations/`（17 件。e2e は回さない）
+  `delivery/20260904-1445-jin/stage-mutations/`（21 件。e2e は回さない）
 
 Phase 6 の要点（正典は要件書 §7.2 / `docs/spec/layout.md` §7）:
 

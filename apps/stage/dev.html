@@ -11,6 +11,7 @@
 					<option value="paddle">paddle（陣）</option>
 					<option value="tetris">tetris（陣）</option>
 					<option value="step">paddle（手順の図）</option>
+					<option value="drops">tetris（ハードドロップ 3 回・音）</option>
 				</select>
 			</label>
 			<label>kind
@@ -25,9 +26,10 @@
 		<iframe id="stage" src="/index.html" style="width:100vw;height:100vh;border:0"></iframe>
 		<script type="module">
 			const FIXTURES = {
-				paddle: { svg: "play.svg", names: "paddle-names.json", trace: "paddle-trace.jsonl", jin: "paddle.jin" },
-				tetris: { svg: "tetris.svg", names: "tetris-names.json", trace: "tetris-trace.jsonl", jin: "tetris.jin" },
-				step: { svg: "play-step.svg", names: "paddle-names.json", trace: "paddle-trace.jsonl", jin: "paddle.jin" },
+				paddle: { svg: "play.svg", names: "paddle-names.json", trace: "paddle-trace.jsonl", jin: "paddle.jin", size: { width: 320, height: 180 } },
+				tetris: { svg: "tetris.svg", names: "tetris-names.json", trace: "tetris-trace.jsonl", jin: "tetris.jin", size: { width: 176, height: 176 } },
+				drops: { svg: "tetris.svg", names: "tetris-names.json", trace: "tetris-drops-trace.jsonl", jin: "tetris.jin", size: { width: 176, height: 176 } },
+				step: { svg: "play-step.svg", names: "paddle-names.json", trace: "paddle-trace.jsonl", jin: "paddle.jin", size: { width: 320, height: 180 } },
 			};
 			const frame = document.getElementById("stage");
 			const fixture = document.getElementById("fixture");
@@ -43,7 +45,7 @@
 					if (rows.length === 0)
 						rows = [{ seq: 0, tick: 5, circle: kind.value === "frame" ? null : "Play", kind: kind.value, name: "", pointer: kind.value === "frame" ? "/stage" : "/circles/1", input: null, output: kind.value === "wait" ? "suspend" : null }];
 				}
-				frame.contentWindow.postMessage({ type: "stage.scene", svg, names, fps: 60, jinName: f.jin, circleName: "Play" }, location.origin);
+				frame.contentWindow.postMessage({ type: "stage.scene", svg, names, fps: 60, jinName: f.jin, circleName: "Play", stageSize: f.size }, location.origin);
 				frame.contentWindow.postMessage({ type: "stage.trace", rows, seed: 7 }, location.origin);
 			}
 			frame.addEventListener("load", send);

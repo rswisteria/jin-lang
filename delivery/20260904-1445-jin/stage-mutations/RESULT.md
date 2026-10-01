@@ -29,10 +29,14 @@
 | `PARTICLES-reads-math-random` | `apps/stage/src/particles.ts` | `mulberry32(glow.seq)` → `Math.random`（粒子の散り方が実時間の乱数を読む） | KILLED | `tests/contract/test_stage_contract.py::test_the_picture_does_not_read_the_clock_or_math_random` |
 | `PALETTE-throws-without-fields` | `apps/stage/src/palette.ts` | `circle?.sigilKinds?.[…]` → 欄が有る前提で引く（古いエディタの表で例外） | KILLED | `test/palette.test.ts` > 欄の無い古い表でも例外を投げず金、`test/effects.test.ts` > paddle の 90 tick |
 | `GLOW-endpoints-ignore-layer-spin` | `apps/stage/src/render/glowView.ts` | 端点の変換で層の行列（自転・浮き沈み）を通さない | KILLED | `test/gilded.test.ts` > 層の自転で光線の端点も同じ角だけ陣の中心まわりに回る |
+| `DRAW-skips-rect` | `apps/stage/src/screen/draw.ts` | 描画の写しが `rect` を描かない | KILLED | `test/draw.test.ts`（clear・ink・未知の op の各テスト） |
+| `GLYPHS-copy-drifts` | `apps/stage/src/screen/glyphs.ts` | 字形の写しの `BITMAPS` を 1 字ずらす | KILLED | `tests/contract/test_stage_contract.py::test_the_stage_glyphs_are_the_generated_copy` |
+| `SOUND-ignores-speed` | `apps/stage/src/screen/sound.ts` | 音の置き場所に速度を掛けない | KILLED | `test/sound.test.ts` > 0.5 倍速では置き場所が 2 倍 |
+| `FRAMES-shows-the-oldest` | `apps/stage/src/screen/frames.ts` | 映すコマを最新ではなく最古から選ぶ | KILLED | `test/frames.test.ts` > 時刻 t の tick 以前で最新のコマ |
 
-**17/17 mutations killed**（最終レビューの修正で 3 件、宝玉と金細工の世界観（設計書 2026-10-01 §9.4）で 4 件を足した）
+**21/21 mutations killed**（最終レビューの修正で 3 件、宝玉と金細工の世界観（設計書 2026-10-01 §9.4）で 4 件、召喚の窓と音（設計書 2026-10-01-jin-stage-summon §4.4）で 4 件を足した）
 
-2026-10-01（WSL2・隔離コピー上）に全件を回し直した。ベースライン: pytest 56 passed / 3 deselected、`apps/stage` の `pnpm test` 151 passed、`apps/editor` の `pnpm test` 124 passed。
+2026-10-01（WSL2・隔離コピー上）に全件を回し直した。ベースライン: pytest 60 passed / 3 deselected、`apps/stage` の `pnpm test` 190 passed、`apps/editor` の `pnpm test` 126 passed。`PALETTE-throws-without-fields` は agent の cast の修正で行が変わったので置換元を直して回した。
 外したのは `test_the_svg_fixture_is_what_the_renderer_draws_today` の 3 件（parametrize で paddle の陣・手順の図・tetris に広げた）。
 
 ## 計画からの変更
