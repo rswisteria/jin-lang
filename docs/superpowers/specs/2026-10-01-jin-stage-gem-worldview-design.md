@@ -145,12 +145,13 @@ interface CircleNames {
 	readonly delegates: Readonly<Record<string, string>>;
 	readonly sigilKinds: Readonly<Record<string, string>>; // 新: sigil 名 → host の名前空間名 / "summon" / "agent"
 	readonly stateTypes: Readonly<Record<string, string>>; // 新: state 名 → 型の文字列("num" / "list<num>" / 型紙名 …)
+	readonly isRoot?: boolean; // 新: root の陣だけ true(地金の決定に使う。他の陣は欄を省く)
 }
 ```
 
 - `sigilKinds` は `kind == "host"` なら `host` の値(名前空間名)、それ以外は `kind` の値
 - `stateTypes` は state の `type` をそのまま(解釈は stage の `palette.ts` が §2.2 の表で行う)
-- 地金は stage が pointer の i から決める(欄は足さない)
+- 地金は stage が pointer の i と `isRoot` から決める(地金そのものは送らない。root を知る手段が名前の表に無いので `isRoot` だけ足す)
 - stage の `messages.ts` は 2 つの欄を**任意**として受ける(無ければ空の表。§2.5)
 
 ## 5. 動きの全量
@@ -305,7 +306,7 @@ stage.md に machine-readable の表を新設する: `stage-gems`(§2.1)・`stag
 | 4 | three の構成を拡張し、新しい依存を入れない | 土台を変えずに見た目の検討にすぐ入れる(人間の選択) |
 | 5 | 品質の切り替えを作らない | まず全部入りを動かして見てから判断する(人間の判断) |
 | 6 | 仕様書を ①(世界観と演出)と ②(召喚された像)に分ける | 色と演出は絡み合う。像は描画経路が別(人間の承認) |
-| 7 | 地金は pointer の i から stage が決め、欄を足さない | 名前の表に配置以外の情報を増やさない。並び順は `.jin` だけで決まる |
+| 7 | 地金は pointer の i と `isRoot` から stage が決め、地金そのものは送らない | 名前の表に見せ方の情報を増やさない。並び順と root は `.jin` だけで決まる(実装計画の作成時に、root を知る手段が無いことが分かり `isRoot` を足した) |
 | 8 | 欄が無い・引けないときは金で描く | 旧設計の「引けなければ光らせない」と同じ fail-soft。古いエディタとも動く |
 | 9 | `frame` を `pulse`(強さ 0.1 の鼓動)にする | 発動の演出ではなく陣の鼓動として、tick の拍を見せる |
 | 10 | 天球儀の輪は飾りとして足し、陣の要素は傾けない | 配置の情報を増やさず、光線の端点もずらさない |
