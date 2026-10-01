@@ -425,6 +425,9 @@ Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点�
 - **loop / if の本文へは「本文に追加」（`jin-add-step-inside`・v2.1）**。「ステップを追加」は選択の直後、ドラッグの
   落とし先は既にあるステップなので、**空の本文には図に要素が無く、この操作でしか入れられない**（`actions.ts` の
   `addStepInside` / `insideListOf`。`loop` は `…/steps`、`if` は `…/then` の末尾。`else` と範囲選択には効かない）
+- **境界のイベントは「イベントを追加」（`jin-add-on`・Issue #95）**。選択中の**手順**を呼ぶ `on` を既存の `setOn` で足す
+  （`event` は schema の `OnHandler.event` の enum からまだ使われていない先頭・全部使われていれば `notice`・足した `on` を選ぶ。
+  `actions.ts` の `addOn`）。`on` の欄の編集は従来どおり（`event` は `removeOn` + `setOn` の合成）
 - **手順の引数（`Rite.params`）はフォームの行の表**（v2.1）。印は schema の **`x-jin-inline`**（`jin_core.v2.model.
   INLINE_SCHEMA_MARK`。`Rite.params` にだけ付き、`test_the_rite_params_carry_the_inline_mark_in_the_schema` が
   「他の配列には付かない」を固定）で、`schemaForm.ts` は印のある「スカラ欄だけのオブジェクトの配列」を `rowList`

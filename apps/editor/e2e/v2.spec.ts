@@ -864,6 +864,9 @@ interface SavedModel {
 			readonly params?: readonly { name: string; type: string }[];
 			readonly steps: readonly SavedStep[];
 		}[];
+		readonly boundary?: {
+			readonly on?: readonly { event: string; rite: string }[];
+		};
 	}[];
 }
 
@@ -1156,6 +1159,44 @@ test("手順の引数の表（x-jin-inline）と、loop の本文へのステッ
 	expect(added.params).toEqual([{ name: "n", type: "num" }]);
 	expect(added.steps.map((s) => s.do)).toEqual(["loop"]);
 	expect(added.steps[0]!.steps!.map((s) => s.do)).toEqual(["wait"]);
+});
+
+test("境界のイベントを足す（Issue #95）: 手順を選んで「イベントを追加」→ まだ使われていない先頭のイベントで on が入る", async ({
+	page,
+}) => {
+	await open(page);
+	const canvas = page.getByTestId("jin-canvas");
+	// 手順が選ばれていないときは押せない。
+	await expect(page.getByTestId("jin-add-on")).toBeDisabled();
+	// Play には on tick → step が既にあるので、serve を選んで足すと on key → serve。
+	await canvas.locator('text[data-jin="/circles/1/rites/1"]').first().click();
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/rites/1",
+	);
+	await page.getByTestId("jin-add-on").click();
+	// 足した on が選ばれ、フォームは event / rite（既存の on の欄と同じ）。
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/boundary/on/1",
+	);
+	await expect(page.locator("#jin-field-event")).toHaveValue("key");
+	await expect(page.locator("#jin-field-rite")).toHaveValue("serve");
+	await expect(
+		canvas.locator('[data-jin="/circles/1/boundary/on/1"][data-jin-kind="on"]').first(),
+	).toBeAttached();
+	// もう 1 つ（paint）→ 次のイベント pointer。
+	await canvas.locator('text[data-jin="/circles/1/rites/3"]').first().click();
+	await page.getByTestId("jin-add-on").click();
+	await expect(page.getByTestId("jin-pointer")).toHaveText(
+		"/circles/1/boundary/on/2",
+	);
+	await expect(page.locator("#jin-field-event")).toHaveValue("pointer");
+
+	const model = await saveAndCheck(page);
+	expect(model.circles[1]!.boundary!.on).toEqual([
+		{ event: "tick", rite: "step" },
+		{ event: "key", rite: "serve" },
+		{ event: "pointer", rite: "paint" },
+	]);
 });
 
 async function saveAndCheck(page: Page): Promise<SavedModel> {

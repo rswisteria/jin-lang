@@ -47,6 +47,7 @@ import { DiagnosticList } from "./ui/DiagnosticList";
 import { StatusBar } from "./ui/StatusBar";
 import {
 	addHostSigil,
+	addOn,
 	addRite,
 	addState,
 	addStep,
@@ -638,6 +639,12 @@ export function App({
 		return circle !== undefined && rite !== undefined ? { circle, rite } : null;
 	}, [focus]);
 
+	/** 境界のイベント名（schema の `OnHandler.event` の enum から。名前を書き写さない）。 */
+	const onEvents = useMemo(() => {
+		const event = resolveRef(schemaV2, "#/$defs/OnHandler")?.properties?.["event"];
+		return (event?.enum ?? []).map((value) => String(value));
+	}, [schemaV2]);
+
 	/** ステップの `do` の値（schema の判別共用体の枝から。名前を書き写さない）。 */
 	const stepKinds = useMemo(() => {
 		const steps = resolveRef(schemaV2, "#/$defs/Rite")?.properties?.["steps"];
@@ -927,6 +934,22 @@ export function App({
 							}}
 						>
 							道具を追加
+						</button>
+						<button
+							type="button"
+							data-testid="jin-add-on"
+							title="選んだ手順を呼ぶ境界のイベント（on）を足す。イベントはまだ使われていない先頭のもの（フォームで変えられる）"
+							disabled={
+								model === null ||
+								selectionV2?.kind !== "rite" ||
+								onEvents.length === 0
+							}
+							onClick={() => {
+								if (model === null) return;
+								void sendEdit(addOn(model, selectionV2, onEvents));
+							}}
+						>
+							イベントを追加
 						</button>
 						<button
 							type="button"
