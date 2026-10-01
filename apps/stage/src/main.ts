@@ -38,6 +38,10 @@ const host = element<HTMLDivElement>("stage");
 const canvas = document.createElement("canvas");
 host.appendChild(canvas);
 const renderer = new StageRenderer(canvas);
+// e2e の口（GPU の資源が送り直しで増えないことを見る）。window に生やすのは main.ts だけ。
+(window as unknown as { __jinStage: { memory(): unknown } }).__jinStage = {
+	memory: () => renderer.memory(),
+};
 const play = element<HTMLButtonElement>("play");
 const scrub = element<HTMLInputElement>("scrub");
 const tickOut = element<HTMLOutputElement>("tick");

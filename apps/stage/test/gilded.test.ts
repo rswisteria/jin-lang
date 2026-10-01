@@ -101,6 +101,27 @@ describe("陣全体の演出（設計書 §2.3）", () => {
 		model.dispose();
 	});
 
+	test("ignite の始めは核だけが灯り、外周の輪（層 1）は暗いまま（陣全体を同時に灯さない）", () => {
+		const model = buildGilded(scene);
+		const view = new GlowView(model);
+		view.apply(
+			[glow({ effect: "ignite", progress: 0.08 })],
+			0,
+			60,
+			scene.pointers,
+		);
+		const emissive = (pointer: string): number => {
+			const material = model.handles.get(pointer)?.[0]?.glowables[0]?.material;
+			return material instanceof THREE.MeshStandardMaterial
+				? material.emissiveIntensity
+				: Number.NaN;
+		};
+		expect(emissive("/circles/1/core")).toBeGreaterThan(0.5);
+		expect(emissive("/circles/1/rites/0")).toBeLessThan(0.2);
+		view.dispose();
+		model.dispose();
+	});
+
 	test("crown は陣の配下すべてを光らせ、ほかの陣は光らせない", () => {
 		const model = buildGilded(scene);
 		const view = new GlowView(model);

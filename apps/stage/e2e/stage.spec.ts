@@ -72,7 +72,9 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 	// CI の stage ジョブは JIN_REQUIRE_CODEC=1 で走る。どちらのコーデックも無いときに往復を黙って飛ばさない
 	// （CI と同じ Linux の Chromium 151 では avc / vp9 とも通る。probe §C.1）。
 	if (process.env["JIN_REQUIRE_CODEC"] === "1")
-		expect(codec, "JIN_REQUIRE_CODEC=1 なのに動画を書き出せない").not.toBe("none");
+		expect(codec, "JIN_REQUIRE_CODEC=1 なのに動画を書き出せない").not.toBe(
+			"none",
+		);
 	test.skip(codec === "none", "WebCodecs が無い環境（probe §C）");
 	test.info().annotations.push({ type: "codec", description: codec ?? "" });
 	await stage.getByTestId("stage-start").fill("0");
@@ -83,9 +85,7 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 		.toBe(1);
 	const [video] = await files(page);
 	expect(video?.name).toMatch(/^paddle-Play-seed7-t0-60\.(mp4|webm)$/);
-	expect(video?.mime).toBe(
-		codec === "avc" ? "video/mp4" : "video/webm",
-	);
+	expect(video?.mime).toBe(codec === "avc" ? "video/mp4" : "video/webm");
 	const input = new Input({
 		source: new BufferSource(new Uint8Array(video?.bytes ?? [])),
 		formats: ALL_FORMATS,
@@ -102,4 +102,38 @@ test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", as
 	expect(readBack.duration).toBeGreaterThan(0.95);
 	expect(readBack.duration).toBeLessThan(1.05);
 	expect([readBack.width, readBack.height]).toEqual([360, 360]);
+});
+
+/**
+ * 編集のたびに `stage.scene` が届く（仕様書 2026-10-01 Review Focus）。床の映り込みの描画先・後処理・宝玉の素材を
+ * 前の場面の分まで解放し、GPU の資源（geometry / texture）が送り直すたびに増えないこと。
+ */
+test("stage.scene を送り直しても GPU の資源が増え続けない", async ({
+	page,
+}) => {
+	await open(page);
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	type Memory = { geometries: number; textures: number };
+	const memory = (): Promise<Memory> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { memory(): Memory } }
+			).__jinStage.memory(),
+		);
+	const resend = async (): Promise<void> => {
+		await page.evaluate(() =>
+			(window as unknown as { JIN_RESEND(): void }).JIN_RESEND(),
+		);
+		await page.waitForTimeout(400);
+	};
+	await resend();
+	const first = await memory();
+	for (let k = 0; k < 5; k++) await resend();
+	const last = await memory();
+	expect(first.geometries).toBeGreaterThan(0);
+	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
+	expect(last.textures).toBeLessThanOrEqual(first.textures);
 });

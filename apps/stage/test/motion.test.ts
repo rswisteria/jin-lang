@@ -6,6 +6,7 @@ import {
 	armillary,
 	cameraNudge,
 	crackTilt,
+	igniteLight,
 	LAYER_SPIN_RAD_PER_SECOND,
 	layerOffset,
 	layerSpin,
@@ -63,6 +64,30 @@ describe("層の浮き沈み（§5.1）", () => {
 	test("ほかの演出は層を動かさない", () => {
 		for (const effect of ["beam", "pulse", "crown", "spin"] as const)
 			expect(layerOffset(effect, 0.5, 3)).toBe(0);
+	});
+
+	test("ignite の光は核（層 5）から外の層へ 1 段ずつ走り、最後に全体が弱く一度息づく", () => {
+		// 始めは核だけが灯り、外周（層 1）はまだ暗い
+		expect(igniteLight(0.08, 5)).toBeGreaterThan(0.5);
+		expect(igniteLight(0.08, 1)).toBe(0);
+		// 外周が最も明るくなる時刻は核より後
+		const peak = (layer: 1 | 3 | 5): number => {
+			let best = 0;
+			let at = 0;
+			for (let p = 0; p <= 0.8; p += 0.01) {
+				if (igniteLight(p, layer) > best) {
+					best = igniteLight(p, layer);
+					at = p;
+				}
+			}
+			return at;
+		};
+		expect(peak(5)).toBeLessThan(peak(3));
+		expect(peak(3)).toBeLessThan(peak(1));
+		// 最後の息づきは弱い（0.35 以下）
+		for (const layer of [0, 1, 2, 3, 4, 5] as const)
+			expect(igniteLight(0.9, layer)).toBeLessThanOrEqual(0.35 + 1e-9);
+		expect(igniteLight(1, 3)).toBeCloseTo(0, 9);
 	});
 
 	test("crack の傾きは 0 から最大 0.06 rad", () => {

@@ -69,6 +69,30 @@ export function layerOffset(
 	return 0;
 }
 
+/** `ignite` の光が 1 段の環を走るのにかかる進みと、段ごとの遅れ。最後の息づきの強さと始まり。 */
+const IGNITE_LIGHT_SPAN = 0.25;
+const IGNITE_LIGHT_STAGGER = 0.12;
+const IGNITE_BREATH = 0.35;
+const IGNITE_BREATH_FROM = 0.8;
+
+/**
+ * `ignite` の灯り方（陣全体を同時に灯さない・仕様書 §5.1）: 核（層 5）から外の層へ 1 段ずつ光が走り、
+ * 最後に全体が弱く一度息づく。値は 0〜1（光の強さに掛ける）。
+ */
+export function igniteLight(progress: number, layer: LayerIndex): number {
+	const order = 5 - layer;
+	const start = order * IGNITE_LIGHT_STAGGER;
+	const local = (progress - start) / IGNITE_LIGHT_SPAN;
+	const run = local > 0 && local < 1 ? Math.sin(Math.PI * local) : 0;
+	const breathLocal =
+		(progress - IGNITE_BREATH_FROM) / (1 - IGNITE_BREATH_FROM);
+	const breath =
+		breathLocal > 0 && breathLocal < 1
+			? IGNITE_BREATH * Math.sin(Math.PI * breathLocal)
+			: 0;
+	return Math.max(run, breath);
+}
+
 /** `crack` で陣が傾く角（rad）。 */
 export function crackTilt(progress: number): number {
 	return 0.06 * bump(progress);

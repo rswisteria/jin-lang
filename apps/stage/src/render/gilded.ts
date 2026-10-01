@@ -20,12 +20,8 @@ import { buildGem, type GemHandle, glowTexture } from "./gems";
  * 層の group は**陣ごと**に 6 つ持ち、高さは層の値 × その陣の単位（`layerHeight`）。
  * 入れ子の小陣を root と同じ高さで積むと、幅と同じ高さの塔になる。
  */
-export const GOLD = new THREE.Color(0xc8943a);
-export const GOLD_LINE = new THREE.Color(0xd9a54f);
+/** 輪の外の目盛り（意味を持たない飾り）の色。宝玉と地金の色は `palette.ts`。 */
 export const GOLD_DIM = new THREE.Color(0x5a3c16);
-export const GOLD_HOT = new THREE.Color(0xfff0c8);
-export const WARN_RED = new THREE.Color(0xff2a2a);
-const EMBER = new THREE.Color(0xffb35a);
 
 const RING_TUBE = 0.009;
 const SMALL_RING_TUBE = 0.005;
@@ -79,6 +75,9 @@ export interface GildedModel {
 
 /** 段 0（台座）の金細工は地金の色をこの比で暗くする（旧 GOLD_DIM / GOLD の比）。 */
 const DIM_RATIO = 0.42;
+const WHITE = new THREE.Color(1, 1, 1);
+/** 刻印の凹凸の強さ（`bumpScale`）。stage.md §7。 */
+const ENGRAVE_DEPTH = 2;
 
 export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 	const root = new THREE.Group();
@@ -207,20 +206,36 @@ export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 			glowables.push({ material, base: material.color.clone() });
 			center = new THREE.Vector3(shape.center[0], shape.center[1], z);
 		} else {
-			const texture = glyph(shape.text, dim ? GOLD_DIM : GOLD_HOT);
-			const material = new THREE.SpriteMaterial({
-				map: texture,
+			// 刻印（仕様書 2026-10-01 §6）: 白い文字のテクスチャを透明度と凹凸の元にして、地金の板に彫る。
+			// 色ではないので色空間の変換をかけない。書体のファイルは持ち込まない（日本語の名前もそのまま描ける）。
+			const texture = glyph(shape.text, WHITE, THREE.NoColorSpace);
+			const color = metalColor(item).lerp(
+				new THREE.Color(1, 1, 1),
+				dim ? 0 : 0.3,
+			);
+			const material = new THREE.MeshStandardMaterial({
+				color,
+				metalness: 1,
+				roughness: 0.35,
+				alphaMap: texture,
+				bumpMap: texture,
+				bumpScale: ENGRAVE_DEPTH,
 				transparent: true,
 				depthWrite: false,
+				emissive: color,
+				emissiveIntensity: BASE_EMISSIVE,
 			});
 			// `Material.dispose()` は `map` を解放しないので、テクスチャも自分で解放する（stage.scene は編集のたびに届く）。
-			disposables.push(texture, material);
-			const sprite = new THREE.Sprite(material);
 			const aspect = shape.text.length > 1 ? 4 : 1;
-			sprite.scale.set(shape.size * 1.6 * aspect, shape.size * 1.6, 1);
-			sprite.position.set(shape.at[0], shape.at[1], 0.01);
-			layer.add(sprite);
-			glowables.push({ material, base: new THREE.Color(1, 1, 1) });
+			const plate = new THREE.PlaneGeometry(
+				shape.size * 1.6 * aspect,
+				shape.size * 1.6,
+			);
+			disposables.push(texture, material, plate);
+			const mesh = new THREE.Mesh(plate, material);
+			mesh.position.set(shape.at[0], shape.at[1], 0.002);
+			layer.add(mesh);
+			glowables.push({ material, base: color.clone() });
 			center = new THREE.Vector3(shape.at[0], shape.at[1], z);
 		}
 		const list = handles.get(item.pointer) ?? [];
@@ -313,7 +328,11 @@ function ticker(
 }
 
 /** SVG の文字をそのままテクスチャにする（ルーン文字のグリフフォントは別件・設計書 §2.1）。 */
-function glyph(text: string, color: THREE.Color): THREE.CanvasTexture {
+function glyph(
+	text: string,
+	color: THREE.Color,
+	colorSpace: THREE.ColorSpace = THREE.SRGBColorSpace,
+): THREE.CanvasTexture {
 	const wide = text.length > 1;
 	const canvas = document.createElement("canvas");
 	canvas.width = wide ? 512 : 128;
@@ -327,8 +346,6 @@ function glyph(text: string, color: THREE.Color): THREE.CanvasTexture {
 		context.fillText(text, canvas.width / 2, 70);
 	}
 	const texture = new THREE.CanvasTexture(canvas);
-	texture.colorSpace = THREE.SRGBColorSpace;
+	texture.colorSpace = colorSpace;
 	return texture;
 }
-
-export { EMBER };

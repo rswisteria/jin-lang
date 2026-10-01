@@ -32,8 +32,10 @@ window.addEventListener("message", (event) => {
   if (event.data.type === "stage.file") window.JIN_FILES.push({ name: event.data.name, mime: event.data.mime, bytes: Array.from(new Uint8Array(event.data.bytes)) });
   if (event.data.type === "stage.status") window.JIN_STATUS = event.data;
 });
+window.JIN_SCENE = { type: "stage.scene", svg: ${svg}, names: ${names}, fps: 60, jinName: "paddle.jin", circleName: "Play" };
+window.JIN_RESEND = () => frame.contentWindow.postMessage(window.JIN_SCENE, location.origin);
 frame.addEventListener("load", () => {
-  frame.contentWindow.postMessage({ type: "stage.scene", svg: ${svg}, names: ${names}, fps: 60, jinName: "paddle.jin", circleName: "Play" }, location.origin);
+  frame.contentWindow.postMessage(window.JIN_SCENE, location.origin);
   frame.contentWindow.postMessage({ type: "stage.trace", rows: ${rows}, seed: 7 }, location.origin);
 });
 </script></body></html>`;

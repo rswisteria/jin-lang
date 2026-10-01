@@ -8,10 +8,15 @@ import { type LayerIndex, layerHeight } from "../layers";
 import {
 	arcPoint,
 	crackTilt,
+	igniteLight,
 	layerOffset,
 	layerSpin,
+	pillarHeight,
+	rippleRadius,
 	type Vec3,
 } from "../motion";
+import type { Vec2 } from "../scene";
+import type { Ripple } from "./floor";
 import { circleOf, nearestInScene } from "../names";
 import { GEMS, gemColorAt } from "../palette";
 import { type BurstPlace, collect } from "../particles";
@@ -76,6 +81,17 @@ export class GlowView {
 	>[];
 	private readonly ghostGeometry = new THREE.TorusGeometry(1, 0.05, 6, 64);
 	private readonly scratch = new THREE.Color();
+	/** 床の波紋（`apply` が毎回作り直す・`Floor.setRipples` へ渡す）。 */
+	ripples: readonly Ripple[] = [];
+	/** 光の柱（`crown`）。無ければ null。 */
+	pillar: {
+		readonly at: Vec2;
+		readonly base: number;
+		readonly height: number;
+		readonly alpha: number;
+	} | null = null;
+	/** 灯った宝玉の強さの和（ゴッドレイの濃さ）。 */
+	rays = 0;
 
 	constructor(private readonly model: GildedModel) {
 		this.beamGeometry.setPositions(this.beamPositions);
@@ -211,14 +227,21 @@ export class GlowView {
 					: glow.intensity;
 			if (whole) {
 				const scale = glow.effect === "fade" ? 0.5 : 1;
+				/** ignite は層ごとに光が走る（陣全体を同時に灯さない）。ほかの陣全体の演出は一様。 */
+				const at = (layer: LayerIndex): number =>
+					glow.effect === "ignite" ? igniteLight(glow.progress, layer) : 1;
 				for (const [pointer, list] of this.model.handles)
 					if (pointer === glow.target || pointer.startsWith(`${glow.target}/`))
-						for (const h of list) raiseMetal(h, level * scale, tint);
+						for (const h of list)
+							raiseMetal(h, level * scale * at(h.item.layer), tint);
 				for (const [pointer, gem] of this.model.gems)
 					if (pointer.startsWith(`${glow.target}/`))
 						raiseGem(
 							gem,
-							level * scale * (glow.effect === "crack" ? 0 : 1),
+							level *
+								scale *
+								at(gem.anchor.layer) *
+								(glow.effect === "crack" ? 0 : 1),
 							MIRROR_KINDS.has(gem.anchor.kind) ? color : GEMS[gem.gem].color,
 						);
 				const circle = circleOf(glow.target) ?? glow.target;
@@ -258,6 +281,7 @@ export class GlowView {
 		this.lightGems(gems, dark);
 		this.drawBeams(glows, pointers, seconds);
 		this.drawGhosts(glows, pointers);
+		this.floorAndPillar(glows, pointers, seconds);
 		this.particles.set(
 			collect(
 				glows,
@@ -336,10 +360,65 @@ export class GlowView {
 		}
 	}
 
+	/**
+	 * 床の波紋（cast の共鳴は宝玉の色・warn は陣の外周まで広がるルビーの環）と光の柱（crown）。
+	 * 位置は端点と同じ変換を通した値の xy。
+	 */
+	private floorAndPillar(
+		glows: readonly Glow[],
+		pointers: ReadonlySet<string>,
+		seconds: number,
+	): void {
+		const ripples: Ripple[] = [];
+		let pillar: GlowView["pillar"] = null;
+		for (const glow of glows) {
+			if (glow.effect === "beam") {
+				const target = nearestInScene(pointers, glow.target);
+				const at = target === null ? null : this.endpointOf(target);
+				if (target === null || at === null) continue;
+				const unit = this.model.handles.get(target)?.[0]?.item.unit ?? 1;
+				ripples.push({
+					at: [at.x, at.y],
+					radius: rippleRadius(glow.progress) * unit,
+					color: gemColorAt(glow.gem, seconds, glow.seq),
+					alpha: glow.intensity * (1 - glow.progress) * 0.6,
+				});
+			} else if (glow.effect === "warn") {
+				const circle = circleOf(glow.target) ?? glow.target;
+				const ring = this.model.handles.get(circle)?.[0]?.item.shape;
+				const pivot = this.model.pivots.get(circle) ?? [0, 0];
+				const outer = ring?.type === "ring" ? ring.radius : 0.95;
+				ripples.push({
+					at: pivot,
+					radius: outer * 1.1 * glow.progress,
+					color: GEMS.ruby.color,
+					alpha: glow.intensity * (1 - glow.progress),
+				});
+			} else if (glow.effect === "crown" && pillar === null) {
+				const circle = circleOf(glow.target) ?? glow.target;
+				const core =
+					this.endpointOf(`${circle}/core`) ?? this.endpointOf(circle);
+				if (core === null) continue;
+				const unit = this.model.circles.get(circle)?.unit ?? 1;
+				pillar = {
+					at: [core.x, core.y],
+					base: core.z,
+					height: pillarHeight(glow.progress) * unit,
+					alpha: glow.intensity * (1 - glow.progress * 0.7),
+				};
+			}
+		}
+		this.ripples = ripples;
+		this.pillar = pillar;
+	}
+
 	private lightGems(
 		gems: ReadonlyMap<GemHandle, Level>,
 		dark: ReadonlyMap<GemHandle, number>,
 	): void {
+		let rays = 0;
+		for (const level of gems.values()) rays += level.level;
+		this.rays = rays;
 		for (const gem of this.model.gems.values()) {
 			const state = gems.get(gem);
 			const level = state?.level ?? 0;
