@@ -5,7 +5,8 @@ import type { ScreenFrame } from "./frames";
  * 書き出しの音（仕様書 docs/superpowers/specs/2026-10-01-jin-stage-summon-design.md §3.1）。`frame` 行の `audio` の
  * `tone(hz, ms)` を、プレイヤー（`apps/player/src/audio.ts`）と同じ矩形波・音量 0.08 で合成する。three を import しない純関数。
  *
- * プレイヤーとの差は頭と終わりの `FADE_SECONDS` の線形フェードだけ（書き出しの雑音を消す。トレースと決定性には影響しない）。
+ * プレイヤーとの差は頭と終わりの `FADE_SECONDS` の線形フェードだけ（書き出しの雑音を消す。範囲の終わりで切れる音は切れる位置で
+ * フェードアウトする。トレースと決定性には影響しない）。
  * `play(name)` は素材が届かないので鳴らさない。
  */
 export const SAMPLE_RATE = 48000;
@@ -44,7 +45,11 @@ export function toneEvents(
 			if (end <= 0 || start >= total) continue;
 			const head = Math.max(0, start);
 			// 頭を切らないときは長さを ms / 1000 のまま（end − start は浮動小数の誤差を持つ）。
-			events.push({ startSeconds: head, hz, seconds: start >= 0 ? ms / 1000 : end });
+			events.push({
+				startSeconds: head,
+				hz,
+				seconds: start >= 0 ? ms / 1000 : end,
+			});
 		}
 	}
 	return events;
@@ -58,17 +63,21 @@ export function synthesize(
 	const pcm = new Float32Array(Math.round(videoSeconds(range) * SAMPLE_RATE));
 	for (const { startSeconds, hz, seconds } of toneEvents(frames, range)) {
 		const first = Math.round(startSeconds * SAMPLE_RATE);
-		const count = Math.round(seconds * SAMPLE_RATE);
+		// 範囲の終わりで切れる音は、切れる位置を終わりとしてフェードアウトする（ぶつ切りの雑音を出さない）。
+		const count = Math.min(
+			Math.round(seconds * SAMPLE_RATE),
+			pcm.length - first,
+		);
+		const heard = count / SAMPLE_RATE;
 		for (let k = 0; k < count; k++) {
 			const i = first + k;
-			if (i >= pcm.length) break;
 			const tau = k / SAMPLE_RATE;
 			// 矩形波（周期の前半 +・後半 −）。sin の符号だと、ちょうど半周期の位置で 0 になる。
 			const square = (hz * tau) % 1 < 0.5 ? 1 : -1;
 			const fade = Math.min(
 				1,
 				tau / FADE_SECONDS,
-				(seconds - tau) / FADE_SECONDS,
+				(Math.min(seconds, heard) - tau) / FADE_SECONDS,
 			);
 			pcm[i] = (pcm[i] ?? 0) + square * TONE_GAIN * Math.max(0, fade);
 		}

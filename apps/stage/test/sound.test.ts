@@ -84,6 +84,17 @@ describe("PCM の合成", () => {
 		expect(pcm.length).toBe(expectedLength(range()));
 	});
 
+	test("範囲の終わりで切れる音も、切れる位置でフェードアウトする（ぶつ切りの雑音を出さない）", () => {
+		const pcm = synthesize([frame(59, [["tone", 440, 1000]])], range());
+		const last = pcm.length - 1;
+		expect(Math.abs(pcm[last] ?? 0)).toBeLessThan(TONE_GAIN * 0.01);
+		const halfFade = Math.round((FADE_SECONDS / 2) * SAMPLE_RATE);
+		expect(Math.abs(pcm[last - halfFade] ?? 0)).toBeLessThan(TONE_GAIN * 0.6);
+		// フェードより前は振幅のまま。
+		const before = last - Math.round(2 * FADE_SECONDS * SAMPLE_RATE);
+		expect(Math.abs(pcm[before] ?? 0)).toBeCloseTo(TONE_GAIN, 6);
+	});
+
 	test("矩形波の振幅は TONE_GAIN、頭の 1 サンプル目はフェードで 0", () => {
 		const pcm = synthesize([frame(30, [["tone", 440, 100]])], range());
 		const start = Math.round(1 * SAMPLE_RATE);
