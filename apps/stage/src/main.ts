@@ -3,7 +3,11 @@ import { chooseCodec } from "./codec";
 import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
 import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
-import { canEncode, createEncoder } from "./mediabunnyEncoder";
+import {
+	canEncode,
+	canEncodeAudioTrack,
+	createEncoder,
+} from "./mediabunnyEncoder";
 import {
 	fileMessage,
 	type Inbound,
@@ -41,7 +45,12 @@ const renderer = new StageRenderer(canvas);
 // e2e の口（GPU の資源が送り直しで増えないことを見る）。window に生やすのは main.ts だけ。
 (window as unknown as { __jinStage: { memory(): unknown } }).__jinStage = {
 	memory: () => renderer.memory(),
-};
+	// 音声のコーデックの可否（probe §G・e2e の口）。
+	audioCodecs: async () => ({
+		aac: await canEncodeAudioTrack("aac"),
+		opus: await canEncodeAudioTrack("opus"),
+	}),
+} as { memory(): unknown };
 const play = element<HTMLButtonElement>("play");
 const scrub = element<HTMLInputElement>("scrub");
 const tickOut = element<HTMLOutputElement>("tick");

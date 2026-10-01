@@ -1,6 +1,7 @@
 import {
 	BufferTarget,
 	CanvasSource,
+	canEncodeAudio,
 	canEncodeVideo,
 	Mp4OutputFormat,
 	Output,
@@ -23,6 +24,12 @@ export function canEncode(
 ): Promise<boolean> {
 	if (typeof VideoEncoder === "undefined") return Promise.resolve(false);
 	return canEncodeVideo(codec, { width, height, quality: new Quality("high") });
+}
+
+/** 書き出しの音声（48kHz・モノラル・仕様書 2026-10-01 summon §3）を `codec` でエンコードできるか。WebCodecs が無ければ false。 */
+export function canEncodeAudioTrack(codec: "aac" | "opus"): Promise<boolean> {
+	if (typeof AudioEncoder === "undefined") return Promise.resolve(false);
+	return canEncodeAudio(codec, { numberOfChannels: 1, sampleRate: 48000 });
 }
 
 export async function createEncoder(

@@ -778,3 +778,19 @@ vp9 に分岐する」の判断も不要だった（§C）。
 | 自前のパス | `three/addons/postprocessing/ShaderPass.js` の `ShaderPass` | `{ uniforms, vertexShader, fragmentShader }` を受け、`pass.uniforms[name].value` を書き換える。入力のテクスチャは `tDiffuse` |
 | 宝石の分散 | `THREE.MeshPhysicalMaterial` | `dispersion`（r163 以降）・`transmission`・`ior`・`thickness`・`attenuationColor`・`clearcoat` を受ける |
 | 大量の粒子 | `THREE.InstancedMesh` | `setMatrixAt` / `setColorAt`（初回で `instanceColor` が作られる）/ `count` で描く数を絞る（確保した数以下） |
+
+## G. 音声トラック（Mediabunny 1.57.0・仕様書 2026-10-01-jin-stage-summon §3.3）
+
+証拠は `apps/stage/test/audioApi.test.ts`（部品の形・jsdom）と `apps/stage/e2e/audioProbe.spec.ts`（ブラウザでの可否）。
+
+| 部品 | 実測 |
+|---|---|
+| `AudioSample` | `new AudioSample({ data, format: "f32", numberOfChannels, sampleRate, timestamp })`。`timestamp` と `duration` は**秒**、`numberOfFrames` はサンプル数。`close()` で解放 |
+| `AudioSampleSource` | `new AudioSampleSource({ codec, quality })`（`AudioEncodingConfig`。`bitrate` は非推奨で `quality: new Quality(…)`）。`add(sample): Promise<void>` を await して背圧に従う |
+| `Output.addAudioTrack(source, metadata?)` | 映像の `addVideoTrack` と同じく `start()` の前に足す |
+| `canEncodeAudio(codec, { numberOfChannels, sampleRate })` | Playwright 同梱 Chromium（ヘッドレス・WSL2）で 48kHz・モノラル: **`aac` = false / `opus` = true** |
+| 入れ物と音声のコーデック | `Mp4OutputFormat` は PCM 以外の音声コーデックをすべて受ける（`opus` も可・`output-format.js` の `getSupportedCodecs`）。`WebMOutputFormat` は `opus` / `vorbis` |
+
+**決めたこと**: 音声のコーデックは MP4 なら `aac` → 使えなければ `opus`、WebM なら `opus`。どちらも使えなければ無音（仕様書 §3.3 の
+「MP4 は AAC」からの変更。同梱 Chromium は AAC を持たず、映像は MP4（H.264）になるので、AAC だけだと e2e と手元の書き出しが常に無音になる）。
+Opus 入りの MP4 は Chrome / Firefox で再生できるが、Safari / QuickTime は再生できないことがある。
