@@ -369,6 +369,7 @@ test("tetris の場面で、召喚の窓にゲーム画面が映る（stageSize 
 test("召喚の窓のある場面でも、stage.scene を送り直して GPU の資源が増え続けない", async ({
 	page,
 }) => {
+	test.setTimeout(300_000);
 	const tetris = await serveHarness(TETRIS);
 	await page.goto(tetris.url);
 	const stage = page.frameLocator("#stage");
@@ -405,7 +406,8 @@ test("召喚の窓のある場面でも、stage.scene を送り直して GPU の
 	await resend();
 	const first = await memory();
 	expect(first.textures).toBeGreaterThan(0);
-	for (let k = 0; k < 5; k++) await resend();
+	// 3 回で足りる（解放しなければ送り直すたびにテクスチャが 1 つ増える）。窓を毎回描かせるので、ソフトウェア描画の CI では 1 回が重い。
+	for (let k = 0; k < 3; k++) await resend();
 	const last = await memory();
 	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
 	expect(last.textures).toBeLessThanOrEqual(first.textures);

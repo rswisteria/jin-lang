@@ -348,7 +348,7 @@ jobs:
   # Python は使わない（fixture とレンダラの突合は test ジョブの tests/contract/test_stage_contract.py が見る）。
   stage:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     env:
       # 動画の往復を「コーデックが無い」で黙って飛ばさない（apps/stage/e2e/stage.spec.ts）。
       JIN_REQUIRE_CODEC: "1"
