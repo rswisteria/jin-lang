@@ -3,6 +3,7 @@ import { chooseCodec } from "./codec";
 import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
 import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
+import { drawOps, type Op } from "./screen/draw";
 import {
 	canEncode,
 	canEncodeAudioTrack,
@@ -45,6 +46,16 @@ const renderer = new StageRenderer(canvas);
 // e2e の口（GPU の資源が送り直しで増えないことを見る）。window に生やすのは main.ts だけ。
 (window as unknown as { __jinStage: { memory(): unknown } }).__jinStage = {
 	memory: () => renderer.memory(),
+	// 召喚の窓の描画の写し（screen/draw.ts）で表示リストを描いた PNG（プレイヤーと同じ正解と画素一致を見る e2e の口）。
+	renderOps: (ops: readonly Op[], width: number, height: number): string => {
+		const surface = document.createElement("canvas");
+		surface.width = width;
+		surface.height = height;
+		const context = surface.getContext("2d");
+		if (context === null) throw new Error("2D の描画面が取れません");
+		drawOps(context, ops, width, height);
+		return surface.toDataURL("image/png");
+	},
 	// 音声のコーデックの可否（probe §G・e2e の口）。
 	audioCodecs: async () => ({
 		aac: await canEncodeAudioTrack("aac"),

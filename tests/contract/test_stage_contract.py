@@ -233,6 +233,22 @@ def test_the_stage_ascii_font_is_a_byte_copy_of_the_player() -> None:
     assert (SCREEN / "font.ts").read_bytes() == (PLAYER_SRC / "font.ts").read_bytes()
 
 
+def test_the_stage_draws_the_drawable_ops_of_the_abilities() -> None:
+    """`screen/draw.ts` の命令の集合 = abilities.json の canvas の全メンバ + ui の描く命令（鑑賞ページは abilities.json を読まない）。"""
+    abilities = json.loads((REPO_ROOT / "schemas" / "abilities.json").read_text(encoding="utf-8"))
+    members = {
+        namespace["name"]: {member["name"] for member in namespace["members"]}
+        for namespace in abilities["namespaces"]
+    }
+    body = re.search(
+        r"export const DRAWABLE_OPS[^=]*=\s*\[(.*?)\];",
+        (SCREEN / "draw.ts").read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    assert body is not None
+    assert set(re.findall(r'"(\w+)"', body.group(1))) == members["canvas"] | members["ui"]
+
+
 def test_ci_diffs_the_stage_glyphs() -> None:
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     stage_job = _ci_job(ci, "stage")
