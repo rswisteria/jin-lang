@@ -6,7 +6,9 @@ import { describe, expect, test } from "vitest";
 import type { TraceRow } from "../src/names";
 import { framesOf, type ScreenFrame } from "../src/screen/frames";
 import {
+	CATCHUP_SECONDS,
 	FADE_SECONDS,
+	previewTones,
 	SAMPLE_RATE,
 	synthesize,
 	TONE_GAIN,
@@ -133,5 +135,41 @@ describe("PCM の合成", () => {
 		expect(
 			toneEvents(framesOf(rows), range({ endTick: 120 })).length,
 		).toBeGreaterThanOrEqual(3);
+	});
+});
+
+describe("プレビューで鳴らす音（仕様書 2026-10-01-jin-stage-summon §3.2）", () => {
+	const tones = [
+		frame(3, [["tone", 330, 80]]),
+		frame(5, [["tone", 440, 50]]),
+		frame(9, [["tone", 550, 40], ["play", "boom"]]),
+	];
+
+	test("前回の tick の次から今の tick までのコマの tone を鳴らす", () => {
+		expect(previewTones(tones, 2, 5, 60)).toEqual([
+			{ hz: 330, seconds: 0.08 },
+			{ hz: 440, seconds: 0.05 },
+		]);
+	});
+
+	test("描画が遅く 1 回で 4 tick を超えて進んでも、間の tick の音を落とさない", () => {
+		expect(previewTones(tones, 0, 10, 60).map((t) => t.hz)).toEqual([
+			330, 440, 550,
+		]);
+	});
+
+	test("進んでいない・巻き戻った・前回が無いときは鳴らさない", () => {
+		expect(previewTones(tones, 5, 5, 60)).toEqual([]);
+		expect(previewTones(tones, 9, 2, 60)).toEqual([]);
+		expect(previewTones(tones, Number.NaN, 5, 60)).toEqual([]);
+	});
+
+	test("CATCHUP_SECONDS を超えて空いた（タブから戻った）ときは溜まった音を一度に鳴らさない", () => {
+		const fps = 60;
+		const limit = Math.floor(CATCHUP_SECONDS * fps);
+		const far = [frame(limit, [["tone", 440, 50]])];
+		expect(previewTones(far, 0, limit, fps)).toHaveLength(1);
+		const farther = [frame(limit + 1, [["tone", 440, 50]])];
+		expect(previewTones(farther, 0, limit + 1, fps)).toEqual([]);
 	});
 });
