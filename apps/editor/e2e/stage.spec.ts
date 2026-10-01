@@ -35,6 +35,9 @@ test.afterEach(async () => {
 test("録画を再生して鑑賞モードへ → 行数が jin run --input と一致し、陣が準備完了", async ({
 	page,
 }) => {
+	// 鑑賞ページの 3D は CI の GPU なしの描画で重く、描いている間は入力も待たされる。CI で 43 秒かかり、
+	// 遅い実行環境で既定の 60 秒を超えたので、このテストだけ延ばす（鑑賞ページ自身の e2e と同じ扱い）。
+	test.setTimeout(180_000);
 	await page.goto(editor.url);
 	await expect(page.getByTestId("jin-status")).toHaveAttribute(
 		"data-state",
