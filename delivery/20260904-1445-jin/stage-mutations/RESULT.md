@@ -25,7 +25,15 @@
 | `EXPORTER-delivers-after-finish` | `apps/stage/src/exporter.ts` | `finish()` の後の `signal.aborted` の確認を外す（最終レビュー #3: 仕上げの最中の中止でもファイルを渡す） | KILLED | `test/exporter.test.ts` > 仕上げ（finish）の最中に中止したら、仕上がっても null（何も渡さない） |
 | `EDITOR-stage-escapes` | `packages/jin-cli/src/jin_cli/editor.py` | `/stage/` だけ `super().translate_path` の正規化を通さず `str(mount) + "/" + rest` を返す（`/play/` は元のまま） | KILLED | `packages/jin-cli/tests/test_editor.py::test_the_stage_is_served_under_stage_and_cannot_escape`（`-k stage` で選んだテストだけで赤） |
 
-**13/13 mutations killed**（最終レビューの修正で 3 件を足した。2026-09-17 に全件を回し直した）
+| `PALETTE-swaps-canvas-and-input` | `apps/stage/src/palette.ts` | 力の宝玉の表の `canvas` と `input` を入れ替える | KILLED | `test/palette.test.ts` > cast は名前空間の宝玉 / 種別ごとの宝玉、`test/effects.test.ts` > cast canvas.rect の発火はサファイア |
+| `PARTICLES-reads-math-random` | `apps/stage/src/particles.ts` | `mulberry32(glow.seq)` → `Math.random`（粒子の散り方が実時間の乱数を読む） | KILLED | `tests/contract/test_stage_contract.py::test_the_picture_does_not_read_the_clock_or_math_random` |
+| `PALETTE-throws-without-fields` | `apps/stage/src/palette.ts` | `circle?.sigilKinds?.[…]` → 欄が有る前提で引く（古いエディタの表で例外） | KILLED | `test/palette.test.ts` > 欄の無い古い表でも例外を投げず金、`test/effects.test.ts` > paddle の 90 tick |
+| `GLOW-endpoints-ignore-layer-spin` | `apps/stage/src/render/glowView.ts` | 端点の変換で層の行列（自転・浮き沈み）を通さない | KILLED | `test/gilded.test.ts` > 層の自転で光線の端点も同じ角だけ陣の中心まわりに回る |
+
+**17/17 mutations killed**（最終レビューの修正で 3 件、宝玉と金細工の世界観（設計書 2026-10-01 §9.4）で 4 件を足した）
+
+2026-10-01（WSL2・隔離コピー上）に全件を回し直した。ベースライン: pytest 56 passed / 3 deselected、`apps/stage` の `pnpm test` 151 passed、`apps/editor` の `pnpm test` 124 passed。
+外したのは `test_the_svg_fixture_is_what_the_renderer_draws_today` の 3 件（parametrize で paddle の陣・手順の図・tetris に広げた）。
 
 ## 計画からの変更
 
