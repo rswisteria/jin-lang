@@ -107,6 +107,11 @@ export class StageRenderer {
 				(material.userData["baseWidth"] ??= material.linewidth) *
 				(this.height / LINE_REFERENCE_HEIGHT);
 		}
+		// 粒子の大きさ（世界の単位）→ デバイス px: 描画の高さ / (2 tan(縦の半視野))。
+		this.view?.setPointScale(
+			(this.height * pixelRatio) /
+				(2 * Math.tan(((this.camera.fov / 2) * Math.PI) / 180)),
+		);
 	}
 
 	draw(frame: StageFrame): void {

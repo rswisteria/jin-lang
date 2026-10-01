@@ -1,8 +1,12 @@
 import * as THREE from "three";
 import { describe, expect, test } from "vitest";
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { Glow } from "../src/effects";
 import { layerHeight } from "../src/layers";
+import { layerOffset, layerSpin, rotateAbout } from "../src/motion";
 import type { StageNames } from "../src/names";
 import { GEMS, METALS } from "../src/palette";
 import { buildGilded, NO_CIRCLE } from "../src/render/gilded";
@@ -76,18 +80,22 @@ describe("陣全体の演出（設計書 §2.3）", () => {
 		...fields,
 	});
 
-	test("ignite は光った陣の層だけを、その陣の単位で浮かせる", () => {
+	test("ignite は光った陣の層だけを、沈んだ位置からその陣の単位で上げる（仕様書 2026-10-01 §5.1）", () => {
 		const model = buildGilded(scene);
 		const view = new GlowView(model);
-		view.apply([glow({})], 30, 60, scene.pointers);
+		view.apply([glow({ progress: 0.5 })], 0, 60, scene.pointers);
 		expect(heights(model, "/circles/0")).toEqual([
 			-0.32, 0, 0.07, 0.14, 0.21, 0.28,
 		]);
 		const nested = heights(model, "/circles/1");
-		// 層 i の浮き = 強さ × 0.05 × i × min(1, 進み × 3) × 単位
-		expect(nested[5]).toBeCloseTo((0.28 + 1 * 0.05 * 5 * 1) * 0.28, 12);
+		// 層の高さ = (層の値 + layerOffset) × 単位
+		expect(nested[5]).toBeCloseTo(
+			(0.28 + layerOffset("ignite", 0.5, 5)) * 0.28,
+			12,
+		);
+		expect(nested[5]).toBeLessThan(0.28 * 0.28);
 		// 時刻の関数: 光が無ければ元の高さに戻る
-		view.apply([], 30, 60, scene.pointers);
+		view.apply([], 0, 60, scene.pointers);
 		expect(heights(model, "/circles/1")[5]).toBeCloseTo(0.28 * 0.28, 12);
 		view.dispose();
 		model.dispose();
@@ -173,6 +181,83 @@ describe("宝玉と地金（仕様書 2026-10-01 §2.3 / §3）", () => {
 		expect(model.pivots.get("/circles/0")).toEqual(ring("/circles/0"));
 		expect(model.pivots.get("/circles/1")).toEqual(ring("/circles/1"));
 		expect(model.pivots.get(NO_CIRCLE)).toEqual([0, 0]);
+		model.dispose();
+	});
+});
+
+describe("宝玉の色の光と層の自転（仕様書 2026-10-01 §5）", () => {
+	const play = parseScene(
+		readFileSync(join(__dirname, "fixtures", "play.svg"), "utf8"),
+	);
+	const names: StageNames = {
+		Game: {
+			pointer: "/circles/0",
+			sigils: {},
+			state: {},
+			delegates: {},
+			isRoot: true,
+		},
+		Play: {
+			pointer: "/circles/1",
+			sigils: {
+				canvas: "/circles/1/sigils/0",
+				input: "/circles/1/sigils/1",
+				audio: "/circles/1/sigils/2",
+			},
+			state: {},
+			delegates: {},
+			sigilKinds: { canvas: "canvas", input: "input", audio: "audio" },
+		},
+	};
+	const beam = (fields: Partial<Glow>): Glow => ({
+		seq: 5,
+		target: "/circles/1/sigils/0",
+		source: "/circles/1/rites/2",
+		effect: "beam",
+		gem: "sapphire",
+		intensity: 1,
+		progress: 0.3,
+		...fields,
+	});
+
+	test("cast canvas.* でサファイアの宝玉が灯り、核の宝玉がその色に染まる", () => {
+		const model = buildGilded(play, names);
+		const view = new GlowView(model);
+		view.apply([beam({})], 0, 60, play.pointers);
+		const sigil = model.gems.get("/circles/1/sigils/0");
+		expect(sigil?.material.emissiveIntensity).toBeGreaterThan(0.5);
+		expect(sigil?.glow.material.opacity).toBeGreaterThan(0.5);
+		const core = model.gems.get("/circles/1/core");
+		expect(core?.material.emissive.getHex()).toBe(
+			new THREE.Color(GEMS.sapphire.color).getHex(),
+		);
+		expect(core?.material.emissiveIntensity).toBeGreaterThan(0);
+		view.apply([], 0, 60, play.pointers);
+		expect(
+			model.gems.get("/circles/1/sigils/0")?.material.emissiveIntensity,
+		).toBe(0);
+		view.dispose();
+		model.dispose();
+	});
+
+	test("層の自転で光線の端点も同じ角だけ陣の中心まわりに回る", () => {
+		const model = buildGilded(play, names);
+		const view = new GlowView(model);
+		const seconds = 7;
+		view.apply([], seconds * 60, 60, play.pointers);
+		const rite = model.handles.get("/circles/1/rites/2")?.[0];
+		const pivot = model.pivots.get("/circles/1");
+		expect(rite?.item.layer).toBe(4);
+		const shape = rite?.item.shape;
+		const center = shape?.type === "ring" ? shape.center : null;
+		expect(center).not.toBeNull();
+		if (center === null || pivot === undefined || rite === undefined) return;
+		const [x, y] = rotateAbout(center, pivot, layerSpin(4, seconds));
+		const end = view.endpointOf("/circles/1/rites/2");
+		expect(end?.x).toBeCloseTo(x, 9);
+		expect(end?.y).toBeCloseTo(y, 9);
+		expect(end?.z).toBeCloseTo(layerHeight(4, rite.item.unit), 9);
+		view.dispose();
 		model.dispose();
 	});
 });
