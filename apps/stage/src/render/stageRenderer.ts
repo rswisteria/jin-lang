@@ -183,7 +183,7 @@ export class StageRenderer {
 				seconds,
 			);
 		this.armillary.set(seconds);
-		this.summon.update(frame.screen, frame.window, this.camera, seconds);
+		this.summon.update(frame.screen, frame.window, this.camera);
 		const core = CORE_WORLD.clone().project(this.camera);
 		this.post.update({
 			seconds,

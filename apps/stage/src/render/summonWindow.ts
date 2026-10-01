@@ -188,9 +188,7 @@ export class SummonWindow {
 		frame: ScreenFrame | null,
 		state: WindowState,
 		camera: THREE.Camera,
-		seconds: number,
 	): void {
-		void seconds;
 		const size = this.size;
 		const open = this.openness(state);
 		this.object.visible = size !== null && open > 0 && frame !== null;
