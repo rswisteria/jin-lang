@@ -35,13 +35,41 @@ interface StageStatusView {
 	readonly error: string | null;
 }
 
-export function stageFps(model: Readonly<Record<string, unknown>> | null): number {
+export function stageFps(
+	model: Readonly<Record<string, unknown>> | null,
+): number {
 	const stage = model?.["stage"];
-	const fps = stage !== null && typeof stage === "object" ? (stage as { fps?: unknown }).fps : undefined;
+	const fps =
+		stage !== null && typeof stage === "object"
+			? (stage as { fps?: unknown }).fps
+			: undefined;
 	return typeof fps === "number" && fps > 0 ? fps : 60;
 }
 
-export function rootCircleName(model: Readonly<Record<string, unknown>> | null, focus: string | null): string {
+/**
+ * 舞台の大きさ（論理解像度）。召喚の窓の縦横比と画面の描画に使う（仕様書 2026-10-01-jin-stage-summon §2.1）。
+ * 無い・数でない・0 以下なら null（鑑賞ページは窓を出さない）。
+ */
+export function stageSizeOf(
+	model: Readonly<Record<string, unknown>> | null,
+): { readonly width: number; readonly height: number } | null {
+	const stage = model?.["stage"];
+	if (stage === null || typeof stage !== "object") return null;
+	const { width, height } = stage as { width?: unknown; height?: unknown };
+	if (
+		typeof width !== "number" ||
+		typeof height !== "number" ||
+		!(width > 0) ||
+		!(height > 0)
+	)
+		return null;
+	return { width, height };
+}
+
+export function rootCircleName(
+	model: Readonly<Record<string, unknown>> | null,
+	focus: string | null,
+): string {
 	if (focus !== null) return focus.split("/")[0] ?? "";
 	const root = model?.["root"];
 	return typeof root === "string" ? root : "";
@@ -54,7 +82,10 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 	// 最後に送った内容。走らせている間は 1 秒ごと・スクラブのたびに描き直されるが、中身が同じなら送らない
 	// （鑑賞ページは scene で形を作り直し、trace で位置を収め直すので、同じものを送ると無駄に重い）。
 	const lastScene = useRef<string | null>(null);
-	const lastTrace = useRef<{ readonly rows: readonly TraceRow[]; readonly seed: number | null } | null>(null);
+	const lastTrace = useRef<{
+		readonly rows: readonly TraceRow[];
+		readonly seed: number | null;
+	} | null>(null);
 	const [missing, setMissing] = useState<string | null>(null);
 	const [status, setStatus] = useState<StageStatusView | null>(null);
 
@@ -63,7 +94,9 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 		void fetch(`${STAGE_PATH}index.html`, { method: "HEAD" })
 			.then((response) => {
 				if (!cancelled && !response.ok) {
-					setMissing("鑑賞ページが見つかりません（apps/stage で pnpm build するか、jin editor --stage-dist で場所を指定してください）");
+					setMissing(
+						"鑑賞ページが見つかりません（apps/stage で pnpm build するか、jin editor --stage-dist で場所を指定してください）",
+					);
 				}
 			})
 			.catch(() => {
@@ -74,21 +107,50 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 		};
 	}, []);
 
-	const post = useCallback((message: Readonly<Record<string, unknown>>): void => {
-		frame.current?.contentWindow?.postMessage(message, window.location.origin);
-	}, []);
+	const post = useCallback(
+		(message: Readonly<Record<string, unknown>>): void => {
+			frame.current?.contentWindow?.postMessage(
+				message,
+				window.location.origin,
+			);
+		},
+		[],
+	);
 
-	const names = useMemo(() => (props.model === null ? {} : buildStageNames(props.model)), [props.model]);
+	const names = useMemo(
+		() => (props.model === null ? {} : buildStageNames(props.model)),
+		[props.model],
+	);
 	const fps = stageFps(props.model);
+	const size = stageSizeOf(props.model);
+	const sizeKey =
+		size === null ? "" : `${String(size.width)}x${String(size.height)}`;
 	const { svg, fileName, circleName, rows, seed } = props;
 
 	useEffect(() => {
 		if (loads === 0 || svg === null) return;
-		const key = JSON.stringify([svg, fps, fileName, circleName, names]);
+		const key = JSON.stringify([
+			svg,
+			fps,
+			fileName,
+			circleName,
+			names,
+			sizeKey,
+		]);
 		if (key === lastScene.current) return;
 		lastScene.current = key;
-		post({ type: "stage.scene", svg, names, fps, jinName: fileName, circleName });
-	}, [loads, svg, names, fps, fileName, circleName, post]);
+		const [width, height] = sizeKey.split("x").map(Number);
+		const stageSize = sizeKey === "" ? null : { width, height };
+		post({
+			type: "stage.scene",
+			svg,
+			names,
+			fps,
+			jinName: fileName,
+			circleName,
+			stageSize,
+		});
+	}, [loads, svg, names, fps, fileName, circleName, sizeKey, post]);
 
 	useEffect(() => {
 		if (loads === 0) return;
@@ -107,7 +169,12 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 				setStatus(data as unknown as StageStatusView);
 			} else if (data["type"] === "stage.file") {
 				const { name, mime, bytes } = data;
-				if (typeof name === "string" && typeof mime === "string" && bytes instanceof ArrayBuffer) download(name, mime, bytes);
+				if (
+					typeof name === "string" &&
+					typeof mime === "string" &&
+					bytes instanceof ArrayBuffer
+				)
+					download(name, mime, bytes);
 			}
 		};
 		window.addEventListener("message", handler);
@@ -115,7 +182,11 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 	}, []);
 
 	return (
-		<section className="jin-stage-panel" data-testid="jin-stage-panel" hidden={props.hidden}>
+		<section
+			className="jin-stage-panel"
+			data-testid="jin-stage-panel"
+			hidden={props.hidden}
+		>
 			{missing === null ? null : (
 				<p className="jin-trace-error" data-testid="jin-stage-missing">
 					{missing}
@@ -124,10 +195,13 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 			<p className="jin-hint" data-testid="jin-stage-status">
 				{status === null
 					? "鑑賞ページを待っています"
-					: status.error ?? `トレース ${String(status.rows)} 行${status.exporting === null ? "" : `・書き出し中 ${String(status.exporting.done)} / ${String(status.exporting.total)}`}`}
+					: (status.error ??
+						`トレース ${String(status.rows)} 行${status.exporting === null ? "" : `・書き出し中 ${String(status.exporting.done)} / ${String(status.exporting.total)}`}`)}
 			</p>
 			{props.rows.length === 0 ? (
-				<p className="jin-hint">「実行」で録画（.jinrec）を再生すると、その詠唱で陣が発動します。</p>
+				<p className="jin-hint">
+					「実行」で録画（.jinrec）を再生すると、その詠唱で陣が発動します。
+				</p>
 			) : null}
 			<iframe
 				ref={frame}

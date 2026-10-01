@@ -220,12 +220,12 @@
 
 | 語 | 向き | 欄 |
 |---|---|---|
-| `stage.scene` | 親 → stage | `svg`（string）/ `names`（名前の表）/ `fps` / `jinName` / `circleName` |
+| `stage.scene` | 親 → stage | `svg`（string）/ `names`（名前の表）/ `fps` / `jinName` / `circleName` / `stageSize`（`{width, height}` か null・召喚の窓の舞台の大きさ） |
 | `stage.trace` | 親 → stage | `rows`（トレース行の配列）/ `seed`（number か null） |
 | `stage.status` | stage → 親 | `ready` / `rows` / `codec`（`"avc"` / `"vp9"` / null）/ `exporting`（`{done,total}` か null）/ `error` |
 | `stage.file` | stage → 親 | `name` / `mime` / `bytes`（ArrayBuffer） |
 
-名前の表: `{ [陣名]: { pointer, sigils: {名前: pointer}, state: {名前: pointer}, delegates: {陣名: pointer} } }`。
+名前の表: `{ [陣名]: { pointer, sigils: {名前: pointer}, state: {名前: pointer}, delegates: {陣名: pointer}, sigilKinds: {sigil 名: 名前空間 / "summon" / "agent"}, stateTypes: {state 名: 型}, isRoot?: true } }`（`sigilKinds` / `stateTypes` / `isRoot` は宝玉と地金のため・古いエディタは送らない）。`stageSize` が無い・壊れていれば召喚の窓を出さない。
 
 `stage.trace` の `rows` は runtime.md §5 の行をそのまま載せる。`frame` 行の `circle` は null で、stage は名前の表を引かずに額縁（`/stage`）を鼓動（`pulse`・強さ 0.1）で灯す（§3.1）。
 
