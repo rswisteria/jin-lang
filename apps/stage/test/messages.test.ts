@@ -30,8 +30,40 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 				fps: 60,
 				jinName: "paddle.jin",
 				circleName: "Play",
+				stageSize: null,
 			},
 		});
+	});
+
+	test("stage.scene の stageSize（仕様書 2026-10-01-jin-stage-summon §2.1）: 正しければそのまま、壊れていれば null で場面は受ける", () => {
+		const scene = (stageSize: unknown) =>
+			parseInbound({
+				type: "stage.scene",
+				svg: "<svg/>",
+				names: {},
+				fps: 30,
+				jinName: "t.jin",
+				circleName: "Play",
+				stageSize,
+			});
+		const sizeOf = (stageSize: unknown) => {
+			const parsed = scene(stageSize);
+			return parsed?.type === "scene" ? parsed.value.stageSize : "rejected";
+		};
+		expect(sizeOf({ width: 176, height: 176 })).toEqual({
+			width: 176,
+			height: 176,
+		});
+		for (const broken of [
+			undefined,
+			null,
+			"x",
+			{ width: 0, height: 10 },
+			{ width: -1, height: 10 },
+			{ width: "1", height: 10 },
+			{ width: 10 },
+		])
+			expect(sizeOf(broken)).toBeNull();
 	});
 
 	test("stage.scene は宝玉の 3 欄（sigilKinds / stateTypes / isRoot）があってもそのまま受ける", () => {

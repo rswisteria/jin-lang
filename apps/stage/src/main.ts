@@ -3,7 +3,14 @@ import { chooseCodec } from "./codec";
 import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
 import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
-import { canEncode, createEncoder } from "./mediabunnyEncoder";
+import { drawOps, type Op } from "./screen/draw";
+import { frameAt, framesOf, type ScreenFrame, windowAt } from "./screen/frames";
+import { synthesize, TONE_GAIN } from "./screen/sound";
+import {
+	canEncode,
+	canEncodeAudioTrack,
+	createEncoder,
+} from "./mediabunnyEncoder";
 import {
 	fileMessage,
 	type Inbound,
@@ -39,12 +46,31 @@ const canvas = document.createElement("canvas");
 host.appendChild(canvas);
 const renderer = new StageRenderer(canvas);
 // e2e の口（GPU の資源が送り直しで増えないことを見る）。window に生やすのは main.ts だけ。
-(window as unknown as { __jinStage: { memory(): unknown; draws(): number } }).__jinStage = {
+(
+	window as unknown as { __jinStage: { memory(): unknown; draws(): number } }
+).__jinStage = {
 	memory: () => renderer.memory(),
+	summon: () => renderer.summonShown(),
 	// プレビューで描いた回数（隠れている間は増えない・e2e の口）。
 	draws: () => previewDraws,
-};
+	// 召喚の窓の描画の写し（screen/draw.ts）で表示リストを描いた PNG（プレイヤーと同じ正解と画素一致を見る e2e の口）。
+	renderOps: (ops: readonly Op[], width: number, height: number): string => {
+		const surface = document.createElement("canvas");
+		surface.width = width;
+		surface.height = height;
+		const context = surface.getContext("2d");
+		if (context === null) throw new Error("2D の描画面が取れません");
+		drawOps(context, ops, width, height);
+		return surface.toDataURL("image/png");
+	},
+	// 音声のコーデックの可否（probe §G・e2e の口）。
+	audioCodecs: async () => ({
+		aac: await canEncodeAudioTrack("aac"),
+		opus: await canEncodeAudioTrack("opus"),
+	}),
+} as { memory(): unknown; draws(): number };
 const play = element<HTMLButtonElement>("play");
+const mute = element<HTMLButtonElement>("mute");
 const scrub = element<HTMLInputElement>("scrub");
 const tickOut = element<HTMLOutputElement>("tick");
 const preset = element<HTMLSelectElement>("preset");
@@ -58,6 +84,8 @@ export const state = {
 	rows: [] as readonly TraceRow[],
 	seed: null as number | null,
 	firings: [] as readonly Firing[],
+	/** 召喚の窓のコマ（トレースの frame 行・screen/frames.ts）。 */
+	frames: [] as readonly ScreenFrame[],
 	tick: 0,
 	playing: false,
 	offset: NO_OFFSET as CameraOffset,
@@ -95,6 +123,7 @@ function report(patch: Partial<StageStatus>): void {
 function refire(): void {
 	state.firings =
 		state.scene === null ? [] : foldTrace(state.rows, state.scene.names);
+	state.frames = framesOf(state.rows);
 	const span = tickSpan(state.rows);
 	scrub.min = String(span.first);
 	scrub.max = String(span.last);
@@ -122,6 +151,14 @@ function drawAt(tick: number): void {
 		preset: preset.value as CameraPreset,
 		aspect: viewAspect(),
 		offset: state.offset,
+		screen: frameAt(state.frames, tick),
+		window: windowAt(
+			state.rows,
+			state.frames,
+			state.scene.names,
+			tick,
+			state.scene.fps,
+		),
 	});
 }
 
@@ -175,7 +212,11 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 function applyInbound(message: Inbound): void {
 	if (message.type === "scene") {
 		try {
-			renderer.setScene(parseScene(message.value.svg), message.value.names);
+			renderer.setScene(
+				parseScene(message.value.svg),
+				message.value.names,
+				message.value.stageSize,
+			);
 			state.scene = message.value;
 			refire();
 			report({ ready: true, error: null });
@@ -218,6 +259,13 @@ new ResizeObserver(() => {
 play.addEventListener("click", () => {
 	state.playing = !state.playing;
 	play.textContent = state.playing ? "一時停止" : "再生";
+	unlockAudio();
+	lastSoundTick = Math.floor(state.tick);
+});
+mute.addEventListener("click", () => {
+	muted = !muted;
+	mute.setAttribute("aria-pressed", String(muted));
+	mute.textContent = muted ? "音: 切" : "音: 入";
 });
 scrub.addEventListener("input", () => {
 	state.tick = Number(scrub.value);
@@ -236,6 +284,52 @@ const exportPng = element<HTMLButtonElement>("export-png");
 const cancel = element<HTMLButtonElement>("cancel");
 const codecText = element<HTMLSpanElement>("codec");
 const composer = new Composer2D();
+
+/** e2e だけが使う「音声のコーデックが無い」環境（`?noaudio=1`・無音で書き出す分岐を通す）。 */
+const NO_AUDIO =
+	new URLSearchParams(window.location.search).get("noaudio") === "1";
+
+/**
+ * プレビューの音（仕様書 2026-10-01-jin-stage-summon §3.2）: 再生中に tick が進むたびに、その tick のコマの `tone` を
+ * プレイヤーと同じ矩形波・音量で鳴らす。スクラブ中と消音中は鳴らさない。`AudioContext` は再生ボタンの操作で作る
+ * （実時間の時計を読むのは main.ts だけ）。
+ */
+let audioContext: AudioContext | null = null;
+let muted = false;
+let lastSoundTick = Number.NaN;
+
+function unlockAudio(): void {
+	if (typeof AudioContext === "undefined") return;
+	audioContext ??= new AudioContext();
+	if (audioContext.state === "suspended") void audioContext.resume();
+}
+
+function soundTick(tick: number): void {
+	const ctx = audioContext;
+	const whole = Math.floor(tick);
+	const previous = lastSoundTick;
+	lastSoundTick = whole;
+	if (ctx === null || muted || !state.playing || ctx.state !== "running")
+		return;
+	if (!(whole > previous) || whole - previous > 4) return;
+	for (let t = previous + 1; t <= whole; t++) {
+		const frame = frameAt(state.frames, t);
+		if (frame === null || frame.tick !== t) continue;
+		for (const [name, ...args] of frame.audio) {
+			const hz = typeof args[0] === "number" ? args[0] : 0;
+			const ms = typeof args[1] === "number" ? args[1] : 0;
+			if (name !== "tone" || !(hz > 0) || !(ms > 0)) continue;
+			const osc = ctx.createOscillator();
+			osc.type = "square";
+			osc.frequency.value = hz;
+			const gain = ctx.createGain();
+			gain.gain.value = TONE_GAIN;
+			osc.connect(gain).connect(ctx.destination);
+			osc.start();
+			osc.stop(ctx.currentTime + ms / 1000);
+		}
+	}
+}
 
 /** e2e だけが使う長辺の上書き（`?export=360`）。UI の選択肢には出さない。 */
 const overrideLongSide =
@@ -283,6 +377,8 @@ interface ExportSnapshot {
 	readonly scene: SceneMessage;
 	readonly seed: number | null;
 	readonly firings: readonly Firing[];
+	readonly rows: readonly TraceRow[];
+	readonly frames: readonly ScreenFrame[];
 	readonly preset: CameraPreset;
 	readonly offset: CameraOffset;
 	readonly caption: string | null;
@@ -293,6 +389,8 @@ function snapshot(scene: SceneMessage): ExportSnapshot {
 		scene,
 		seed: state.seed,
 		firings: state.firings,
+		rows: state.rows,
+		frames: state.frames,
 		preset: preset.value as CameraPreset,
 		offset: state.offset,
 		caption: caption.checked ? captionText(scene.circleName) : null,
@@ -312,6 +410,14 @@ function drawFor(
 		preset: shot.preset,
 		aspect: width / height,
 		offset: shot.offset,
+		screen: frameAt(shot.frames, tick),
+		window: windowAt(
+			shot.rows,
+			shot.frames,
+			shot.scene.names,
+			tick,
+			shot.scene.fps,
+		),
 	});
 	composer.compose(canvas, shot.caption);
 }
@@ -383,15 +489,25 @@ exportVideo.addEventListener("click", () => {
 				report({ exporting: null, error: "この環境では動画を書き出せません" });
 				return;
 			}
-			const bytes = await withExportSize(width, height, async () =>
-				runExport({
+			// 音（仕様書 2026-10-01-jin-stage-summon §3）: 範囲の tone を合成して音声トラックに。
+			// `?noaudio=1` は e2e の口で、音声のコーデックが無い環境（無音で書き出す分岐）を作る。
+			let withAudio = false;
+			const bytes = await withExportSize(width, height, async () => {
+				const encoder = await createEncoder(
+					composer.canvas,
+					choice,
+					synthesize(shot.frames, range),
+					NO_AUDIO ? () => Promise.resolve(false) : undefined,
+				);
+				withAudio = encoder.audio;
+				return runExport({
 					range,
 					draw: (tick) => drawFor(shot, tick, width, height),
-					encoder: await createEncoder(composer.canvas, choice),
+					encoder,
 					signal: controller.signal,
 					onProgress: (done, total) => report({ exporting: { done, total } }),
-				}),
-			);
+				});
+			});
 			if (bytes !== null) {
 				const name = exportFileName({
 					jinName: scene.jinName,
@@ -405,6 +521,9 @@ exportVideo.addEventListener("click", () => {
 				send(name, choice.mime, bytes.slice().buffer);
 			}
 			report({ exporting: null, error: null });
+			if (bytes !== null && !withAudio)
+				statusText.textContent =
+					"準備完了（音声のコーデックが無いため無音で書き出しました）";
 		} catch (error) {
 			report({
 				exporting: null,
@@ -467,10 +586,13 @@ function loop(now: number): void {
 		scrub.value = String(state.tick);
 	}
 	tickOut.textContent = String(Math.floor(state.tick));
-	// 書き出し中は出力の大きさの canvas をプレビューで上書きしない。
-	// 隠れている間（エディタが鑑賞パネルの iframe を隠すと描く面が 0 になる）は描かない。重い 3D を描き続けると、
+	// 隠れている間（エディタが鑑賞パネルの iframe を隠すと描く面が 0 になる）は描かず鳴らさない。重い 3D を描き続けると、
 	// ソフトウェア描画ではエディタ全体が応答しなくなる。書き出し中は出力の大きさの canvas をプレビューで上書きしない。
-	if (exporting === null && host.clientWidth > 0 && host.clientHeight > 0) drawAt(state.tick);
+	const visible = host.clientWidth > 0 && host.clientHeight > 0;
+	if (exporting === null && visible) {
+		drawAt(state.tick);
+		soundTick(state.tick);
+	}
 	requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

@@ -1,7 +1,26 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { rootCircleName, StagePanel, stageFps } from "../src/stage/StagePanel";
+import {
+	rootCircleName,
+	StagePanel,
+	stageFps,
+	stageSizeOf,
+} from "../src/stage/StagePanel";
+
+describe("舞台の大きさ（stage.scene の stageSize・仕様書 2026-10-01-jin-stage-summon §2.1）", () => {
+	test("モデルの stage の width / height を渡す", () => {
+		expect(
+			stageSizeOf({ stage: { width: 176, height: 120, fps: 30 } }),
+		).toEqual({ width: 176, height: 120 });
+	});
+	test("無い・数でない・0 以下なら null", () => {
+		expect(stageSizeOf(null)).toBeNull();
+		expect(stageSizeOf({ stage: { fps: 30 } })).toBeNull();
+		expect(stageSizeOf({ stage: { width: "x", height: 120 } })).toBeNull();
+		expect(stageSizeOf({ stage: { width: 0, height: 120 } })).toBeNull();
+	});
+});
 
 afterEach(cleanup);
 
@@ -65,6 +84,8 @@ describe("StagePanel（stage.md §6）", () => {
 			fps: 30,
 			jinName: "paddle.jin",
 			circleName: "Play",
+			// 舞台の大きさの無いモデル → stageSize は null（鑑賞ページは窓を出さない）
+			stageSize: null,
 			names: {
 				Play: {
 					pointer: "/circles/0",

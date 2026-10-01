@@ -1,7 +1,61 @@
 import { expect, type Page, test } from "@playwright/test";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 
-import { PADDLE_STEP, serveHarness, TETRIS } from "./harness";
+import { PADDLE_STEP, serveHarness, TETRIS, TETRIS_DROPS } from "./harness";
+
+/**
+ * 音（仕様書 2026-10-01-jin-stage-summon §3.3）: ハードドロップ 3 回の tetris（tick 4 / 34 / 64 で tone）の 2 秒（tick 0〜120・
+ * harness の fps 60）を書き出し、Node 側で読み戻す。`noaudio` なら iframe を `?noaudio=1` で読み直す（音声のコーデックが無い分岐）。
+ */
+async function exportDrops(
+	page: Page,
+	noaudio: boolean,
+): Promise<{
+	audio: boolean;
+	audioSeconds: number | null;
+	videoSeconds: number;
+	mime: string;
+}> {
+	const harness = await serveHarness(TETRIS_DROPS);
+	await page.goto(harness.url);
+	if (noaudio) {
+		await page.evaluate(() => {
+			(document.getElementById("stage") as HTMLIFrameElement).src =
+				"./stage/?export=360&noaudio=1";
+		});
+	}
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	const codecLabel = stage.getByTestId("stage-codec");
+	await expect(codecLabel).toHaveAttribute("data-codec", /.+/);
+	test.skip(
+		(await codecLabel.getAttribute("data-codec")) === "none",
+		"WebCodecs が無い環境（probe §C）",
+	);
+	await stage.getByTestId("stage-start").fill("0");
+	await stage.getByTestId("stage-end").fill("120");
+	await stage.getByTestId("stage-export-video").click();
+	await expect
+		.poll(async () => (await files(page)).length, { timeout: 170_000 })
+		.toBe(1);
+	const [video] = await files(page);
+	const input = new Input({
+		source: new BufferSource(new Uint8Array(video?.bytes ?? [])),
+		formats: ALL_FORMATS,
+	});
+	const audioTrack = await input.getPrimaryAudioTrack();
+	const videoTrack = await input.getPrimaryVideoTrack();
+	if (videoTrack === null) throw new Error("動画のトラックが読めません");
+	const result = {
+		audio: audioTrack !== null,
+		audioSeconds:
+			audioTrack === null ? null : await audioTrack.computeDuration(),
+		videoSeconds: await videoTrack.computeDuration(),
+		mime: video?.mime ?? "",
+	};
+	await harness.close();
+	return result;
+}
 
 /**
  * 鑑賞ページの往復（docs/spec/v2/stage.md §5・設計書 §4.4）。360p・1 秒で書き出し、
@@ -141,6 +195,60 @@ test("手順の図の場面でも描け、PNG を書き出せる", async ({ page
 	await step.close();
 });
 
+/**
+ * 隠れている間は描かない: エディタは鑑賞パネルの iframe を v2 のファイルでは常に載せ、鑑賞モード以外では隠すだけ。
+ * 隠れた iframe で重い 3D（床の映り込み・宝玉の透過・被写界深度…）を描き続けると、ソフトウェア描画の CI でエディタ全体が
+ * 応答しなくなった（PR #100 の editor ジョブ）。iframe を隠すと描画の回数が止まり、見せると再開する。
+ */
+test("iframe が隠れている間は描かない（見せると再開する）", async ({
+	page,
+}) => {
+	await open(page);
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	const draws = (): Promise<number> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { draws(): number } }
+			).__jinStage.draws(),
+		);
+	await expect.poll(draws).toBeGreaterThan(0);
+	await page.evaluate(() => {
+		(document.getElementById("stage") as HTMLIFrameElement).hidden = true;
+	});
+	await page.waitForTimeout(300);
+	const hidden = await draws();
+	await page.waitForTimeout(1000);
+	expect(await draws()).toBe(hidden);
+	await page.evaluate(() => {
+		(document.getElementById("stage") as HTMLIFrameElement).hidden = false;
+	});
+	await expect.poll(draws).toBeGreaterThan(hidden);
+});
+
+test("音: 書き出した動画に音声トラックがあり、長さは映像とほぼ同じ", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	const result = await exportDrops(page, false);
+	test.info().annotations.push({ type: "mime", description: result.mime });
+	expect(result.audio).toBe(true);
+	expect(
+		Math.abs((result.audioSeconds ?? 0) - result.videoSeconds),
+	).toBeLessThanOrEqual(0.1);
+});
+
+test("音: 音声のコーデックが無い環境（?noaudio=1）でも、無音の動画を書き出してファイルを渡す", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	const result = await exportDrops(page, true);
+	expect(result.audio).toBe(false);
+	expect(result.videoSeconds).toBeGreaterThan(1.9);
+});
+
 test("1 秒の動画を書き出し、読み戻すと 60 コマ・約 1 秒", async ({ page }) => {
 	const stage = await open(page);
 	const codecLabel = stage.getByTestId("stage-codec");
@@ -216,34 +324,92 @@ test("stage.scene を送り直しても GPU の資源が増え続けない", asy
 });
 
 /**
- * 隠れている間は描かない: エディタは鑑賞パネルの iframe を v2 のファイルでは常に載せ、鑑賞モード以外では隠すだけ。
- * 隠れた iframe で重い 3D（床の映り込み・宝玉の透過・被写界深度…）を描き続けると、ソフトウェア描画の CI でエディタ全体が
- * 応答しなくなった（PR #100 の editor ジョブ）。iframe を隠すと描画の回数が止まり、見せると再開する。
+ * 召喚の窓（仕様書 2026-10-01-jin-stage-summon §1）: tetris の場面（stageSize あり）の tick 60 で窓が見え、tick 60 のコマを映す。
+ * stageSize を外して送り直すと窓は消え、エラーにならない。描いた中身が正しいことは screen.spec.ts の画素一致が見る
+ * （画面の色の割合では、宝玉の色とゲームの色が重なって窓の有無を見分けられなかった）。
  */
-test("iframe が隠れている間は描かない（見せると再開する）", async ({
+test("tetris の場面で、召喚の窓にゲーム画面が映る（stageSize を外すと消え、エラーにならない）", async ({
 	page,
 }) => {
-	await open(page);
+	const tetris = await serveHarness(TETRIS);
+	await page.goto(tetris.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
 	const stageFrame = page
 		.frames()
 		.find((frame) => frame.url().includes("/stage/"));
 	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
-	const draws = (): Promise<number> =>
+	type Shown = { visible: boolean; tick: number | null };
+	const shown = (): Promise<Shown> =>
 		stageFrame.evaluate(() =>
 			(
-				window as unknown as { __jinStage: { draws(): number } }
-			).__jinStage.draws(),
+				window as unknown as { __jinStage: { summon(): Shown } }
+			).__jinStage.summon(),
 		);
-	await expect.poll(draws).toBeGreaterThan(0);
+	await stage.getByTestId("stage-scrub").fill("60");
+	await expect.poll(shown).toEqual({ visible: true, tick: 60 });
 	await page.evaluate(() => {
-		(document.getElementById("stage") as HTMLIFrameElement).hidden = true;
+		const w = window as unknown as {
+			JIN_SCENE: { stageSize: unknown };
+			JIN_RESEND(): void;
+		};
+		w.JIN_SCENE.stageSize = null;
+		w.JIN_RESEND();
 	});
-	await page.waitForTimeout(300);
-	const hidden = await draws();
-	await page.waitForTimeout(1000);
-	expect(await draws()).toBe(hidden);
-	await page.evaluate(() => {
-		(document.getElementById("stage") as HTMLIFrameElement).hidden = false;
-	});
-	await expect.poll(draws).toBeGreaterThan(hidden);
+	await stage.getByTestId("stage-scrub").fill("61");
+	await expect.poll(async () => (await shown()).visible).toBe(false);
+	const status = await page.evaluate(
+		() =>
+			(window as unknown as { JIN_STATUS: { error: string | null } })
+				.JIN_STATUS,
+	);
+	expect(status.error).toBeNull();
+	await tetris.close();
+});
+test("召喚の窓のある場面でも、stage.scene を送り直して GPU の資源が増え続けない", async ({
+	page,
+}) => {
+	test.setTimeout(300_000);
+	const tetris = await serveHarness(TETRIS);
+	await page.goto(tetris.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	type Memory = { geometries: number; textures: number };
+	const memory = (): Promise<Memory> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { memory(): Memory } }
+			).__jinStage.memory(),
+		);
+	type Shown = { visible: boolean; tick: number | null };
+	const shown = (): Promise<Shown> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { summon(): Shown } }
+			).__jinStage.summon(),
+		);
+	// 送り直すたびに、窓が開いている tick（60）で描かせる。窓が描かれて初めてテクスチャが GPU に載るので、
+	// t = 0（窓は閉じている）のままでは、前の場面のテクスチャを解放しなくてもこのテストは緑になる（最終レビュー Important 1）。
+	const resend = async (): Promise<void> => {
+		await page.evaluate(() =>
+			(window as unknown as { JIN_RESEND(): void }).JIN_RESEND(),
+		);
+		await page.waitForTimeout(300);
+		await stage.getByTestId("stage-scrub").fill("60");
+		await expect.poll(shown).toEqual({ visible: true, tick: 60 });
+		await page.waitForTimeout(200);
+	};
+	await resend();
+	const first = await memory();
+	expect(first.textures).toBeGreaterThan(0);
+	// 3 回で足りる（解放しなければ送り直すたびにテクスチャが 1 つ増える）。窓を毎回描かせるので、ソフトウェア描画の CI では 1 回が重い。
+	for (let k = 0; k < 3; k++) await resend();
+	const last = await memory();
+	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
+	expect(last.textures).toBeLessThanOrEqual(first.textures);
+	await tetris.close();
 });

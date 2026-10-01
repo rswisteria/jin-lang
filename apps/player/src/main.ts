@@ -58,6 +58,11 @@ export interface PlayerApi {
 	lastResume(): ResumeNote | null;
 	/** 記憶（`storage`）の今の内容。再生中はスクラッチ（永続化されない側）ではなく本物。 */
 	storage(): Readonly<Record<string, string>>;
+	/**
+	 * 表示リストをこのプレイヤーの描画（`Renderer`）で描いた PNG の data URL。鑑賞ページの描画の写しとの
+	 * 画素一致の正解を作り、比べるための口（e2e/screen.spec.ts・仕様書 2026-10-01-jin-stage-summon §2.3）。
+	 */
+	renderOps(ops: readonly Op[], width: number, height: number): string;
 	/** 記憶を空にして最初から（止めたまま）。 */
 	forget(): void;
 	/** boot し直すたびに増える世代（差し替えで続けたときは変わらない）。 */
@@ -215,7 +220,11 @@ async function loadSource(): Promise<Source | null> {
 	if (!jilResponse.ok)
 		throw new Error(`game.lua を読めません（${jilResponse.status}）`);
 	return {
-		program: { kind: "lua", jil: await jilResponse.text(), wasmUri: wasmUriOf() },
+		program: {
+			kind: "lua",
+			jil: await jilResponse.text(),
+			wasmUri: wasmUriOf(),
+		},
 		manifest,
 		assetUrl,
 	};
@@ -653,6 +662,15 @@ async function main(): Promise<void> {
 		trace: () => player?.trace ?? [],
 		lastOps: () => player?.lastOps ?? [],
 		publicState: () => player?.lastPublic ?? {},
+		renderOps: (ops, width, height) => {
+			const canvas = document.createElement("canvas");
+			canvas.width = width;
+			canvas.height = height;
+			const context = canvas.getContext("2d");
+			if (context === null) throw new Error("2D の描画面が取れません");
+			new Renderer(context, width, height).draw(ops);
+			return canvas.toDataURL("image/png");
+		},
 		recordedEvents: () => player?.recordedEvents ?? 0,
 	};
 

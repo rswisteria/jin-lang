@@ -56,6 +56,10 @@ NAMES = "apps/stage/src/names.ts"
 MESSAGES = "apps/stage/src/messages.ts"
 GLOW = "apps/stage/src/render/glowView.ts"
 PALETTE = "apps/stage/src/palette.ts"
+DRAW = "apps/stage/src/screen/draw.ts"
+GLYPHS = "apps/stage/src/screen/glyphs.ts"
+SOUND = "apps/stage/src/screen/sound.ts"
+FRAMES = "apps/stage/src/screen/frames.ts"
 PARTICLES = "apps/stage/src/particles.ts"
 EXPORTER = "apps/stage/src/exporter.ts"
 PANEL = "apps/editor/src/stage/StagePanel.tsx"
@@ -225,8 +229,8 @@ MUTATIONS: list[tuple[str, str, str, str, tuple[str, object]]] = [
         # 欄の無い古い名前の表で例外を投げる（金で描くはずが落ちる）。
         "PALETTE-throws-without-fields",
         PALETTE,
-        "const kind = circle?.sigilKinds?.[name.slice(0, dot)];",
-        "const kind = (circle as NonNullable<typeof circle>).sigilKinds![name.slice(0, dot)];",
+        "const kind = circle?.sigilKinds?.[dot < 0 ? name : name.slice(0, dot)];",
+        "const kind = (circle as NonNullable<typeof circle>).sigilKinds![dot < 0 ? name : name.slice(0, dot)];",
         ("pnpm", ("apps/stage", "test")),
     ),
     (
@@ -235,6 +239,39 @@ MUTATIONS: list[tuple[str, str, str, str, tuple[str, object]]] = [
         GLOW,
         "\t\t\t: local.clone().applyMatrix4(group.matrix);",
         "\t\t\t: local.clone();",
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    # ---- 召喚の窓と音（設計書 2026-10-01-jin-stage-summon §4.4）
+    (
+        # 描画の写しが rect を描かない（プレイヤーとずれる。画素一致の e2e は回さないので単体テストが拾う）。
+        "DRAW-skips-rect",
+        DRAW,
+        "\t\t\t\ts.fillRect(num(args[0]), num(args[1]), num(args[2]), num(args[3]));\n",
+        "",
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
+        # 字形の写しを 1 字ずらす（生成物の --check とプレイヤーとのバイト一致が拾う）。
+        "GLYPHS-copy-drifts",
+        GLYPHS,
+        'export const BITMAPS = "HHcU',
+        'export const BITMAPS = "HHcV',
+        ("py", [T_STAGE_CONTRACT]),
+    ),
+    (
+        # 音の置き場所に速度を掛けない（0.5 倍速で音が映像より早く鳴る）。
+        "SOUND-ignores-speed",
+        SOUND,
+        "(frame.tick - range.startTick) / range.fps / range.speed;",
+        "(frame.tick - range.startTick) / range.fps;",
+        ("pnpm", ("apps/stage", "test")),
+    ),
+    (
+        # 映すコマを最新ではなく最古から選ぶ（窓の画面が止まる）。
+        "FRAMES-shows-the-oldest",
+        FRAMES,
+        "return i < 0 ? null : (frames[i] ?? null);",
+        "return i < 0 ? null : (frames[0] ?? null);",
         ("pnpm", ("apps/stage", "test")),
     ),
 ]

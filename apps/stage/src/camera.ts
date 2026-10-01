@@ -46,11 +46,13 @@ export function cameraPose(
 	seconds: number,
 	offset: CameraOffset = NO_OFFSET,
 	nudge: CameraNudgeInput = NO_NUDGE,
+	/** 陣を収める半径（召喚の窓があるときは広げる・仕様書 2026-10-01-jin-stage-summon §1.1）。 */
+	fitRadius: number = FIT_RADIUS,
 ): CameraPose {
 	const halfV = (FOV_DEG / 2) * RAD;
 	const halfH = Math.atan(Math.tan(halfV) * aspect);
 	const distance =
-		(FIT_RADIUS / Math.sin(Math.min(halfV, halfH))) * nudge.distanceScale;
+		(fitRadius / Math.sin(Math.min(halfV, halfH))) * nudge.distanceScale;
 	const elevationDeg = Math.min(
 		MAX_ELEVATION_DEG,
 		Math.max(

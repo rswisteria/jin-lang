@@ -15,6 +15,24 @@ export interface SceneMessage {
 	readonly fps: number;
 	readonly jinName: string;
 	readonly circleName: string;
+	/** 舞台の大きさ（論理解像度・仕様書 2026-10-01-jin-stage-summon §2.1）。無い・壊れていれば null（召喚の窓を出さない）。 */
+	readonly stageSize: {
+		readonly width: number;
+		readonly height: number;
+	} | null;
+}
+
+function stageSizeOf(value: unknown): SceneMessage["stageSize"] {
+	if (!isRecord(value)) return null;
+	const { width, height } = value;
+	if (
+		typeof width !== "number" ||
+		typeof height !== "number" ||
+		!(width > 0) ||
+		!(height > 0)
+	)
+		return null;
+	return { width, height };
 }
 
 export interface TraceMessage {
@@ -22,7 +40,9 @@ export interface TraceMessage {
 	readonly seed: number | null;
 }
 
-export type Inbound = { readonly type: "scene"; readonly value: SceneMessage } | { readonly type: "trace"; readonly value: TraceMessage };
+export type Inbound =
+	| { readonly type: "scene"; readonly value: SceneMessage }
+	| { readonly type: "trace"; readonly value: TraceMessage };
 
 export interface StageStatus {
 	readonly ready: boolean;
@@ -51,9 +71,26 @@ export function parseInbound(data: unknown): Inbound | null {
 	if (!isRecord(data)) return null;
 	if (data["type"] === STAGE_SCENE) {
 		const { svg, names, fps, jinName, circleName } = data;
-		if (typeof svg !== "string" || !isRecord(names) || typeof fps !== "number" || !(fps > 0)) return null;
-		if (typeof jinName !== "string" || typeof circleName !== "string") return null;
-		return { type: "scene", value: { svg, names: names as StageNames, fps, jinName, circleName } };
+		if (
+			typeof svg !== "string" ||
+			!isRecord(names) ||
+			typeof fps !== "number" ||
+			!(fps > 0)
+		)
+			return null;
+		if (typeof jinName !== "string" || typeof circleName !== "string")
+			return null;
+		return {
+			type: "scene",
+			value: {
+				svg,
+				names: names as StageNames,
+				fps,
+				jinName,
+				circleName,
+				stageSize: stageSizeOf(data["stageSize"]),
+			},
+		};
 	}
 	if (data["type"] === STAGE_TRACE) {
 		const { rows, seed } = data;
@@ -68,6 +105,10 @@ export function statusMessage(status: StageStatus): Record<string, unknown> {
 	return { type: STAGE_STATUS, ...status };
 }
 
-export function fileMessage(name: string, mime: string, bytes: ArrayBuffer): Record<string, unknown> {
+export function fileMessage(
+	name: string,
+	mime: string,
+	bytes: ArrayBuffer,
+): Record<string, unknown> {
 	return { type: STAGE_FILE, name, mime, bytes };
 }

@@ -1,12 +1,20 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-import { type CameraOffset, type CameraPreset, cameraPose } from "../camera";
+import {
+	type CameraOffset,
+	type CameraPreset,
+	cameraPose,
+	FIT_RADIUS,
+} from "../camera";
 import type { Glow } from "../effects";
 import { cameraNudge } from "../motion";
 import type { StageNames } from "../names";
+import { METALS } from "../palette";
 import type { Scene } from "../scene";
+import type { ScreenFrame, WindowState } from "../screen/frames";
 import { Armillary } from "./armillary";
+import { SummonWindow, WINDOW } from "./summonWindow";
 import { Floor } from "./floor";
 import { buildGilded, type GildedModel } from "./gilded";
 import { GlowView } from "./glowView";
@@ -21,6 +29,9 @@ export interface StageFrame {
 	readonly preset: CameraPreset;
 	readonly aspect: number;
 	readonly offset: CameraOffset;
+	/** 召喚の窓に映すコマ（無ければ null）と窓の状態（screen/frames.ts）。 */
+	readonly screen: ScreenFrame | null;
+	readonly window: WindowState;
 }
 
 /** 宝玉の色が映える深い藍（仕様書 2026-10-01 §1）。霧は藍の薄い霞。 */
@@ -45,6 +56,8 @@ export class StageRenderer {
 	private readonly floor = new Floor();
 	private readonly pillar = new Pillar();
 	private readonly armillary = new Armillary();
+	private readonly summon = new SummonWindow();
+	private readonly target = new THREE.Vector3();
 	private model: GildedModel | null = null;
 	private view: GlowView | null = null;
 	private pointers: ReadonlySet<string> = new Set();
@@ -79,10 +92,23 @@ export class StageRenderer {
 			this.armillary.object,
 		);
 		this.scene.add(this.decor);
+		this.scene.add(this.summon.object, this.summon.beamObject);
 		this.post = buildPost(this.renderer, this.scene, this.camera);
 	}
 
-	setScene(scene: Scene, names: StageNames): void {
+	/**
+	 * 場面と、召喚の窓の舞台の大きさ（無ければ窓を出さない・仕様書 2026-10-01-jin-stage-summon §2.1）。
+	 * 窓は作り直さず、裏のキャンバスだけを差し替える。
+	 */
+	setScene(
+		scene: Scene,
+		names: StageNames,
+		stageSize: {
+			readonly width: number;
+			readonly height: number;
+		} | null = null,
+	): void {
+		this.summon.setStage(stageSize, METALS.yellow.color);
 		if (this.model !== null) {
 			this.scene.remove(this.model.root);
 			this.view?.dispose();
@@ -128,11 +154,16 @@ export class StageRenderer {
 			seconds,
 			frame.offset,
 			cameraNudge(frame.glows),
+			// 召喚の窓が開くほど、窓が入るように陣を収める半径を広げる。
+			FIT_RADIUS +
+				(WINDOW.fitRadius - FIT_RADIUS) * this.summon.openness(frame.window),
 		);
 		this.camera.fov = pose.fovDeg;
 		this.camera.aspect = frame.aspect;
 		this.camera.position.set(...pose.position);
-		this.camera.lookAt(LOOK_AT);
+		const opened = this.summon.openness(frame.window);
+		this.target.copy(LOOK_AT).setY(LOOK_AT.y + WINDOW.lookUp * opened);
+		this.camera.lookAt(this.target);
 		this.camera.updateProjectionMatrix();
 		this.key.position.set(
 			Math.cos(seconds * 0.5) * 1.4,
@@ -152,14 +183,20 @@ export class StageRenderer {
 				seconds,
 			);
 		this.armillary.set(seconds);
+		this.summon.update(frame.screen, frame.window, this.camera, seconds);
 		const core = CORE_WORLD.clone().project(this.camera);
 		this.post.update({
 			seconds,
 			coreScreen: [(core.x + 1) / 2, (core.y + 1) / 2],
 			rays: this.view?.rays ?? 0,
-			focus: this.camera.position.distanceTo(LOOK_AT),
+			focus: this.camera.position.distanceTo(this.target),
 		});
 		this.post.composer.render();
+	}
+
+	/** 召喚の窓が見えているか・映しているコマの tick（e2e の口）。 */
+	summonShown(): { readonly visible: boolean; readonly tick: number | null } {
+		return this.summon.shown();
 	}
 
 	/** GPU に載っている geometry と texture の数（e2e が「送り直しても増えない」を見る）。 */
@@ -174,6 +211,7 @@ export class StageRenderer {
 		this.floor.dispose();
 		this.pillar.dispose();
 		this.armillary.dispose();
+		this.summon.dispose();
 		this.post.dispose();
 		this.renderer.dispose();
 	}

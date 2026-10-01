@@ -1,4 +1,4 @@
-"""`apps/player/src/glyphs.ts` を k6x8ゴシックの BDF から生成する（abilities.md §2・設計書 §11 #49）。
+"""`apps/player/src/glyphs.ts`（と鑑賞ページの写し `apps/stage/src/screen/glyphs.ts`）を k6x8ゴシックの BDF から生成する（abilities.md §2・設計書 §11 #49）。
 
 `canvas.text` の書体は、ASCII（U+0020〜U+007E）がプレイヤー内蔵の 5×7（`apps/player/src/font.ts`）で、
 それ以外のコードポイントがこのスクリプトの出力（k6x8ゴシックの字形 7001 字）である。
@@ -28,7 +28,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 FONT_DIR = REPO_ROOT / "apps" / "player" / "fonts" / "k6x8"
 BDF = FONT_DIR / "k6x8_gothic.bdf"
 LICENSE = FONT_DIR / "k6x8.txt"
-OUTPUT = REPO_ROOT / "apps" / "player" / "src" / "glyphs.ts"
+#: 同じ生成物を 2 か所に書く: プレイヤーと、鑑賞ページの召喚の窓（apps 同士は import しないので写しを持つ。
+#: 仕様書 docs/superpowers/specs/2026-10-01-jin-stage-summon-design.md §2.2）。
+OUTPUTS = (
+    REPO_ROOT / "apps" / "player" / "src" / "glyphs.ts",
+    REPO_ROOT / "apps" / "stage" / "src" / "screen" / "glyphs.ts",
+)
 
 BDF_SHA256 = "b9029fa0dd93738c23e55b79ffb1f4445f51a57d09f2f9436b2c4d5ee6fe0590"
 CELL_WIDTH = 6
@@ -136,18 +141,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.stdout:
         sys.stdout.write(text)
         return 0
-    current = OUTPUT.read_text(encoding="utf-8") if OUTPUT.is_file() else None
+    stale = [
+        output
+        for output in OUTPUTS
+        if (output.read_text(encoding="utf-8") if output.is_file() else None) != text
+    ]
     if args.check:
-        if current != text:
+        for output in stale:
             print(
-                f"{OUTPUT.relative_to(REPO_ROOT)} が原本とずれています。"
+                f"{output.relative_to(REPO_ROOT)} が原本とずれています。"
                 "`uv run python scripts/generate_glyphs.py` で再生成してください。",
                 file=sys.stderr,
             )
-            return 1
-        return 0
-    if current != text:
-        OUTPUT.write_text(text, encoding="utf-8")
+        return 1 if stale else 0
+    for output in stale:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text, encoding="utf-8")
     return 0
 
 
