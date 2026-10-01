@@ -95,13 +95,28 @@ describe("窓の開閉と縁の光（§1.3 / §1.4）", () => {
 		expect(at(90 + OPEN_SECONDS * FPS + 1).open).toBe(0);
 	});
 
-	test("子の陣の enter / finish では開閉しない", () => {
+	test("root が核なし陣（enter 行を出さない・tetris の Game）でも、最初の enter（子の陣）で開く", () => {
 		const child = [
 			row({ tick: -1, kind: "enter", circle: "Play", pointer: "/circles/1" }),
 			frame(0),
 			frame(60),
 		];
-		expect(windowAt(child, framesOf(child), NAMES, 60, FPS).open).toBe(0);
+		expect(windowAt(child, framesOf(child), NAMES, 60, FPS).open).toBe(1);
+	});
+
+	test("子の陣の exit / finish では閉じない（閉じるのは root の終わりだけ）", () => {
+		const child = [
+			row({ tick: -1, kind: "enter", circle: "Play", pointer: "/circles/1" }),
+			frame(0),
+			row({ tick: 30, kind: "exit", circle: "Play", pointer: "/circles/1" }),
+			frame(60),
+		];
+		expect(windowAt(child, framesOf(child), NAMES, 60, FPS).open).toBe(1);
+	});
+
+	test("enter 行の無いトレースでも、最初の frame で開く", () => {
+		const bare = [frame(0), frame(60)];
+		expect(windowAt(bare, framesOf(bare), NAMES, 60, FPS).open).toBe(1);
 	});
 
 	test("isRoot の無い表では最初の frame で開き、閉じない", () => {

@@ -117,31 +117,26 @@ export function windowAt(
 	const first = frames[0];
 	const closed = { open: 0, tonePulse: 0, playFlash: 0, errorPulse: 0 };
 	if (first === undefined || t < first.tick) return closed;
+	// 開く: 最初の enter 行（プログラムの起動）。root が核なし陣（flow だけ）だと root 自身は enter 行を出さないので、
+	// どの陣の enter でも開く。enter 行が無ければ最初の frame。閉じる: root の exit / finish だけ（子の陣の終わりでは閉じない）。
 	const root = rootPointer(names);
-	let openAt: number | null = root === null ? first.tick : null;
+	let openAt: number | null = null;
 	let closeAt: number | null = null;
 	let errorAt: number | null = null;
 	for (const row of rows) {
 		const time = Math.max(row.tick, 0);
-		if (
-			root !== null &&
-			row.kind === "enter" &&
-			row.pointer === root &&
-			openAt === null
-		)
-			openAt = time;
+		if (row.kind === "enter" && openAt === null) openAt = time;
 		if (
 			root !== null &&
 			(row.kind === "exit" || row.kind === "finish") &&
 			circleOf(row.pointer) === root &&
-			openAt !== null &&
-			closeAt === null &&
-			time >= openAt
+			closeAt === null
 		)
 			closeAt = time;
 		if (row.kind === "error" && errorAt === null) errorAt = time;
 	}
-	if (openAt === null) return closed;
+	openAt ??= first.tick;
+	if (closeAt !== null && closeAt < openAt) closeAt = null;
 	let open = clamp01((t - openAt) / fps / OPEN_SECONDS);
 	if (closeAt !== null && t >= closeAt)
 		open *= 1 - clamp01((t - closeAt) / fps / OPEN_SECONDS);

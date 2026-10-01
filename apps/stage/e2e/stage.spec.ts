@@ -214,3 +214,79 @@ test("stage.scene を送り直しても GPU の資源が増え続けない", asy
 	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
 	expect(last.textures).toBeLessThanOrEqual(first.textures);
 });
+
+/**
+ * 召喚の窓（仕様書 2026-10-01-jin-stage-summon §1）: tetris の場面（stageSize あり）の tick 60 で窓が見え、tick 60 のコマを映す。
+ * stageSize を外して送り直すと窓は消え、エラーにならない。描いた中身が正しいことは screen.spec.ts の画素一致が見る
+ * （画面の色の割合では、宝玉の色とゲームの色が重なって窓の有無を見分けられなかった）。
+ */
+test("tetris の場面で、召喚の窓にゲーム画面が映る（stageSize を外すと消え、エラーにならない）", async ({
+	page,
+}) => {
+	const tetris = await serveHarness(TETRIS);
+	await page.goto(tetris.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	type Shown = { visible: boolean; tick: number | null };
+	const shown = (): Promise<Shown> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { summon(): Shown } }
+			).__jinStage.summon(),
+		);
+	await stage.getByTestId("stage-scrub").fill("60");
+	await expect.poll(shown).toEqual({ visible: true, tick: 60 });
+	await page.evaluate(() => {
+		const w = window as unknown as {
+			JIN_SCENE: { stageSize: unknown };
+			JIN_RESEND(): void;
+		};
+		w.JIN_SCENE.stageSize = null;
+		w.JIN_RESEND();
+	});
+	await stage.getByTestId("stage-scrub").fill("61");
+	await expect.poll(async () => (await shown()).visible).toBe(false);
+	const status = await page.evaluate(
+		() =>
+			(window as unknown as { JIN_STATUS: { error: string | null } })
+				.JIN_STATUS,
+	);
+	expect(status.error).toBeNull();
+	await tetris.close();
+});
+test("召喚の窓のある場面でも、stage.scene を送り直して GPU の資源が増え続けない", async ({
+	page,
+}) => {
+	const tetris = await serveHarness(TETRIS);
+	await page.goto(tetris.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	type Memory = { geometries: number; textures: number };
+	const memory = (): Promise<Memory> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { memory(): Memory } }
+			).__jinStage.memory(),
+		);
+	const resend = async (): Promise<void> => {
+		await page.evaluate(() =>
+			(window as unknown as { JIN_RESEND(): void }).JIN_RESEND(),
+		);
+		await page.waitForTimeout(400);
+	};
+	await resend();
+	const first = await memory();
+	for (let k = 0; k < 5; k++) await resend();
+	const last = await memory();
+	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
+	expect(last.textures).toBeLessThanOrEqual(first.textures);
+	await tetris.close();
+});

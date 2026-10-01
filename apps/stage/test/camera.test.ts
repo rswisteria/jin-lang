@@ -95,3 +95,11 @@ describe("トレースから決まるカメラの足し分（仕様書 2026-10-0
 		expect(elevation(low.position)).toBeCloseTo(MIN_ELEVATION_DEG, 8);
 	});
 });
+
+describe("召喚の窓を収める半径（仕様書 2026-10-01-jin-stage-summon §1.1）", () => {
+	test("fitRadius を渡すと距離がその比で伸びる", () => {
+		const base = cameraPose("oblique", 16 / 9, 3);
+		const wide = cameraPose("oblique", 16 / 9, 3, undefined, undefined, FIT_RADIUS * 1.2);
+		expect(length(wide.position)).toBeCloseTo(length(base.position) * 1.2, 10);
+	});
+});

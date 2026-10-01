@@ -4,6 +4,7 @@ import { type Firing, foldTrace, glowsAt, tickSpan } from "./effects";
 import { runExport } from "./exporter";
 import { exportFileName } from "./exportName";
 import { drawOps, type Op } from "./screen/draw";
+import { frameAt, framesOf, type ScreenFrame, windowAt } from "./screen/frames";
 import {
 	canEncode,
 	canEncodeAudioTrack,
@@ -46,6 +47,7 @@ const renderer = new StageRenderer(canvas);
 // e2e の口（GPU の資源が送り直しで増えないことを見る）。window に生やすのは main.ts だけ。
 (window as unknown as { __jinStage: { memory(): unknown } }).__jinStage = {
 	memory: () => renderer.memory(),
+	summon: () => renderer.summonShown(),
 	// 召喚の窓の描画の写し（screen/draw.ts）で表示リストを描いた PNG（プレイヤーと同じ正解と画素一致を見る e2e の口）。
 	renderOps: (ops: readonly Op[], width: number, height: number): string => {
 		const surface = document.createElement("canvas");
@@ -76,6 +78,8 @@ export const state = {
 	rows: [] as readonly TraceRow[],
 	seed: null as number | null,
 	firings: [] as readonly Firing[],
+	/** 召喚の窓のコマ（トレースの frame 行・screen/frames.ts）。 */
+	frames: [] as readonly ScreenFrame[],
 	tick: 0,
 	playing: false,
 	offset: NO_OFFSET as CameraOffset,
@@ -113,6 +117,7 @@ function report(patch: Partial<StageStatus>): void {
 function refire(): void {
 	state.firings =
 		state.scene === null ? [] : foldTrace(state.rows, state.scene.names);
+	state.frames = framesOf(state.rows);
 	const span = tickSpan(state.rows);
 	scrub.min = String(span.first);
 	scrub.max = String(span.last);
@@ -136,6 +141,14 @@ function drawAt(tick: number): void {
 		preset: preset.value as CameraPreset,
 		aspect: viewAspect(),
 		offset: state.offset,
+		screen: frameAt(state.frames, tick),
+		window: windowAt(
+			state.rows,
+			state.frames,
+			state.scene.names,
+			tick,
+			state.scene.fps,
+		),
 	});
 }
 
@@ -189,7 +202,11 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 function applyInbound(message: Inbound): void {
 	if (message.type === "scene") {
 		try {
-			renderer.setScene(parseScene(message.value.svg), message.value.names);
+			renderer.setScene(
+				parseScene(message.value.svg),
+				message.value.names,
+				message.value.stageSize,
+			);
 			state.scene = message.value;
 			refire();
 			report({ ready: true, error: null });
@@ -297,6 +314,8 @@ interface ExportSnapshot {
 	readonly scene: SceneMessage;
 	readonly seed: number | null;
 	readonly firings: readonly Firing[];
+	readonly rows: readonly TraceRow[];
+	readonly frames: readonly ScreenFrame[];
 	readonly preset: CameraPreset;
 	readonly offset: CameraOffset;
 	readonly caption: string | null;
@@ -307,6 +326,8 @@ function snapshot(scene: SceneMessage): ExportSnapshot {
 		scene,
 		seed: state.seed,
 		firings: state.firings,
+		rows: state.rows,
+		frames: state.frames,
 		preset: preset.value as CameraPreset,
 		offset: state.offset,
 		caption: caption.checked ? captionText(scene.circleName) : null,
@@ -326,6 +347,14 @@ function drawFor(
 		preset: shot.preset,
 		aspect: width / height,
 		offset: shot.offset,
+		screen: frameAt(shot.frames, tick),
+		window: windowAt(
+			shot.rows,
+			shot.frames,
+			shot.scene.names,
+			tick,
+			shot.scene.fps,
+		),
 	});
 	composer.compose(canvas, shot.caption);
 }
