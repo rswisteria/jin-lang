@@ -1,0 +1,783 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280.0mm" height="280.0mm" viewBox="0 0 280.0 280.0">
+<rect width="280.0" height="280.0" fill="#fff"/>
+<text x="22.0" y="23.0" font-family="sans-serif" font-size="4" fill="#888">Jin glyph spike - clicker 1/2 - GUIDE (copy this onto the sheet)</text>
+<text x="20.0" y="33.8" font-family="monospace" font-size="2.2" fill="#aaa">r0 /stage</text>
+<rect x="66.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<rect x="71.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">4</text>
+<rect x="76.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="81.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(81.5 30.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="86.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<rect x="91.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">6</text>
+<rect x="96.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="101.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 30.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="106.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">6</text>
+<rect x="111.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="116.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(116.5 30.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="121.0" y="30.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="33.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<text x="20.0" y="42.8" font-family="monospace" font-size="2.2" fill="#aaa">r1 /circles/0</text>
+<rect x="66.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">C</text>
+<rect x="71.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="76.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="81.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="86.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">k</text>
+<rect x="91.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="96.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="101.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 39.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="106.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">g</text>
+<rect x="111.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="116.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="121.0" y="39.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="42.9" font-family="monospace" font-size="4.2" text-anchor="middle">w</text>
+<text x="20.0" y="51.8" font-family="monospace" font-size="2.2" fill="#aaa">r2 /circles/0/state/0</text>
+<rect x="66.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="51.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="71.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="51.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="51.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="81.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="51.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="86.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="51.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="91.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 48.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 48.5) scale(0.04)" d="M50 22 C53.3 22 56 24.7 56 28 C56 31.3 53.3 34 50 34 C46.7 34 44 31.3 44 28 C44 24.7 46.7 22 50 22 M28 64 C31.3 64 34 66.7 34 70 C34 73.3 31.3 76 28 76 C24.7 76 22 73.3 22 70 C22 66.7 24.7 64 28 64 M72 64 C75.3 64 78 66.7 78 70 C78 73.3 75.3 76 72 76 C68.7 76 66 73.3 66 70 C66 66.7 68.7 64 72 64" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 48.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="106.0" y="48.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="51.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<text x="20.0" y="60.8" font-family="monospace" font-size="2.2" fill="#aaa">r3 /circles/0/state/1</text>
+<rect x="66.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="60.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="71.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="60.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="76.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="60.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="81.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="60.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="86.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(86.5 57.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="91.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 57.5) scale(0.04)" d="M50 22 C53.3 22 56 24.7 56 28 C56 31.3 53.3 34 50 34 C46.7 34 44 31.3 44 28 C44 24.7 46.7 22 50 22 M28 64 C31.3 64 34 66.7 34 70 C34 73.3 31.3 76 28 76 C24.7 76 22 73.3 22 70 C22 66.7 24.7 64 28 64 M72 64 C75.3 64 78 66.7 78 70 C78 73.3 75.3 76 72 76 C68.7 76 66 73.3 66 70 C66 66.7 68.7 64 72 64" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 57.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="57.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="60.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<text x="20.0" y="69.8" font-family="monospace" font-size="2.2" fill="#aaa">r4 /circles/0/state/2</text>
+<rect x="66.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="69.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="71.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="69.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="69.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="69.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="86.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="69.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="91.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 66.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 66.5) scale(0.04)" d="M14 50 C26 30 38 30 50 50 C62 70 74 70 86 50" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 66.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="106.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 66.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="111.0" y="66.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 66.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="78.8" font-family="monospace" font-size="2.2" fill="#aaa">r5 /circles/0/sigils/0</text>
+<rect x="66.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="71.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="76.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">v</text>
+<rect x="86.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="91.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="96.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 75.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 75.5) scale(0.04)" d="M20 84 V44 L50 16 L80 44 V84 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="106.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 75.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="111.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 75.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="116.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="121.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="126.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="131.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">v</text>
+<rect x="136.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="141.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="78.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="146.0" y="75.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(146.5 75.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="87.8" font-family="monospace" font-size="2.2" fill="#aaa">r6 /circles/0/sigils/1</text>
+<rect x="66.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="87.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="71.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="87.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="76.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(76.5 84.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="81.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(81.5 84.5) scale(0.04)" d="M20 84 V44 L50 16 L80 44 V84 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="86.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(86.5 84.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="91.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 84.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="87.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="101.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="87.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="106.0" y="84.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 84.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="96.8" font-family="monospace" font-size="2.2" fill="#aaa">r7 /circles/0/sigils/2</text>
+<rect x="66.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="71.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="76.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">d</text>
+<rect x="86.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="91.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">m</text>
+<rect x="96.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 93.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 93.5) scale(0.04)" d="M20 84 V44 L50 16 L80 44 V84 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="106.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 93.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="111.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 93.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="116.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="121.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="126.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="131.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">d</text>
+<rect x="136.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="141.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="96.9" font-family="monospace" font-size="4.2" text-anchor="middle">m</text>
+<rect x="146.0" y="93.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(146.5 93.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="105.8" font-family="monospace" font-size="2.2" fill="#aaa">r8 /circles/0/rites/0</text>
+<rect x="66.0" y="102.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="105.9" font-family="monospace" font-size="4.2" text-anchor="middle">g</text>
+<rect x="71.0" y="102.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="105.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="76.0" y="102.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="105.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="81.0" y="102.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="105.9" font-family="monospace" font-size="4.2" text-anchor="middle">w</text>
+<rect x="86.0" y="102.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(86.5 102.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="114.8" font-family="monospace" font-size="2.2" fill="#aaa">r9 /circles/0/rites/0/steps/0 </text>
+<rect x="66.0" y="111.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(66.5 111.5) scale(0.04)" d="M50 26 C65.5 26 78 38.5 78 54 C78 69.5 65.5 82 50 82 C34.5 82 22 69.5 22 54 C22 38.5 34.5 26 50 26 M38 14 L50 26 L38 38 M50 44 L60 54 L50 64 L40 54 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="71.0" y="111.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(71.5 111.5) scale(0.04)" d="M50 20 C66.6 20 80 33.4 80 50 C80 66.6 66.6 80 50 80 C33.4 80 20 66.6 20 50 C20 33.4 33.4 20 50 20 M50 44 C53.3 44 56 46.7 56 50 C56 53.3 53.3 56 50 56 C46.7 56 44 53.3 44 50 C44 46.7 46.7 44 50 44" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="123.8" font-family="monospace" font-size="2.2" fill="#aaa">r10 /circles/0/rites/0/steps/0</text>
+<rect x="66.0" y="120.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(66.5 120.5) scale(0.04)" d="M50 14 C53.3 14 56 16.7 56 20 C56 23.3 53.3 26 50 26 C46.7 26 44 23.3 44 20 C44 16.7 46.7 14 50 14 M50 44 C53.3 44 56 46.7 56 50 C56 53.3 53.3 56 50 56 C46.7 56 44 53.3 44 50 C44 46.7 46.7 44 50 44 M50 74 C53.3 74 56 76.7 56 80 C56 83.3 53.3 86 50 86 C46.7 86 44 83.3 44 80 C44 76.7 46.7 74 50 74" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="71.0" y="120.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="123.9" font-family="monospace" font-size="4.2" text-anchor="middle">6</text>
+<rect x="76.0" y="120.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="123.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<text x="20.0" y="132.8" font-family="monospace" font-size="2.2" fill="#aaa">r11 /circles/0/rites/0/steps/0</text>
+<rect x="66.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="71.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="81.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="86.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="91.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 129.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="101.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="106.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="111.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="116.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="121.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(121.5 129.5) scale(0.04)" d="M50 15 V85 M15 50 H85 M50 41 C55 41 59 45 59 50 C59 55 55 59 50 59 C45 59 41 55 41 50 C41 45 45 41 50 41" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="126.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="131.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="136.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="141.0" y="129.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="132.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<text x="20.0" y="141.8" font-family="monospace" font-size="2.2" fill="#aaa">r12 /circles/0/rites/0/steps/0</text>
+<rect x="66.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="71.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="76.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">d</text>
+<rect x="86.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="91.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">m</text>
+<rect x="96.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 138.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="106.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="111.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">x</text>
+<rect x="116.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="121.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(121.5 138.5) scale(0.04)" d="M60 12 C32 32 32 68 60 88 M42 50 H58" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="126.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(126.5 138.5) scale(0.04)" d="M40 12 C68 32 68 68 40 88 M58 50 H42" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="131.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(131.5 138.5) scale(0.04)" d="M76 18 L24 50 L76 82" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="136.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="141.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">.</text>
+<rect x="146.0" y="138.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="148.5" y="141.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<text x="20.0" y="150.8" font-family="monospace" font-size="2.2" fill="#aaa">r13 /circles/0/rites/0/steps/0</text>
+<rect x="66.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="71.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="86.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="91.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 147.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 147.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">L</text>
+<rect x="106.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">U</text>
+<rect x="111.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">C</text>
+<rect x="116.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">K</text>
+<rect x="121.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">Y</text>
+<rect x="126.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle"> </text>
+<rect x="131.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">+</text>
+<rect x="136.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<rect x="141.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="150.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="146.0" y="147.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(146.5 147.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="159.8" font-family="monospace" font-size="2.2" fill="#aaa">r14 /circles/0/rites/0/steps/0</text>
+<rect x="66.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="71.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="81.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="86.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="91.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 156.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="101.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="106.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="111.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="116.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="121.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(121.5 156.5) scale(0.04)" d="M50 15 V85 M15 50 H85 M50 41 C55 41 59 45 59 50 C59 55 55 59 50 59 C45 59 41 55 41 50 C41 45 45 41 50 41" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="126.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<rect x="131.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="159.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<text x="20.0" y="168.8" font-family="monospace" font-size="2.2" fill="#aaa">r15 /circles/0/rites/0/steps/0</text>
+<rect x="66.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="71.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="86.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="91.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 165.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 165.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(101.5 165.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="177.8" font-family="monospace" font-size="2.2" fill="#aaa">r16 /circles/0/rites/1</text>
+<rect x="66.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="177.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="71.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="177.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="76.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="177.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="81.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="177.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="86.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="177.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="91.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="177.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="96.0" y="174.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 174.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="186.8" font-family="monospace" font-size="2.2" fill="#aaa">r17 /circles/0/rites/1/steps/0</text>
+<rect x="66.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="71.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="76.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="81.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">v</text>
+<rect x="86.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="91.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="96.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(96.5 183.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="106.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="111.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="116.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="121.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="126.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(126.5 183.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="131.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(131.5 183.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="136.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">#</text>
+<rect x="141.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<rect x="146.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="148.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<rect x="151.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="153.5" y="186.9" font-family="monospace" font-size="4.2" text-anchor="middle">3</text>
+<rect x="156.0" y="183.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(156.5 183.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="195.8" font-family="monospace" font-size="2.2" fill="#aaa">r18 /circles/0/rites/1/steps/1</text>
+<rect x="66.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="71.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="76.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(76.5 192.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="81.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="86.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="91.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="96.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="101.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="106.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 192.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="111.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 192.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="116.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">C</text>
+<rect x="121.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">O</text>
+<rect x="126.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">O</text>
+<rect x="131.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">K</text>
+<rect x="136.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">I</text>
+<rect x="141.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">E</text>
+<rect x="146.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="148.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">S</text>
+<rect x="151.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="153.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle"> </text>
+<rect x="156.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(156.5 192.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="161.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(161.5 192.5) scale(0.04)" d="M50 50 C40 30 18 30 18 50 C18 70 40 70 50 50 C60 30 82 30 82 50 C82 70 60 70 50 50" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="166.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="168.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="171.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="173.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="176.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="178.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="181.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(181.5 192.5) scale(0.04)" d="M60 12 C32 32 32 68 60 88 M42 50 H58" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="186.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="188.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="191.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="193.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="196.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="198.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="201.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="203.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="206.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="208.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="211.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(211.5 192.5) scale(0.04)" d="M40 12 C68 32 68 68 40 88 M58 50 H42" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="216.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(216.5 192.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="221.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="223.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">8</text>
+<rect x="226.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(226.5 192.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="231.0" y="192.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="233.5" y="195.9" font-family="monospace" font-size="4.2" text-anchor="middle">8</text>
+<text x="20.0" y="204.8" font-family="monospace" font-size="2.2" fill="#aaa">r19 /circles/0/rites/1/steps/2</text>
+<rect x="66.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="71.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="76.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(76.5 201.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="81.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="86.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="91.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="96.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="101.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="106.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 201.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="111.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 201.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="116.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">R</text>
+<rect x="121.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">A</text>
+<rect x="126.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">T</text>
+<rect x="131.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">E</text>
+<rect x="136.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle"> </text>
+<rect x="141.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(141.5 201.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="146.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(146.5 201.5) scale(0.04)" d="M50 50 C40 30 18 30 18 50 C18 70 40 70 50 50 C60 30 82 30 82 50 C82 70 60 70 50 50" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="151.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="153.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="156.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="158.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="161.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="163.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="166.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(166.5 201.5) scale(0.04)" d="M60 12 C32 32 32 68 60 88 M42 50 H58" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="171.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="173.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">r</text>
+<rect x="176.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="178.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="181.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="183.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="186.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="188.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="191.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(191.5 201.5) scale(0.04)" d="M40 12 C68 32 68 68 40 88 M58 50 H42" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="196.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(196.5 201.5) scale(0.04)" d="M50 50 C40 30 18 30 18 50 C18 70 40 70 50 50 C60 30 82 30 82 50 C82 70 60 70 50 50" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="201.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(201.5 201.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="206.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(206.5 201.5) scale(0.04)" d="M50 12 V88 M30 34 H70 M30 64 H70" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="211.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="213.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">/</text>
+<rect x="216.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="218.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="221.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(221.5 201.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="226.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(226.5 201.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="231.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="233.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">8</text>
+<rect x="236.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(236.5 201.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="241.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="243.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<rect x="246.0" y="201.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="248.5" y="204.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<text x="20.0" y="213.8" font-family="monospace" font-size="2.2" fill="#aaa">r20 /circles/0/rites/1/steps/3</text>
+<rect x="66.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="71.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="76.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(76.5 210.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="81.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="86.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">a</text>
+<rect x="91.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="96.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">e</text>
+<rect x="101.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">l</text>
+<rect x="106.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(106.5 210.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="111.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="116.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="121.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="126.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="131.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">s</text>
+<rect x="136.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(136.5 210.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="141.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">8</text>
+<rect x="146.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(146.5 210.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="151.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="153.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">3</text>
+<rect x="156.0" y="210.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="158.5" y="213.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<text x="20.0" y="222.8" font-family="monospace" font-size="2.2" fill="#aaa">r21 /circles/0/rites/1/steps/4</text>
+<rect x="66.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="71.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="76.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(76.5 219.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="81.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="86.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="91.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="96.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="101.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="106.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="111.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 219.5) scale(0.04)" d="M60 12 C32 32 32 68 60 88 M42 50 H58" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="116.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(116.5 219.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="121.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">C</text>
+<rect x="126.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">L</text>
+<rect x="131.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">I</text>
+<rect x="136.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">C</text>
+<rect x="141.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">K</text>
+<rect x="146.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(146.5 219.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="151.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(151.5 219.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="156.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="158.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<rect x="161.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="163.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="166.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(166.5 219.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="171.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="173.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">6</text>
+<rect x="176.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="178.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="181.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(181.5 219.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="186.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="188.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">9</text>
+<rect x="191.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="193.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="196.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(196.5 219.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="201.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="203.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<rect x="206.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="208.5" y="222.9" font-family="monospace" font-size="4.2" text-anchor="middle">8</text>
+<rect x="211.0" y="219.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(211.5 219.5) scale(0.04)" d="M40 12 C68 32 68 68 40 88 M58 50 H42" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="231.8" font-family="monospace" font-size="2.2" fill="#aaa">r22 /circles/0/rites/1/steps/4</text>
+<rect x="66.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="71.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="76.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="81.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="86.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="91.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(91.5 228.5) scale(0.04)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="101.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="106.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="111.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="113.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="116.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="118.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="121.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(121.5 228.5) scale(0.04)" d="M50 15 V85 M15 50 H85 M50 41 C55 41 59 45 59 50 C59 55 55 59 50 59 C45 59 41 55 41 50 C41 45 45 41 50 41" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="126.0" y="228.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="231.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<text x="20.0" y="240.8" font-family="monospace" font-size="2.2" fill="#aaa">r23 /circles/0/rites/1/steps/5</text>
+<rect x="66.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="71.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">i</text>
+<rect x="76.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(76.5 237.5) scale(0.04)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="81.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">b</text>
+<rect x="86.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="91.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="96.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="98.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="101.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="103.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="106.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="108.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<rect x="111.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(111.5 237.5) scale(0.04)" d="M60 12 C32 32 32 68 60 88 M42 50 H58" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="116.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(116.5 237.5) scale(0.04)" d="M62 14 H34 V48" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="121.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="123.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">U</text>
+<rect x="126.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="128.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">P</text>
+<rect x="131.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="133.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">G</text>
+<rect x="136.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="138.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">R</text>
+<rect x="141.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="143.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">A</text>
+<rect x="146.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="148.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">D</text>
+<rect x="151.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="153.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">E</text>
+<rect x="156.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(156.5 237.5) scale(0.04)" d="M38 86 H66 V52" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="161.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(161.5 237.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="166.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="168.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<rect x="171.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="173.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">3</text>
+<rect x="176.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="178.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="181.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(181.5 237.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="186.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="188.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">6</text>
+<rect x="191.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="193.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="196.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(196.5 237.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="201.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="203.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">9</text>
+<rect x="206.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="208.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+<rect x="211.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(211.5 237.5) scale(0.04)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="216.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="218.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">2</text>
+<rect x="221.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="223.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">8</text>
+<rect x="226.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(226.5 237.5) scale(0.04)" d="M40 12 C68 32 68 68 40 88 M58 50 H42" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="231.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(231.5 237.5) scale(0.04)" d="M50 18 L84 80 L16 80 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="236.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="238.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">c</text>
+<rect x="241.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="243.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">o</text>
+<rect x="246.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="248.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">u</text>
+<rect x="251.0" y="237.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="253.5" y="240.9" font-family="monospace" font-size="4.2" text-anchor="middle">n</text>
+<text x="20.0" y="249.8" font-family="monospace" font-size="2.2" fill="#aaa">r23 (cont.)</text>
+<rect x="66.0" y="246.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="249.9" font-family="monospace" font-size="4.2" text-anchor="middle">t</text>
+<rect x="71.0" y="246.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<path transform="translate(71.5 246.5) scale(0.04)" d="M24 12 L76 40 L24 68 M24 86 H76" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="76.0" y="246.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="249.9" font-family="monospace" font-size="4.2" text-anchor="middle">1</text>
+<rect x="81.0" y="246.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="249.9" font-family="monospace" font-size="4.2" text-anchor="middle">0</text>
+</svg>
