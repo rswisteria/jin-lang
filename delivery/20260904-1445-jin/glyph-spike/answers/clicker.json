@@ -1,0 +1,2082 @@
+{
+ "source": "../../../examples-v2/clicker/clicker.jin",
+ "pages": 2,
+ "rows": [
+  {
+   "id": "r0",
+   "label": "/stage",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "4"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    }
+   ]
+  },
+  {
+   "id": "r1",
+   "label": "/circles/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "C"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "k"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "g"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "w"
+    }
+   ]
+  },
+  {
+   "id": "r2",
+   "label": "/circles/0/state/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "t_num"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r3",
+   "label": "/circles/0/state/1",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "t_num"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r4",
+   "label": "/circles/0/state/2",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "t_str"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r5",
+   "label": "/circles/0/sigils/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "v"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "sigil_host"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "v"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r6",
+   "label": "/circles/0/sigils/1",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "sigil_host"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r7",
+   "label": "/circles/0/sigils/2",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "d"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "m"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "sigil_host"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "d"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "m"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r8",
+   "label": "/circles/0/rites/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "g"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "w"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    }
+   ]
+  },
+  {
+   "id": "r9",
+   "label": "/circles/0/rites/0/steps/0 loop",
+   "cells": [
+    {
+     "t": "glyph",
+     "v": "loop_while"
+    },
+    {
+     "t": "glyph",
+     "v": "true"
+    }
+   ]
+  },
+  {
+   "id": "r10",
+   "label": "/circles/0/rites/0/steps/0/steps/0 wait",
+   "cells": [
+    {
+     "t": "glyph",
+     "v": "wait_ticks"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r11",
+   "label": "/circles/0/rites/0/steps/0/steps/1 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "add"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    }
+   ]
+  },
+  {
+   "id": "r12",
+   "label": "/circles/0/rites/0/steps/0/steps/2 if",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "d"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "m"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "x"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    },
+    {
+     "t": "glyph",
+     "v": "lt"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "latin",
+     "v": "."
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    }
+   ]
+  },
+  {
+   "id": "r13",
+   "label": "/circles/0/rites/0/steps/0/steps/2/then/0 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "L"
+    },
+    {
+     "t": "latin",
+     "v": "U"
+    },
+    {
+     "t": "latin",
+     "v": "C"
+    },
+    {
+     "t": "latin",
+     "v": "K"
+    },
+    {
+     "t": "latin",
+     "v": "Y"
+    },
+    {
+     "t": "glyph",
+     "v": "esc"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "+"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r14",
+   "label": "/circles/0/rites/0/steps/0/steps/2/then/1 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "add"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r15",
+   "label": "/circles/0/rites/0/steps/0/steps/2/else/0 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r16",
+   "label": "/circles/0/rites/1",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    }
+   ]
+  },
+  {
+   "id": "r17",
+   "label": "/circles/0/rites/1/steps/0 cast",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "v"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "#"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "3"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r18",
+   "label": "/circles/0/rites/1/steps/1 cast",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "C"
+    },
+    {
+     "t": "latin",
+     "v": "O"
+    },
+    {
+     "t": "latin",
+     "v": "O"
+    },
+    {
+     "t": "latin",
+     "v": "K"
+    },
+    {
+     "t": "latin",
+     "v": "I"
+    },
+    {
+     "t": "latin",
+     "v": "E"
+    },
+    {
+     "t": "latin",
+     "v": "S"
+    },
+    {
+     "t": "glyph",
+     "v": "esc"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "cat"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    }
+   ]
+  },
+  {
+   "id": "r19",
+   "label": "/circles/0/rites/1/steps/2 cast",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "R"
+    },
+    {
+     "t": "latin",
+     "v": "A"
+    },
+    {
+     "t": "latin",
+     "v": "T"
+    },
+    {
+     "t": "latin",
+     "v": "E"
+    },
+    {
+     "t": "glyph",
+     "v": "esc"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "cat"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    },
+    {
+     "t": "glyph",
+     "v": "cat"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "/"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r20",
+   "label": "/circles/0/rites/1/steps/3 cast",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "l"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "3"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    }
+   ]
+  },
+  {
+   "id": "r21",
+   "label": "/circles/0/rites/1/steps/4 if",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "C"
+    },
+    {
+     "t": "latin",
+     "v": "L"
+    },
+    {
+     "t": "latin",
+     "v": "I"
+    },
+    {
+     "t": "latin",
+     "v": "C"
+    },
+    {
+     "t": "latin",
+     "v": "K"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "9"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    }
+   ]
+  },
+  {
+   "id": "r22",
+   "label": "/circles/0/rites/1/steps/4/then/0 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "add"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    }
+   ]
+  },
+  {
+   "id": "r23",
+   "label": "/circles/0/rites/1/steps/5 if",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "U"
+    },
+    {
+     "t": "latin",
+     "v": "P"
+    },
+    {
+     "t": "latin",
+     "v": "G"
+    },
+    {
+     "t": "latin",
+     "v": "R"
+    },
+    {
+     "t": "latin",
+     "v": "A"
+    },
+    {
+     "t": "latin",
+     "v": "D"
+    },
+    {
+     "t": "latin",
+     "v": "E"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "3"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "9"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    },
+    {
+     "t": "glyph",
+     "v": "and"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "ge"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r24",
+   "label": "/circles/0/rites/1/steps/5/then/0 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sub"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r25",
+   "label": "/circles/0/rites/1/steps/5/then/1 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "glyph",
+     "v": "add"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    }
+   ]
+  },
+  {
+   "id": "r26",
+   "label": "/circles/0/rites/1/steps/6 if",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "D"
+    },
+    {
+     "t": "latin",
+     "v": "O"
+    },
+    {
+     "t": "latin",
+     "v": "N"
+    },
+    {
+     "t": "latin",
+     "v": "E"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "7"
+    },
+    {
+     "t": "latin",
+     "v": "5"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "9"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "8"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    }
+   ]
+  },
+  {
+   "id": "r27",
+   "label": "/circles/0/boundary/on/0",
+   "cells": [
+    {
+     "t": "glyph",
+     "v": "event_tick"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    }
+   ]
+  },
+  {
+   "id": "r28",
+   "label": "/circles/0/boundary/guards/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "ge"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "mark_message"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "c"
+    },
+    {
+     "t": "latin",
+     "v": "o"
+    },
+    {
+     "t": "latin",
+     "v": "u"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "esc"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "は"
+    },
+    {
+     "t": "latin",
+     "v": "負"
+    },
+    {
+     "t": "latin",
+     "v": "に"
+    },
+    {
+     "t": "latin",
+     "v": "な"
+    },
+    {
+     "t": "latin",
+     "v": "ら"
+    },
+    {
+     "t": "latin",
+     "v": "な"
+    },
+    {
+     "t": "latin",
+     "v": "い"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  },
+  {
+   "id": "r29",
+   "label": "extra japanese string",
+   "cells": [
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "latin",
+     "v": "ま"
+    },
+    {
+     "t": "latin",
+     "v": "ほ"
+    },
+    {
+     "t": "latin",
+     "v": "う"
+    },
+    {
+     "t": "latin",
+     "v": "じ"
+    },
+    {
+     "t": "latin",
+     "v": "ん"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    }
+   ]
+  }
+ ]
+}

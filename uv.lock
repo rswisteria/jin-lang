@@ -12,6 +12,7 @@ members = [
     "jin-adk",
     "jin-cli",
     "jin-core",
+    "jin-glyph",
     "jin-lsp",
     "jin-render",
     "jin-wasm",
@@ -918,6 +919,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "jin-glyph"
+version = "0.1.0"
+source = { editable = "packages/jin-glyph" }
+dependencies = [
+    { name = "jin-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jin-core", editable = "packages/jin-core" }]
+
+[[package]]
 name = "jin-lsp"
 version = "0.1.0"
 source = { editable = "packages/jin-lsp" }
@@ -987,6 +999,7 @@ dependencies = [
     { name = "jin-adk" },
     { name = "jin-cli" },
     { name = "jin-core" },
+    { name = "jin-glyph" },
     { name = "jin-lsp" },
     { name = "jin-render" },
     { name = "jin-wasm" },
@@ -1007,6 +1020,7 @@ requires-dist = [
     { name = "jin-adk", editable = "packages/jin-adk" },
     { name = "jin-cli", editable = "packages/jin-cli" },
     { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-glyph", editable = "packages/jin-glyph" },
     { name = "jin-lsp", editable = "packages/jin-lsp" },
     { name = "jin-render", editable = "packages/jin-render" },
     { name = "jin-wasm", editable = "packages/jin-wasm" },

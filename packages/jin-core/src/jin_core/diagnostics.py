@@ -120,19 +120,27 @@ V2_SHARED_CODES: tuple[str, ...] = (
     "JIN060",
 )
 
+#: 絵の文法の診断（陣書き・docs/spec/v2/diagnostics.md の JIN3xx の節）。画像を入力にしたとき
+#: `.jinscene.json` に対して出す。`jin_core` は番号と重さだけを知り、画像を知らない。
+#: 一致は tests/spec/test_glyph_spec_consistency.py が機械で検査する。
+SCENE_CODES: dict[str, Severity] = {
+    "JIN301": "error",
+    "JIN302": "error",
+    "JIN303": "error",
+    "JIN304": "error",
+    "JIN305": "error",
+    "JIN306": "warning",
+}
+
 #: 要素数の上限（JIN020）。要件書 §2.4「tools または state が 12 を超えた」。
 MAX_ELEMENTS = 12
 
 
 def severity_of(code: str) -> Severity:
-    try:
-        return CANONICAL_CODES[code]
-    except KeyError:
-        pass
-    try:
-        return V2_CODES[code]
-    except KeyError as exc:  # pragma: no cover - 実装ミスの早期検出用
-        raise KeyError(f"未知の診断コードです: {code}") from exc
+    for table in (CANONICAL_CODES, V2_CODES, SCENE_CODES):
+        if code in table:
+            return table[code]
+    raise KeyError(f"未知の診断コードです: {code}")  # pragma: no cover - 実装ミスの早期検出用
 
 
 def has_error(diagnostics: list[Diagnostic]) -> bool:
@@ -142,6 +150,7 @@ def has_error(diagnostics: list[Diagnostic]) -> bool:
 __all__ = [
     "CANONICAL_CODES",
     "MAX_ELEMENTS",
+    "SCENE_CODES",
     "V2_CODES",
     "V2_SHARED_CODES",
     "Diagnostic",

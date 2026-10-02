@@ -1,0 +1,22 @@
+[project]
+name = "jin-glyph"
+version = "0.1.0"
+description = "Jin 陣書き: 魔法陣の画像(写真・Jin が描いた PNG)を場面グラフ経由で .jin に読む"
+requires-python = ">=3.12"
+# jin-glyph は jin-lsp / jin-wasmgc の**兄弟**(import-linter の layers 契約 `"jin_lsp | jin_wasmgc | jin_glyph"`)。
+# 設計は docs/superpowers/specs/2026-10-03-jin-glyph-design.md §4.2。import するのは jin_cli だけ
+# (`anthropic` を LSP の起動経路に乗せない)。紋の語彙と欄の順は jin_core.v2.glyph(レンダラと共有)。
+# jin-render(幾何の共有)・Pillow・anthropic は使う段(S2〜S4)で足す。
+dependencies = [
+  "jin-core",
+]
+
+[tool.uv.sources]
+jin-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jin_glyph"]

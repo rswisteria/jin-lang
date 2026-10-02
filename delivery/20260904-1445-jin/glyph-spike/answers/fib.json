@@ -1,0 +1,648 @@
+{
+ "source": "../../../examples-v2/fib/fib.jin",
+ "pages": 1,
+ "rows": [
+  {
+   "id": "r0",
+   "label": "/stage",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "4"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "4"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "6"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r1",
+   "label": "/circles/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "F"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "m"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    }
+   ]
+  },
+  {
+   "id": "r2",
+   "label": "/circles/0/state/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "w"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "t_num"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r3",
+   "label": "/circles/0/rites/0",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "f"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "glyph",
+     "v": "t_num"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "t_num"
+    }
+   ]
+  },
+  {
+   "id": "r4",
+   "label": "/circles/0/rites/0/steps/0 let",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    }
+   ]
+  },
+  {
+   "id": "r5",
+   "label": "/circles/0/rites/0/steps/1 let",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "1"
+    }
+   ]
+  },
+  {
+   "id": "r6",
+   "label": "/circles/0/rites/0/steps/2 loop",
+   "cells": [
+    {
+     "t": "glyph",
+     "v": "loop_count"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    }
+   ]
+  },
+  {
+   "id": "r7",
+   "label": "/circles/0/rites/0/steps/2/steps/0 let",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "t"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "glyph",
+     "v": "add"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    }
+   ]
+  },
+  {
+   "id": "r8",
+   "label": "/circles/0/rites/0/steps/2/steps/1 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    }
+   ]
+  },
+  {
+   "id": "r9",
+   "label": "/circles/0/rites/0/steps/2/steps/2 set",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "t"
+    }
+   ]
+  },
+  {
+   "id": "r10",
+   "label": "/circles/0/rites/0/steps/3 return",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "a"
+    }
+   ]
+  },
+  {
+   "id": "r11",
+   "label": "/circles/0/rites/1",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "m"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    }
+   ]
+  },
+  {
+   "id": "r12",
+   "label": "/circles/0/rites/1/steps/0 cast",
+   "cells": [
+    {
+     "t": "latin",
+     "v": "f"
+    },
+    {
+     "t": "latin",
+     "v": "i"
+    },
+    {
+     "t": "latin",
+     "v": "b"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "latin",
+     "v": "2"
+    },
+    {
+     "t": "latin",
+     "v": "0"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "mark_into"
+    },
+    {
+     "t": "latin",
+     "v": "a"
+    },
+    {
+     "t": "latin",
+     "v": "n"
+    },
+    {
+     "t": "latin",
+     "v": "s"
+    },
+    {
+     "t": "latin",
+     "v": "w"
+    },
+    {
+     "t": "latin",
+     "v": "e"
+    },
+    {
+     "t": "latin",
+     "v": "r"
+    }
+   ]
+  },
+  {
+   "id": "r13",
+   "label": "extra all glyphs",
+   "cells": [
+    {
+     "t": "glyph",
+     "v": "add"
+    },
+    {
+     "t": "glyph",
+     "v": "sub"
+    },
+    {
+     "t": "glyph",
+     "v": "mul"
+    },
+    {
+     "t": "glyph",
+     "v": "div"
+    },
+    {
+     "t": "glyph",
+     "v": "mod"
+    },
+    {
+     "t": "glyph",
+     "v": "cat"
+    },
+    {
+     "t": "glyph",
+     "v": "eq"
+    },
+    {
+     "t": "glyph",
+     "v": "ne"
+    },
+    {
+     "t": "glyph",
+     "v": "lt"
+    },
+    {
+     "t": "glyph",
+     "v": "le"
+    },
+    {
+     "t": "glyph",
+     "v": "gt"
+    },
+    {
+     "t": "glyph",
+     "v": "ge"
+    },
+    {
+     "t": "glyph",
+     "v": "and"
+    },
+    {
+     "t": "glyph",
+     "v": "or"
+    },
+    {
+     "t": "glyph",
+     "v": "not"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_l"
+    },
+    {
+     "t": "glyph",
+     "v": "paren_r"
+    },
+    {
+     "t": "glyph",
+     "v": "brack_l"
+    },
+    {
+     "t": "glyph",
+     "v": "brack_r"
+    },
+    {
+     "t": "glyph",
+     "v": "brace_l"
+    },
+    {
+     "t": "glyph",
+     "v": "brace_r"
+    },
+    {
+     "t": "glyph",
+     "v": "comma"
+    },
+    {
+     "t": "glyph",
+     "v": "colon"
+    },
+    {
+     "t": "glyph",
+     "v": "dot"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_l"
+    },
+    {
+     "t": "glyph",
+     "v": "quote_r"
+    },
+    {
+     "t": "glyph",
+     "v": "esc"
+    },
+    {
+     "t": "glyph",
+     "v": "true"
+    },
+    {
+     "t": "glyph",
+     "v": "false"
+    },
+    {
+     "t": "glyph",
+     "v": "t_num"
+    },
+    {
+     "t": "glyph",
+     "v": "t_bool"
+    },
+    {
+     "t": "glyph",
+     "v": "t_str"
+    },
+    {
+     "t": "glyph",
+     "v": "t_list_l"
+    },
+    {
+     "t": "glyph",
+     "v": "t_list_r"
+    },
+    {
+     "t": "glyph",
+     "v": "sep"
+    },
+    {
+     "t": "glyph",
+     "v": "cont"
+    },
+    {
+     "t": "glyph",
+     "v": "loop_each"
+    },
+    {
+     "t": "glyph",
+     "v": "loop_while"
+    },
+    {
+     "t": "glyph",
+     "v": "loop_count"
+    },
+    {
+     "t": "glyph",
+     "v": "wait_ticks"
+    },
+    {
+     "t": "glyph",
+     "v": "wait_until"
+    },
+    {
+     "t": "glyph",
+     "v": "sigil_host"
+    },
+    {
+     "t": "glyph",
+     "v": "sigil_summon"
+    },
+    {
+     "t": "glyph",
+     "v": "sigil_agent"
+    },
+    {
+     "t": "glyph",
+     "v": "asset_sprite"
+    },
+    {
+     "t": "glyph",
+     "v": "asset_sound"
+    },
+    {
+     "t": "glyph",
+     "v": "flow_sequence"
+    },
+    {
+     "t": "glyph",
+     "v": "flow_parallel"
+    },
+    {
+     "t": "glyph",
+     "v": "flow_loop"
+    },
+    {
+     "t": "glyph",
+     "v": "event_tick"
+    },
+    {
+     "t": "glyph",
+     "v": "event_key"
+    },
+    {
+     "t": "glyph",
+     "v": "event_pointer"
+    },
+    {
+     "t": "glyph",
+     "v": "event_message"
+    },
+    {
+     "t": "glyph",
+     "v": "event_exit"
+    },
+    {
+     "t": "glyph",
+     "v": "mark_into"
+    },
+    {
+     "t": "glyph",
+     "v": "mark_name"
+    },
+    {
+     "t": "glyph",
+     "v": "mark_message"
+    }
+   ]
+  },
+  {
+   "id": "r14",
+   "label": "extra leave empty",
+   "cells": [
+    {
+     "t": "empty",
+     "v": ""
+    },
+    {
+     "t": "empty",
+     "v": ""
+    },
+    {
+     "t": "empty",
+     "v": ""
+    },
+    {
+     "t": "empty",
+     "v": ""
+    },
+    {
+     "t": "empty",
+     "v": ""
+    },
+    {
+     "t": "empty",
+     "v": ""
+    }
+   ]
+  }
+ ]
+}
