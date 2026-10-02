@@ -151,6 +151,20 @@ def test_import_linter_passes_on_the_real_tree() -> None:
             "from jin_cli.resolver import ImportResolver",
             "jin_cli.resolver",
         ),
+        # 陣書き（S1）で足した `jin_glyph`（`jin_lsp | jin_wasmgc` の兄弟）。1 要素から抜けても
+        # 兄弟間の import が通ってしまうだけで全部緑のままになるので実測する。`anthropic` を LSP の
+        # 起動経路に乗せないため、`jin_lsp` → `jin_glyph` も落ちること（逆向き）を見る
+        ("jin_glyph", "__init__.py", "import google.adk", "google-adk"),
+        ("jin_glyph", "__init__.py", "import jin_lsp", "一方向"),
+        ("jin_glyph", "__init__.py", "import jin_cli", "一方向"),
+        ("jin_lsp", "jil.py", "import jin_glyph", "一方向"),
+        ("jin_render", "svg.py", "import jin_glyph", "一方向"),
+        (
+            "jin_glyph",
+            "__init__.py",
+            "from jin_cli.resolver import ImportResolver",
+            "jin_cli.resolver",
+        ),
     ],
 )
 def test_import_linter_actually_bites_on_a_forbidden_import(
@@ -243,6 +257,8 @@ def test_jin_core_imports_no_other_jin_package() -> None:
 #: design.yaml `architecture.dependency_direction.rules` が名指しする Python パッケージの全集合
 #: （v1 の 5 つ。Phase 4 の `jin_lsp` で埋まった）+ **Jin v2 の Phase 2 で足した `jin_wasm`**
 #: + **v2.1（Issue #53 / #73）で足した `jin_wasmgc`**（`jin_lsp` の兄弟。正本は jil.md §6.1）
+#: + **陣書き S1 で足した `jin_glyph`**（`jin_lsp` / `jin_wasmgc` の兄弟。設計は
+#: docs/superpowers/specs/2026-10-03-jin-glyph-design.md §4.2）
 #: （設計書 §1.2。`apps/editor` / `apps/player` は Python パッケージではない）。
 PLANNED_PACKAGES = (
     "jin_core",
@@ -250,6 +266,7 @@ PLANNED_PACKAGES = (
     "jin_render",
     "jin_wasm",
     "jin_wasmgc",
+    "jin_glyph",
     "jin_lsp",
     "jin_cli",
 )
