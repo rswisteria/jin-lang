@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="1192" viewBox="0 0 960 1192">
+<rect width="960" height="1192" fill="#ffffff"/>
+<text x="8" y="26" font-family="sans-serif" font-size="18">Jin glyph reference (expr: 36 / disc: 21)</text>
+<rect x="10" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(10 40)" d="M50 15 V85 M15 50 H85 M50 41 C55 41 59 45 59 50 C59 55 55 59 50 59 C45 59 41 55 41 50 C41 45 45 41 50 41" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="156" font-family="monospace" font-size="12" text-anchor="middle">add</text>
+<rect x="130" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(130 40)" d="M15 50 H85 M15 38 V62 M85 38 V62" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="156" font-family="monospace" font-size="12" text-anchor="middle">sub</text>
+<rect x="250" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(250 40)" d="M50 15 V85 M20 32 L80 68 M20 68 L80 32" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="156" font-family="monospace" font-size="12" text-anchor="middle">mul</text>
+<rect x="370" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(370 40)" d="M15 50 H85 M50 19 C53.9 19 57 22.1 57 26 C57 29.9 53.9 33 50 33 C46.1 33 43 29.9 43 26 C43 22.1 46.1 19 50 19 M50 67 C53.9 67 57 70.1 57 74 C57 77.9 53.9 81 50 81 C46.1 81 43 77.9 43 74 C43 70.1 46.1 67 50 67" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="156" font-family="monospace" font-size="12" text-anchor="middle">div</text>
+<rect x="490" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(490 40)" d="M80 15 L20 85 M28 18 C33.5 18 38 22.5 38 28 C38 33.5 33.5 38 28 38 C22.5 38 18 33.5 18 28 C18 22.5 22.5 18 28 18 M72 62 C77.5 62 82 66.5 82 72 C82 77.5 77.5 82 72 82 C66.5 82 62 77.5 62 72 C62 66.5 66.5 62 72 62" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="156" font-family="monospace" font-size="12" text-anchor="middle">mod</text>
+<rect x="610" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(610 40)" d="M50 50 C40 30 18 30 18 50 C18 70 40 70 50 50 C60 30 82 30 82 50 C82 70 60 70 50 50" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="156" font-family="monospace" font-size="12" text-anchor="middle">cat</text>
+<rect x="730" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(730 40)" d="M18 38 H82 M18 62 H82" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="156" font-family="monospace" font-size="12" text-anchor="middle">eq</text>
+<rect x="850" y="40" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(850 40)" d="M18 38 H82 M18 62 H82 M66 18 L34 82" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="156" font-family="monospace" font-size="12" text-anchor="middle">ne</text>
+<rect x="10" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(10 184)" d="M76 18 L24 50 L76 82" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="300" font-family="monospace" font-size="12" text-anchor="middle">lt</text>
+<rect x="130" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(130 184)" d="M76 12 L24 40 L76 68 M24 86 H76" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="300" font-family="monospace" font-size="12" text-anchor="middle">le</text>
+<rect x="250" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(250 184)" d="M24 18 L76 50 L24 82" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="300" font-family="monospace" font-size="12" text-anchor="middle">gt</text>
+<rect x="370" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(370 184)" d="M24 12 L76 40 L24 68 M24 86 H76" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="300" font-family="monospace" font-size="12" text-anchor="middle">ge</text>
+<rect x="490" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(490 184)" d="M50 18 L84 80 L16 80 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="300" font-family="monospace" font-size="12" text-anchor="middle">and</text>
+<rect x="610" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(610 184)" d="M16 20 L84 20 L50 82 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="300" font-family="monospace" font-size="12" text-anchor="middle">or</text>
+<rect x="730" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(730 184)" d="M14 42 H84 V60 M26 58 C29.3 58 32 60.7 32 64 C32 67.3 29.3 70 26 70 C22.7 70 20 67.3 20 64 C20 60.7 22.7 58 26 58" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="300" font-family="monospace" font-size="12" text-anchor="middle">not</text>
+<rect x="850" y="184" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(850 184)" d="M60 12 C32 32 32 68 60 88 M42 50 H58" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="300" font-family="monospace" font-size="12" text-anchor="middle">paren_l</text>
+<rect x="10" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(10 328)" d="M40 12 C68 32 68 68 40 88 M58 50 H42" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="444" font-family="monospace" font-size="12" text-anchor="middle">paren_r</text>
+<rect x="130" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(130 328)" d="M60 12 H38 V88 H60" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="444" font-family="monospace" font-size="12" text-anchor="middle">brack_l</text>
+<rect x="250" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(250 328)" d="M40 12 H62 V88 H40" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="444" font-family="monospace" font-size="12" text-anchor="middle">brack_r</text>
+<rect x="370" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(370 328)" d="M62 12 C46 12 50 24 50 36 C50 46 44 50 36 50 C44 50 50 54 50 64 C50 76 46 88 62 88" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="444" font-family="monospace" font-size="12" text-anchor="middle">brace_l</text>
+<rect x="490" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(490 328)" d="M38 12 C54 12 50 24 50 36 C50 46 56 50 64 50 C56 50 50 54 50 64 C50 76 54 88 38 88" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="444" font-family="monospace" font-size="12" text-anchor="middle">brace_r</text>
+<rect x="610" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(610 328)" d="M40 60 L60 60 L44 88 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="444" font-family="monospace" font-size="12" text-anchor="middle">comma</text>
+<rect x="730" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(730 328)" d="M50 25 C53.9 25 57 28.1 57 32 C57 35.9 53.9 39 50 39 C46.1 39 43 35.9 43 32 C43 28.1 46.1 25 50 25 M50 61 C53.9 61 57 64.1 57 68 C57 71.9 53.9 75 50 75 C46.1 75 43 71.9 43 68 C43 64.1 46.1 61 50 61" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="444" font-family="monospace" font-size="12" text-anchor="middle">colon</text>
+<rect x="850" y="328" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(850 328)" d="M50 36 L64 50 L50 64 L36 50 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="444" font-family="monospace" font-size="12" text-anchor="middle">dot</text>
+<rect x="10" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(10 472)" d="M62 14 H34 V48" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="588" font-family="monospace" font-size="12" text-anchor="middle">quote_l</text>
+<rect x="130" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(130 472)" d="M38 86 H66 V52" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="588" font-family="monospace" font-size="12" text-anchor="middle">quote_r</text>
+<rect x="250" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(250 472)" d="M50 12 V88 M30 34 H70 M30 64 H70" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="588" font-family="monospace" font-size="12" text-anchor="middle">esc</text>
+<rect x="370" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(370 472)" d="M50 20 C66.6 20 80 33.4 80 50 C80 66.6 66.6 80 50 80 C33.4 80 20 66.6 20 50 C20 33.4 33.4 20 50 20 M50 44 C53.3 44 56 46.7 56 50 C56 53.3 53.3 56 50 56 C46.7 56 44 53.3 44 50 C44 46.7 46.7 44 50 44" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="588" font-family="monospace" font-size="12" text-anchor="middle">true</text>
+<rect x="490" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(490 472)" d="M50 20 C66.6 20 80 33.4 80 50 C80 66.6 66.6 80 50 80 C33.4 80 20 66.6 20 50 C20 33.4 33.4 20 50 20 M34 34 L66 66 M66 34 L34 66" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="588" font-family="monospace" font-size="12" text-anchor="middle">false</text>
+<rect x="610" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(610 472)" d="M50 22 C53.3 22 56 24.7 56 28 C56 31.3 53.3 34 50 34 C46.7 34 44 31.3 44 28 C44 24.7 46.7 22 50 22 M28 64 C31.3 64 34 66.7 34 70 C34 73.3 31.3 76 28 76 C24.7 76 22 73.3 22 70 C22 66.7 24.7 64 28 64 M72 64 C75.3 64 78 66.7 78 70 C78 73.3 75.3 76 72 76 C68.7 76 66 73.3 66 70 C66 66.7 68.7 64 72 64" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="588" font-family="monospace" font-size="12" text-anchor="middle">t_num</text>
+<rect x="730" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(730 472)" d="M28 18 H72 L28 82 H72 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="588" font-family="monospace" font-size="12" text-anchor="middle">t_bool</text>
+<rect x="850" y="472" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(850 472)" d="M14 50 C26 30 38 30 50 50 C62 70 74 70 86 50" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="588" font-family="monospace" font-size="12" text-anchor="middle">t_str</text>
+<rect x="10" y="616" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(10 616)" d="M62 12 H34 V88 H62 M44 12 V88" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="732" font-family="monospace" font-size="12" text-anchor="middle">t_list_l</text>
+<rect x="130" y="616" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(130 616)" d="M38 12 H66 V88 H38 M56 12 V88" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="732" font-family="monospace" font-size="12" text-anchor="middle">t_list_r</text>
+<rect x="250" y="616" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(250 616)" d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="732" font-family="monospace" font-size="12" text-anchor="middle">sep</text>
+<rect x="370" y="616" width="100" height="100" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+<path transform="translate(370 616)" d="M20 70 C20 30 76 24 80 56 M68 48 L80 60 L90 46" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="732" font-family="monospace" font-size="12" text-anchor="middle">cont</text>
+<rect x="490" y="616" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(490 616)" d="M50 15 L58 39 L83 39 L63 54 L71 79 L50 64 L29 79 L37 54 L17 39 L42 39 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="732" font-family="monospace" font-size="12" text-anchor="middle">loop_each</text>
+<rect x="610" y="616" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(610 616)" d="M50 26 C65.5 26 78 38.5 78 54 C78 69.5 65.5 82 50 82 C34.5 82 22 69.5 22 54 C22 38.5 34.5 26 50 26 M38 14 L50 26 L38 38 M50 44 L60 54 L50 64 L40 54 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="732" font-family="monospace" font-size="12" text-anchor="middle">loop_while</text>
+<rect x="730" y="616" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(730 616)" d="M32 26 C35.3 26 38 28.7 38 32 C38 35.3 35.3 38 32 38 C28.7 38 26 35.3 26 32 C26 28.7 28.7 26 32 26 M68 26 C71.3 26 74 28.7 74 32 C74 35.3 71.3 38 68 38 C64.7 38 62 35.3 62 32 C62 28.7 64.7 26 68 26 M32 62 C35.3 62 38 64.7 38 68 C38 71.3 35.3 74 32 74 C28.7 74 26 71.3 26 68 C26 64.7 28.7 62 32 62 M68 62 C71.3 62 74 64.7 74 68 C74 71.3 71.3 74 68 74 C64.7 74 62 71.3 62 68 C62 64.7 64.7 62 68 62" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="732" font-family="monospace" font-size="12" text-anchor="middle">loop_count</text>
+<rect x="850" y="616" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(850 616)" d="M50 14 C53.3 14 56 16.7 56 20 C56 23.3 53.3 26 50 26 C46.7 26 44 23.3 44 20 C44 16.7 46.7 14 50 14 M50 44 C53.3 44 56 46.7 56 50 C56 53.3 53.3 56 50 56 C46.7 56 44 53.3 44 50 C44 46.7 46.7 44 50 44 M50 74 C53.3 74 56 76.7 56 80 C56 83.3 53.3 86 50 86 C46.7 86 44 83.3 44 80 C44 76.7 46.7 74 50 74" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="732" font-family="monospace" font-size="12" text-anchor="middle">wait_ticks</text>
+<rect x="10" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(10 760)" d="M14 50 H78 M60 34 L78 50 L60 66 M86 26 V74" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="876" font-family="monospace" font-size="12" text-anchor="middle">wait_until</text>
+<rect x="130" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(130 760)" d="M20 84 V44 L50 16 L80 44 V84 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="876" font-family="monospace" font-size="12" text-anchor="middle">sigil_host</text>
+<rect x="250" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(250 760)" d="M50 18 C67.7 18 82 32.3 82 50 C82 67.7 67.7 82 50 82 C32.3 82 18 67.7 18 50 C18 32.3 32.3 18 50 18 M50 36 C57.7 36 64 42.3 64 50 C64 57.7 57.7 64 50 64 C42.3 64 36 57.7 36 50 C36 42.3 42.3 36 50 36" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="876" font-family="monospace" font-size="12" text-anchor="middle">sigil_summon</text>
+<rect x="370" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(370 760)" d="M12 50 C30 22 70 22 88 50 C70 78 30 78 12 50 M50 41 C55 41 59 45 59 50 C59 55 55 59 50 59 C45 59 41 55 41 50 C41 45 45 41 50 41" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="876" font-family="monospace" font-size="12" text-anchor="middle">sigil_agent</text>
+<rect x="490" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(490 760)" d="M18 18 H82 V82 H18 Z M18 82 L82 18" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="876" font-family="monospace" font-size="12" text-anchor="middle">asset_sprite</text>
+<rect x="610" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(610 760)" d="M36 62 C42.6 62 48 67.4 48 74 C48 80.6 42.6 86 36 86 C29.4 86 24 80.6 24 74 C24 67.4 29.4 62 36 62 M48 74 V16 L76 28" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="876" font-family="monospace" font-size="12" text-anchor="middle">asset_sound</text>
+<rect x="730" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(730 760)" d="M12 50 H84 M66 32 L84 50 L66 68" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="876" font-family="monospace" font-size="12" text-anchor="middle">flow_sequence</text>
+<rect x="850" y="760" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(850 760)" d="M12 36 H84 M12 64 H84 M70 22 L88 50 L70 78" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="876" font-family="monospace" font-size="12" text-anchor="middle">flow_parallel</text>
+<rect x="10" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(10 904)" d="M50 26 C65.5 26 78 38.5 78 54 C78 69.5 65.5 82 50 82 C34.5 82 22 69.5 22 54 C22 38.5 34.5 26 50 26 M38 14 L50 26 L38 38" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="1020" font-family="monospace" font-size="12" text-anchor="middle">flow_loop</text>
+<rect x="130" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(130 904)" d="M50 16 C68.8 16 84 31.2 84 50 C84 68.8 68.8 84 50 84 C31.2 84 16 68.8 16 50 C16 31.2 31.2 16 50 16 M50 24 V50 L70 62" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="180" y="1020" font-family="monospace" font-size="12" text-anchor="middle">event_tick</text>
+<rect x="250" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(250 904)" d="M20 20 H80 V80 H20 Z M36 64 H64" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="1020" font-family="monospace" font-size="12" text-anchor="middle">event_key</text>
+<rect x="370" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(370 904)" d="M24 14 L24 78 L42 62 L56 88 L66 82 L52 58 L76 56 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="1020" font-family="monospace" font-size="12" text-anchor="middle">event_pointer</text>
+<rect x="490" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(490 904)" d="M14 26 H86 V76 H14 Z M14 26 L50 54 L86 26" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="1020" font-family="monospace" font-size="12" text-anchor="middle">event_message</text>
+<rect x="610" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(610 904)" d="M18 64 L50 22 L82 64 Z M18 82 H82" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="660" y="1020" font-family="monospace" font-size="12" text-anchor="middle">event_exit</text>
+<rect x="730" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(730 904)" d="M12 40 H72 M12 60 H72 M60 22 L88 50 L60 78" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="780" y="1020" font-family="monospace" font-size="12" text-anchor="middle">mark_into</text>
+<rect x="850" y="904" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(850 904)" d="M12 50 H52 M70 34 C78.8 34 86 41.2 86 50 C86 58.8 78.8 66 70 66 C61.2 66 54 58.8 54 50 C54 41.2 61.2 34 70 34" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="1020" font-family="monospace" font-size="12" text-anchor="middle">mark_name</text>
+<rect x="10" y="1048" width="100" height="100" fill="none" stroke="#d9a000" stroke-width="1"/>
+<path transform="translate(10 1048)" d="M16 20 H84 V64 H44 L28 84 V64 H16 Z" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="1164" font-family="monospace" font-size="12" text-anchor="middle">mark_message</text>
+</svg>
