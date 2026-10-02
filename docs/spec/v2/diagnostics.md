@@ -70,3 +70,29 @@
 ```
 
 `range` は式内の区間を JSON 文字列の中の位置に写したもの(`expr.md` §6)。式全体を指すときは文字列リテラル全体。
+
+## 5. 絵の文法(JIN3xx・陣書き)
+
+画像(紙の魔法陣の写真・Jin が描いた PNG)を入力にしたとき、場面グラフ(`.jinscene.json`)からモデルを組み立てる段で出す
+(正典は `docs/spec/v2/glyph.md`、上位設計は `docs/superpowers/specs/2026-10-03-jin-glyph-design.md` §3.5)。
+
+<!-- machine-readable: scene-codes -->
+
+| コード | 重大度 | 内容 | 修正ヒント |
+|---|---|---|---|
+| JIN301 | error | 環に始まりの印が無い(要素の順が決まらない) | 環の 12 時に始まりの印を描く |
+| JIN302 | error | 銘帯の欄の数・並びが図形の種類の欄の順に合わない | 欄の区切りの紋の数と、期待する欄の並び |
+| JIN303 | error | 判別の紋が決まった枠の外にある、または枠に許されない紋 | その枠に置ける紋の一覧 |
+| JIN304 | error | 継ぎの紋の行き先の銘環が無い | 続きの銘環の番号 |
+| JIN305 | error | 図形がどの陣・環にも帰属しない | 近い環 |
+| JIN306 | warning | 認識の迷いを第一候補で解いた | 採った字と他の候補 |
+
+<!-- /machine-readable -->
+
+- **診断の形は §4 と同じ**(file / pointer / range / code / severity / message)。画像を入力にしたときは JIN3xx も JIN2xx も
+  **`.jinscene.json` に対して**出す: `file` はその JSON、`pointer` は場面グラフの中の位置(`/bands/3/cells/2` など。JIN2xx は
+  構文解析器の対応表でモデルの pointer を場面グラフの pointer に写す)、`range` はその JSON テキスト上の位置。画像上の座標はその
+  pointer の `box` から引く
+- `jin_core.diagnostics.SCENE_CODES` は番号と重さだけを持つ(`jin_core` は画像を知らない)
+- **fixture(`tests/fixtures/errors/scene/JIN3xx_*.jinscene.json`)と「コードごとに fixture がある」の検査は、構文解析器(陣書き S3)と
+  一緒に足す**。規律は §3 と同じ(対応コードをちょうど 1 つだけ出す)
