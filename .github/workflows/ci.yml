@@ -167,6 +167,13 @@ jobs:
   editor:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # e2e の 3 ジョブ（editor / player / stage）はブラウザと依存が入った Playwright の公式イメージで走らせる。
+    # 以前はブラウザの依存を CI の中で apt で入れていて、Ubuntu のミラー次第で 1〜9 分ぶれた（PR #108 の CI で 32MB に 8 分）。
+    # 版はアプリの `@playwright/test` と同じ（tests/contract/test_ci_contract.py が突き合わせる）。
+    # Chromium は /dev/shm（docker の既定は 64MB）を使い切るので、Playwright の文書どおり --ipc=host。
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+      options: --ipc=host
     env:
       UV_LOCKED: "1"
     defaults:
@@ -229,11 +236,7 @@ jobs:
         working-directory: apps/stage
         run: pnpm install --frozen-lockfile && pnpm build
 
-      # スモーク層（同 2 層目）。ブラウザの取得はセットアップであり、
-      # テスト自体は localhost の ws しか使わない（NFR-TEST-001）。
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
-
+      # スモーク層（同 2 層目）。ブラウザはイメージに入っている。テスト自体は localhost の ws しか使わない（NFR-TEST-001）。
       - name: Smoke (Playwright)
         run: pnpm e2e
 
@@ -250,6 +253,10 @@ jobs:
   player:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Playwright の公式イメージで走らせる理由は editor ジョブの注記。
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+      options: --ipc=host
     env:
       UV_LOCKED: "1"
       # 「同梱されていない側」の分岐を偶然通さない（tests/contract/test_player_contract.py）。
@@ -328,9 +335,6 @@ jobs:
           uv run jin build examples-v2/paddle/paddle.jin --target wasm-gc --out /tmp/jin-paddle-gc-single --single
           test "$(ls /tmp/jin-paddle-gc-single)" = "index.html"
 
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
-
       # パリティ層: 実ブラウザで録画 → jin run --input → トレース全行一致。--single も開く。
       # wasm-gc（e2e/wasmgc.spec.ts）は game.wasm を WasmGcHost で走らせ、両経路の jin run --input と全行一致を見る。
       - name: Parity (Playwright)
@@ -356,6 +360,10 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+    # Playwright の公式イメージで走らせる理由は editor ジョブの注記。
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
+      options: --ipc=host
     env:
       # 動画の往復を「コーデックが無い」で黙って飛ばさない（apps/stage/e2e/stage.spec.ts）。
       JIN_REQUIRE_CODEC: "1"
@@ -402,9 +410,6 @@ jobs:
       - name: Unit tests
         if: matrix.shard == 1
         run: pnpm test
-
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
 
       # 単独ページの往復: 描画・PNG・1 秒の動画を書き出して Node の Mediabunny で読み戻す。
       - name: E2E (Playwright)
