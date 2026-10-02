@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xtone.internal/jin/schemas/jin-scene.schema.json",
+  "$defs": {
+    "Band": {
+      "additionalProperties": false,
+      "properties": {
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/$defs/Cell"
+          },
+          "title": "Cells",
+          "type": "array"
+        }
+      },
+      "required": [
+        "owner",
+        "cells"
+      ],
+      "title": "Band",
+      "type": "object"
+    },
+    "Cell": {
+      "additionalProperties": false,
+      "description": "銘帯の 1 升。`t == \"glyph\"` なら `v` は紋の id(`jin_core.v2.glyph.GLYPH_IDS`)。",
+      "properties": {
+        "t": {
+          "enum": [
+            "latin",
+            "glyph"
+          ],
+          "title": "T",
+          "type": "string"
+        },
+        "v": {
+          "title": "V",
+          "type": "string"
+        },
+        "unsure": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsure",
+          "type": "array"
+        },
+        "box": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Box"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "title": "Cell",
+      "type": "object"
+    },
+    "Figure": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "at": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "At",
+          "type": "array"
+        },
+        "ring": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ring"
+        },
+        "angle": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Angle"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "at"
+      ],
+      "title": "Figure",
+      "type": "object"
+    },
+    "ImageInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width": {
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "width",
+        "height"
+      ],
+      "title": "ImageInfo",
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "string"
+        },
+        "style": {
+          "enum": [
+            "solid",
+            "dashed"
+          ],
+          "title": "Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "style"
+      ],
+      "title": "Line",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "jinscene": {
+      "const": 1,
+      "title": "Jinscene",
+      "type": "integer"
+    },
+    "sheet": {
+      "enum": [
+        "S",
+        "M",
+        "free"
+      ],
+      "title": "Sheet",
+      "type": "string"
+    },
+    "image": {
+      "$ref": "#/$defs/ImageInfo"
+    },
+    "figures": {
+      "items": {
+        "$ref": "#/$defs/Figure"
+      },
+      "title": "Figures",
+      "type": "array"
+    },
+    "bands": {
+      "items": {
+        "$ref": "#/$defs/Band"
+      },
+      "title": "Bands",
+      "type": "array"
+    },
+    "lines": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "title": "Lines",
+      "type": "array"
+    }
+  },
+  "required": [
+    "jinscene",
+    "sheet",
+    "image",
+    "figures",
+    "bands"
+  ],
+  "title": "JinScene",
+  "type": "object"
+}
