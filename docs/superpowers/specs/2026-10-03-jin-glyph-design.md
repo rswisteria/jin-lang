@@ -250,7 +250,9 @@ JIN3xx の一覧は `glyph.md` と `docs/spec/v2/diagnostics.md` に足す(番�
 
 - 層: `jin-lsp` / `jin-wasmgc` と同じ段の兄弟(layers は `"jin_lsp | jin_wasmgc | jin_glyph"`)。依存は `jin-core` と `jin-render`(幾何の共有)、`Pillow`、`anthropic`
 - **import するのは `jin_cli` だけ**(`anthropic` を LSP の起動経路に乗せない)。import-linter と CLAUDE.md の「パッケージを足すときのチェックリスト」8 項目 + 3 か所を全部直す
-- モジュール: `grammar`(紋の表・欄の順・等級の幾何)/ `scene`(場面グラフの型)/ `parse`(構文解析器)/ `decode`(決定的デコーダ)/ `recognize`(Claude 認識器)
+- モジュール: `scene`(場面グラフの型)/ `parse`(構文解析器)/ `decode`(決定的デコーダ)/ `recognize`(Claude 認識器)/ 等級の幾何。
+  **紋の語彙と欄の順は `jin_core.v2.glyph`**(純データ)に置く: レンダラ(`jin_render`)も同じ語彙と欄の順で銘帯を描き、`jin_render` は
+  `jin_glyph` を import できない(層の契約)ため(§9 #23)
 - 完全陣と型紙の**描画**は `jin_render.v2` に置く(描くのはレンダラ 1 本・`jin_render` の純関数の規律を守る)。清書体の字形も `jin_render` 側に置き、`jin_glyph.decode` はそれを照合に使う
 - 新しい図形の種類で `data-jin-kind` を足すなら、v2 の 13 種の等号テストを契約の変更として更新する
 
@@ -333,3 +335,4 @@ S2 は S0 と並行できる(紋が仮でも清書体は描ける)。
 | 20 | 画像入力の診断の位置 | 診断の型を変えず、`.jinscene.json` に対して出す | 要件書 §5 の診断の形と LSP の位置変換をそのまま使える。画像の座標は場面グラフの `box` から引ける |
 | 21 | エディタの書き出し | 開いている `.jin` のディレクトリに写真・場面グラフ・`.jin` を書く。既存の名前は拒む | `jin/open` で開き直せる場所に置く。上書きで手元の `.jin` を失わない |
 | 22 | 完全陣の描画 | `<text>` を使わず清書体のパス。viewBox は中身に応じて広がる。護符は一辺 3 升 | フォント依存を消して決定的にする。升を一定にする(§2.1)と固定のキャンバスに収まらない |
+| 23 | 紋の語彙と欄の順の置き場 | `jin_core.v2.glyph`(S1 で確定。当初の案は `jin_glyph.grammar`) | 描く側(`jin_render`)と読む側(`jin_glyph`)が同じ表を使い、`jin_render` は層の契約で `jin_glyph` を import できない。純データなので `jin_core` の「画像ライブラリを入れない」に触れない |

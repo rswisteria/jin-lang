@@ -13,6 +13,7 @@ Jin(陣) は Google ADK 上の LLM エージェントを魔法陣として記述
 | `docs/spec/layout.md` | 決定的レイアウトと `data-jin` 契約 |
 | `docs/spec/diagnostics.md` | 診断コード一覧（JINxxx） |
 | `docs/spec/ops.md` | 意味編集オペレーション一覧 |
+| `docs/spec/v2/glyph.md` | 陣書き（画像を `.jin` の 2 つ目の直列化にする）の視覚文法: 紋の表・欄の順・始まりの印・場面グラフ。上位設計は `docs/superpowers/specs/2026-10-03-jin-glyph-design.md` |
 
 Jin v2 の実行エンジンの実装の地図（モジュールの責務・tick の段と関数の対応・パリティの網・変えるときの手引き）は
 `docs/execution-engine.md`。**正典ではない**（契約は runtime.md / jil.md）。パスの実在と行番号を書かないことは
@@ -28,6 +29,7 @@ Jin v2 の実行エンジンの実装の地図（モジュールの責務・tick
 jin-core  ←  jin-adk | jin-render  ←  jin-lsp  ←  jin-cli            # v1
 jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp  ←  jin-cli # Jin v2 Phase 2 以降（設計書 §1.2 / §11 #21）
 jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp | jin-wasmgc  ←  jin-cli   # v2.1 Issue #53 以降（jil.md §6.1 / 設計書 §11 #56）
+jin-core  ←  jin-adk | jin-render | jin-wasm  ←  jin-lsp | jin-wasmgc | jin-glyph  ←  jin-cli   # 陣書き S1 以降（glyph 設計書 §4.2）
 ```
 
 （`jin-adk` と `jin-render` は**兄弟**であり互いに依存しない。import-linter の layers 契約では
@@ -40,6 +42,10 @@ v2.1（Issue #53 / #73）で 7 つ目の **`jin-wasmgc`**（wasm-GC を直接出
 `wasmtime` に依存し、`jin-lsp` の**兄弟**。layers では `"jin_lsp | jin_wasmgc"`）が加わった。**`wasmtime`
 （wheel 31 MB）を `jin-wasm` の必須依存に足さない**（`jin-lsp` が `jin_wasm.codegen` を import しているので
 LSP のインストールに乗る）。`jin_wasmgc` を import するのは `jin_cli` だけ。
+陣書き S1 で 8 つ目の **`jin-glyph`**（画像を場面グラフ経由で `.jin` に読む。`jin-lsp` / `jin-wasmgc` の**兄弟**。layers では
+`"jin_lsp | jin_wasmgc | jin_glyph"`）が加わった。**`jin_glyph` を import するのは `jin_cli` だけ**（S4 で入る `anthropic` を
+LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちることは `test_import_linter_actually_bites_on_a_forbidden_import` が実測する）。
+紋の語彙と欄の順は `jin_glyph` ではなく **`jin_core.v2.glyph`**（レンダラも同じ表で銘帯を描くため。glyph 設計書 §9 #23）。
 `jin-adk` は ADK の語彙（LlmAgent / Runner / BaseLlm …）がリポジトリ内で現れてよい唯一のパッケージ。
 
 - `jin-core` は他の `jin-*` に依存しない（最下層）
@@ -144,6 +150,7 @@ LSP のインストールに乗る）。`jin_wasmgc` を import するのは `ji
 | v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
 | v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 = プレイヤーの `WasmGcHost` + manifest の `target` + `--single` + ブラウザの e2e + `runtime.wat` の生成物化: **実装済み**。Issue #53 完了） |
+| 陣書き | 紙や PNG の魔法陣をプログラムとして読む（`docs/superpowers/specs/2026-10-03-jin-glyph-design.md`・正典 `docs/spec/v2/glyph.md`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s0-s1.md`）。S0 = 手描き認識の spike（`delivery/20260904-1445-jin/glyph-spike/`）・S1 = 紋の語彙 `jin_core.v2.glyph` / JIN3xx（`SCENE_CODES`）/ パッケージ `jin-glyph` と場面グラフ `jin_glyph.scene`（`schemas/jin-scene.schema.json`） | S1 **実装済み**。S0 は道具まで（**撮影と認識の実測は未**・字形は試作）。S2〜S7（完全陣レンダラ・デコーダと構文解析器・Claude 認識器・エディタ・フリーハンド）は未着手 |
 
 ### Jin v2.1（`--target wasm-gc`・`jin-wasmgc`）の要点（正典は `docs/spec/v2/jil.md` §6・設計書 §11 #56・`wasmgc-api-probe.md`）
 
