@@ -115,3 +115,14 @@ def test_loop_fields_cover_every_loop_kind() -> None:
 
     assert set(LOOP_FIELDS) == set(get_args(LoopKind))
     assert LOOP_FIELDS["count"] == ("times", "name")  # spec §1.3: count は times が先
+
+
+def test_escape_letters_cover_every_undrawable_character_including_space() -> None:
+    # 最終レビュー #1: 文字列の中の空白は空の升と区別できないので esc + 字で書く
+    from jin_core.v2.glyph import ESCAPE_LETTERS
+
+    assert ESCAPE_LETTERS[" "] == "s"
+    assert {'"', "\\", "\n", "\t", "\r", "\b", "\f"} <= set(ESCAPE_LETTERS)
+    letters = list(ESCAPE_LETTERS.values())
+    assert len(letters) == len(set(letters)), "読み戻せるよう 1 対 1"
+    assert "u" not in letters, "u は 16 進 4 桁の前置き(その他の制御文字)に予約"

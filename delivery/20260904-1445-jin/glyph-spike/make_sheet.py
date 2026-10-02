@@ -29,7 +29,7 @@ TOKEN = re.compile(
 OP_GLYPH = {g["token"]: gid for gid, g in GLYPHS.items() if g["layer"] == "expr" and gid not in
             {"quote_l", "quote_r", "esc", "t_num", "t_bool", "t_str", "t_list_l", "t_list_r", "sep", "cont"}}
 DISC = {(g["slot"], g["token"]): gid for gid, g in GLYPHS.items() if g["layer"] == "disc"}
-ESCAPES = {'"': '"', "\\": "\\", "/": "/", "\b": "b", "\f": "f", "\n": "n", "\r": "r", "\t": "t"}
+from jin_core.v2.glyph import ESCAPE_LETTERS as ESCAPES  # noqa: E402  空白は esc + s(最終レビュー #1)
 
 
 def L(text: str) -> list[dict]:
@@ -201,9 +201,15 @@ def to_ascii(cells: list[dict]) -> str:
     out: list[str] = []
     buf = ""
     instr = False
+    escaped = False
+    unescape = {v: k for k, v in ESCAPES.items()}
     for c in cells:
         if c["t"] == "latin":
-            buf += c["v"]
+            if escaped:  # esc + 字 → JSON の文字列リテラルの中の表記に戻す(u は 16 進 4 桁が続く)
+                buf += "\\u" if c["v"] == "u" else json.dumps(unescape[c["v"]])[1:-1]
+                escaped = False
+            else:
+                buf += c["v"]
             continue
         g = c["v"]
         if g == "quote_l":
@@ -215,7 +221,7 @@ def to_ascii(cells: list[dict]) -> str:
             buf = ""
             instr = False
         elif g == "esc":
-            buf += "\\"
+            escaped = True
         else:
             if buf:
                 out.append(buf)
@@ -328,8 +334,11 @@ def extra_rows(name: str, rows: list[Row]) -> list[Row]:
     """合格線(spec §9 #17)の対象外の行。label が "extra" で始まり、採点は別に数える。"""
     if name == "clicker":  # Review Focus 3: 日本語の文字列
         return rows + [Row(f"r{len(rows)}", "extra japanese string", string_cells("まほうじん"))]
-    if name == "fib":  # fib に出ない紋も測るため 57 字を 1 回ずつ
-        return rows + [Row(f"r{len(rows)}", "extra all glyphs", [G(gid) for gid in GLYPHS])]
+    if name == "fib":  # fib に出ない紋も測るため 57 字を 1 回ずつ。空のまま残す行で幻の字を測る(最終レビュー #2)
+        return rows + [
+            Row(f"r{len(rows)}", "extra all glyphs", [G(gid) for gid in GLYPHS]),
+            Row(f"r{len(rows) + 1}", "extra leave empty", [{"t": "empty", "v": ""}] * 6),
+        ]
     return rows
 
 

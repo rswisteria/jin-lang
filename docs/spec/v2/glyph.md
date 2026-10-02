@@ -146,7 +146,9 @@
 
 - 式は `expr` 文法と同じ並び(中置)でトークンを 1 つずつ書く。名前と数はラテン文字で 1 字 1 升、演算子・括弧・区切りは式紋で 1 升
 - 読み取りは「銘文 → トークン列 → 式紋を ASCII に写す → `jin_core.v2.expr.parse_expr`」。往復の一致は `canonical.dumps` の正準化が保証する
-- 文字列は `quote_l` … `quote_r` で挟み、中身は文字のまま。描けない文字(`"` `\` 制御文字)は `esc` + ラテン文字(`n` `t` `u` + 16 進 4 桁 …。集合は expr.md §1)
+- 文字列は `quote_l` … `quote_r` で挟み、中身は文字のまま。升に描けない文字は `esc` + ラテン文字 1 字で書く(表は `jin_core.v2.glyph.ESCAPE_LETTERS`):
+  `"` → `"`、`\` → `\`、改行 → `n`、タブ → `t`、CR → `r`、BS → `b`、FF → `f`、**空白 → `s`**(空白の升は空の升と見分けられないため。
+  JSON のエスケープには無い、視覚層だけの規則)。その他の制御文字は `esc` + `u` + 16 進 4 桁
 - 文字列の欄(`description` / `message` / `path` / `file` / `host`)も同じ書き方で括る
 - 型は型紋(`t_num` `t_bool` `t_str`)、`list<T>` は `t_list_l` T `t_list_r`、型紙名はラテン文字
 - 数は `str(x)` の書式(runtime.md §6)。額縁の `$schema` は正典の印(標準の URL なら印だけ、他の値なら全文を銘帯に)
@@ -163,7 +165,8 @@
 認識器と構文解析器の間の唯一の契約。schema は `schemas/jin-scene.schema.json`(`jin_glyph.scene.JinScene` から
 `scripts/generate_schema.py` が生成する。手で編集しない)。形の例は設計書 §3.2。
 
-- `cells[].t` は `latin`(`v` は 1 字。名前の 1 字や数字)か `glyph`(`v` は §2 の id。それ以外は検証エラー)
+- `cells[].t` は `latin`(`v` は**ちょうど 1 コードポイント**。名前や数は升ごとに 1 字ずつ並ぶ。0 字・2 字以上は検証エラー)か
+  `glyph`(`v` は §2 の id。それ以外は検証エラー)
 - `unsure` は迷ったときの他の候補、`box` は画像上の升の矩形(画素)
 - 写真の隣に `<写真名>.jinscene.json` として保存し、`image.sha256` が一致すれば認識を呼び直さない(設計書 §3.2)
 

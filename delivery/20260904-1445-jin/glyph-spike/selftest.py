@@ -54,8 +54,45 @@ def main() -> int:
     lines = [(r, s, yy, min(ms.COLS, len(r.cells) - s)) for r, s, yy in pages[0]]
     perfect = {(r.id, k): r.cells[k] for r, s, _, n in lines for k in range(s, s + n)}
     print("完全な読みの採点:")
-    rc.score(lines, perfect)
-    return 0 if bad < 0.005 else 1
+    ok_perfect = rc.score(lines, perfect)["extra"]["errors"] == 0
+    # 最終レビュー #2: 空であるべき升に字を読んだら「幻の字」として数える
+    empty_keys = [(r.id, k) for r, s, _, n in lines for k in range(s, s + n) if r.cells[k]["t"] == "empty"]
+    assert empty_keys, "空の升の行が無い"
+    phantom_read = dict(perfect) | {empty_keys[0]: {"t": "latin", "v": "x"}}
+    print("空の升に x を読んだときの採点:")
+    ok_phantom = rc.score(lines, phantom_read)["extra"]["phantom"] == 1
+    print(f"検査: 完全な読み {'OK' if ok_perfect else 'NG'} / 幻の字 {'OK' if ok_phantom else 'NG'}")
+    ok_truncated = check_truncated_response()
+    print(f"検査: max_tokens で切れた応答を名指しで止める {'OK' if ok_truncated else 'NG'}")
+    return 0 if bad < 0.005 and ok_perfect and ok_phantom and ok_truncated else 1
+
+
+class _FakeResponse:
+    def __init__(self, stop_reason: str, text: str) -> None:
+        self.stop_reason = stop_reason
+        self.stop_details = None
+        self.content = [type("B", (), {"type": "text", "text": text})()]
+        self.usage = type("U", (), {"input_tokens": 1, "output_tokens": 1, "cache_read_input_tokens": 0})()
+        self.model = rc.MODEL
+        self._request_id = "req_fake"
+
+
+class _FakeClient:
+    """`client.beta.messages.create` だけを持つ偽物(最終レビュー #4)。"""
+
+    def __init__(self, response: _FakeResponse) -> None:
+        self.beta = type("Beta", (), {"messages": type("M", (), {"create": staticmethod(lambda **_: response)})()})()
+
+
+def check_truncated_response() -> bool:
+    try:
+        rc.call(_FakeClient(_FakeResponse("max_tokens", '{"lines": [')), [], {}, 10)
+    except rc.TruncatedResponse as e:
+        return "max_tokens" in str(e)
+    except Exception as e:  # noqa: BLE001 - 名指しでない失敗は NG
+        print(f"  名指しでない失敗: {type(e).__name__}: {e}")
+        return False
+    return False
 
 
 if __name__ == "__main__":

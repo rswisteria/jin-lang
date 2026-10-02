@@ -280,4 +280,17 @@
 <path transform="translate(151.5 156.5) scale(0.04)" d="M12 50 H52 M70 34 C78.8 34 86 41.2 86 50 C86 58.8 78.8 66 70 66 C61.2 66 54 58.8 54 50 C54 41.2 61.2 34 70 34" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="156.0" y="156.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
 <path transform="translate(156.5 156.5) scale(0.04)" d="M16 20 H84 V64 H44 L28 84 V64 H16 Z" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20.0" y="168.8" font-family="monospace" font-size="2.2" fill="#aaa">r14 extra leave empty</text>
+<rect x="66.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="68.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle"></text>
+<rect x="71.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="73.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle"></text>
+<rect x="76.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="78.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle"></text>
+<rect x="81.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="83.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle"></text>
+<rect x="86.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="88.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle"></text>
+<rect x="91.0" y="165.0" width="5.0" height="5.0" fill="none" stroke="#c8c8c8" stroke-width="0.25"/>
+<text x="93.5" y="168.9" font-family="monospace" font-size="4.2" text-anchor="middle"></text>
 </svg>

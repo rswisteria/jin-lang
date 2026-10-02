@@ -74,6 +74,10 @@ def png_block(img: Image.Image) -> dict:
                                         "data": base64.standard_b64encode(buf.getvalue()).decode()}}
 
 
+class TruncatedResponse(RuntimeError):
+    """応答が max_tokens で切れた(Opus 5.5 は思考を切れず、思考も max_tokens の内側に数わる)。"""
+
+
 def call(client, content: list[dict], schema: dict, max_tokens: int) -> tuple[dict, dict]:
     response = client.beta.messages.create(
         model=MODEL,
@@ -85,6 +89,9 @@ def call(client, content: list[dict], schema: dict, max_tokens: int) -> tuple[di
     )
     if response.stop_reason == "refusal":
         raise SystemExit(f"refusal: {response.stop_details}")
+    if response.stop_reason == "max_tokens":
+        raise TruncatedResponse(f"max_tokens({max_tokens})で応答が切れた。要求を割るか max_tokens を上げる"
+                                f"(request_id={response._request_id})")
     text = next(b.text for b in response.content if b.type == "text")
     usage = {"input": response.usage.input_tokens, "output": response.usage.output_tokens,
              "cache_read": getattr(response.usage, "cache_read_input_tokens", 0) or 0,
@@ -181,15 +188,21 @@ def main() -> int:
          "Three markers have a filled square in the middle; the TOP-RIGHT marker of the worksheet has a filled circle instead. "
          "The photo may be rotated. Return the pixel coordinates [x, y] of the centre of each marker, named by its position "
          "on the worksheet (tl, tr, bl, br; tr = the circle marker), in this image's pixel space."},
-    ], CORNER_SCHEMA, 2000)
+    ], CORNER_SCHEMA, 16000)
     log["usage"].append(usage)
     log["corners"] = corners
     flat = rectify(photo, {k: [v / scale for v in corners[k]] for k in corners})
     (HERE / "results").mkdir(exist_ok=True)
     flat.save(HERE / "results" / f"{args.photo.stem}-flat.png")
+    out = HERE / "results" / f"{args.photo.stem}.json"
+
+    def save() -> None:  # 課金済みの応答を失わないよう、要求ごとに書き直す
+        log["cells"] = {f"{r}:{k}": c for (r, k), c in got.items()}
+        out.write_text(json.dumps(log, ensure_ascii=False, indent=1) + "\n")
 
     glyph_ids = list(ms.GLYPHS)
     got: dict[tuple[str, int], dict] = {}
+    save()
     for i in range(0, len(lines), LINES_PER_REQUEST):
         chunk = lines[i:i + LINES_PER_REQUEST]
         ref_block = png_block(ref) | {"cache_control": {"type": "ephemeral"}}
@@ -199,13 +212,17 @@ def main() -> int:
             content.append(png_block(strip(flat, ms.MARGIN + ms.LABEL_W, y, n)))
         data, usage = call(client, content, cells_schema(glyph_ids), 16000)
         log["usage"].append(usage)
+        log.setdefault("raw", []).append(data)
         for line in data["lines"]:
-            rid, start = line["id"].split("@")
+            rid, sep, start = line["id"].partition("@")
+            if not sep or not start.isdigit():  # id を写し違えた行は採点に入れず、生の応答にだけ残す
+                print(f"  id を読めない行を飛ばした: {line['id']!r}")
+                continue
             for k, cell in enumerate(line["cells"]):
                 got[(rid, int(start) + k)] = cell
-    log["cells"] = {f"{r}:{k}": c for (r, k), c in got.items()}
-    (HERE / "results" / f"{args.photo.stem}.json").write_text(json.dumps(log, ensure_ascii=False, indent=1) + "\n")
-    return score(lines, got)
+        save()
+    score(lines, got)
+    return 0
 
 
 def norm(cell: dict) -> str:
@@ -227,17 +244,18 @@ def score(lines, got) -> int:
             stats[kind]["cells"] += 1
             if want != have:
                 stats[kind]["errors"] += 1
-                stats[kind]["missing" if have == "∅" else "wrong"] += 1
+                reason = "phantom" if want == "∅" else ("missing" if have == "∅" else "wrong")
+                stats[kind][reason] += 1
                 confusion[(want, have)] += 1
     phantom = sum(1 for key, c in got.items() if key not in expected_keys and norm(c) != "∅")
     for kind, s in stats.items():
         if s["cells"]:
-            print(f"{kind}: 升 {s['cells']} / 誤り {s['errors']}(違う字 {s['wrong']}・欠落 {s['missing']})"
-                  f" / 誤り率 {s['errors'] / s['cells']:.1%}")
-    print(f"幻の字(升の外に返した字): {phantom}")
+            print(f"{kind}: 升 {s['cells']} / 誤り {s['errors']}(違う字 {s['wrong']}・欠落 {s['missing']}"
+                  f"・幻の字 {s['phantom']})/ 誤り率 {s['errors'] / s['cells']:.1%}")
+    print(f"升の外に返した字: {phantom}")
     for (want, have), n in confusion.most_common(10):
         print(f"  {want} → {have} ×{n}")
-    return 0
+    return stats
 
 
 if __name__ == "__main__":

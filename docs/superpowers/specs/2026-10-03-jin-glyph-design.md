@@ -68,7 +68,7 @@
 
 - 式は `expr` 文法と**同じ並び(中置)**でトークンを 1 つずつ書く。`a + b` は「`a`・加算の紋・`b`」
 - 読み取りは「銘文 → トークン列 → 式紋を ASCII に写す → `jin_core.v2.expr.parse_expr`」。往復の一致は `canonical.dumps` の正準化(expr.md §8)が保証する
-- 文字列は括りの紋で挟み、中身は文字のまま書く。描けない文字(制御文字・`"`・`\`)はエスケープの紋 + ラテン文字(`n` / `t` / `u` + 16 進 4 桁 …)で書く。エスケープの集合は expr.md §1 と同じ
+- 文字列は括りの紋で挟み、中身は文字のまま書く。描けない文字(制御文字・`"`・`\`・**空白**)はエスケープの紋 + ラテン文字(`n` / `t` / `s` / `u` + 16 進 4 桁 …)で書く。集合は expr.md §1 の JSON エスケープに空白(`s`)を足したもの(空白の升は空の升と見分けられない。視覚層だけの規則・`jin_core.v2.glyph.ESCAPE_LETTERS`)
 - 数値は `str(x)` の書式(runtime.md §6)で書く。正準形が数値の字面を一意に決めるので往復が崩れない
 
 ### 1.3 銘帯と欄の順
@@ -183,7 +183,8 @@ fib 80 / clicker 463 / paddle 943 / tetris 3630 / othello 4871。
 { "jinscene": 1, "sheet": "S",                 // 等級。モード 1 は "free"
   "image": { "sha256": "…", "width": 4032, "height": 3024 },
   "figures": [ { "id": "f12", "kind": "step.set", "at": [x, y], "ring": "f3", "angle": 41.5 } ],
-  "bands":   [ { "owner": "f12", "cells": [ { "t": "latin", "v": "score", "box": [x0, y0, x1, y1] },
+  "bands":   [ { "owner": "f12", "cells": [ { "t": "latin", "v": "s", "box": [x0, y0, x1, y1] },   // 1 升 = 1 字(score は 5 升)
+                                            { "t": "latin", "v": "c" }, …,
                                             { "t": "glyph", "v": "sep" },
                                             { "t": "glyph", "v": "add" },
                                             { "t": "latin", "v": "1", "unsure": ["l", "I"] } ] } ],

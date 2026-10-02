@@ -101,6 +101,20 @@ EXPR_TOKEN_OF: dict[str, str] = {
     g.id: g.token for g in GLYPHS if g.layer == "expr" and g.id not in _NOT_EXPR_TOKENS
 }
 
+#: 文字列の中で升に描けない文字 → `esc` の後に書くラテン文字(1 対 1)。式の文字列リテラルの JSON エスケープ
+#: (expr.md §1)に**空白**(`s`)を足したもの: 空白の升は空の升と見分けられないため。これ以外の制御文字は
+#: `esc` + `u` + 16 進 4 桁で書く(`u` は予約)。視覚層だけの規則で、読み取りは ASCII の式に写すときに戻す。
+ESCAPE_LETTERS: dict[str, str] = {
+    '"': '"',
+    "\\": "\\",
+    "\b": "b",
+    "\f": "f",
+    "\n": "n",
+    "\r": "r",
+    "\t": "t",
+    " ": "s",
+}
+
 #: 各環の 12 時に置く「始まりの印」。構造紋なので `GLYPHS` には入れない(spec §1.4)。
 START_MARK = "start"
 
@@ -140,6 +154,7 @@ LOOP_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 __all__ = [
+    "ESCAPE_LETTERS",
     "EXPR_TOKEN_OF",
     "FIELD_ORDER",
     "GLYPHS",

@@ -26,7 +26,7 @@
     },
     "Cell": {
       "additionalProperties": false,
-      "description": "銘帯の 1 升。`t == \"glyph\"` なら `v` は紋の id(`jin_core.v2.glyph.GLYPH_IDS`)。",
+      "description": "銘帯の 1 升。`t == \"glyph\"` なら `v` は紋の id(`jin_core.v2.glyph.GLYPH_IDS`)、\n`t == \"latin\"` なら `v` はちょうど 1 字(1 コードポイント。名前や数は升ごとに 1 字ずつ並ぶ)。",
       "properties": {
         "t": {
           "enum": [

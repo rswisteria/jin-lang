@@ -25,7 +25,8 @@ EXAMPLE = {
         {
             "owner": "f12",
             "cells": [
-                {"t": "latin", "v": "score", "box": [10.0, 20.0, 30.0, 40.0]},
+                {"t": "latin", "v": "s", "box": [10.0, 20.0, 30.0, 40.0]},
+                {"t": "latin", "v": "c"},
                 {"t": "glyph", "v": "sep"},
                 {"t": "glyph", "v": "add"},
                 {"t": "latin", "v": "1", "unsure": ["l", "I"]},
@@ -38,7 +39,7 @@ EXAMPLE = {
 
 def test_the_spec_example_validates_and_round_trips() -> None:
     scene = JinScene.model_validate_json(json.dumps(EXAMPLE))
-    assert scene.bands[0].cells[3].unsure == ["l", "I"]
+    assert scene.bands[0].cells[4].unsure == ["l", "I"]
     dumped = json.loads(scene.model_dump_json(by_alias=True, exclude_defaults=True))
     assert dumped["lines"] == [{"from": "f12", "to": "f30", "style": "dashed"}]
     assert JinScene.model_validate(dumped) == scene
@@ -49,6 +50,21 @@ def test_an_unknown_glyph_id_is_rejected() -> None:
     bad["bands"][0]["cells"][1] = {"t": "glyph", "v": "nope"}
     with pytest.raises(ValidationError, match="nope"):
         JinScene.model_validate(bad)
+
+
+@pytest.mark.parametrize("value", ["score", "", "まほ"])
+def test_a_latin_cell_holds_exactly_one_code_point(value: str) -> None:
+    # 最終レビュー #3: 1 升 = 1 字(コードポイント)。認識器と構文解析器で規約を割らない
+    bad = json.loads(json.dumps(EXAMPLE))
+    bad["bands"][0]["cells"][0] = {"t": "latin", "v": value}
+    with pytest.raises(ValidationError, match="1 字"):
+        JinScene.model_validate(bad)
+
+
+def test_a_latin_cell_accepts_a_japanese_character() -> None:
+    ok = json.loads(json.dumps(EXAMPLE))
+    ok["bands"][0]["cells"][0] = {"t": "latin", "v": "ま"}
+    assert JinScene.model_validate(ok).bands[0].cells[0].v == "ま"
 
 
 def test_duplicate_figure_ids_are_rejected() -> None:

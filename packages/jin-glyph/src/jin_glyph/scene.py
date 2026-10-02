@@ -22,7 +22,8 @@ class _Strict(BaseModel):
 
 
 class Cell(_Strict):
-    """銘帯の 1 升。`t == "glyph"` なら `v` は紋の id(`jin_core.v2.glyph.GLYPH_IDS`)。"""
+    """銘帯の 1 升。`t == "glyph"` なら `v` は紋の id(`jin_core.v2.glyph.GLYPH_IDS`)、
+    `t == "latin"` なら `v` はちょうど 1 字(1 コードポイント。名前や数は升ごとに 1 字ずつ並ぶ)。"""
 
     t: Literal["latin", "glyph"]
     v: str
@@ -33,6 +34,8 @@ class Cell(_Strict):
     def _glyph_is_known(self) -> Cell:
         if self.t == "glyph" and self.v not in GLYPH_IDS:
             raise ValueError(f"未知の紋 id です: {self.v!r}")
+        if self.t == "latin" and len(self.v) != 1:
+            raise ValueError(f"ラテン層の升は 1 字(1 コードポイント)です: {self.v!r}")
         return self
 
 
