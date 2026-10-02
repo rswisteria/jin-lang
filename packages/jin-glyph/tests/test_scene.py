@@ -6,9 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
-
 from jin_glyph.scene import SCENE_SCHEMA_PATH, JinScene, render_scene_schema
+from pydantic import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
