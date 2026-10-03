@@ -47,7 +47,11 @@ def test_the_glyph_table_matches_the_vocabulary() -> None:
 
 
 def test_every_glyph_has_an_svg_and_nothing_else_does() -> None:
-    assert {p.stem for p in GLYPH_DIR.glob("*.svg")} == set(GLYPH_IDS)
+    from jin_core.v2.glyph import STRUCT_MARKS
+
+    # 紋 57 字 + 構造の印 21 字 + 始まりの印(S2・生成物は scripts/generate_glyph_svgs.py)
+    expected = set(GLYPH_IDS) | {m.id for m in STRUCT_MARKS} | {START_MARK}
+    assert {p.stem for p in GLYPH_DIR.glob("*.svg")} == expected
     for p in GLYPH_DIR.glob("*.svg"):
         assert 'viewBox="0 0 100 100"' in p.read_text(encoding="utf-8"), p.name
 
@@ -60,6 +64,13 @@ def test_the_field_order_table_matches_the_code() -> None:
 def test_the_loop_field_table_matches_the_code() -> None:
     table = {code_spans(r[0])[0]: tuple(code_spans(r[1])) for r in rows(GLYPH_MD, "loop-fields")}
     assert table == LOOP_FIELDS
+
+
+def test_the_struct_mark_table_matches_the_code() -> None:
+    from jin_core.v2.glyph import STRUCT_MARKS
+
+    table = [(code_spans(r[0])[0], code_spans(r[1])[0]) for r in rows(GLYPH_MD, "struct-marks")]
+    assert table == [(m.id, m.owner) for m in STRUCT_MARKS]
 
 
 def test_the_start_mark_is_named_in_the_spec() -> None:

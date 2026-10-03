@@ -1564,6 +1564,13 @@ def render(
         ),
     ] = None,
     force: Annotated[bool, typer.Option("--force", help="-o の既存ファイルを上書きする")] = False,
+    full: Annotated[
+        bool,
+        typer.Option(
+            "--full",
+            help="完全陣（v2 のプログラムの情報をすべて載せた 1 枚・陣書き）。--focus / --trace とは併用できない",
+        ),
+    ] = False,
 ) -> None:
     """魔法陣 SVG を出す（要件書 §4 / §5）。同じ入力なら常にバイト単位で同じ出力になる。
 
@@ -1585,7 +1592,7 @@ def render(
     if trace is not None:
         rows, numbers = _read_trace_rows(trace)
     try:
-        svg = render_svg(model, focus=focus, trace=rows, upto=upto)
+        svg = render_svg(model, focus=focus, trace=rows, upto=upto, full=full)
     except RenderError as exc:
         # 未定義の focus。診断コード（JINxxx）は増やさない（CLAUDE.md / ADR-012）。
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)

@@ -511,3 +511,32 @@ def test_a_closed_stdout_is_one_line_not_a_traceback() -> None:
     assert result.returncode == 1, (result.returncode, message)
     assert "標準出力が閉じています" in message, message
     assert "Traceback" not in message, message
+
+
+# ---------------------------------------------------------------- 完全陣(陣書き S2)
+
+FIB = REPO_ROOT / "examples-v2" / "fib" / "fib.jin"
+
+
+def test_full_writes_the_full_circle_byte_identical_to_the_library(tmp_path: Path) -> None:
+    from jin_core.check import check_text
+    from jin_render.v2.full import render_full
+
+    out = tmp_path / "fib-full.svg"
+    result = run(str(FIB), "--full", "-o", str(out))
+    assert result.exit_code == 0, result.output
+    model = check_text(FIB.read_text(encoding="utf-8"), FIB.name).model
+    assert out.read_text(encoding="utf-8") == render_full(model)
+
+
+@pytest.mark.parametrize("extra", [["--focus", "Fib"], ["--trace", str(TRACE)]])
+def test_full_rejects_focus_and_trace(extra: list[str]) -> None:
+    result = run(str(FIB), "--full", *extra)
+    assert result.exit_code == 2, result.output
+    assert "--full" in result.stderr
+
+
+def test_full_rejects_a_v1_file() -> None:
+    result = run(str(PIPELINE), "--full")
+    assert result.exit_code == 2, result.output
+    assert "v2" in result.stderr

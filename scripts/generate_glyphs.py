@@ -2,6 +2,8 @@
 
 `canvas.text` の書体は、ASCII（U+0020〜U+007E）がプレイヤー内蔵の 5×7（`apps/player/src/font.ts`）で、
 それ以外のコードポイントがこのスクリプトの出力（k6x8ゴシックの字形 7001 字）である。
+陣書き S2 から、同じ字形の Python の写し `packages/jin-render/src/jin_render/v2/font_data.py`（`font.ts` の ASCII の表も含む・
+完全陣のラテン層の清書体）も書く（`--stdout` は TS だけ）。
 
 - 原本は `apps/player/fonts/k6x8/k6x8_gothic.bdf`（配布 zip の中身を改変せずに置いたもの）。
   digest を `BDF_SHA256` に固定し、違えば生成しない（原本が黙って差し替わるのを防ぐ）
@@ -21,6 +23,8 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -34,6 +38,11 @@ OUTPUTS = (
     REPO_ROOT / "apps" / "player" / "src" / "glyphs.ts",
     REPO_ROOT / "apps" / "stage" / "src" / "screen" / "glyphs.ts",
 )
+
+#: 陣書き S2: 完全陣のラテン層の清書体(glyph 設計書 §9 #25)。`jin_render` はファイルを読めないので、
+#: ASCII の 5×7(`font.ts` の表)と k6x8 の写しを Python のモジュールとして書く。
+FONT_TS = REPO_ROOT / "apps" / "player" / "src" / "font.ts"
+PY_OUTPUT = REPO_ROOT / "packages" / "jin-render" / "src" / "jin_render" / "v2" / "font_data.py"
 
 BDF_SHA256 = "b9029fa0dd93738c23e55b79ffb1f4445f51a57d09f2f9436b2c4d5ee6fe0590"
 CELL_WIDTH = 6
@@ -125,6 +134,43 @@ def render(bdf: bytes, license_text: str) -> str:
     )
 
 
+def read_ascii(font_ts: str) -> dict[str, str]:
+    """`font.ts` の `GLYPHS` 表(U+0020〜U+007E の順・1 字 10 桁の 16 進)を読む。"""
+    body = font_ts.split("const GLYPHS: readonly string[] = [", 1)[1].split("];", 1)[0]
+    hexes = re.findall(r'"([0-9A-Fa-f]{10})"', body)
+    if len(hexes) != ASCII_LAST - 0x20 + 1:
+        raise ValueError(f"font.ts の GLYPHS が {len(hexes)} 字です（期待は 95）")
+    return {chr(0x20 + i): h.upper() for i, h in enumerate(hexes)}
+
+
+def render_python(ts_text: str, ascii_table: dict[str, str]) -> str:
+    """`jin_render.v2.font_data`(TS の生成物と同じ CODEPOINTS / BITMAPS + font.ts の ASCII)。"""
+    codepoints = re.search(r'export const CODEPOINTS = "([^"]*)";', ts_text).group(1)
+    bitmaps = re.search(r'export const BITMAPS = "([^"]*)";', ts_text).group(1)
+
+    # ruff format の引用符の規則で書く(生成物も format を通ったままにする): 二重引用符、`"` を含むときだけ一重
+    def quote(s: str) -> str:
+        return f"'{s}'" if '"' in s and "'" not in s else json.dumps(s)
+
+    rows = "\n".join(f"    {quote(ch)}: {quote(h)}," for ch, h in ascii_table.items())
+    return (
+        '"""生成物: `uv run python scripts/generate_glyphs.py` が `apps/player/src/font.ts`(ASCII の 5×7)と\n'
+        "`apps/player/fonts/k6x8/k6x8_gothic.bdf`(それ以外・k6x8ゴシック)から書く。手で編集しない。\n"
+        "\n"
+        "完全陣のラテン層の清書体(glyph 設計書 §9 #25)。プレイヤーの `canvas.text` と同じ字形。\n"
+        "ASCII は 1 字 10 桁の 16 進(列ごと・bit0 が最上段)、k6x8 は `glyphs.ts` と同じ base64\n"
+        "(`CODEPOINTS` は 2 バイト big-endian の昇順、`BITMAPS` は 1 字 6 バイト)。\n"
+        "k6x8ゴシック 2023-10-19 版 Copyright (C) 2000-2023 Num Kadoma(ライセンスは apps/player/fonts/k6x8/k6x8.txt)。\n"
+        '"""\n'
+        "\n"
+        "ASCII: dict[str, str] = {\n"
+        f"{rows}\n"
+        "}\n"
+        f'CODEPOINTS = "{codepoints}"\n'
+        f'BITMAPS = "{bitmaps}"\n'
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mode = parser.add_mutually_exclusive_group()
@@ -134,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         text = render(BDF.read_bytes(), LICENSE.read_text(encoding="utf-8"))
+        py_text = render_python(text, read_ascii(FONT_TS.read_text(encoding="utf-8")))
     except (OSError, ValueError) as error:
         print(f"generate_glyphs: {error}", file=sys.stderr)
         return 1
@@ -141,10 +188,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.stdout:
         sys.stdout.write(text)
         return 0
+    wanted = {output: text for output in OUTPUTS} | {PY_OUTPUT: py_text}
     stale = [
         output
-        for output in OUTPUTS
-        if (output.read_text(encoding="utf-8") if output.is_file() else None) != text
+        for output, content in wanted.items()
+        if (output.read_text(encoding="utf-8") if output.is_file() else None) != content
     ]
     if args.check:
         for output in stale:
@@ -156,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if stale else 0
     for output in stale:
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(text, encoding="utf-8")
+        output.write_text(wanted[output], encoding="utf-8")
     return 0
 
 

@@ -20,8 +20,8 @@ def by_slot(slot: str) -> set[str]:
 
 def test_glyph_counts_match_the_spec() -> None:
     assert sum(g.layer == "expr" for g in GLYPHS) == 36
-    assert sum(g.layer == "disc" for g in GLYPHS) == 21
-    assert len(GLYPH_IDS) == len(GLYPHS) == 57
+    assert sum(g.layer == "disc" for g in GLYPHS) == 22
+    assert len(GLYPH_IDS) == len(GLYPHS) == 58
 
 
 def test_glyph_ids_are_lowercase_identifiers() -> None:
@@ -40,7 +40,7 @@ def test_discriminators_cover_the_model_literals_exactly() -> None:
     assert by_slot("flow") == set(get_args(FlowKind))
     assert by_slot("asset") == set(get_args(AssetKind))
     assert by_slot("wait") == {"ticks", "until"}
-    assert by_slot("optional") == {"into", "name", "message"}
+    assert by_slot("optional") == {"into", "name", "message", "out"}
     assert {g.slot for g in GLYPHS if g.slot} == {
         "loop",
         "sigil",
@@ -115,6 +115,20 @@ def test_loop_fields_cover_every_loop_kind() -> None:
 
     assert set(LOOP_FIELDS) == set(get_args(LoopKind))
     assert LOOP_FIELDS["count"] == ("times", "name")  # spec §1.3: count は times が先
+
+
+def test_struct_marks_cover_every_figure_but_the_frame() -> None:
+    # spec §1.1 / §1.3: 銘環の銘帯の頭に置く構造の印。額縁は辺が始まりなので印を持たない
+    from jin_core.v2.glyph import STRUCT_MARK_OF, STRUCT_MARKS
+
+    assert len(STRUCT_MARKS) == 21
+    assert {m.owner for m in STRUCT_MARKS} == set(FIELD_ORDER) - {"frame"}
+    ids = {m.id for m in STRUCT_MARKS}
+    assert len(ids) == 21
+    assert not ids & GLYPH_IDS
+    assert START_MARK not in ids
+    assert all(m.id == "s_" + m.owner.replace("step.", "") for m in STRUCT_MARKS)
+    assert STRUCT_MARK_OF == {m.owner: m.id for m in STRUCT_MARKS}
 
 
 def test_escape_letters_cover_every_undrawable_character_including_space() -> None:

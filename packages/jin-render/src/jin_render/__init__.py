@@ -26,6 +26,7 @@ from jin_render.layout import render as _render_v1
 from jin_render.overlay import SEQ_MAX, TraceRowError, brief
 from jin_render.svg import COORD_DECIMALS
 from jin_render.v2 import DATA_JIN_KINDS_V2, render_v2
+from jin_render.v2.full import render_full
 
 
 def render(
@@ -34,16 +35,25 @@ def render(
     focus: str | None = None,
     trace: Sequence[Mapping[str, Any]] | None = None,
     upto: int | None = None,
+    full: bool = False,
 ) -> str:
     """意味モデルを SVG 文字列にする。**同じ入力なら常にバイト単位で同じ**（NFR-DET-001）。
 
     - `focus`: 展開対象の circle 名（v2 は `陣名/手順名` も可）。省略時は `root`
     - `trace`: `seq` と `pointer` を持つ行の並び（`jin run --trace` の JSONL を読んだもの）
     - `upto`: `seq <= upto` のイベントまで発火済みとみなす。省略時は全イベント
+    - `full`: 完全陣（陣書き S2・プログラムの情報をすべて載せた 1 枚・`jin_render.v2.full`）。v2 だけで、
+      `focus` / `trace` / `upto` とは併用できない
 
     v1（`JinFile`）は `jin_render.layout`、v2（`JinFileV2`）は `jin_render.v2` が描く。
-    振り分けはここ 1 か所で、CLI / LSP は version を見ない。
+    振り分けはここ 1 か所で、CLI / LSP は version を見ない（`full` は CLI の `--full` だけが渡す）。
     """
+    if full:
+        if not isinstance(model, JinFileV2):
+            raise RenderError("--full（完全陣）は v2 の .jin だけを描きます")
+        if focus is not None or trace is not None or upto is not None:
+            raise RenderError("--full（完全陣）は --focus / --trace / --upto と一緒に使えません")
+        return render_full(model)
     if isinstance(model, JinFileV2):
         return render_v2(model, focus=focus, trace=trace, upto=upto)
     return _render_v1(model, focus=focus, trace=trace, upto=upto)
