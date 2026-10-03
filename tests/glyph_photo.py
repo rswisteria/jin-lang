@@ -1,4 +1,4 @@
-"""テスト用: 型紙の手本(`jin render x.jin --sheet S`)を斜めから撮った写真に見立てた JPEG と、Claude の応答の再生。
+"""テスト用(jin-glyph と jin-cli のテストが共有する): 型紙の手本(`jin render x.jin --sheet S`)を斜めから撮った写真に見立てた JPEG と、Claude の応答の再生。
 
 - `synthetic_photo`: 手本の SVG → cairosvg の PNG → 射影変換で台形に歪め(右上が奥・少し回る)、灰色の机に置いた JPEG
 - `synthetic_responses`: その写真に対する Claude の応答(Messages API の生の JSON)を、正解(`fill_sheet`)から組む。
@@ -26,6 +26,8 @@ from jin_render.v2 import geometry as g2
 from jin_render.v2.sheet import render_sheet
 from jin_render.v2.sheet_layout import fill_sheet, sheet_layout
 from PIL import Image
+
+_ANTHROPIC = anthropic.Anthropic
 
 #: 手本を PNG にする倍率(1 升 60 px。スマホで A3 を撮ると 1 升 60〜70 px)
 SCALE = 5.0
@@ -67,10 +69,13 @@ def synthetic_photo(model: JinFileV2, grade: str = "S") -> bytes:
 
 def talisman_truth(grade: str = "S") -> list[tuple[float, float]]:
     """護符の中心の写真の座標(左上・右上・左下・右下)。"""
-    to_photo, side, _ = _sheet_to_photo(grade)
+    to_photo, _, _ = _sheet_to_photo(grade)
     sheet = sheet_layout(grade)  # type: ignore[arg-type]
     unit = g2.FULL_CELL_PX * SCALE
-    return [apply(to_photo, (x + sheet.half) * unit, (y + sheet.half) * unit) for x, y in sheet.talismans()]
+    return [
+        apply(to_photo, (x + sheet.half) * unit, (y + sheet.half) * unit)
+        for x, y in sheet.talismans()
+    ]
 
 
 def _message(payload: dict[str, Any], n: int) -> dict[str, Any]:
@@ -90,7 +95,9 @@ def _message(payload: dict[str, Any], n: int) -> dict[str, Any]:
     }
 
 
-def synthetic_responses(model: JinFileV2, grade: str = "S", per_request: int = 60) -> list[dict[str, Any]]:
+def synthetic_responses(
+    model: JinFileV2, grade: str = "S", per_request: int = 60
+) -> list[dict[str, Any]]:
     """位置合わせ 1 本 + 升の読み(per_request 升ずつ)の応答。"""
     _, _, size = _sheet_to_photo(grade)
     sheet = sheet_layout(grade)  # type: ignore[arg-type]
@@ -99,7 +106,11 @@ def synthetic_responses(model: JinFileV2, grade: str = "S", per_request: int = 6
     truth = talisman_truth(grade)
     # 右下・左上・右上・左下 の順で返す(認識器が丸の印から並べ直す)
     corners = [
-        {"x": (truth[i][0] + shift) / size[0], "y": (truth[i][1] - shift) / size[1], "circle": i == 1}
+        {
+            "x": (truth[i][0] + shift) / size[0],
+            "y": (truth[i][1] - shift) / size[1],
+            "circle": i == 1,
+        }
         for i in (3, 0, 1, 2)
     ]
     out = [_message({"grade": grade, "corners": corners}, 0)]
@@ -137,7 +148,8 @@ def refusing_transport_client() -> anthropic.Anthropic:
 
 
 def _client(handler: Callable[[httpx2.Request], httpx2.Response]) -> anthropic.Anthropic:
-    return anthropic.Anthropic(
+    # CLI のテストは `anthropic.Anthropic` を差し替えるので、import した時点の本物のクラスで作る
+    return _ANTHROPIC(
         api_key="test-key",
         max_retries=0,
         http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handler)),

@@ -78,7 +78,7 @@ def test_the_owners_follow_the_reading_order() -> None:
         strips = [o for o in sheet.owners() if o.startswith("strip")]
         assert strips == [f"strip{n}" for n in range(len(strips))]
         for owner in strips:
-            assert [s.kind for s in sheet.of(owner)][0] == "label"
+            assert sheet.of(owner)[0].kind == "label"
 
 
 def _cells(sheet, owner: str) -> int:

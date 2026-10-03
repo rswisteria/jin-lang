@@ -1,0 +1,24 @@
+{
+  "id": "msg_synthetic_01",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "synthetic"
+    },
+    {
+      "type": "text",
+      "text": "{\"cells\": [{\"n\": 1, \"t\": \"latin\", \"v\": \"6\", \"unsure\": []}, {\"n\": 2, \"t\": \"latin\", \"v\": \"4\", \"unsure\": []}, {\"n\": 3, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 4, \"t\": \"latin\", \"v\": \"6\", \"unsure\": []}, {\"n\": 5, \"t\": \"latin\", \"v\": \"4\", \"unsure\": []}, {\"n\": 6, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 7, \"t\": \"latin\", \"v\": \"6\", \"unsure\": []}, {\"n\": 8, \"t\": \"latin\", \"v\": \"0\", \"unsure\": []}, {\"n\": 9, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 10, \"t\": \"latin\", \"v\": \"0\", \"unsure\": []}, {\"n\": 11, \"t\": \"struct\", \"v\": \"s_circle\", \"unsure\": []}, {\"n\": 12, \"t\": \"latin\", \"v\": \"F\", \"unsure\": []}, {\"n\": 13, \"t\": \"latin\", \"v\": \"i\", \"unsure\": []}, {\"n\": 14, \"t\": \"latin\", \"v\": \"b\", \"unsure\": []}, {\"n\": 15, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 16, \"t\": \"latin\", \"v\": \"m\", \"unsure\": []}, {\"n\": 17, \"t\": \"latin\", \"v\": \"a\", \"unsure\": []}, {\"n\": 18, \"t\": \"latin\", \"v\": \"i\", \"unsure\": []}, {\"n\": 19, \"t\": \"latin\", \"v\": \"n\", \"unsure\": []}, {\"n\": 20, \"t\": \"struct\", \"v\": \"s_state\", \"unsure\": []}, {\"n\": 21, \"t\": \"latin\", \"v\": \"a\", \"unsure\": []}, {\"n\": 22, \"t\": \"latin\", \"v\": \"n\", \"unsure\": []}, {\"n\": 23, \"t\": \"latin\", \"v\": \"s\", \"unsure\": []}, {\"n\": 24, \"t\": \"latin\", \"v\": \"w\", \"unsure\": []}, {\"n\": 25, \"t\": \"latin\", \"v\": \"e\", \"unsure\": []}, {\"n\": 26, \"t\": \"latin\", \"v\": \"r\", \"unsure\": []}, {\"n\": 27, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 28, \"t\": \"glyph\", \"v\": \"t_num\", \"unsure\": []}, {\"n\": 29, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 30, \"t\": \"latin\", \"v\": \"0\", \"unsure\": []}, {\"n\": 31, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 32, \"t\": \"glyph\", \"v\": \"mark_out\", \"unsure\": []}, {\"n\": 33, \"t\": \"struct\", \"v\": \"s_rite\", \"unsure\": []}, {\"n\": 34, \"t\": \"latin\", \"v\": \"f\", \"unsure\": []}, {\"n\": 35, \"t\": \"latin\", \"v\": \"i\", \"unsure\": []}, {\"n\": 36, \"t\": \"latin\", \"v\": \"b\", \"unsure\": []}, {\"n\": 37, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 38, \"t\": \"latin\", \"v\": \"n\", \"unsure\": []}, {\"n\": 39, \"t\": \"glyph\", \"v\": \"colon\", \"unsure\": []}, {\"n\": 40, \"t\": \"glyph\", \"v\": \"t_num\", \"unsure\": []}, {\"n\": 41, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 42, \"t\": \"glyph\", \"v\": \"t_num\", \"unsure\": []}, {\"n\": 43, \"t\": \"struct\", \"v\": \"s_let\", \"unsure\": []}, {\"n\": 44, \"t\": \"latin\", \"v\": \"a\", \"unsure\": []}, {\"n\": 45, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 46, \"t\": \"latin\", \"v\": \"0\", \"unsure\": []}, {\"n\": 47, \"t\": \"struct\", \"v\": \"s_let\", \"unsure\": []}, {\"n\": 48, \"t\": \"latin\", \"v\": \"b\", \"unsure\": []}, {\"n\": 49, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 50, \"t\": \"latin\", \"v\": \"1\", \"unsure\": []}, {\"n\": 51, \"t\": \"struct\", \"v\": \"s_loop\", \"unsure\": []}, {\"n\": 52, \"t\": \"glyph\", \"v\": \"loop_count\", \"unsure\": []}, {\"n\": 53, \"t\": \"latin\", \"v\": \"n\", \"unsure\": []}, {\"n\": 54, \"t\": \"struct\", \"v\": \"s_let\", \"unsure\": []}, {\"n\": 55, \"t\": \"latin\", \"v\": \"t\", \"unsure\": []}, {\"n\": 56, \"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"n\": 57, \"t\": \"latin\", \"v\": \"a\", \"unsure\": []}, {\"n\": 58, \"t\": \"glyph\", \"v\": \"add\", \"unsure\": []}, {\"n\": 59, \"t\": \"latin\", \"v\": \"b\", \"unsure\": []}, {\"n\": 60, \"t\": \"struct\", \"v\": \"s_set\", \"unsure\": []}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1000,
+    "output_tokens": 200
+  }
+}

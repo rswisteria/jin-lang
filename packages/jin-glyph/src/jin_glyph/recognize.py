@@ -271,6 +271,15 @@ class Recognizer:
                 messages=[{"role": "user", "content": content}],
                 output_format=schema,
             )
+        except TypeError as exc:
+            # SDK 1.11.0 は認証情報が 1 つも無いと、送る前に TypeError("Could not resolve authentication method…")
+            # を投げる(2026-10-03 の実測)。それ以外の TypeError は生成系のバグなのでそのまま上げる
+            if "authentication" not in str(exc):
+                raise
+            raise RecognizeError(
+                "Anthropic の API の認証情報がありません"
+                "（ANTHROPIC_API_KEY を設定するか `ant auth login` をしてください。写真は送っていません）"
+            ) from exc
         except anthropic.AuthenticationError as exc:
             raise RecognizeError(
                 f"Anthropic の API が認証を拒みました（API キーを確かめてください）: {exc}"
