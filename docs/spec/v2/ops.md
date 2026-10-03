@@ -68,6 +68,8 @@
 
 式の中の参照は**構文解析して識別子の位置を得て**置換する(文字列リテラルの中は触らない)。構文エラーの式(JIN201)は触らず `warnings` に載せる。
 
+この表の実装は **`jin_core.v2.references` の 1 か所**にある(設計書 §11 #58)。参照の位置を (値の pointer, 文字列の中の復号後の区間。値の全体なら無し) で列挙し、`rename` はそれを定義名の書き換え前に集めて書き換える。LSP の definition / references / rename も同じ表を読むので、「rename は追うのに references には出ない」ずれは起きない。
+
 ## 4. コードアクションとの対応
 
 | 診断 | オペレーション |
@@ -78,6 +80,14 @@
 | JIN220 | `setState`(`out: true`) |
 | JIN230 | `addSigil`(`input`) |
 | JIN240 | `removeStep` |
+
+LSP の codeAction(`jin_lsp.features.v2_edits`・設計書 §11 #58)はこの表を quickfix にする。規則で決めた具体値:
+
+- **JIN203 / JIN220 の候補**(hint の「近い名前: A / B」)は、診断が指す区間の識別子だけを候補に置き換え、その式を持つ要素の set 系(`setStep` / `setState` / `setGuard` / `setFlow`)で書く
+- **他陣の非公開 state**(`陣名.key` の `key` を指す JIN203 / JIN220)は、その state に `setState`(`out: true`)。`flow.exit` の裸の名前 `key`(JIN220)は、`flow.steps` の陣のうち state `key` を持つものごとに、公開して exit を `陣名.key` に書き換える
+- **JIN210** は列の **12 個目以降**を、**JIN211** は指されたステップ 1 個を `extractRite` で抜く(12 個目からにするのは抜いた所に `cast` が 1 つ残るため)。新しい手順の名前は `<元の手順名>Extracted`(手順 / sigil / state と衝突したら 2, 3 …)。抜いたステップが元の手順の局所を読んでいれば、新しい手順で JIN203 になる(引数への持ち上げは規則で決められないので人に任せる)
+- **JIN204** の名前空間は、式の中なら診断の区間の文字列、`cast.target` なら頭(`名前.member` の `名前`)。`addSigil` の値は `{"name": 名前空間, "kind": "host", "host": 名前空間}`
+- 加えて 32 件を v1 と同じ形の command(`jin.applyOps`・`{uri, op}`)で並べる
 
 ## 5. エディタの操作との対応(設計書 §8)
 
