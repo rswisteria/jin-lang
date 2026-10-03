@@ -24,7 +24,8 @@ from pydantic import ValidationError
 from jin_core.ops import Op, OpError
 from jin_core.pointer import is_index_token, resolve_pointer, split_pointer
 from jin_core.v2 import expr as ex
-from jin_core.v2.model import JinFileV2, parse_type
+from jin_core.v2 import references
+from jin_core.v2.model import JinFileV2
 from jin_core.v2.semantic import typed_nodes
 
 #: ステップ列を持つキー（`addStep` などの pointer の末尾）。
@@ -561,455 +562,128 @@ def _extract_rite(doc: dict[str, Any], op: Op) -> Inverse:
 def _rename(doc: dict[str, Any], op: Op) -> Inverse:
     """名前を持つ要素を改名し、参照を追随させる（ops.md §3）。
 
-    追随の対象が式の中にあるときは、型注記付き AST（`semantic.typed_nodes`）で識別子の位置を得て
-    置換する。型が決まらない式は触らず `warnings` に載せる（`apply_op` が `OpResult.warnings` に運ぶ）。
+    追随する参照の位置は `jin_core.v2.references.find` が決める（LSP の references と同じ表）。
+    **定義の名前を書き換える前に**集め、集めた位置を書き換えてから定義の名前を書く。型が決まらない
+    式と構文エラーの式は触らず `warnings` に載せる（`apply_op` が `OpResult.warnings` に運ぶ）。
     """
     tokens = _tokens(op)
     new_name = _require_str(op, "value")
-    warnings: list[str] = []
-    kind, owner = _rename_target(tokens)
-    if kind == "circle":
-        old = _rename_circle(doc, tokens, new_name, warnings)
-    elif kind == "form":
-        old = _rename_form(doc, tokens, new_name, warnings)
-    elif kind == "field":
-        old = _rename_field(doc, tokens, new_name, warnings)
-    elif kind == "state":
-        old = _rename_state(doc, tokens, new_name, warnings)
-    elif kind == "sigil":
-        old = _rename_sigil(doc, tokens, new_name, warnings)
-    elif kind == "rite":
-        old = _rename_rite(doc, tokens, new_name, warnings)
-    else:
-        old = _rename_local(doc, tokens, new_name, owner, warnings)
+    kind = references.target_kind(tokens)
+    if kind is None:
+        raise OpError(
+            "JIN002",
+            f"rename が扱えない pointer です: {'/' + '/'.join(tokens)!r}",
+            "circle / form / form の欄 / state / sigil / rite / params / let / loop.name の pointer を指定してください",
+            "/" + "/".join(tokens),
+        )
+    holder = _rename_holder(doc, op, tokens, kind)
+    old = holder.get("name")
+    if not isinstance(old, str):
+        raise OpError("JIN002", "この要素は名前を持っていません", "count ループの name は任意です")
+    _reject_duplicate(_taken_names(doc, tokens, kind, old), new_name, _NOUNS[kind[0]])
+    symbol = references.find(doc, "/" + "/".join(tokens), _typed(doc))
+    references.apply(doc, symbol, new_name)
+    holder["name"] = new_name
     inverse: Op = {"op": "rename", "pointer": _pointer(op), "value": old}
-    if warnings:
-        inverse["warnings"] = warnings  # apply_op が取り出して OpResult.warnings へ移す
+    if symbol.unresolved:
+        inverse["warnings"] = symbol.unresolved  # apply_op が取り出して OpResult.warnings へ移す
     return inverse
 
 
-def _rename_target(tokens: list[str]) -> tuple[str, str]:
-    if len(tokens) == 2 and tokens[0] == "circles":
-        return "circle", ""
-    if len(tokens) == 2 and tokens[0] == "forms":
-        return "form", ""
-    if len(tokens) == 4 and tokens[0] == "forms" and tokens[2] == "fields":
-        return "field", ""
-    if len(tokens) == 4 and tokens[0] == "circles" and tokens[2] in ("state", "sigils", "rites"):
-        return {"state": "state", "sigils": "sigil", "rites": "rite"}[tokens[2]], ""
-    if len(tokens) >= 5 and tokens[0] == "circles" and tokens[2] == "rites":
-        if len(tokens) == 6 and tokens[4] == "params":
-            return "local", "param"
-        if tokens[4] in STEP_LIST_KEYS or tokens[4] == "steps":
-            return "local", "step"
-    raise OpError(
-        "JIN002",
-        f"rename が扱えない pointer です: {'/' + '/'.join(tokens)!r}",
-        "circle / form / form の欄 / state / sigil / rite / params / let / loop.name の pointer を指定してください",
-        "/" + "/".join(tokens),
-    )
+#: 重複の診断に出す名詞。
+_NOUNS = {
+    "circle": "circle",
+    "form": "型紙",
+    "field": "欄",
+    "state": "state",
+    "sigil": "sigil",
+    "rite": "手順",
+    "local": "局所名",
+}
 
 
-def _all_expressions(doc: dict[str, Any]):
-    """(pointer, 式文字列, 陣の添字, 手順の添字) を全部列挙する。`set.target` / `cast.into` / `cast.target` も含む。"""
-    for i, circle in enumerate(doc.get("circles", [])):
-        base = f"/circles/{i}"
-        for j, state in enumerate(circle.get("state") or []):
-            yield f"{base}/state/{j}/init", state.get("init", ""), i, None
-        for j, rite in enumerate(circle.get("rites") or []):
-            yield from _step_expressions(f"{base}/rites/{j}/steps", rite.get("steps") or [], i, j)
-        boundary = circle.get("boundary") or {}
-        for j, guard in enumerate(boundary.get("guards") or []):
-            yield f"{base}/boundary/guards/{j}/assert", guard.get("assert", ""), i, None
-        flow = circle.get("flow")
-        if isinstance(flow, dict) and isinstance(flow.get("exit"), str):
-            yield f"{base}/flow/exit", flow["exit"], i, None
+def _typed(doc: dict[str, Any]) -> dict[str, ex.Node]:
+    nodes, _ = typed_nodes(_validate(doc, ""))
+    return nodes
 
 
-_EXPR_KEYS = ("expr", "cond", "target", "into", "in", "times", "ticks", "until")
-
-
-def _step_expressions(pointer: str, steps: list[Any], circle: int, rite: int):
-    for k, step in enumerate(steps):
-        sp = f"{pointer}/{k}"
-        for key in _EXPR_KEYS:
-            if key == "target" and step.get("do") == "cast":
-                continue  # cast.target は式ではなく名前（別に扱う）
-            if isinstance(step.get(key), str):
-                yield f"{sp}/{key}", step[key], circle, rite
-        for a, arg in enumerate(step.get("args") or []):
-            yield f"{sp}/args/{a}", arg, circle, rite
-        for key in ("then", "else", "steps"):
-            if isinstance(step.get(key), list):
-                yield from _step_expressions(f"{sp}/{key}", step[key], circle, rite)
-
-
-def _splice(text: str, edits: list[tuple[ex.Span, str]]) -> str:
-    for span, replacement in sorted(edits, key=lambda e: e[0].start, reverse=True):
-        text = text[: span.start] + replacement + text[span.end :]
-    return text
-
-
-def _set_at(doc: dict[str, Any], pointer: str, value: str) -> None:
-    tokens = split_pointer(pointer)
-    parent = resolve_pointer(doc, "/" + "/".join(tokens[:-1]))
-    key: Any = int(tokens[-1]) if isinstance(parent, list) else tokens[-1]
-    parent[key] = value
-
-
-def _rewrite_expressions(
-    doc: dict[str, Any],
-    predicate: Callable[[ex.Node, str, int, int | None], list[tuple[ex.Span, str]]],
-    warnings: list[str],
-) -> None:
-    """全式を型付き AST にし、`predicate` が返す置換を適用する。構文エラーの式は warnings へ。"""
-    model = _validate(doc, "")
-    nodes, _ = typed_nodes(model)
-    for pointer, text, circle, rite in list(_all_expressions(doc)):
-        node = nodes.get(pointer)
-        if node is None:
-            try:
-                node = ex.parse_expr(text)
-            except ex.ExprSyntaxError:
-                warnings.append(pointer)
-                continue
-        edits = predicate(node, pointer, circle, rite)
-        if edits:
-            _set_at(doc, pointer, _splice(text, edits))
-
-
-def _locals_of(doc: dict[str, Any], circle: int, rite: int | None) -> set[str]:
-    if rite is None:
-        return set()
-    r = doc["circles"][circle]["rites"][rite]
-    names = {p.get("name") for p in r.get("params") or []}
-    for step in _walk_plain_steps(r.get("steps") or []):
-        if step.get("do") in ("let", "loop") and step.get("name"):
-            names.add(step["name"])
-    return names
-
-
-def _walk_plain_steps(steps: list[Any]):
-    for step in steps:
-        yield step
-        for key in ("then", "else", "steps"):
-            if isinstance(step.get(key), list):
-                yield from _walk_plain_steps(step[key])
-
-
-def _state_names(doc: dict[str, Any], circle: int) -> set[str]:
-    return {s.get("name") for s in doc["circles"][circle].get("state") or []}
-
-
-def _rename_circle(doc: dict[str, Any], tokens: list[str], new: str, warnings: list[str]) -> str:
+def _rename_holder(
+    doc: dict[str, Any], op: Op, tokens: list[str], kind: tuple[str, str]
+) -> dict[str, Any]:
+    """名前を持つ dict（添字の範囲を確かめてから返す）。"""
+    if kind[0] in ("form", "field"):
+        forms = doc.get("forms") or []
+        _check_index(op, int(tokens[1]), forms, allow_append=False)
+        if kind[0] == "form":
+            return forms[int(tokens[1])]
+        fields = forms[int(tokens[1])].get("fields") or []
+        _check_index(op, int(tokens[3]), fields, allow_append=False)
+        return fields[int(tokens[3])]
     circles = doc["circles"]
-    index = int(tokens[1])
-    _check_index({"pointer": "/" + "/".join(tokens)}, index, circles, allow_append=False)
-    circle = circles[index]
-    old = circle["name"]
-    _reject_duplicate(
-        [c["name"] for c in circles if c is not circle]
-        + [f["name"] for f in doc.get("forms") or []],
-        new,
-        "circle",
-    )
-    circle["name"] = new
-    if doc.get("root") == old:
-        doc["root"] = new
-    for other in circles:
-        other_delegate = other.get("delegate")
-        if other_delegate:
-            other["delegate"] = [new if d == old else d for d in other_delegate]
-        flow = other.get("flow")
-        if isinstance(flow, dict):
-            flow["steps"] = [new if s == old else s for s in flow.get("steps") or []]
-        for sigil in other.get("sigils") or []:
-            if sigil.get("kind") == "summon" and sigil.get("circle") == old:
-                sigil["circle"] = new
-        for rite in other.get("rites") or []:
-            for step in _walk_plain_steps(rite.get("steps") or []):
-                if step.get("do") in ("emit", "transfer") and step.get("circle") == old:
-                    step["circle"] = new
-
-    def predicate(
-        node: ex.Node, pointer: str, ci: int, ri: int | None
-    ) -> list[tuple[ex.Span, str]]:
-        shadow = _state_names(doc, ci) | _locals_of(doc, ci, ri)
-        if old in shadow:
-            return []
-        edits = []
-        for n in ex.walk(node):
-            if isinstance(n, ex.FieldAccess) and isinstance(n.obj, ex.Name) and n.obj.name == old:
-                edits.append((n.obj.span, new))
-        return edits
-
-    _rewrite_expressions(doc, predicate, warnings)
-    return old
-
-
-def _rename_type_text(text: str, old: str, new: str) -> str:
-    head, inner = parse_type(text)
-    if head == "list" and inner is not None:
-        return f"list<{_rename_type_text(inner, old, new)}>"
-    return new if head == old else text
-
-
-def _rename_types(doc: dict[str, Any], old: str, new: str) -> None:
-    for form in doc.get("forms") or []:
-        for f in form.get("fields") or []:
-            f["type"] = _rename_type_text(f["type"], old, new)
-    for circle in doc.get("circles", []):
-        for s in circle.get("state") or []:
-            s["type"] = _rename_type_text(s["type"], old, new)
-        for rite in circle.get("rites") or []:
-            for p in rite.get("params") or []:
-                p["type"] = _rename_type_text(p["type"], old, new)
-            if isinstance(rite.get("returns"), str):
-                rite["returns"] = _rename_type_text(rite["returns"], old, new)
-            for step in _walk_plain_steps(rite.get("steps") or []):
-                if step.get("do") == "let" and isinstance(step.get("type"), str):
-                    step["type"] = _rename_type_text(step["type"], old, new)
-
-
-def _rename_form(doc: dict[str, Any], tokens: list[str], new: str, warnings: list[str]) -> str:
-    forms = doc.get("forms") or []
-    index = int(tokens[1])
-    _check_index({"pointer": "/" + "/".join(tokens)}, index, forms, allow_append=False)
-    form = forms[index]
-    old = form["name"]
-    _reject_duplicate(
-        [f["name"] for f in forms if f is not form]
-        + [c["name"] for c in doc["circles"]]
-        + ["Pointer"],
-        new,
-        "型紙",
-    )
-    form["name"] = new
-    _rename_types(doc, old, new)
-
-    def predicate(
-        node: ex.Node, pointer: str, ci: int, ri: int | None
-    ) -> list[tuple[ex.Span, str]]:
-        return [
-            (n.form_span, new)
-            for n in ex.walk(node)
-            if isinstance(n, ex.Construct) and n.form == old
-        ]
-
-    _rewrite_expressions(doc, predicate, warnings)
-    return old
-
-
-def _rename_field(doc: dict[str, Any], tokens: list[str], new: str, warnings: list[str]) -> str:
-    forms = doc.get("forms") or []
-    form_index, field_index = int(tokens[1]), int(tokens[3])
-    _check_index({"pointer": "/" + "/".join(tokens)}, form_index, forms, allow_append=False)
-    fields = forms[form_index].get("fields") or []
-    _check_index({"pointer": "/" + "/".join(tokens)}, field_index, fields, allow_append=False)
-    form_name = forms[form_index]["name"]
-    old = fields[field_index]["name"]
-    _reject_duplicate([f["name"] for i, f in enumerate(fields) if i != field_index], new, "欄")
-    fields[field_index]["name"] = new
-
-    def predicate(
-        node: ex.Node, pointer: str, ci: int, ri: int | None
-    ) -> list[tuple[ex.Span, str]]:
-        edits = []
-        unresolved = False
-        for n in ex.walk(node):
-            if isinstance(n, ex.FieldAccess) and n.name == old:
-                if n.obj.type == form_name:
-                    edits.append((n.name_span, new))
-                elif n.obj.type is None and not (
-                    isinstance(n.obj, ex.Name) and n.obj.name in _known_non_values(doc, ci)
-                ):
-                    unresolved = True
-            if isinstance(n, ex.Construct) and n.form == form_name:
-                edits.extend((span, new) for name, span, _ in n.fields if name == old)
-        if unresolved:
-            warnings.append(pointer)
-        return edits
-
-    _rewrite_expressions(doc, predicate, warnings)
-    return old
-
-
-def _known_non_values(doc: dict[str, Any], circle: int) -> set[str]:
-    """`Name.member` の Name が値でない（陣名 / sigil 名）ことが分かる名前。欄名の追随から除く。"""
-    names = {c["name"] for c in doc["circles"]}
-    names |= {s["name"] for s in doc["circles"][circle].get("sigils") or []}
-    return names
-
-
-def _rename_state(doc: dict[str, Any], tokens: list[str], new: str, warnings: list[str]) -> str:
-    ci = int(tokens[1])
-    circles = doc["circles"]
-    _check_index({"pointer": "/" + "/".join(tokens)}, ci, circles, allow_append=False)
-    circle = circles[ci]
-    states = circle.get("state") or []
-    si = int(tokens[3])
-    _check_index({"pointer": "/" + "/".join(tokens)}, si, states, allow_append=False)
-    old = states[si]["name"]
-    taken = [s["name"] for i, s in enumerate(states) if i != si]
-    taken += [s["name"] for s in circle.get("sigils") or []]
-    _reject_duplicate(taken, new, "state")
-    states[si]["name"] = new
-    circle_name = circle["name"]
-
-    def predicate(
-        node: ex.Node, pointer: str, other: int, ri: int | None
-    ) -> list[tuple[ex.Span, str]]:
-        edits = []
-        if other == ci:
-            if old in _locals_of(doc, ci, ri):
-                return []
-            for n in ex.walk(node):
-                if (
-                    isinstance(n, ex.Name)
-                    and n.name == old
-                    and not _is_member_base_of_non_value(node, n, doc, ci)
-                ):
-                    edits.append((n.span, new))
-        else:
-            for n in ex.walk(node):
-                if (
-                    isinstance(n, ex.FieldAccess)
-                    and isinstance(n.obj, ex.Name)
-                    and n.obj.name == circle_name
-                    and n.name == old
-                ):
-                    edits.append((n.name_span, new))
-        return edits
-
-    _rewrite_expressions(doc, predicate, warnings)
-    return old
-
-
-def _is_member_base_of_non_value(
-    root: ex.Node, target: ex.Name, doc: dict[str, Any], ci: int
-) -> bool:
-    """`target` が `Name.member` の Name で、その Name が陣名 / sigil 名として解決されるか。"""
-    if target.name not in _known_non_values(doc, ci):
-        return False
-    return any(isinstance(n, ex.FieldAccess) and n.obj is target for n in ex.walk(root))
-
-
-def _rename_sigil(doc: dict[str, Any], tokens: list[str], new: str, warnings: list[str]) -> str:
-    ci = int(tokens[1])
-    circles = doc["circles"]
-    _check_index({"pointer": "/" + "/".join(tokens)}, ci, circles, allow_append=False)
-    circle = circles[ci]
-    sigils = circle.get("sigils") or []
-    gi = int(tokens[3])
-    _check_index({"pointer": "/" + "/".join(tokens)}, gi, sigils, allow_append=False)
-    old = sigils[gi]["name"]
-    taken = [s["name"] for i, s in enumerate(sigils) if i != gi]
-    taken += [s["name"] for s in circle.get("state") or []] + [
-        r["name"] for r in circle.get("rites") or []
-    ]
-    _reject_duplicate(taken, new, "sigil")
-    sigils[gi]["name"] = new
-    for rite in circle.get("rites") or []:
-        for step in _walk_plain_steps(rite.get("steps") or []):
-            if step.get("do") == "cast":
-                head, dot, member = step["target"].partition(".")
-                if head == old:
-                    step["target"] = new + dot + member
-
-    def predicate(
-        node: ex.Node, pointer: str, other: int, ri: int | None
-    ) -> list[tuple[ex.Span, str]]:
-        if other != ci or old in _locals_of(doc, ci, ri):
-            return []
-        return [
-            (n.obj.span, new)
-            for n in ex.walk(node)
-            if isinstance(n, ex.FieldAccess) and isinstance(n.obj, ex.Name) and n.obj.name == old
-        ]
-
-    _rewrite_expressions(doc, predicate, warnings)
-    return old
-
-
-def _rename_rite(doc: dict[str, Any], tokens: list[str], new: str, warnings: list[str]) -> str:
-    del warnings
-    ci = int(tokens[1])
-    circles = doc["circles"]
-    _check_index({"pointer": "/" + "/".join(tokens)}, ci, circles, allow_append=False)
-    circle = circles[ci]
-    rites = circle.get("rites") or []
-    ri = int(tokens[3])
-    _check_index({"pointer": "/" + "/".join(tokens)}, ri, rites, allow_append=False)
-    old = rites[ri]["name"]
-    taken = [r["name"] for i, r in enumerate(rites) if i != ri] + [
-        s["name"] for s in circle.get("sigils") or []
-    ]
-    _reject_duplicate(taken, new, "手順")
-    rites[ri]["name"] = new
-    if circle.get("core") == old:
-        circle["core"] = new
-    boundary = circle.get("boundary") or {}
-    for on in boundary.get("on") or []:
-        if on.get("rite") == old:
-            on["rite"] = new
-    for rite in rites:
-        for step in _walk_plain_steps(rite.get("steps") or []):
-            if step.get("do") == "cast" and step.get("target") == old:
-                step["target"] = new
-    for other in circles:
-        for sigil in other.get("sigils") or []:
-            if (
-                sigil.get("kind") == "summon"
-                and sigil.get("circle") == circle["name"]
-                and sigil.get("rite") == old
-            ):
-                sigil["rite"] = new
-    return old
-
-
-def _rename_local(
-    doc: dict[str, Any], tokens: list[str], new: str, owner: str, warnings: list[str]
-) -> str:
-    ci, ri = int(tokens[1]), int(tokens[3])
-    circles = doc["circles"]
-    _check_index({"pointer": "/" + "/".join(tokens)}, ci, circles, allow_append=False)
-    circle = circles[ci]
-    rites = circle.get("rites") or []
-    _check_index({"pointer": "/" + "/".join(tokens)}, ri, rites, allow_append=False)
+    _check_index(op, int(tokens[1]), circles, allow_append=False)
+    if kind[0] == "circle":
+        return circles[int(tokens[1])]
+    key = {"state": "state", "sigil": "sigils"}.get(kind[0], "rites")
+    items = circles[int(tokens[1])].get(key) or []
+    _check_index(op, int(tokens[3]), items, allow_append=False)
+    if kind[0] != "local":
+        return items[int(tokens[3])]
     holder = _at(doc, "/" + "/".join(tokens))
-    if owner == "step" and holder.get("do") not in ("let", "loop"):
+    if kind[1] == "step" and holder.get("do") not in ("let", "loop"):
         raise OpError(
             "JIN002",
             "名前を持つステップは let と loop だけです",
             f"実際の do: {holder.get('do')!r}",
         )
-    old = holder.get("name")
-    if not isinstance(old, str):
-        raise OpError("JIN002", "この要素は名前を持っていません", "count ループの name は任意です")
-    taken = (
-        (_locals_of(doc, ci, ri) - {old})
-        | _state_names(doc, ci)
-        | {s["name"] for s in circle.get("sigils") or []}
-    )
-    _reject_duplicate(sorted(taken), new, "局所名")
-    holder["name"] = new
-    rite_pointer_prefix = f"/circles/{ci}/rites/{ri}/"
+    return holder
 
-    def predicate(
-        node: ex.Node, pointer: str, other: int, other_rite: int | None
-    ) -> list[tuple[ex.Span, str]]:
-        if not pointer.startswith(rite_pointer_prefix):
-            return []
-        return [
-            (n.span, new)
-            for n in ex.walk(node)
-            if isinstance(n, ex.Name)
-            and n.name == old
-            and not _is_member_base_of_non_value(node, n, doc, ci)
+
+def _taken_names(
+    doc: dict[str, Any], tokens: list[str], kind: tuple[str, str], old: str
+) -> list[str]:
+    """新しい名前と衝突してはいけない名前（並びは診断の hint にそのまま出る）。"""
+    if kind[0] == "circle":
+        circles = doc["circles"]
+        me = circles[int(tokens[1])]
+        return [c["name"] for c in circles if c is not me] + [
+            f["name"] for f in doc.get("forms") or []
         ]
+    if kind[0] == "form":
+        forms = doc.get("forms") or []
+        me = forms[int(tokens[1])]
+        return (
+            [f["name"] for f in forms if f is not me]
+            + [c["name"] for c in doc["circles"]]
+            + ["Pointer"]
+        )
+    if kind[0] == "field":
+        fields = doc["forms"][int(tokens[1])].get("fields") or []
+        return [f["name"] for i, f in enumerate(fields) if i != int(tokens[3])]
+    circle = doc["circles"][int(tokens[1])]
+    position = int(tokens[3])
+    states = [s["name"] for s in circle.get("state") or []]
+    sigils = [s["name"] for s in circle.get("sigils") or []]
+    rites = [r["name"] for r in circle.get("rites") or []]
+    if kind[0] == "state":
+        return [n for i, n in enumerate(states) if i != position] + sigils
+    if kind[0] == "sigil":
+        return [n for i, n in enumerate(sigils) if i != position] + states + rites
+    if kind[0] == "rite":
+        return [n for i, n in enumerate(rites) if i != position] + sigils
+    rite = circle["rites"][position]
+    locals_ = {p.get("name") for p in rite.get("params") or []}
+    for step in _walk_plain_steps(rite.get("steps") or []):
+        if step.get("do") in ("let", "loop") and step.get("name"):
+            locals_.add(step["name"])
+    return sorted((locals_ - {old}) | set(states) | set(sigils))
 
-    _rewrite_expressions(doc, predicate, warnings)
-    return old
+
+def _walk_plain_steps(steps: list[Any]):
+    for step in steps:
+        yield step
+        for key in STEP_LIST_KEYS:
+            if isinstance(step.get(key), list):
+                yield from _walk_plain_steps(step[key])
 
 
 # --------------------------------------------------------------------------------------

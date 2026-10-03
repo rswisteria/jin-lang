@@ -3,8 +3,10 @@
 - 診断 / `jin/model` / `jin/renderSvg`（`focus` に `陣名/手順名` を許す）/ formatting は v2 で答える（Phase 3）
 - **hover / completion / `jin/applyOps` は v2 で答える**（Phase 5・設計書 §8）。`jin/model` と
   `jin/applyOps` の応答には `jil` / `manifest` が載る（ライブリロード）
-- definition / references / documentSymbol / rename / codeAction は v1 だけ（設計書 §11 #36）。
-  v2 のドキュメントでは「モデル無し」と同じ振る舞い（None / 空）になり、**落ちない**
+- definition / references / documentSymbol / rename / codeAction の v2 は別のモジュール
+  （`v2_navigation` / `v2_edits`・設計書 §11 #58）で、`server` が振り分ける。v1 の実装は v2 の
+  ドキュメントに「モデル無し」と同じ振る舞い（None / 空）で答え、**落ちない**。中身は
+  `test_v2_navigation.py`、振り分けは `test_v2_roundtrip.py` が見る
 """
 
 from __future__ import annotations
@@ -84,7 +86,8 @@ def test_formatting_still_works_for_v2(state) -> None:
     assert edits.format_document(state) == []  # 既に正準形
 
 
-def test_v1_only_features_answer_empty_for_v2_without_raising(state) -> None:
+def test_the_v1_implementations_answer_empty_for_v2_without_raising(state) -> None:
+    """v2 は `server` が `v2_navigation` / `v2_edits` へ振り分ける。v1 の実装に v2 が来ても落ちない。"""
     position = types.Position(line=2, character=5)
     assert navigation.definition(state, URI, position) is None
     assert navigation.references(state, URI, position) == []

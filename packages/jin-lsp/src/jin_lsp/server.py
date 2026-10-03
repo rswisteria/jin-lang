@@ -34,7 +34,7 @@ from pygls.io_ import run_websocket
 from pygls.lsp.server import LanguageServer
 
 from jin_lsp import SERVER_NAME, SERVER_VERSION, fileio, logs, positions, protocol, requests
-from jin_lsp.features import completion, edits, navigation
+from jin_lsp.features import completion, edits, navigation, v2_edits, v2_navigation
 from jin_lsp.session import DocumentState, DocumentStore
 
 logger = logging.getLogger(__name__)
@@ -235,17 +235,30 @@ def create_server(
     def completions(ls: JinLanguageServer, params: types.CompletionParams) -> types.CompletionList:
         return completion.complete(ls.state_of(params.text_document.uri), params.position)
 
+    # definition / references / documentSymbol / rename / codeAction は v1 と v2 で実装が分かれる
+    # （v2 は `jin_core.v2.references` の表と `jin_core.v2.ops` に載る・設計書 §11 #58）。
+    # 振り分けはここで行う（`v2_edits` は `edits` の部品を使うので、`edits` からは呼べない）。
+
     @server.feature(types.TEXT_DOCUMENT_DEFINITION)
     def definition(ls: JinLanguageServer, params: types.DefinitionParams) -> types.Location | None:
-        return navigation.definition(
-            ls.state_of(params.text_document.uri), params.text_document.uri, params.position
-        )
+        uri = params.text_document.uri
+        state = ls.state_of(uri)
+        if _is_v2(state):
+            return v2_navigation.definition(state, uri, params.position)
+        return navigation.definition(state, uri, params.position)
 
     @server.feature(types.TEXT_DOCUMENT_REFERENCES)
     def references(ls: JinLanguageServer, params: types.ReferenceParams) -> list[types.Location]:
-        return navigation.references(
-            ls.state_of(params.text_document.uri), params.text_document.uri, params.position
-        )
+        uri = params.text_document.uri
+        state = ls.state_of(uri)
+        if _is_v2(state):
+            return v2_navigation.references_at(
+                state,
+                uri,
+                params.position,
+                include_declaration=params.context.include_declaration,
+            )
+        return navigation.references(state, uri, params.position)
 
     @server.feature(types.TEXT_DOCUMENT_HOVER)
     def hover(ls: JinLanguageServer, params: types.HoverParams) -> types.Hover | None:
@@ -255,7 +268,10 @@ def create_server(
     def document_symbol(
         ls: JinLanguageServer, params: types.DocumentSymbolParams
     ) -> list[types.DocumentSymbol]:
-        return navigation.document_symbols(ls.state_of(params.text_document.uri))
+        state = ls.state_of(params.text_document.uri)
+        if _is_v2(state):
+            return v2_navigation.document_symbols(state)
+        return navigation.document_symbols(state)
 
     @server.feature(types.TEXT_DOCUMENT_FORMATTING)
     def formatting(
@@ -270,18 +286,19 @@ def create_server(
 
     @server.feature(types.TEXT_DOCUMENT_RENAME)
     def rename(ls: JinLanguageServer, params: types.RenameParams) -> types.WorkspaceEdit | None:
-        return edits.rename(
-            ls.state_of(params.text_document.uri),
-            params.text_document.uri,
-            params.position,
-            params.new_name,
-        )
+        uri = params.text_document.uri
+        state = ls.state_of(uri)
+        rename_of = v2_edits.rename if _is_v2(state) else edits.rename
+        return rename_of(state, uri, params.position, params.new_name)
 
     @server.feature(types.TEXT_DOCUMENT_PREPARE_RENAME)
     def prepare_rename(
         ls: JinLanguageServer, params: types.PrepareRenameParams
     ) -> types.PrepareRenameResult | None:
-        return edits.prepare_rename(ls.state_of(params.text_document.uri), params.position)
+        state = ls.state_of(params.text_document.uri)
+        if _is_v2(state):
+            return v2_edits.prepare_rename(state, params.position)
+        return edits.prepare_rename(state, params.position)
 
     @server.feature(
         types.TEXT_DOCUMENT_CODE_ACTION,
@@ -290,9 +307,10 @@ def create_server(
     def code_action(
         ls: JinLanguageServer, params: types.CodeActionParams
     ) -> list[types.CodeAction | types.Command]:
-        return edits.code_actions(
-            ls.state_of(params.text_document.uri), params.text_document.uri, params
-        )
+        uri = params.text_document.uri
+        state = ls.state_of(uri)
+        actions_of = v2_edits.code_actions if _is_v2(state) else edits.code_actions
+        return actions_of(state, uri, params)
 
     # ---- 独自リクエスト（要件書 §6.3）------------------------------------------
 
@@ -413,6 +431,11 @@ def create_server(
         }
 
     return server
+
+
+def _is_v2(state: DocumentState | None) -> bool:
+    """v2 のドキュメントか（構文エラー中は last-good 世代の版で見る。hover と同じ）。"""
+    return state is not None and state.model_v2_for_display is not None
 
 
 def _client_applies_edits(server: JinLanguageServer) -> bool:

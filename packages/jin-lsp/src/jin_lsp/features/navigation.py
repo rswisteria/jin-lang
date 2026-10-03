@@ -23,8 +23,8 @@ def _context(
     """表示用のモデル・行・対応表と、カーソル位置の pointer。"""
     if state is None:
         return None
-    # v2 のドキュメントは `None`（definition / references / documentSymbol は v1 だけ。
-    # hover の v2 は `jin_lsp.features.v2` が答える）。
+    # v2 のドキュメントは `None`（v2 の definition / references / documentSymbol は
+    # `jin_lsp.features.v2_navigation`・`server` が振り分ける。hover の v2 は `jin_lsp.features.v2`）。
     model = state.model_v1_for_display
     table = state.table_for_display
     if model is None or table is None:

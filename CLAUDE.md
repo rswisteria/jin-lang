@@ -150,6 +150,7 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
 | v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
 | v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 = プレイヤーの `WasmGcHost` + manifest の `target` + `--single` + ブラウザの e2e + `runtime.wat` の生成物化: **実装済み**。Issue #53 完了） |
+| v2.1 | LSP の v2 の definition / references / documentSymbol / rename / codeAction（設計書 §11 #58。参照の表 `jin_core.v2.references` を `rename` と共有・codeAction は ops.md §4 の表） | 実装済み |
 | 陣書き | 紙や PNG の魔法陣をプログラムとして読む（`docs/superpowers/specs/2026-10-03-jin-glyph-design.md`・正典 `docs/spec/v2/glyph.md`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s0-s1.md`）。S0 = 手描き認識の spike（`delivery/20260904-1445-jin/glyph-spike/`）・S1 = 紋の語彙 `jin_core.v2.glyph` / JIN3xx（`SCENE_CODES`）/ パッケージ `jin-glyph` と場面グラフ `jin_glyph.scene`（`schemas/jin-scene.schema.json`）・S2 = 完全陣（`jin render --full`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s2.md`。構造の印 21 字・線の字形の正本 `jin_render.v2.glyph_paths`（`docs/spec/v2/glyphs/*.svg` は `scripts/generate_glyph_svgs.py` の生成物）・ドットの字 `jin_render.v2.font`（`font_data.py` は `scripts/generate_glyphs.py` の生成物）・銘帯の中身 `jin_render.v2.inscribe`・配置 `full_layout`・描画 `full`。既定の出力は不変・`<text>` 無し・13 種のまま）・S3 = Jin が描いた完全陣の PNG を API 無しで読む（計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s3.md`・glyph.md §9。升の照合 `jin_glyph.cells`・デコーダ `jin_glyph.decode`・構文解析器 `jin_glyph.parse`・`jin check x.png` / `jin fmt x.png --out y.jin`。入れ子の境目 `s_else` / `s_end` と root の添字を銘文に書く）・S4 = 型紙に手で描いた陣の写真を Claude で読む（glyph.md §10。型紙 `jin render [x.jin] --sheet S\|M`・幾何 `jin_render.v2.sheet_layout`・認識器 `jin_glyph.recognize`・`jin check x.jpg` / `--offline`） | S1・S2・S3・S4 **実装済み**（紋 58 字（式紋 36・判別の紋 22。22 字目は state の `out` の `mark_out`）・構造の印 23 字・fib の完全陣はユーザー承認済み・**往復の契約** `tests/contract/test_glyph_roundtrip.py` が examples-v2 + v2-programs の 22 本でバイト一致）。S0 は道具まで（**撮影と認識の実測は未**）。S2 の実測で A3 の 1 升は fib 2.4 mm・tetris 0.5 mm（glyph.md §8。配置の詰め方が課題）。S4 は合成写真と合成した応答で fib / clicker がバイト一致まで（**撮影した写真と本物の API での実測は未**・API キー待ち）。S5〜S7（エディタ・フリーハンド・鑑賞）は未着手 |
 
 ### 陣書き S3（完全陣の PNG を読む）の要点（正典は `docs/spec/v2/glyph.md` §9・設計書 §9 #29〜#34）
@@ -280,7 +281,7 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
   `JinFileV2` を受けたら `jin_render.v2.render_v2` へ振る（CLI / LSP は version を見ない）。`--focus` は
   `陣名` か `陣名/手順名`（手順の図）。LSP は v2 で **診断 / `jin/model` / `jin/renderSvg` / formatting / `jin/save` /
   hover / completion / `jin/applyOps`** に答える（Phase 5）。definition / references / documentSymbol / rename /
-  codeAction は v1 のモデル（`DocumentState.model_v1`）にだけ効く（v2 のそれらは設計書 §8 に無い・§11 #36）。
+  codeAction も v2 で答える（設計書 §11 #58。下の「LSP の v2 のナビゲーション」）。陣書き（画像）は LSP に載せない。
   **`jin editor` で v2 の `.jin` を開くと v2 のエディタになる**（下の「Jin v2 Phase 5 の要点」）
 - **v2 の `data-jin-kind` は 13 種**（`jin_render.DATA_JIN_KINDS_V2`。v1 の 9 種とは別集合で、`stage` / `form` /
   `circle` / `core` / `rite` / `sigil` / `state` / `on` / `guard` / `delegate` / `flow-edge` / `step` / `step-edge`）。
@@ -451,6 +452,14 @@ Jin v2 Phase 5（LSP の v2 + エディタの v2 + 実行パネル）の要点�
 - **hover / completion の v2 は `jin_core.v2.semantic.analyze_model`**（式の AST / 型 / 位置ごとのスコープの写し）から
   引く。スコープは意味検査の副産物として `_check` / `_step` / `_rite` / `_circle_body` で記録し、`Analysis.scope_at` が
   pointer の祖先へ遡る（打鍵途中で構文エラーの式でも、そのステップのスコープで候補が出る）
+- **LSP の v2 のナビゲーション**（definition / references / documentSymbol / prepareRename / rename / codeAction・
+  設計書 §11 #58）: 「どこが同じ名前を指すか」は **`jin_core.v2.references`** の表 1 か所（`find` / `index` / `symbol_at`。
+  参照 = 値の pointer + 文字列の中の復号後の区間、`None` は値の全体）。ops.md §3 の追随範囲の判定は `ops` の `rename` から
+  ここへ移した（`rename` は定義名を書き換える**前に**集める）。**追随の規則を変えるときはここだけを直す**（LSP の references と
+  `rename` が同時に変わる。`packages/jin-core/tests/test_v2_references.py` が全プログラムで「各位置から同じ要素に戻る」と
+  「`rename` が書き換えるのは表の位置だけ」を固定する）。式の中の位置 ↔ 原文の列は `jin_core.v2.spans` の
+  `range_in_literal` / `offset_in_literal` だけ。LSP 側は `jin_lsp.features.v2_navigation` / `v2_edits` で、v1 / v2 の
+  振り分けは `server`（`v2_edits` が `edits` の部品を使うので `edits` からは呼べない）。codeAction は ops.md §4 の表
 - **`jin/applyOps` の v2 は `jin_core.v2.ops`**（32 件）。応答は `warnings` と `jil` / `manifest` / `jilError`
   （`jin_lsp.jil.generated`・常に debug ビルド・best-effort）を持ち、`jin/model` も v2 なら同じ 3 つを載せる。
   式に構文 / 型エラーが残っていれば `ok: true` のまま `jil: null`（ops.md §1）。**jin-lsp は jin-wasm に依存する**が

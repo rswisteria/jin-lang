@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
+
 from jin_core.diagnostics import Position, Range
 
 #: JSON の 1 文字エスケープ（`\"` など）。`\u` は別扱い。
@@ -67,4 +69,43 @@ def span_to_range(literal_range: Range, offsets: list[int], start: int, end: int
     return Range(Position(line, base + offsets[start]), Position(line, base + offsets[end]))
 
 
-__all__ = ["decode_offsets", "span_to_range"]
+def _literal_offsets(lines: list[str], literal_range: Range) -> list[int] | None:
+    """`literal_range` が 1 行の JSON 文字列リテラルを指していれば、その `decode_offsets`。"""
+    start, end = literal_range.start, literal_range.end
+    if start.line != end.line or not (1 <= start.line <= len(lines)):
+        return None
+    literal = lines[start.line - 1][start.col - 1 : end.col - 1]
+    try:
+        return decode_offsets(literal)
+    except ValueError:
+        return None
+
+
+def range_in_literal(lines: list[str], literal_range: Range, start: int, end: int) -> Range:
+    """復号後の区間 [start, end) → 原文の `Range`。リテラルを取れなければ `literal_range` 全体。
+
+    `lines` は原文の行（改行を含んでも含まなくてもよい。リテラルは 1 行に収まる）。
+    意味検査の診断（`jin_core.v2.semantic`）と LSP の参照の位置が同じ換算を通る。
+    """
+    offsets = _literal_offsets(lines, literal_range)
+    if offsets is None:
+        return literal_range
+    return span_to_range(literal_range, offsets, start, end)
+
+
+def offset_in_literal(lines: list[str], literal_range: Range, position: Position) -> int | None:
+    """原文の位置 → 復号後の添字（`range_in_literal` の逆）。リテラルの外 / 取れなければ `None`。
+
+    開き引用符の上は 0、閉じ引用符の上は復号後の長さ（末尾の文字の end）に寄せる。
+    エスケープ（`\\n` / `\\uXXXX`）の途中の列は、そのエスケープが表す 1 文字の添字になる。
+    """
+    offsets = _literal_offsets(lines, literal_range)
+    if offsets is None or position.line != literal_range.start.line:
+        return None
+    column = position.col - literal_range.start.col
+    if column < 0 or column > offsets[-1]:
+        return None
+    return max(0, bisect_right(offsets, column) - 1)
+
+
+__all__ = ["decode_offsets", "offset_in_literal", "range_in_literal", "span_to_range"]

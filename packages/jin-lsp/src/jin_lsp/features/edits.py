@@ -158,7 +158,7 @@ def prepare_rename(
     target = _target_at(state, position)
     if target is None:
         return None
-    return types.PrepareRenameResult_Type2(range=target[2], placeholder="")
+    return types.PrepareRenamePlaceholder(range=target[2], placeholder="")
 
 
 def rename(
@@ -444,8 +444,8 @@ def code_actions(
     if state is None:
         return []
     if state.model is not None and state.model_v1 is None:
-        # v2 のドキュメント: v1 の 19 オペレーションは当たらない（`jin/applyOps` も JIN002 で断る）。
-        # v2 のオペレーション（32 件）の露出は Phase 5。
+        # v2 のドキュメント: v1 の 19 オペレーションは当たらない。v2 の quickfix と 32 件の露出は
+        # `jin_lsp.features.v2_edits`（`server` が振り分ける・設計書 §11 #58）。
         return []
     actions: list[types.CodeAction | types.Command] = []
     for diagnostic in params.context.diagnostics:
