@@ -38,10 +38,12 @@ export interface RunningEditor {
 /**
  * 一時ディレクトリに `.jin` を置き、`jin editor --no-browser` を起動して URL を読む。
  * `name` は置くファイル名（既定 `smoke.jin`。README の動画は `paddle.jin` を渡して画面に出る名前を実物に合わせる）。
+ * `env` は `jin editor` に足す環境変数（写真の取り込みの e2e が Anthropic の API の向き先をモックへ変える）。
  */
 export async function startEditor(
 	source: string,
 	name = "smoke.jin",
+	env: Readonly<Record<string, string>> = {},
 ): Promise<RunningEditor> {
 	const dir = mkdtempSync(join(tmpdir(), "jin-editor-e2e-"));
 	const file = join(dir, name);
@@ -50,6 +52,7 @@ export async function startEditor(
 	const child = spawn("uv", ["run", "jin", "editor", file, "--no-browser"], {
 		cwd: REPO_ROOT,
 		stdio: ["ignore", "pipe", "pipe"],
+		env: { ...process.env, ...env },
 	});
 
 	let buffered = "";
