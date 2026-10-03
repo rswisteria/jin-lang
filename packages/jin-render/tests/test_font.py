@@ -51,3 +51,14 @@ def test_char_d_writes_three_decimals() -> None:
     for num in re.findall(r"-?\d+(?:\.\d+)?", d):
         assert re.fullmatch(r"-?\d+\.\d{3}", num), num
     assert char_d(" ", 0.0, 0.0, 12.0) == ""
+
+
+def test_a_character_reads_back_only_when_it_leads_its_group_of_identical_dots() -> None:
+    # S3: 読み取り(jin_glyph.cells)は同じ点の並びの字を組の先頭(ASCII → 小さい符号位置)に読む。銘文はそれ以外を esc u で書く
+    from jin_render.v2.font import dot_groups, readable
+
+    assert readable("!") and readable("ま") and readable("A")
+    assert not readable("！")  # ! と同じ点
+    assert not readable("\U0001f600")  # 字形が無く □ で描かれる(囗 と同じ点)
+    assert not readable(" ") and not readable("　")  # 点が無い
+    assert dot_groups()[pixels("!")] == ("!", "！")

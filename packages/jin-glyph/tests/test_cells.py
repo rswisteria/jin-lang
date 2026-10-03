@@ -9,6 +9,7 @@ import pytest
 from jin_core.v2.glyph import STRUCT_MARK_OF
 from jin_glyph.cells import duplicate_dot_groups, read_cell
 from jin_render.v2.glyph_paths import GLYPH_PATHS
+from jin_render.v2.inscribe import expr_cells, to_expr
 
 from .helpers import cell_image
 
@@ -42,16 +43,21 @@ def test_an_empty_cell_is_empty() -> None:
     assert read_cell(image, center, cell).t == "empty"
 
 
-def test_no_fixture_string_uses_a_character_whose_dots_are_shared() -> None:
-    # k6x8 の同じ点の並びの字は ASCII → 小さい符号位置に決めて読む。fixture の文字列にそういう字があれば往復しない
-    shared = {ch for group in duplicate_dot_groups() for ch in group[1:]}
-    programs = sorted((REPO_ROOT / "examples-v2").glob("*/*.jin")) + sorted(
-        (REPO_ROOT / "tests/fixtures/v2-programs").glob("*.jin")
-    )
-    used = set(
-        "".join(
-            json.dumps(json.loads(p.read_text(encoding="utf-8")), ensure_ascii=False)
-            for p in programs
-        )
-    )
-    assert not (used & shared), sorted(used & shared)
+def test_a_character_whose_dots_are_shared_is_inscribed_by_its_code_point() -> None:
+    # k6x8 の同じ点の並びの字は ASCII → 小さい符号位置(組の先頭)に読む。組の先頭でない字は銘文が esc u で書くので往復する
+    shared = [ch for group in duplicate_dot_groups() for ch in group[1:]]
+    assert shared
+    text = json.dumps("".join(shared), ensure_ascii=False)
+    cells = expr_cells(text, "/x", "step")
+    assert [c.v for c in cells if c.t == "glyph"].count("esc") == len(shared)
+    assert json.loads(to_expr(cells)) == "".join(shared)
+
+
+@pytest.mark.parametrize("dx, dy", [(1, 0), (-1, 0), (0, 1), (0, -1)])
+def test_a_cell_off_by_one_grid_step_still_reads_back(dx: int, dy: int) -> None:
+    # S3: デコーダの 1 回目の中心は 0.04 升ほどずれる。倍率 2 では格子 1 目(升の 1/24 = 1 px)。線の字だけずれを吸うと
+    # ドットの字が線の字に負けた(o → flow_loop・othello の陣の核)
+    for t, v in [(kind_of(gid), gid) for gid in GLYPH_PATHS] + [("latin", ch) for ch in LATIN]:
+        image, (cx, cy), cell = cell_image(t, v, 2)
+        read = read_cell(image, (cx + dx * cell / 24, cy + dy * cell / 24), cell)
+        assert (read.t, read.v) == (t, v), (dx, dy, v, read)

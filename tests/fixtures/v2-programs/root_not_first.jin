@@ -1,0 +1,65 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Main",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Side",
+      "core": "go",
+      "state": [
+        {
+          "name": "hits",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "go",
+          "steps": [
+            {
+              "do": "set",
+              "target": "hits",
+              "expr": "hits + 1"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Main",
+      "core": "main",
+      "state": [
+        {
+          "name": "done",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "set",
+              "target": "done",
+              "expr": "true"
+            }
+          ]
+        }
+      ],
+      "delegate": [
+        "Side"
+      ]
+    }
+  ]
+}

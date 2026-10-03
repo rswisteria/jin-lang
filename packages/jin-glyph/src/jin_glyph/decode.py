@@ -40,6 +40,8 @@ from jin_glyph.scene import Band, Cell, Figure, ImageInfo, JinScene
 _SCAN_STEP = 0.1
 _REFINE_STEP = 0.02
 _MAX_ORBIT = 12
+_LOCATE_REACH = 0.3  # 1 回目の中心を合わせ込む範囲(升)
+_LOCATE_STEP = 0.05
 #: Jin が描いた画像では最も近い候補が正しい(倍率 3 の構造の印は差が 130 前後まで開く)。これより離れていたら読めない升
 DECODE_UNKNOWN_DISTANCE = 250.0
 #: 読む画像の画素数の上限(20000 px 四方・グレースケールで 400 MB)。othello の完全陣は 2 倍で 2.2 億画素
@@ -229,14 +231,37 @@ def _refine(canvas: _Canvas, cx: float, cy: float, near: float, inner: float) ->
     return best[1]
 
 
+def _locate(canvas: _Canvas, x: float, y: float, inner: float) -> tuple[float, float]:
+    """中心 (x, y) の前後 `_LOCATE_REACH` 升の平面で、銘環の始まりの印が(ずらさない差で)最もよく合う中心。
+
+    1 回目の中心は走査の距離のずれを含み、陣の塊の向こう側の衛星ではそのずれが 2 倍になる(中心のずれ + 距離のずれ)。"""
+    steps = round(_LOCATE_REACH / _LOCATE_STEP)
+    best = (float("inf"), x, y)
+    for i in range(-steps, steps + 1):
+        for j in range(-steps, steps + 1):
+            cx, cy = x + i * _LOCATE_STEP, y + j * _LOCATE_STEP
+            sx, sy = ring_slot_center(cx, cy, inner, 0, 0)
+            if canvas.inside(sx, sy):
+                distance = distance_to(canvas.image, canvas.px(sx, sy), canvas.cell, START_MARK)
+                if distance < best[0]:
+                    best = (distance, cx, cy)
+    return best[1], best[2]
+
+
 def _count_around(
     canvas: _Canvas, cx: float, cy: float, distance: float, inner: float, head: str
-) -> int:
+) -> list[tuple[float, float]]:
+    """`orbit_centers` の全位置(合わせ込んだ中心)で head の銘環が読める最大の n の中心の列。"""
     for n in range(_MAX_ORBIT, 0, -1):
-        centers = orbit_centers(cx, cy, distance, n)
-        if all(_heads_at(canvas, x, y, inner, head) for x, y in centers):
-            return n
-    return 0
+        found = []
+        for x, y in orbit_centers(cx, cy, distance, n):
+            x, y = _locate(canvas, x, y, inner)
+            if not _heads_at(canvas, x, y, inner, head):
+                break
+            found.append((x, y))
+        else:
+            return found
+    return []
 
 
 def decode_png(data: bytes) -> JinScene:
@@ -261,6 +286,7 @@ def decode_png(data: bytes) -> JinScene:
     # 走査の距離は 0.1 升ほどずれ、塊をまたぐと積み重なって升を読み違えるので、2 回目は配置の規則
     # (`place` と同じ ring_outer / orbit_distance / orbit_centers)で正確な中心を求め直して読む
     def survey(cx: float, cy: float) -> tuple[int, list[int]]:
+        cx, cy = _locate(canvas, cx, cy, circle_inner())
         cells = _read_ring(canvas, cx, cy, circle_inner())
         if len(cells) < 2 or not _is(cells[1][0], "struct", "s_circle"):
             raise DecodeError(f"陣の銘環が読めません(中心 {canvas.px(cx, cy)})")
@@ -276,12 +302,8 @@ def decode_png(data: bytes) -> JinScene:
         distance = _scan_up(canvas, cx, cy, first, rite_inner(), "s_rite")
         if distance is None:
             return count, []
-        n = _count_around(canvas, cx, cy, distance, rite_inner(), "s_rite")
-        sats = [
-            _payload_count(_read_ring(canvas, x, y, rite_inner()))
-            for x, y in orbit_centers(cx, cy, distance, n)
-        ]
-        return count, sats
+        centers = _count_around(canvas, cx, cy, distance, rite_inner(), "s_rite")
+        return count, [_payload_count(_read_ring(canvas, x, y, rite_inner())) for x, y in centers]
 
     def exact(count: int, sats: list[int]) -> tuple[float, float, float]:
         """(陣の銘環の半径, 衛星の距離, 塊の半径)。`full_layout.place` と同じ式。"""
@@ -294,8 +316,10 @@ def decode_png(data: bytes) -> JinScene:
     first = exact(*clusters[0])[2] + g2.FULL_ORBIT_GAP + circle_inner() + g2.FULL_RING_PITCH
     rough = _scan_up(canvas, 0.0, 0.0, first, circle_inner(), "s_circle")
     if rough is not None:
-        m = _count_around(canvas, 0.0, 0.0, rough, circle_inner(), "s_circle")
-        clusters += [survey(x, y) for x, y in orbit_centers(0.0, 0.0, rough, m)]
+        clusters += [
+            survey(x, y)
+            for x, y in _count_around(canvas, 0.0, 0.0, rough, circle_inner(), "s_circle")
+        ]
 
     # 2 回目(正確な位置で読む)
     reaches = [exact(*c)[2] for c in clusters]

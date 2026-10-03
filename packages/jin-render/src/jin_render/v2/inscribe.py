@@ -24,7 +24,7 @@ from jin_core.schema_export import SCHEMA_ID_V2
 from jin_core.v2.glyph import ESCAPE_LETTERS, EXPR_TOKEN_OF, GLYPHS, STRUCT_MARK_OF
 from jin_core.v2.model import JinFileV2
 
-from jin_render.v2.font import pixels
+from jin_render.v2.font import readable
 
 
 @dataclass(frozen=True)
@@ -125,10 +125,15 @@ def _string_cells(text: str, pointer: str, kind: str) -> list[InkCell]:
                 InkCell("glyph", "esc", pointer, kind),
                 InkCell("latin", ESCAPE_LETTERS[ch], pointer, kind),
             ]
-        elif ord(ch) < 0x20 or ord(ch) == 0x7F or not pixels(ch):
-            # 制御文字と、点が 1 つも無い字(全角空白など。升が空に見えて復号で消える)は符号位置で書く
-            out.append(InkCell("glyph", "esc", pointer, kind))
-            out += [InkCell("latin", c, pointer, kind) for c in f"u{ord(ch):04x}"]
+        elif not readable(ch):
+            # 点から同じ字に読み戻せない字(制御文字・点の無い全角空白・字形が無く □ で描かれる字・同じ点の並びの組の先頭でない字)は
+            # 符号位置で書く。BMP の外は UTF-16 のサロゲートの組(JSON の \u エスケープと同じ)
+            data = ch.encode("utf-16-be")
+            for k in range(0, len(data), 2):
+                out.append(InkCell("glyph", "esc", pointer, kind))
+                out += [
+                    InkCell("latin", c, pointer, kind) for c in f"u{data[k] << 8 | data[k + 1]:04x}"
+                ]
         else:
             out.append(InkCell("latin", ch, pointer, kind))
     out.append(InkCell("glyph", "quote_r", pointer, kind))
