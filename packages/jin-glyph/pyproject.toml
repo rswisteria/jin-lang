@@ -8,6 +8,7 @@ requires-python = ">=3.12"
 # (`anthropic` を LSP の起動経路に乗せない)。紋の語彙と欄の順は jin_core.v2.glyph(レンダラと共有)。
 # anthropic は S4(Claude 認識器)で足す。
 dependencies = [
+  "anthropic>=1.11.0",
   "jin-core",
   "jin-render",
   # 升の読み取り（S3・jin_glyph.cells）。版は 2026-10-03 の実測（12.3.0）

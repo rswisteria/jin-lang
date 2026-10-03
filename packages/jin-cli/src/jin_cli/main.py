@@ -132,6 +132,9 @@ from jin_core.v2.model import JinFileV2
 from jin_lsp.server import main as lsp_main
 from jin_render import RenderError, TraceRowError, brief
 from jin_render import render as render_svg
+from jin_render.v2.sheet import render_sheet
+from jin_render.v2.sheet_layout import GRADES as SHEET_GRADES
+from jin_render.v2.sheet_layout import SheetOverflow
 from jin_wasm.bundle import WriteRefused as BundleWriteRefused
 from jin_wasm.bundle import write_bundle
 from jin_wasm.codegen import CodegenError
@@ -1638,7 +1641,7 @@ def _write_stdout_bytes(text: str) -> None:
         _fail_on_stdout(exc)
 
 
-def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
+def _write_svg(source: Path | None, path: Path, text: str, *, force: bool) -> None:
     """`-o` の書き出し。`jin fmt` / `jin build` と同じ規約。
 
     先に見る条件は 2 種類ある（F-S-P3-101 で分けた）。
@@ -1672,7 +1675,8 @@ def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
     parent = path.parent
     if not parent.is_dir():
         raise WriteRefused(f"出力先のディレクトリがありません: {parent}")
-    if path.exists() and path.resolve() == source.resolve():
+    if source is not None and path.exists() and path.resolve() == source.resolve():
+        # 白紙の型紙（`--sheet` で FILE なし）は入力のファイルが無いので source は None。
         # `.jin` を SVG で上書きすると入力そのものが消える（`--force` でも通さない）。
         raise WriteRefused("入力の .jin と同じファイルには書けません")
     if path.exists() and not force:
@@ -1682,7 +1686,9 @@ def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
 
 @app.command()
 def render(
-    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    file: Annotated[
+        Path | None, typer.Argument(help="対象の .jin（--sheet のときは渡さない）")
+    ] = None,
     out: Annotated[
         Path | None,
         typer.Option("-o", "--out", help="SVG の出力先（省略時は標準出力）"),
@@ -1712,6 +1718,17 @@ def render(
             help="完全陣（v2 のプログラムの情報をすべて載せた 1 枚・陣書き）。--focus / --trace とは併用できない",
         ),
     ] = False,
+    sheet: Annotated[
+        str | None,
+        typer.Option(
+            "--sheet",
+            metavar="S|M",
+            help=(
+                "手で描く型紙（陣書き・印刷して 1 升 5 mm）。S = 1 陣 × 4 手順、M = 3 陣 × 各 4 手順。"
+                "FILE を渡すとその銘文を書き込んだ写し書きの手本になる。--full / --focus / --trace とは併用できない"
+            ),
+        ),
+    ] = None,
 ) -> None:
     """魔法陣 SVG を出す（要件書 §4 / §5）。同じ入力なら常にバイト単位で同じ出力になる。
 
@@ -1726,6 +1743,11 @@ def render(
         raise typer.Exit(code=2)
     if upto is not None and upto < 0:
         typer.echo(f"--upto は 0 以上の整数です（指定値: {brief(upto)}）", err=True)
+        raise typer.Exit(code=2)
+    if sheet is not None:
+        _render_sheet(sheet, file, out, force=force, others=(trace, focus, full))
+    if file is None:
+        typer.echo("対象の .jin を指定してください（型紙なら --sheet S か --sheet M）", err=True)
         raise typer.Exit(code=2)
     model = _load_model_or_exit(file)
     rows: list[dict] | None = None
@@ -1766,6 +1788,43 @@ def render(
     except SymlinkWriteRefused as exc:
         # 一層目・二層目とも文言にパスが入っているので、ここで前置しない
         # （前置すると競合時にパスが 2 回出る・F-V-P3-104）。
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=1) from exc
+    except WriteRefused as exc:
+        typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_or_exit(f"書き出しました: {_safe(str(out))}")
+    raise typer.Exit(code=0)
+
+
+def _render_sheet(
+    grade: str, file: Path | None, out: Path | None, *, force: bool, others: tuple[Any, ...]
+) -> None:
+    """`jin render [FILE] --sheet S|M`（陣書き S4）。FILE が無ければ白紙の型紙、あれば写し書きの手本。"""
+    trace, focus, full = others
+    if trace is not None or focus is not None or full:
+        typer.echo("--sheet は --full / --focus / --trace と一緒に使えません", err=True)
+        raise typer.Exit(code=2)
+    if grade not in SHEET_GRADES:
+        typer.echo(f"--sheet は S か M です（指定値: {brief(grade)}）", err=True)
+        raise typer.Exit(code=2)
+    model = None
+    if file is not None:
+        model = _load_model_or_exit(file)
+        if not isinstance(model, JinFileV2):
+            typer.echo(f"{_safe(str(file))}: --sheet の手本は v2 の .jin だけを描きます", err=True)
+            raise typer.Exit(code=2)
+    try:
+        svg = render_sheet(grade, model)
+    except SheetOverflow as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=2) from exc
+    if out is None:
+        _write_stdout_bytes(svg)
+        raise typer.Exit(code=0)
+    try:
+        _write_svg(file, out, svg, force=force)
+    except SymlinkWriteRefused as exc:
         typer.echo(_safe(str(exc)), err=True)
         raise typer.Exit(code=1) from exc
     except WriteRefused as exc:
