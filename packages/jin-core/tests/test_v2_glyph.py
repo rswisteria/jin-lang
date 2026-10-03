@@ -117,6 +117,20 @@ def test_loop_fields_cover_every_loop_kind() -> None:
     assert LOOP_FIELDS["count"] == ("times", "name")  # spec §1.3: count は times が先
 
 
+def test_struct_marks_cover_every_figure_but_the_frame() -> None:
+    # spec §1.1 / §1.3: 銘環の銘帯の頭に置く構造の印。額縁は辺が始まりなので印を持たない
+    from jin_core.v2.glyph import STRUCT_MARK_OF, STRUCT_MARKS
+
+    assert len(STRUCT_MARKS) == 21
+    assert {m.owner for m in STRUCT_MARKS} == set(FIELD_ORDER) - {"frame"}
+    ids = {m.id for m in STRUCT_MARKS}
+    assert len(ids) == 21
+    assert not ids & GLYPH_IDS
+    assert START_MARK not in ids
+    assert all(m.id == "s_" + m.owner.replace("step.", "") for m in STRUCT_MARKS)
+    assert STRUCT_MARK_OF == {m.owner: m.id for m in STRUCT_MARKS}
+
+
 def test_escape_letters_cover_every_undrawable_character_including_space() -> None:
     # 最終レビュー #1: 文字列の中の空白は空の升と区別できないので esc + 字で書く
     from jin_core.v2.glyph import ESCAPE_LETTERS

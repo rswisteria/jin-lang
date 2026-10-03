@@ -62,6 +62,13 @@ def test_the_loop_field_table_matches_the_code() -> None:
     assert table == LOOP_FIELDS
 
 
+def test_the_struct_mark_table_matches_the_code() -> None:
+    from jin_core.v2.glyph import STRUCT_MARKS
+
+    table = [(code_spans(r[0])[0], code_spans(r[1])[0]) for r in rows(GLYPH_MD, "struct-marks")]
+    assert table == [(m.id, m.owner) for m in STRUCT_MARKS]
+
+
 def test_the_start_mark_is_named_in_the_spec() -> None:
     assert f"`{START_MARK}`" in v2spec.read(GLYPH_MD)
 

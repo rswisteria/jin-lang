@@ -153,6 +153,21 @@ LOOP_FIELDS: dict[str, tuple[str, ...]] = {
     "count": ("times", "name"),
 }
 
+@dataclass(frozen=True)
+class StructMark:
+    """構造の印(spec §1.1 / §1.3・S2)。銘環の中で銘帯 1 本の頭に置き、どの図形の銘文かを示す(区切りを兼ねる)。"""
+
+    id: str
+    owner: str  # FIELD_ORDER の鍵(図形の種類)
+
+
+#: 額縁は銘帯の頭を持たない(額縁の辺そのものが始まり)ので印が無い。並びは FIELD_ORDER と同じ。
+STRUCT_MARKS: tuple[StructMark, ...] = tuple(
+    StructMark("s_" + owner.removeprefix("step."), owner) for owner in FIELD_ORDER if owner != "frame"
+)
+
+STRUCT_MARK_OF: dict[str, str] = {m.owner: m.id for m in STRUCT_MARKS}
+
 __all__ = [
     "ESCAPE_LETTERS",
     "EXPR_TOKEN_OF",
@@ -161,5 +176,8 @@ __all__ = [
     "GLYPH_IDS",
     "LOOP_FIELDS",
     "START_MARK",
+    "STRUCT_MARKS",
+    "STRUCT_MARK_OF",
     "Glyph",
+    "StructMark",
 ]

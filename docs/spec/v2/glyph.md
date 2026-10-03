@@ -93,6 +93,40 @@ S0 の手描き認識の実測(§7)で読めない字が出たときだけ描き
 
 <!-- /machine-readable -->
 
+## 2.1 構造の印(S2)
+
+銘環の中で銘帯 1 本の頭に置き、どの図形の銘文かを示す(区切りを兼ねる・設計書 §1.1 / §1.3 / §9 #24)。字形は二重の正方形の枠の中に
+layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれとも形が違う。額縁は辺が始まりなので印を持たない。
+実装は `jin_core.v2.glyph.STRUCT_MARKS`(並びは §3 の欄の順の表と同じ)。
+
+<!-- machine-readable: struct-marks -->
+
+| id | 図形 | 字形 |
+|---|---|---|
+| `s_form` | `form` | ![s_form](glyphs/s_form.svg) |
+| `s_circle` | `circle` | ![s_circle](glyphs/s_circle.svg) |
+| `s_state` | `state` | ![s_state](glyphs/s_state.svg) |
+| `s_sigil` | `sigil` | ![s_sigil](glyphs/s_sigil.svg) |
+| `s_asset` | `asset` | ![s_asset](glyphs/s_asset.svg) |
+| `s_rite` | `rite` | ![s_rite](glyphs/s_rite.svg) |
+| `s_set` | `step.set` | ![s_set](glyphs/s_set.svg) |
+| `s_let` | `step.let` | ![s_let](glyphs/s_let.svg) |
+| `s_cast` | `step.cast` | ![s_cast](glyphs/s_cast.svg) |
+| `s_if` | `step.if` | ![s_if](glyphs/s_if.svg) |
+| `s_loop` | `step.loop` | ![s_loop](glyphs/s_loop.svg) |
+| `s_break` | `step.break` | ![s_break](glyphs/s_break.svg) |
+| `s_wait` | `step.wait` | ![s_wait](glyphs/s_wait.svg) |
+| `s_emit` | `step.emit` | ![s_emit](glyphs/s_emit.svg) |
+| `s_return` | `step.return` | ![s_return](glyphs/s_return.svg) |
+| `s_finish` | `step.finish` | ![s_finish](glyphs/s_finish.svg) |
+| `s_transfer` | `step.transfer` | ![s_transfer](glyphs/s_transfer.svg) |
+| `s_on` | `on` | ![s_on](glyphs/s_on.svg) |
+| `s_guard` | `guard` | ![s_guard](glyphs/s_guard.svg) |
+| `s_delegate` | `delegate` | ![s_delegate](glyphs/s_delegate.svg) |
+| `s_description` | `description` | ![s_description](glyphs/s_description.svg) |
+
+<!-- /machine-readable -->
+
 ## 3. 銘帯と欄の順
 
 すべての図形は脇に**銘帯**(環に沿った字の帯)を持ち、欄を次の順に、欄の区切りの紋 `sep` で区切って書く。並びは
