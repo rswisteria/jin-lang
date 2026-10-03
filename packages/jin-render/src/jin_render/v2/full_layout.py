@@ -40,8 +40,11 @@ class Placement:
 
 
 def _capacity(ring: int, inner: float) -> int:
+    """1 周の升の数。升は正立の 1×1 なので、隣の中心との弦が FULL_CELL_PITCH(√2)以上なら
+    どの向きでも x か y の差が 1 以上になり重ならない(最終レビュー #2)。"""
     radius = inner + 0.5 + ring * geo.FULL_RING_PITCH
-    return max(4, math.floor(2.0 * math.pi * radius))
+    half_chord = min(1.0, geo.FULL_CELL_PITCH / (2.0 * radius))
+    return max(4, math.floor(math.pi / math.asin(half_chord)))
 
 
 def _slots(count: int, inner: float) -> list[tuple[int, int, str]]:

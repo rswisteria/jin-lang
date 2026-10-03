@@ -132,3 +132,30 @@ def test_the_standard_schema_url_is_not_inscribed_but_a_custom_one_is() -> None:
     assert all(c.pointer != "/$schema" for c in frame_band(model))
     custom = model.model_copy(update={"schema_url": "https://example.com/x.json"})
     assert any(c.pointer == "/$schema" for c in frame_band(custom))
+
+
+def test_a_param_name_and_a_form_typed_param_are_separated_by_a_colon() -> None:
+    # 最終レビュー #1: 型紙名の型もラテンなので、名前との間に colon が無いと `pPointer` を切れない
+    model = load(REPO_ROOT / "tests/fixtures/v2-programs/key_pointer.jin")
+    for ci, circle in enumerate(model.circles):
+        for ri, rite in enumerate(circle.rites):
+            if any(p.type == "Pointer" for p in rite.params):
+                cells = rite_ring(model, ci, ri)
+                text = "".join(c.v if c.t == "latin" else f"<{c.v}>" for c in cells)
+                assert "p<colon>Pointer" in text, text
+                return
+    raise AssertionError("Pointer 型の引数を持つ手順が fixture に無い")
+
+
+def test_a_form_field_name_and_its_type_are_separated_by_a_colon() -> None:
+    model = load(REPO_ROOT / "examples-v2/paddle/paddle.jin")
+    text = "".join(c.v if c.t == "latin" else f"<{c.v}>" for c in frame_band(model))
+    assert "<colon><t_num>" in text, text[:200]
+
+
+def test_a_character_without_dots_is_escaped_with_its_code_point() -> None:
+    # 最終レビュー #5: 全角空白は点が 1 つも無く、升が空に見えて復号で消える
+    cells = expr_cells('"a　b"', "/x", "step")
+    text = "".join(c.v if c.t == "latin" else f"<{c.v}>" for c in cells)
+    assert "a<esc>u3000b" in text, text
+    assert canonical_expr(to_expr(cells)) == canonical_expr('"a　b"')

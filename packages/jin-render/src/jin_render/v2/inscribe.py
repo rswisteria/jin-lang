@@ -24,6 +24,8 @@ from jin_core.schema_export import SCHEMA_ID_V2
 from jin_core.v2.glyph import ESCAPE_LETTERS, EXPR_TOKEN_OF, GLYPHS, STRUCT_MARK_OF
 from jin_core.v2.model import JinFileV2
 
+from jin_render.v2.font import pixels
+
 
 @dataclass(frozen=True)
 class InkCell:
@@ -89,6 +91,12 @@ class _Band:
         else:
             self.name(text, pointer)
 
+    def typed(self, name: str, type_text: str, pointer: str) -> None:
+        """引数・型紙の欄の 1 つ: `名前 colon 型`(型紙名の型もラテンなので colon が無いと名前との境が切れない)。"""
+        self.name(name, f"{pointer}/name")
+        self.glyph("colon", self.at(pointer))
+        self.type_(type_text, f"{pointer}/type")
+
     def listed(self, items: Sequence[Any], pointer: str, write: Any) -> None:
         for k, item in enumerate(items):
             if k:
@@ -117,7 +125,8 @@ def _string_cells(text: str, pointer: str, kind: str) -> list[InkCell]:
                 InkCell("glyph", "esc", pointer, kind),
                 InkCell("latin", ESCAPE_LETTERS[ch], pointer, kind),
             ]
-        elif ord(ch) < 0x20 or ord(ch) == 0x7F:
+        elif ord(ch) < 0x20 or ord(ch) == 0x7F or not pixels(ch):
+            # 制御文字と、点が 1 つも無い字(全角空白など。升が空に見えて復号で消える)は符号位置で書く
             out.append(InkCell("glyph", "esc", pointer, kind))
             out += [InkCell("latin", c, pointer, kind) for c in f"u{ord(ch):04x}"]
         else:
@@ -197,7 +206,7 @@ def frame_band(model: JinFileV2) -> list[InkCell]:
         sub.listed(
             form["fields"],
             f"/forms/{i}/fields",
-            lambda f, p, s=sub: (s.name(f["name"], f"{p}/name"), s.type_(f["type"], f"{p}/type")),
+            lambda f, p, s=sub: s.typed(f["name"], f["type"], p),
         )
         cells += sub.cells
     for i, asset in enumerate(data["stage"].get("assets", [])):
@@ -316,7 +325,7 @@ def rite_ring(model: JinFileV2, ci: int, ri: int) -> list[InkCell]:
     head.listed(
         rite.get("params", []),
         f"{base}/params",
-        lambda prm, p: (head.name(prm["name"], f"{p}/name"), head.type_(prm["type"], f"{p}/type")),
+        lambda prm, p: head.typed(prm["name"], prm["type"], p),
     )
     if "returns" in rite:
         head.field()

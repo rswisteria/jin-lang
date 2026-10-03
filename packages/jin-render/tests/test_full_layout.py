@@ -54,7 +54,9 @@ def test_ring_cells_do_not_overlap() -> None:
     for ring in {c.ring for c in placed}:
         on_ring = [c for c in placed if c.ring == ring]
         for a, b in itertools.pairwise(on_ring):
-            assert math.dist(a.center, b.center) >= 1.0 - 1e-9
+            # 升は正立の 1×1 の正方形。重ならないのは x か y の差が 1 以上のとき(最終レビュー #2)
+            dx, dy = abs(a.center[0] - b.center[0]), abs(a.center[1] - b.center[1])
+            assert max(dx, dy) >= 1.0 - 1e-9, (ring, a.angle, b.angle)
 
 
 def test_ring_outer_matches_the_rings_used() -> None:
