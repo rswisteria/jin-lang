@@ -87,3 +87,44 @@ def test_fib_has_a_single_cluster_with_the_root_at_the_centre() -> None:
     placement = place(load(REPO_ROOT / "examples-v2/fib/fib.jin"))
     assert placement.circles == {0: (0.0, 0.0)}
     assert set(placement.rites) == {(0, 0), (0, 1)}
+
+
+@pytest.mark.parametrize("name", ["fib", "tetris"])
+def test_the_public_geometry_reproduces_the_layout(name: str) -> None:
+    # S3: デコーダは配置の規則を再実装せず、この公開の関数だけで位置を求める
+    from jin_render.v2.full import frame_positions
+    from jin_render.v2.full_layout import (
+        circle_inner,
+        orbit_centers,
+        orbit_distance,
+        ring_capacity,
+        ring_slot_center,
+        rite_inner,
+        slot_kinds,
+    )
+    from jin_render.v2.inscribe import circle_ring, rite_ring
+
+    model = load(REPO_ROOT / f"examples-v2/{name}/{name}.jin")
+    placement = place(model)
+    for ci, (cx, cy) in placement.circles.items():
+        cells = circle_ring(model, ci)
+        placed = ring_cells(cells, cx, cy, circle_inner())
+        kinds = slot_kinds(len(cells), circle_inner())
+        assert [
+            (p.ring, p.cell.v if k == "cont" else None)
+            for p, (_, _, k) in zip(placed, kinds, strict=True)
+        ] == [(r, "cont" if k == "cont" else None) for r, _, k in kinds]
+        for p, (ring, slot, _) in zip(placed, kinds, strict=True):
+            assert ring_slot_center(cx, cy, circle_inner(), ring, slot) == pytest.approx(p.center)
+            assert slot < ring_capacity(ring, circle_inner())
+        rites = [k for k in placement.rites if k[0] == ci]
+        if rites:
+            radii = [placement.rite_radius[k] for k in rites]
+            distance = orbit_distance(placement.circle_radius[ci], radii)
+            assert orbit_centers(cx, cy, distance, len(rites)) == pytest.approx(
+                [placement.rites[k] for k in rites]
+            )
+            for k in rites:
+                assert len(rite_ring(model, *k)) >= 1
+    assert len(frame_positions(10, placement.half)) == 10
+    assert rite_inner() > circle_inner()

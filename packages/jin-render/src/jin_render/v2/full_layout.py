@@ -39,7 +39,7 @@ class Placement:
     half: float  # 額縁の半辺
 
 
-def _capacity(ring: int, inner: float) -> int:
+def ring_capacity(ring: int, inner: float) -> int:
     """1 周の升の数。升は正立の 1×1 なので、隣の中心との弦が FULL_CELL_PITCH(√2)以上なら
     どの向きでも x か y の差が 1 以上になり重ならない(最終レビュー #2)。"""
     radius = inner + 0.5 + ring * geo.FULL_RING_PITCH
@@ -47,16 +47,16 @@ def _capacity(ring: int, inner: float) -> int:
     return max(4, math.floor(math.pi / math.asin(half_chord)))
 
 
-def _slots(count: int, inner: float) -> list[tuple[int, int, str]]:
+def slot_kinds(count: int, inner: float) -> list[tuple[int, int, str]]:
     """count 字を並べたときの (周, 周の中の番号, 種類) の列。種類は start / cont / cell。"""
     out = [(0, 0, "start")]
     ring, slot, left = 0, 1, count
     while left:
-        if slot == _capacity(ring, inner) - 1 and left > 1:
+        if slot == ring_capacity(ring, inner) - 1 and left > 1:
             out.append((ring, slot, "cont"))
             ring, slot = ring + 1, 0
             continue
-        if slot == _capacity(ring, inner):
+        if slot == ring_capacity(ring, inner):
             ring, slot = ring + 1, 0
             continue
         out.append((ring, slot, "cell"))
@@ -70,25 +70,31 @@ def ring_cells(cells: Sequence[InkCell], cx: float, cy: float, inner: float) -> 
     owner = cells[0] if cells else InkCell("struct", START_MARK, "", "circle")
     queue = iter(cells)
     placed: list[RingCell] = []
-    for ring, slot, what in _slots(len(cells), inner):
+    for ring, slot, what in slot_kinds(len(cells), inner):
         if what == "start":
             cell = InkCell("struct", START_MARK, owner.pointer, owner.kind)
         elif what == "cont":
             cell = InkCell("glyph", "cont", owner.pointer, owner.kind)
         else:
             cell = next(queue)
-        angle = base.TOP_ANGLE + 360.0 * slot / _capacity(ring, inner)
-        radius = inner + 0.5 + ring * geo.FULL_RING_PITCH
-        rad = math.radians(angle)
-        placed.append(
-            RingCell(cell, ring, angle, (cx + radius * math.cos(rad), cy + radius * math.sin(rad)))
-        )
+        angle = base.TOP_ANGLE + 360.0 * slot / ring_capacity(ring, inner)
+        placed.append(RingCell(cell, ring, angle, ring_slot_center(cx, cy, inner, ring, slot)))
     return placed
+
+
+def ring_slot_center(
+    cx: float, cy: float, inner: float, ring: int, slot: int
+) -> tuple[float, float]:
+    """銘環の (周, 周の中の番号) の升の中心(升の単位)。デコーダも同じ式で位置を求める。"""
+    angle = base.TOP_ANGLE + 360.0 * slot / ring_capacity(ring, inner)
+    radius = inner + 0.5 + ring * geo.FULL_RING_PITCH
+    rad = math.radians(angle)
+    return (cx + radius * math.cos(rad), cy + radius * math.sin(rad))
 
 
 def ring_outer(count: int, inner: float) -> float:
     """count 字の銘環の最外周の外縁の半径。"""
-    rings = max(ring for ring, _, _ in _slots(count, inner)) + 1
+    rings = max(ring for ring, _, _ in slot_kinds(count, inner)) + 1
     return inner + rings * geo.FULL_RING_PITCH
 
 
@@ -100,7 +106,7 @@ def rite_inner() -> float:
     return geo.FULL_RITE_EXTENT * geo.FULL_DIAGRAM_R + geo.FULL_RING_GAP
 
 
-def _orbit(center_radius: float, sat_radii: Sequence[float]) -> float:
+def orbit_distance(center_radius: float, sat_radii: Sequence[float]) -> float:
     """中心の円の周りに衛星を等角に並べる距離(衛星どうしも中心とも FULL_ORBIT_GAP 以上離す)。"""
     if not sat_radii:
         return 0.0
@@ -114,7 +120,7 @@ def _orbit(center_radius: float, sat_radii: Sequence[float]) -> float:
     return distance
 
 
-def _around(cx: float, cy: float, distance: float, n: int) -> list[tuple[float, float]]:
+def orbit_centers(cx: float, cy: float, distance: float, n: int) -> list[tuple[float, float]]:
     out = []
     for k in range(n):
         rad = math.radians(base.TOP_ANGLE + 360.0 * k / n)
@@ -138,16 +144,16 @@ def place(model: JinFileV2) -> Placement:
     cluster: dict[int, float] = {}
     for ci, circle in enumerate(model.circles):
         radii = [rite_radius[(ci, ri)] for ri in range(len(circle.rites))]
-        distance = _orbit(circle_radius[ci], radii)
-        local[ci] = _around(0.0, 0.0, distance, len(radii))
+        distance = orbit_distance(circle_radius[ci], radii)
+        local[ci] = orbit_centers(0.0, 0.0, distance, len(radii))
         cluster[ci] = max([circle_radius[ci]] + [distance + r for r in radii])
 
     names = [c.name for c in model.circles]
     root = names.index(model.root) if model.root in names else 0
     others = [ci for ci in range(len(model.circles)) if ci != root]
-    distance = _orbit(cluster[root], [cluster[ci] for ci in others])
+    distance = orbit_distance(cluster[root], [cluster[ci] for ci in others])
     centers = {root: (0.0, 0.0)} | dict(
-        zip(others, _around(0.0, 0.0, distance, len(others)), strict=True)
+        zip(others, orbit_centers(0.0, 0.0, distance, len(others)), strict=True)
     )
 
     rites = {
@@ -172,8 +178,13 @@ __all__ = [
     "Placement",
     "RingCell",
     "circle_inner",
+    "orbit_centers",
+    "orbit_distance",
     "place",
+    "ring_capacity",
     "ring_cells",
     "ring_outer",
+    "ring_slot_center",
     "rite_inner",
+    "slot_kinds",
 ]

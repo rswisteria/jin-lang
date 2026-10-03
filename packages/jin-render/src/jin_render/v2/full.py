@@ -93,7 +93,7 @@ def _ring_group(canvas: _Canvas, pointer: str, kind: str, placed: Sequence[RingC
     return group
 
 
-def _frame_positions(count: int, half: float) -> list[tuple[float, float]]:
+def frame_positions(count: int, half: float) -> list[tuple[float, float]]:
     """額縁の銘帯の升の中心: 額縁の内側を左上から時計回りに巡る(四隅の護符の区画は飛ばす)。足りなければ内側の周へ。"""
     out: list[tuple[float, float]] = []
     inset = 1.5
@@ -157,7 +157,7 @@ def _stage(canvas: _Canvas, model: JinFileV2) -> Node:
                 )
             )
     cells = frame_band(model)
-    for cell, center in zip(cells, _frame_positions(len(cells), half), strict=False):
+    for cell, center in zip(cells, frame_positions(len(cells), half), strict=False):
         node = _cell_node(canvas, cell, center)
         if node is not None:
             group.children.append(node)
@@ -284,4 +284,4 @@ def render_full(model: JinFileV2) -> str:
     return document([], body, 2.0 * placement.half * canvas.unit)
 
 
-__all__ = ["render_full"]
+__all__ = ["frame_positions", "render_full"]
