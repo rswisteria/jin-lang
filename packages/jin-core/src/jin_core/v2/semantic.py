@@ -44,7 +44,7 @@ from jin_core.v2.model import (
     WaitStep,
     parse_type,
 )
-from jin_core.v2.spans import decode_offsets, span_to_range
+from jin_core.v2.spans import range_in_literal
 
 #: 手順あたりのステップ数と入れ子の上限（diagnostics.md JIN210 / JIN211）。
 MAX_STEPS = MAX_ELEMENTS
@@ -141,16 +141,7 @@ class _Analyzer:
         literal_range = self.table.resolve(pointer)
         if self.lines is None or pointer not in self.table.value_ranges:
             return literal_range
-        start, end = literal_range.start, literal_range.end
-        if start.line != end.line or not (1 <= start.line <= len(self.lines)):
-            return literal_range
-        line = self.lines[start.line - 1]
-        literal = line[start.col - 1 : end.col - 1]
-        try:
-            offsets = decode_offsets(literal)
-        except ValueError:
-            return literal_range
-        return span_to_range(literal_range, offsets, span.start, span.end)
+        return range_in_literal(self.lines, literal_range, span.start, span.end)
 
     # ---------------------------------------------------------------- 入口
     def run(self) -> None:
