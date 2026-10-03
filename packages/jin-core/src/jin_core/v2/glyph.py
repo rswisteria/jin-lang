@@ -124,7 +124,7 @@ START_MARK = "start"
 FIELD_ORDER: dict[str, tuple[str, ...]] = {
     "frame": ("$schema", "width", "height", "fps", "seed"),
     "form": ("name", "fields"),
-    "circle": ("name", "core", "flow.kind", "flow.exit"),
+    "circle": ("name", "core", "flow.kind", "flow.steps", "flow.exit"),
     "state": ("name", "type", "init"),
     "sigil": ("name", "kind", "host", "circle", "rite", "file"),
     "asset": ("name", "kind", "path"),
@@ -153,6 +153,7 @@ LOOP_FIELDS: dict[str, tuple[str, ...]] = {
     "count": ("times", "name"),
 }
 
+
 @dataclass(frozen=True)
 class StructMark:
     """構造の印(spec §1.1 / §1.3・S2)。銘環の中で銘帯 1 本の頭に置き、どの図形の銘文かを示す(区切りを兼ねる)。"""
@@ -163,7 +164,9 @@ class StructMark:
 
 #: 額縁は銘帯の頭を持たない(額縁の辺そのものが始まり)ので印が無い。並びは FIELD_ORDER と同じ。
 STRUCT_MARKS: tuple[StructMark, ...] = tuple(
-    StructMark("s_" + owner.removeprefix("step."), owner) for owner in FIELD_ORDER if owner != "frame"
+    StructMark("s_" + owner.removeprefix("step."), owner)
+    for owner in FIELD_ORDER
+    if owner != "frame"
 )
 
 STRUCT_MARK_OF: dict[str, str] = {m.owner: m.id for m in STRUCT_MARKS}

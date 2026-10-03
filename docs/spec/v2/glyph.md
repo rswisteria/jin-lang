@@ -142,7 +142,7 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 |---|---|
 | `frame` | `$schema`・`width`・`height`・`fps`・`seed` |
 | `form` | `name`・`fields` |
-| `circle` | `name`・`core`・`flow.kind`・`flow.exit` |
+| `circle` | `name`・`core`・`flow.kind`・`flow.steps`・`flow.exit` |
 | `state` | `name`・`type`・`init` |
 | `sigil` | `name`・`kind`・`host`・`circle`・`rite`・`file` |
 | `asset` | `name`・`kind`・`path` |
@@ -184,7 +184,10 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 - 文字列は `quote_l` … `quote_r` で挟み、中身は文字のまま。升に描けない文字は `esc` + ラテン文字 1 字で書く(表は `jin_core.v2.glyph.ESCAPE_LETTERS`):
   `"` → `"`、`\` → `\`、改行 → `n`、タブ → `t`、CR → `r`、BS → `b`、FF → `f`、**空白 → `s`**(空白の升は空の升と見分けられないため。
   JSON のエスケープには無い、視覚層だけの規則)。その他の制御文字は `esc` + `u` + 16 進 4 桁
-- 文字列の欄(`description` / `message` / `path` / `file` / `host`)も同じ書き方で括る
+- 文字列の欄(陣の `description`・guard の `message`・asset の `path`・agent の `file`)も同じ書き方で括る。名前(`Name`)の欄は括らない
+  (`emit` の `message`・`host` の `host` も名前。S2 で確定・実装は `jin_render.v2.inscribe`)
+- `$schema` は標準の URL なら額縁の銘帯に書かない(モデルに必ずあるので、書かれていなければ標準)。核なし陣の `flow.steps` は
+  陣の名前の並び(`comma` 区切り)として陣の核の銘帯に書く。`let` の `type` は欄の数(3 つなら型あり)で見分ける
 - 型は型紋(`t_num` `t_bool` `t_str`)、`list<T>` は `t_list_l` T `t_list_r`、型紙名はラテン文字
 - 数は `str(x)` の書式(runtime.md §6)。額縁の `$schema` は正典の印(標準の URL なら印だけ、他の値なら全文を銘帯に)
 
