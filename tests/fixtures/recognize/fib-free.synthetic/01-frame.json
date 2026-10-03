@@ -1,0 +1,24 @@
+{
+  "id": "msg_synthetic_01",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "synthetic"
+    },
+    {
+      "type": "text",
+      "text": "{\"found\": true, \"corners\": [{\"x\": 0.09217097994313352, \"y\": 0.07791574194961612}, {\"x\": 0.9221709799431335, \"y\": 0.04791574194961612}, {\"x\": 0.9521709799431335, \"y\": 0.9179157419496162}, {\"x\": 0.06217097994313352, \"y\": 0.9379157419496161}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1000,
+    "output_tokens": 200
+  }
+}

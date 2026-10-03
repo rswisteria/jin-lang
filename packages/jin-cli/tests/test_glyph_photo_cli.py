@@ -19,12 +19,18 @@ from jin_glyph import recognize
 from jin_render.v2.sheet import render_sheet
 from typer.testing import CliRunner
 
-from tests.glyph_photo import refusing_transport_client, replay_client, synthetic_photo
+from tests.glyph_photo import (
+    refusing_transport_client,
+    replay_client,
+    synthetic_free_photo,
+    synthetic_photo,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIB = REPO_ROOT / "examples-v2/fib/fib.jin"
 PADDLE = REPO_ROOT / "examples-v2/paddle/paddle.jin"
 RECORDINGS = REPO_ROOT / "tests/fixtures/recognize/fib-S.synthetic"
+FREE_RECORDINGS = REPO_ROOT / "tests/fixtures/recognize/fib-free.synthetic"
 
 runner = CliRunner()
 
@@ -198,3 +204,24 @@ def test_render_sheet_refuses_a_program_that_does_not_fit() -> None:
 )
 def test_render_sheet_rejects_bad_combinations(args: list[str]) -> None:
     assert run(*args).exit_code == 2
+
+
+def test_fmt_reads_a_freehand_photo_through_the_same_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """白紙に描いた陣(陣書き S6)も同じ `jin fmt <写真> --out` で読む。型紙が見つからなければフリーハンドとして読み、
+    場面グラフの `sheet` は `free`。CLI に指定は増えない。"""
+    photo = tmp_path / "fib.jpg"
+    photo.write_bytes(synthetic_free_photo(fib_model()))
+    responses = [
+        json.loads(p.read_text(encoding="utf-8")) for p in sorted(FREE_RECORDINGS.glob("*.json"))
+    ]
+    sent: list[dict] = []
+    monkeypatch.setattr(recognize.anthropic, "Anthropic", lambda: replay_client(responses, sent))
+    out = tmp_path / "back.jin"
+    result = run("fmt", str(photo), "--out", str(out))
+    assert result.exit_code == 0, result.output
+    assert out.read_text(encoding="utf-8") == FIB.read_text(encoding="utf-8")
+    scene = json.loads((tmp_path / "fib.jinscene.json").read_text(encoding="utf-8"))
+    assert scene["sheet"] == "free"
+    assert len(sent) == len(responses)
