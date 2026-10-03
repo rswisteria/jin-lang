@@ -114,6 +114,10 @@ export interface AppProps {
 	readonly runOrigin: string;
 	/** 起動トークン。`X-Jin-Token` ヘッダに載せる（body や query に置かない）。 */
 	readonly token: string;
+	/** 写真の取り込み（陣書き S5）のボタン。ツールバーの末尾に置く（`read/EditorRoot.tsx` が渡す）。 */
+	readonly importControl?: React.ReactNode;
+	/** 取り込んだ写真の下敷きと診断（`read/ImportPanel.tsx`）。脇の欄の末尾に置く。 */
+	readonly underlay?: React.ReactNode;
 }
 
 /** 実行パネルが走っている間、オーバーレイを描き直す間隔（ms）。 */
@@ -136,6 +140,8 @@ export function App({
 	namespaces,
 	runOrigin,
 	token,
+	importControl,
+	underlay,
 }: AppProps): React.JSX.Element {
 	const [state, setState] = useState<ViewState>({
 		kind: "disconnected",
@@ -775,6 +781,7 @@ export function App({
 									)
 								}
 							/>
+							{underlay}
 						</aside>
 					</div>
 				);
@@ -1034,6 +1041,12 @@ export function App({
 					>
 						focus を外す（{focus}）
 					</button>
+				)}
+				{importControl === undefined ? null : (
+					<>
+						<span className="jin-sep" />
+						{importControl}
+					</>
 				)}
 			</header>
 			<StatusBar state={state} />

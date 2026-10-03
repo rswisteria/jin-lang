@@ -11,6 +11,9 @@
    `jin_wasm.bundle.PLAYER_DIR` の順に探す。無ければ `/play/` は 404 で、エディタが 1 行出す）
 5. 鑑賞ページ（`apps/stage` のビルド物・`docs/spec/v2/stage.md`）を**同じサーバの `/stage/`** として配る
    （`--stage-dist` > `apps/stage/dist` の順に探す。同梱版は無い。無ければ `/stage/` は 404 で、エディタが 1 行出す）
+6. 陣書きの取り込み（`POST /read`・設計書 §4.3）。写真を場面グラフにして、写真・場面グラフ・`.jin` を
+   対象ファイルの親ディレクトリに**新しく**書く（中身は `jin_cli.readserver`・防御は `POST /run` と同じ 5 段 +
+   書き出しの 3 規律。`docs/spec/ops.md` §5.3）
 
 **危険性**: これは `jin lsp --ws --root` と同じ口を、ユーザーが `--root` を明示せずに
 開くことを意味する。WebSocket には same-origin 制限が無いので、ブラウザで開いている
@@ -26,6 +29,7 @@
 
 from __future__ import annotations
 
+import json
 import secrets
 import socket
 import threading
@@ -42,7 +46,8 @@ from jin_lsp import fileio
 from jin_lsp.server import TOKEN_PREFIX, create_server
 from jin_wasm.bundle import PLAYER_DIR as BUNDLED_PLAYER_DIR
 
-from jin_cli import runserver
+from jin_cli import readserver, runserver
+from jin_cli.readserver import ReadRejected
 from jin_cli.runserver import RunRejected, RunSlot
 
 #: `--no-browser` のときに URL を stderr へ出す前置き。Playwright はこれを目印に読む。
@@ -80,10 +85,14 @@ MAX_RUN_BODY = 64 * 1024
 
 
 class RunEndpoint:
-    """`POST /run` が知っておくこと（Issue #34・spec §4）。
+    """`POST /run` と `POST /read` が知っておくこと（Issue #34・spec §4 / 陣書き S5）。
 
     **対象ファイルはここに固定する。** クライアントは実行するパスを指定できない。
+    取り込みの書き先も対象ファイルの親ディレクトリ（`editor_root`）に固定し、クライアントは
+    ファイル名（区切りを含まない 1 段）しか渡せない。
     `origin` は待ち受けポートが決まってから `serve` が設定する（起動前は `None`）。
+    `recognize` は写真の認識器（テストが差し替える。既定は `jin_glyph.recognize.recognize_photo`）、
+    `notify` は写真を外へ送る前の 1 行の出し先（`serve` が stderr の `announce` を渡す）。
     """
 
     def __init__(self, target: Path, token: str) -> None:
@@ -91,6 +100,11 @@ class RunEndpoint:
         self.token = token
         self.origin: str | None = None
         self.slot = RunSlot()
+        self.read_root = editor_root(target)
+        #: 取り込みは同時に 1 本だけ（実行の枠とは別。取り込みと実行は互いを待たない）
+        self.reading = threading.Lock()
+        self.recognize: Callable[[bytes], object] | None = None
+        self.notify: Callable[[str], None] | None = None
 
     def authorize(self, origin: str | None, token: str | None) -> bool:
         """`Origin` とトークンを見る。**どちらも合わなければ実行しない。**
@@ -247,6 +261,7 @@ def serve(
     # 実行の口（Issue #34）。**トークンは `jin/open` / `jin/save` と同じものを使う。**
     # 別に発行しても守るものは変わらず、URL のフラグメントに 2 つ載せる分だけ漏れ口が増える。
     endpoint = RunEndpoint(target=target, token=files.token)
+    endpoint.notify = announce
     httpd = _static_server(host, root, endpoint, player, stage)
     http_port = int(httpd.server_address[1])
     # `Origin` の期待値はポートが決まってからでないと書けない。
@@ -359,16 +374,19 @@ class _StaticHandler(SimpleHTTPRequestHandler):
         self.send_error(HTTPStatus.FORBIDDEN, "CORS preflight is not allowed")
 
     def do_POST(self) -> None:
-        """`POST /run` だけを受ける（spec §4）。
+        """`POST /run` と `POST /read` だけを受ける（spec §4 / 陣書き S5）。
 
         guard: do_POST -> endpoint.authorize
         """
         endpoint = self._endpoint
-        if endpoint is None or self.path != "/run":
+        if endpoint is None or self.path not in ("/run", "/read"):
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         if not endpoint.authorize(self.headers.get("Origin"), self.headers.get("X-Jin-Token")):
             self.send_error(HTTPStatus.FORBIDDEN, "token or origin mismatch")
+            return
+        if self.path == "/read":
+            self._read(endpoint)
             return
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -394,6 +412,56 @@ class _StaticHandler(SimpleHTTPRequestHandler):
             self._stream_run(endpoint, request)
         finally:
             endpoint.slot.release()
+
+    def _read(self, endpoint: RunEndpoint) -> None:
+        """`POST /read`。応答は成否とも JSON（理由を body に載せる。ステータス行は latin-1 なので日本語を置けない）。
+
+        guard: _read -> endpoint.reading.acquire(blocking=False)
+        """
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"error": "Content-Length が読めません"})
+            return
+        if length > readserver.MAX_READ_BODY:
+            # body を読まずに断る。接続は閉じる（読み残しを次の要求として解釈させない）
+            self.close_connection = True
+            self._send_json(
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"error": "画像が大きすぎます（24 MiB まで）"}
+            )
+            return
+        try:
+            request = readserver.parse_request(self.rfile.read(length))
+        except ReadRejected as exc:
+            self._send_json(exc.status, {"error": str(exc)})
+            return
+        # **同時に取り込むのは 1 本だけ。** 枠を取れなかったら 409 で断る（待たせない）。
+        if not endpoint.reading.acquire(blocking=False):
+            self._send_json(HTTPStatus.CONFLICT, {"error": "別の取り込みが進んでいます"})
+            return
+        try:
+            result = readserver.read_image(
+                endpoint.read_root,
+                request,
+                recognize=endpoint.recognize,
+                notify=endpoint.notify,
+            )
+        except ReadRejected as exc:
+            self._send_json(exc.status, {"error": str(exc)})
+            return
+        finally:
+            endpoint.reading.release()
+        self._send_json(HTTPStatus.OK, result)
+
+    def _send_json(self, status: int, payload: object) -> None:
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _stream_run(self, endpoint: RunEndpoint, request: runserver.RunRequest) -> None:
         """SSE で流す。`Content-Length` を持てないので接続を閉じて区切る。"""

@@ -97,3 +97,22 @@ def test_the_committed_schema_matches_the_model() -> None:
     assert committed == render_scene_schema(), (
         "schemas/jin-scene.schema.json がずれている。uv run python scripts/generate_schema.py を実行してコミットする"
     )
+
+
+def test_box_of_finds_the_photo_rectangle_behind_a_scene_pointer() -> None:
+    """S5: エディタは診断の pointer から写真の上の矩形を引いて重ねる(設計書 §3.5)。
+
+    升はその `box`、銘帯は升の `box` を全部囲む矩形、`box` の無い升・図形・読めない pointer は None。
+    """
+    from jin_glyph.scene import box_of
+
+    scene = JinScene.model_validate(EXAMPLE)
+    assert box_of(scene, "/bands/0/cells/0") == (10.0, 20.0, 30.0, 40.0)
+    assert box_of(scene, "/bands/0/cells/0/v") == (10.0, 20.0, 30.0, 40.0)
+    assert box_of(scene, "/bands/0/cells/1") is None
+    assert box_of(scene, "/bands/0") == (10.0, 20.0, 30.0, 40.0)
+    widened = json.loads(json.dumps(EXAMPLE))
+    widened["bands"][0]["cells"][4]["box"] = [50.0, 5.0, 70.0, 25.0]
+    assert box_of(JinScene.model_validate(widened), "/bands/0") == (10.0, 5.0, 70.0, 40.0)
+    for pointer in ("", "/figures/0", "/bands/9/cells/0", "/bands/0/cells/x", "/image"):
+        assert box_of(scene, pointer) is None, pointer

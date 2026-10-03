@@ -487,3 +487,150 @@ def test_jin_editor_accepts_stage_dist_without_a_new_subcommand() -> None:
     result = run("editor", "--help")
     assert result.exit_code == 0
     assert "鑑賞ページの場所" in result.output
+
+
+# ======================================================================================
+# 取り込みエンドポイント（陣書き S5・ops.md §5.3）
+# ======================================================================================
+_PHOTO = b"\xff\xd8 hand-drawn \xff\xd9"
+
+
+def _read_body(name: str = "fib.jpg", data: bytes = _PHOTO) -> bytes:
+    import base64
+
+    return json.dumps({"name": name, "data": base64.b64encode(data).decode()}).encode()
+
+
+def _post_read(url: str, *, token: str | None, origin: str | None, body: bytes) -> tuple[int, dict]:
+    """`POST /read` を撃って (状態番号, JSON の body) を返す。成否とも body は JSON。"""
+    request = Request(url + "/read", data=body, method="POST")
+    request.add_header("Content-Type", "application/json")
+    if token is not None:
+        request.add_header("X-Jin-Token", token)
+    if origin is not None:
+        request.add_header("Origin", origin)
+    try:
+        with urlopen(request, timeout=60) as answer:
+            return int(answer.status), json.loads(answer.read())
+    except HTTPError as error:
+        raw = error.read()
+        try:
+            return int(error.code), json.loads(raw)
+        except ValueError:
+            return int(error.code), {}
+
+
+@pytest.fixture
+def fib_recognizer():
+    """写真の認識を、fib の完全陣 PNG をデコードした場面グラフで代える（API を呼ばない）。"""
+    import hashlib
+
+    import cairosvg
+    from jin_core.check import check_text
+    from jin_glyph.decode import decode_png
+    from jin_render.v2.full import render_full
+
+    fib = Path(__file__).resolve().parents[3] / "examples-v2/fib/fib.jin"
+    model = check_text(fib.read_text(encoding="utf-8"), fib.name).model
+    scene = decode_png(
+        cairosvg.svg2png(bytestring=render_full(model).encode(), scale=2, background_color="white")
+    )
+
+    def recognize(data: bytes):
+        image = scene.image.model_copy(update={"sha256": hashlib.sha256(data).hexdigest()})
+        return scene.model_copy(update={"image": image})
+
+    return recognize
+
+
+def test_read_without_the_token_or_from_another_origin_is_refused(endpoint_server) -> None:
+    url, endpoint = endpoint_server
+    assert _post_read(url, token=None, origin=url, body=_read_body())[0] == 403
+    assert _post_read(url, token="wrong", origin=url, body=_read_body())[0] == 403
+    assert (
+        _post_read(url, token="secret-token", origin="http://evil.example", body=_read_body())[0]
+        == 403
+    )
+    assert not (endpoint.read_root / "fib.jpg").exists()
+
+
+def test_options_on_read_is_refused(endpoint_server) -> None:
+    url, _ = endpoint_server
+    request = Request(url + "/read", method="OPTIONS")
+    request.add_header("Origin", "http://evil.example")
+    request.add_header("Access-Control-Request-Method", "POST")
+    with pytest.raises(HTTPError) as caught:
+        urlopen(request, timeout=10)
+    assert caught.value.code == 403
+
+
+def test_read_writes_the_photo_scene_and_jin_next_to_the_open_file(
+    endpoint_server, fib_recognizer
+) -> None:
+    url, endpoint = endpoint_server
+    endpoint.recognize = fib_recognizer
+    notes: list[str] = []
+    endpoint.notify = notes.append
+    status, payload = _post_read(url, token="secret-token", origin=url, body=_read_body())
+    assert status == 200, payload
+    root = endpoint.read_root
+    assert payload["jin"] == (root / "fib.jin").resolve().as_uri()
+    assert payload["diagnostics"] == []
+    assert (root / "fib.jpg").read_bytes() == _PHOTO
+    assert (root / "fib.jinscene.json").is_file() and (root / "fib.jin").is_file()
+    assert any("Anthropic の API" in n for n in notes)
+    # 2 回目は在る `.jin` に書かない（409・理由は JSON の body に日本語で）
+    status, payload = _post_read(url, token="secret-token", origin=url, body=_read_body())
+    assert status == 409
+    assert "上書きしません" in payload["error"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b"not json", _read_body(name="../fib.jpg"), _read_body(name="fib.jin")],
+)
+def test_read_with_a_bad_body_is_refused(endpoint_server, body: bytes) -> None:
+    url, _ = endpoint_server
+    status, payload = _post_read(url, token="secret-token", origin=url, body=body)
+    assert status == 400
+    assert payload["error"]
+
+
+def test_a_too_large_read_is_refused_before_reading_it(endpoint_server, monkeypatch) -> None:
+    from jin_cli import readserver
+
+    monkeypatch.setattr(readserver, "MAX_READ_BODY", 10)
+    url, _ = endpoint_server
+    assert _post_read(url, token="secret-token", origin=url, body=_read_body())[0] == 413
+
+
+def test_a_second_read_is_refused_while_one_is_going(endpoint_server) -> None:
+    url, endpoint = endpoint_server
+    assert endpoint.reading.acquire(blocking=False)
+    try:
+        assert _post_read(url, token="secret-token", origin=url, body=_read_body())[0] == 409
+    finally:
+        endpoint.reading.release()
+    assert not (endpoint.read_root / "fib.jpg").exists()
+
+
+def test_a_failed_recognition_is_422_and_writes_nothing(endpoint_server) -> None:
+    from jin_glyph.recognize import RecognizeError
+
+    url, endpoint = endpoint_server
+
+    def fail(data: bytes):
+        raise RecognizeError("Anthropic の API の認証情報がありません")
+
+    endpoint.recognize = fail
+    status, payload = _post_read(url, token="secret-token", origin=url, body=_read_body())
+    assert status == 422
+    assert "認証情報" in payload["error"]
+    assert not (endpoint.read_root / "fib.jpg").exists()
+
+
+def test_the_read_root_is_the_parent_of_the_open_file(tmp_path: Path) -> None:
+    target = tmp_path / "sub" / "x.jin"
+    target.parent.mkdir()
+    target.write_text(VALID, encoding="utf-8")
+    assert RunEndpoint(target=target, token="t").read_root == target.parent

@@ -473,6 +473,22 @@ def test_the_v2_form_reads_the_v2_schema_without_a_copy() -> None:
     assert "field.expr" in panel
 
 
+def test_the_read_endpoint_is_called_from_one_file_with_the_token_in_a_header() -> None:
+    """陣書き S5: `POST /read` を叩くのは `src/read/client.ts` だけで、トークンはカスタムヘッダに置く
+    （`POST /run` と同じ防御・ops.md §5.3）。LSP の `jin/…` は増やさない（取り込みは HTTP の口）。"""
+    callers = sorted(
+        str(path.relative_to(SRC))
+        for path in SRC.rglob("*.ts*")
+        # 文字列か template の中の `/read`（`"/read"` / `` `${origin}/read` ``）。コメントの `POST /read` は数えない
+        if re.search(r"[\"'`}]/read[`\"']", path.read_text(encoding="utf-8"))
+    )
+    assert callers == ["read/client.ts"]
+    client = (SRC / "read" / "client.ts").read_text(encoding="utf-8")
+    assert '"X-Jin-Token": options.token' in client
+    # トークンを body や query に置かない（simple request で撃たれる）
+    assert "token: options.token" not in client and "?token" not in client
+
+
 def test_the_run_panel_does_not_use_the_run_endpoint() -> None:
     """設計書 §8: v2 の実行パネルは同一オリジンの iframe `/play/` で、`POST /run` を使わない。"""
     panel = (SRC / "run" / "RunPanel.tsx").read_text(encoding="utf-8")

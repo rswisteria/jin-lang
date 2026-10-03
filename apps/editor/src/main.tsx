@@ -1,12 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { App } from "./App";
 import abilities from "../../../schemas/abilities.json";
 import schemaV2 from "../../../schemas/jin-v2.schema.json";
 import schema from "../../../schemas/jin.schema.json";
 import type { JsonSchema } from "./form/schemaForm";
 import { createJinApi } from "./rpc/jin";
+import { EditorRoot } from "./read/EditorRoot";
 import { connect } from "./rpc/jsonrpc";
 import "./style.css";
 
@@ -49,14 +49,15 @@ if (uri === "") {
 		.then((client) => {
 			root.render(
 				<StrictMode>
-					<App
+					{/* 開いているファイルは EditorRoot が状態に持つ（写真の取り込みで書いた `.jin` を開き直す・陣書き S5） */}
+					<EditorRoot
 						api={createJinApi(client, token)}
-						uri={uri}
+						initialUri={uri}
 						schema={schema as JsonSchema}
 						schemaV2={schemaV2 as JsonSchema}
 						namespaces={abilities.namespaces.map((entry) => entry.name)}
-						// 実行エンドポイント（Issue #34）は**このページを配っているのと同じ origin**
-						// にある（`jin editor` の静的サーバ）。別の場所を指せるようにしない。
+						// 実行・取り込みのエンドポイント（Issue #34 / 陣書き S5）は**このページを配っているのと
+						// 同じ origin** にある（`jin editor` の静的サーバ）。別の場所を指せるようにしない。
 						runOrigin={window.location.origin}
 						token={token}
 					/>
