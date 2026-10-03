@@ -296,6 +296,26 @@ async def test_rename_to_an_existing_name_changes_nothing(client: LanguageClient
     assert edit is None
 
 
+@pytest.mark.asyncio
+async def test_prepare_rename_answers_on_a_name(client: LanguageClient) -> None:
+    """prepareRename は名前の上で範囲を返す。
+
+    lsprotocol 2025 系に `PrepareRenameResult_Type2` は無く（`PrepareRenamePlaceholder` に改名）、
+    名前の上で投げると AttributeError でリクエストごと落ちていた（テストが無く気づかなかった）。
+    """
+    text = rich_text()
+    await open_document(client, text)
+    b_line = next(i for i, line in enumerate(text.splitlines()) if '"name": "B"' in line)
+    found = await client.text_document_prepare_rename_async(
+        types.PrepareRenameParams(
+            text_document=types.TextDocumentIdentifier(uri=URI),
+            position=types.Position(line=b_line, character=15),
+        )
+    )
+    assert isinstance(found, types.PrepareRenamePlaceholder)
+    assert found.range.start.line == b_line
+
+
 # ---- codeAction ----------------------------------------------------------------------
 async def code_actions(client: LanguageClient, text: str) -> list:
     diagnostics = client.diagnostics[URI]

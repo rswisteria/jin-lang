@@ -108,3 +108,50 @@ async def test_apply_ops_for_v2_returns_jil_and_updates_the_diagnostics(
     model = as_plain(await client.protocol.send_request_async("jin/model", {"uri": URI}))
     assert isinstance(model, dict)
     assert model["model"]["circles"][1]["rites"][0]["steps"][-1]["target"] == "score"
+
+
+@pytest.mark.asyncio
+async def test_navigation_and_rename_answer_for_v2_over_the_protocol(
+    client: LanguageClient,
+) -> None:
+    """definition / references / documentSymbol / prepareRename / rename の v2（設計書 §11 #58）。
+
+    `server` が v2 のドキュメントを `v2_navigation` / `v2_edits` へ振り分けていることを、
+    実際のプロトコルで見る（v1 の実装に落ちると None / 空が返る）。
+    """
+    await open_paddle(client)
+    document = types.TextDocumentIdentifier(uri=URI)
+    use = position_of('"expr": "score + 1"', '"score', 2)
+
+    found = await client.text_document_definition_async(
+        types.DefinitionParams(text_document=document, position=use)
+    )
+    assert isinstance(found, types.Location)
+    assert '"name": "score"' in PADDLE.splitlines()[found.range.start.line]
+
+    uses = await client.text_document_references_async(
+        types.ReferenceParams(
+            text_document=document,
+            position=use,
+            context=types.ReferenceContext(include_declaration=True),
+        )
+    )
+    assert uses is not None and len(uses) == 7
+
+    symbols = await client.text_document_document_symbol_async(
+        types.DocumentSymbolParams(text_document=document)
+    )
+    assert symbols is not None
+    assert [symbol.name for symbol in symbols] == ["Ball", "Game", "Play", "Result"]
+
+    prepared = await client.text_document_prepare_rename_async(
+        types.PrepareRenameParams(text_document=document, position=use)
+    )
+    assert isinstance(prepared, types.PrepareRenamePlaceholder)
+    assert prepared.placeholder == "score"
+
+    edit = await client.text_document_rename_async(
+        types.RenameParams(text_document=document, position=use, new_name="points")
+    )
+    assert edit is not None and edit.changes is not None
+    assert "Play.points" in edit.changes[URI][0].new_text

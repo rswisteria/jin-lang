@@ -47,10 +47,10 @@ class DocumentState:
     """1 つの `.jin` ドキュメントの状態。
 
     `model` は**現在のテキスト**のモデル（壊れていれば `None`）。v1 は `JinFile`、
-    v2（`version: 2`）は `JinFileV2`。v2 で答えるのは診断 / `jin/model` / `jin/renderSvg` /
-    formatting / `jin/save` / **hover / completion / `jin/applyOps`**（Phase 5・設計書 §8）。
-    definition / references / documentSymbol / rename / codeAction は v1 のモデル（`model_v1`）に
-    だけ効く（v2 のそれらは §8 に無い。設計書 §11 #36）。
+    v2（`version: 2`）は `JinFileV2`。v2 も標準機能のすべてに答える: 診断 / `jin/model` /
+    `jin/renderSvg` / formatting / `jin/save` / hover / completion / `jin/applyOps`（Phase 5・
+    設計書 §8）と、definition / references / documentSymbol / rename / codeAction（設計書 §11 #58。
+    `jin_lsp.features.v2_navigation` / `v2_edits`）。v1 の実装は `model_v1` だけを見る。
     `last_good` は直前に schema を通った世代（無ければ `None`）。
     """
 
