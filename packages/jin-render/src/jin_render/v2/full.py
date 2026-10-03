@@ -174,27 +174,95 @@ def _link(
     kind: str,
     *,
     dashed: bool = False,
+    discs: Sequence[tuple[tuple[float, float], float]] = (),
 ) -> Node | None:
-    """2 つの円を、互いの最外周の外で結ぶ線(重なる・近すぎるときは描かない)。"""
+    """2 つの円を、互いの最外周の外で結ぶ線(重なる・近すぎるときは描かない)。
+
+    間にある別の円(discs・最外周まで)の内側は飛ばす(S3: 線が銘環の字を横切ると升が読めなくなる)。
+    飛ばした結果いくつかの区間に分かれたら、区間ごとの線を `<g>` に包んで返す。"""
     dx, dy = b[0] - a[0], b[1] - a[1]
     length = math.hypot(dx, dy)
     if length <= ra + rb:
         return None
     ux, uy = dx / length, dy / length
-    sx, sy = canvas.px(a[0] + ux * ra, a[1] + uy * ra)
-    ex, ey = canvas.px(b[0] - ux * rb, b[1] - uy * rb)
-    return shapes.line((sx, sy), (ex, ey), pointer, kind, dashed=dashed)
+    s = (a[0] + ux * ra, a[1] + uy * ra)
+    e = (b[0] - ux * rb, b[1] - uy * rb)
+    pieces = _outside(s, e, discs)
+    lines = [
+        shapes.line(canvas.px(*p), canvas.px(*q), pointer, kind, dashed=dashed) for p, q in pieces
+    ]
+    if not lines:
+        return None
+    if len(lines) == 1:
+        return lines[0]
+    group = Node("g", [], pointer=pointer, kind=kind)
+    group.children.extend(lines)
+    return group
+
+
+def _outside(
+    s: tuple[float, float],
+    e: tuple[float, float],
+    discs: Sequence[tuple[tuple[float, float], float]],
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """線分 s → e のうち、どの円の内側にも入らない区間(0.5 升より短い切れ端は捨てる)。"""
+    dx, dy = e[0] - s[0], e[1] - s[1]
+    span = math.hypot(dx, dy)
+    cuts: list[tuple[float, float]] = []
+    for (cx, cy), r in discs:
+        fx, fy = s[0] - cx, s[1] - cy
+        qa = dx * dx + dy * dy
+        qb = 2.0 * (fx * dx + fy * dy)
+        qc = fx * fx + fy * fy - r * r
+        disc = qb * qb - 4.0 * qa * qc
+        if qa == 0.0 or disc <= 0.0:
+            continue
+        root = math.sqrt(disc)
+        t0, t1 = (-qb - root) / (2.0 * qa), (-qb + root) / (2.0 * qa)
+        if t1 > 0.0 and t0 < 1.0:
+            cuts.append((max(0.0, t0), min(1.0, t1)))
+    out = []
+    at = 0.0
+    for t0, t1 in sorted(cuts):
+        if t0 > at:
+            out.append((at, t0))
+        at = max(at, t1)
+    if at < 1.0:
+        out.append((at, 1.0))
+    return [
+        ((s[0] + dx * t0, s[1] + dy * t0), (s[0] + dx * t1, s[1] + dy * t1))
+        for t0, t1 in out
+        if (t1 - t0) * span >= 0.5
+    ]
 
 
 def _links(
     canvas: _Canvas, model: JinFileV2, placement: Placement, index_of: dict[str, int]
 ) -> list[Node]:
+    discs = [(placement.circles[i], placement.circle_radius[i]) for i in placement.circles] + [
+        (placement.rites[k], placement.rite_radius[k]) for k in placement.rites
+    ]
+
+    def link(
+        canvas: _Canvas,
+        a: tuple[float, float],
+        ra: float,
+        b: tuple[float, float],
+        rb: float,
+        pointer: str,
+        kind: str,
+        *,
+        dashed: bool = False,
+    ) -> Node | None:
+        others = [d for d in discs if d[0] not in (a, b)]  # 線の両端の円は除く
+        return _link(canvas, a, ra, b, rb, pointer, kind, dashed=dashed, discs=others)
+
     out: list[Node | None] = []
     for ci, circle in enumerate(model.circles):
         center, radius = placement.circles[ci], placement.circle_radius[ci]
         for ri in range(len(circle.rites)):
             out.append(
-                _link(
+                link(
                     canvas,
                     center,
                     radius,
@@ -215,7 +283,7 @@ def _links(
             if key is None:
                 continue
             out.append(
-                _link(
+                link(
                     canvas,
                     center,
                     radius,
@@ -231,7 +299,7 @@ def _links(
                 if name in index_of and index_of[name] != ci:
                     t = index_of[name]
                     out.append(
-                        _link(
+                        link(
                             canvas,
                             center,
                             radius,
@@ -245,7 +313,7 @@ def _links(
             if name in index_of and index_of[name] != ci:
                 t = index_of[name]
                 out.append(
-                    _link(
+                    link(
                         canvas,
                         center,
                         radius,

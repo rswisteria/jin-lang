@@ -160,3 +160,39 @@ def test_full_is_only_for_v2() -> None:
     model = check_text(path.read_text(encoding="utf-8"), path.name).model
     with pytest.raises(RenderError, match="v2"):
         render(model, full=True)
+
+
+@pytest.mark.parametrize("name", ["paddle", "tetris", "othello"])
+def test_no_link_crosses_the_inscription_of_another_circle(rendered: dict, name: str) -> None:
+    # S3: 円どうしの線が間にある別の円の銘環の上を通ると、その升が読めなくなる(paddle の root → c1 の線が r1_2 の字を横切った)
+    from jin_render.v2 import geometry as g2
+    from jin_render.v2.full_layout import place
+
+    model, svg = rendered[name]
+    placement = place(model)
+    discs = [(placement.circles[i], placement.circle_radius[i]) for i in placement.circles] + [
+        (placement.rites[k], placement.rite_radius[k]) for k in placement.rites
+    ]
+    import xml.etree.ElementTree as ET
+
+    ns = "{http://www.w3.org/2000/svg}"
+    root = ET.fromstring(svg)
+    # 円どうしの線の入れ物(既存の図の中の線は自分の円の内側にあるので対象外)
+    links = next(g for g in root.iter(f"{ns}g") if g.get("data-jin") == "/circles")
+    lines = list(links.iter(f"{ns}line"))
+    assert lines, name
+    for line in lines:
+        x1, y1, x2, y2 = (float(line.get(k)) for k in ("x1", "y1", "x2", "y2"))
+        a = (x1 / g2.FULL_CELL_PX - placement.half, y1 / g2.FULL_CELL_PX - placement.half)
+        b = (x2 / g2.FULL_CELL_PX - placement.half, y2 / g2.FULL_CELL_PX - placement.half)
+        for k in range(1, 40):
+            t = k / 40
+            p = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+            for (cx, cy), r in discs:
+                assert (p[0] - cx) ** 2 + (p[1] - cy) ** 2 >= (r - 0.05) ** 2, (
+                    name,
+                    a,
+                    b,
+                    (cx, cy),
+                    r,
+                )
