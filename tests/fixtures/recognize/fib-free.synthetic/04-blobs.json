@@ -1,0 +1,24 @@
+{
+  "id": "msg_synthetic_04",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "synthetic"
+    },
+    {
+      "type": "text",
+      "text": "{\"blobs\": [{\"n\": 1, \"symbols\": [{\"t\": \"struct\", \"v\": \"start\", \"unsure\": []}]}, {\"n\": 2, \"symbols\": [{\"t\": \"struct\", \"v\": \"s_rite\", \"unsure\": []}]}, {\"n\": 3, \"symbols\": [{\"t\": \"latin\", \"v\": \"m\", \"unsure\": []}]}, {\"n\": 4, \"symbols\": [{\"t\": \"latin\", \"v\": \"a\", \"unsure\": []}]}, {\"n\": 5, \"symbols\": [{\"t\": \"latin\", \"v\": \"i\", \"unsure\": []}]}, {\"n\": 6, \"symbols\": [{\"t\": \"latin\", \"v\": \"n\", \"unsure\": []}]}, {\"n\": 7, \"symbols\": [{\"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}]}, {\"n\": 8, \"symbols\": [{\"t\": \"struct\", \"v\": \"s_cast\", \"unsure\": []}]}, {\"n\": 9, \"symbols\": [{\"t\": \"latin\", \"v\": \"f\", \"unsure\": []}]}, {\"n\": 10, \"symbols\": [{\"t\": \"latin\", \"v\": \"i\", \"unsure\": []}]}, {\"n\": 11, \"symbols\": [{\"t\": \"latin\", \"v\": \"b\", \"unsure\": []}]}, {\"n\": 12, \"symbols\": [{\"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}]}, {\"n\": 13, \"symbols\": [{\"t\": \"latin\", \"v\": \"2\", \"unsure\": []}]}, {\"n\": 14, \"symbols\": [{\"t\": \"latin\", \"v\": \"0\", \"unsure\": []}]}, {\"n\": 15, \"symbols\": [{\"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}]}, {\"n\": 16, \"symbols\": [{\"t\": \"glyph\", \"v\": \"mark_into\", \"unsure\": []}]}, {\"n\": 17, \"symbols\": [{\"t\": \"latin\", \"v\": \"a\", \"unsure\": []}]}, {\"n\": 18, \"symbols\": [{\"t\": \"latin\", \"v\": \"n\", \"unsure\": []}]}, {\"n\": 19, \"symbols\": [{\"t\": \"latin\", \"v\": \"s\", \"unsure\": []}]}, {\"n\": 20, \"symbols\": [{\"t\": \"latin\", \"v\": \"w\", \"unsure\": []}]}, {\"n\": 21, \"symbols\": [{\"t\": \"latin\", \"v\": \"e\", \"unsure\": []}]}, {\"n\": 22, \"symbols\": [{\"t\": \"latin\", \"v\": \"r\", \"unsure\": []}]}, {\"n\": 23, \"symbols\": [{\"t\": \"struct\", \"v\": \"s_finish\", \"unsure\": []}]}, {\"n\": 24, \"symbols\": []}, {\"n\": 25, \"symbols\": []}, {\"n\": 26, \"symbols\": [{\"t\": \"latin\", \"v\": \"6\", \"unsure\": []}]}, {\"n\": 27, \"symbols\": [{\"t\": \"latin\", \"v\": \"4\", \"unsure\": []}]}, {\"n\": 28, \"symbols\": [{\"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"t\": \"latin\", \"v\": \"6\", \"unsure\": []}]}, {\"n\": 29, \"symbols\": [{\"t\": \"latin\", \"v\": \"4\", \"unsure\": []}]}, {\"n\": 30, \"symbols\": [{\"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"t\": \"latin\", \"v\": \"6\", \"unsure\": []}]}, {\"n\": 31, \"symbols\": [{\"t\": \"latin\", \"v\": \"0\", \"unsure\": []}]}, {\"n\": 32, \"symbols\": [{\"t\": \"glyph\", \"v\": \"sep\", \"unsure\": []}, {\"t\": \"latin\", \"v\": \"0\", \"unsure\": []}]}, {\"n\": 33, \"symbols\": []}, {\"n\": 34, \"symbols\": []}, {\"n\": 35, \"symbols\": []}, {\"n\": 36, \"symbols\": []}, {\"n\": 37, \"symbols\": []}, {\"n\": 38, \"symbols\": []}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1000,
+    "output_tokens": 200
+  }
+}

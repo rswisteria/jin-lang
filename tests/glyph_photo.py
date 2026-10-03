@@ -154,3 +154,225 @@ def _client(handler: Callable[[httpx2.Request], httpx2.Response]) -> anthropic.A
         max_retries=0,
         http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handler)),
     )
+
+
+# ---- フリーハンド(陣書き S6) -------------------------------------------------------------------
+#
+# 白紙に描いた陣の写真の代わりに、完全陣(`jin render --full`・手描きの手本と同じ視覚文法)を斜めから撮った JPEG を使う。
+# 応答は正解(完全陣の配置 `full_layout` と銘文 `inscribe`)から組み、Claude の座標には FREE_ERROR 升のずれを入れる
+# (認識器が墨で詰め直すことを通すため・設計書 §9 #38 と同じ)。升の読みは、認識器と同じ切り分け(`free_geometry`)で
+# 出た塊ごとに、その中にある正解の升を並べて返す。正解の升が 2 つの塊に割れたら(字を割る切り分け)ここで落とす。
+
+#: 完全陣を PNG にする倍率(1 升 36 px)
+FREE_SCALE = 3.0
+#: 写真(机)の大きさ(完全陣の一辺に対する比)と、額縁の四隅(描き手の左上・右上・右下・左下)の置き場所
+FREE_CANVAS = (1.2, 1.25)
+FREE_PLACE = ((0.09, 0.08), (0.92, 0.05), (0.95, 0.92), (0.06, 0.94))
+#: Claude が返す座標のずれ(升)
+FREE_ERROR = 0.3
+
+
+def _free_frame(model: JinFileV2) -> tuple[float, int, tuple[int, int]]:
+    """(完全陣の半辺(升), 完全陣の一辺 px, 写真の大きさ)。"""
+    from jin_render.v2.full_layout import place
+
+    half = place(model).half
+    side = round(2 * half * g2.FULL_CELL_PX * FREE_SCALE)
+    return half, side, (round(side * FREE_CANVAS[0]), round(side * FREE_CANVAS[1]))
+
+
+def _free_place(size: tuple[int, int], turn: int) -> list[tuple[float, float]]:
+    """額縁の四隅の写真の px。turn = 1 なら写真の中で陣が 90° 右に回っている(描き手の左上が写真の右上の位置)。"""
+    place = [(fx * size[0], fy * size[1]) for fx, fy in FREE_PLACE]
+    return place[-turn:] + place[:-turn] if turn else place
+
+
+def synthetic_free_photo(model: JinFileV2, turn: int = 0) -> bytes:
+    from jin_render.v2.full import render_full
+
+    png = cairosvg.svg2png(
+        bytestring=render_full(model).encode(), scale=FREE_SCALE, background_color="white"
+    )
+    drawing = Image.open(io.BytesIO(png)).convert("L")
+    _, side, size = _free_frame(model)
+    square = [(0.0, 0.0), (side, 0.0), (side, side), (0.0, side)]
+    photo = drawing.transform(
+        size,
+        Image.Transform.PERSPECTIVE,
+        homography(_free_place(size, turn), square),
+        Image.Resampling.BICUBIC,
+        fillcolor=DESK,
+    )
+    buffer = io.BytesIO()
+    photo.convert("RGB").save(buffer, "JPEG", quality=88)
+    return buffer.getvalue()
+
+
+def _free_truth(
+    model: JinFileV2,
+) -> tuple[list[dict[str, Any]], list[tuple[Any, tuple[float, float]]]]:
+    """正解: 環ごとの {center, cells: [(InkCell, 周, 中心)]}(升の単位・完全陣の座標)と、額縁の升 [(InkCell, 中心)]。"""
+    from jin_render.v2.full import frame_positions
+    from jin_render.v2.full_layout import circle_inner, place, ring_cells, rite_inner
+    from jin_render.v2.inscribe import circle_ring, frame_band, rite_ring
+
+    placement = place(model)
+    rings = []
+    for ci, (x, y) in placement.circles.items():
+        placed = ring_cells(circle_ring(model, ci), x, y, circle_inner())
+        rings.append({"center": (x, y), "inner": circle_inner(), "cells": placed})
+    for (ci, ri), (x, y) in placement.rites.items():
+        placed = ring_cells(rite_ring(model, ci, ri), x, y, rite_inner())
+        rings.append({"center": (x, y), "inner": rite_inner(), "cells": placed})
+    cells = frame_band(model)
+    frame = list(zip(cells, frame_positions(len(cells), placement.half), strict=True))
+    return rings, frame
+
+
+class _Scripted:
+    """`Recognizer` の代わりに、組んだ応答の Pydantic を順に返す(`free_geometry` を API 無しで回す)。"""
+
+    def __init__(self, payloads: list[dict[str, Any]]) -> None:
+        self.payloads = list(payloads)
+
+    def ask(self, content: Any, schema: Any, system: str | None = None) -> Any:
+        return schema.model_validate(self.payloads.pop(0))
+
+
+def synthetic_free_responses(
+    model: JinFileV2, turn: int = 0, misjudge: int = 0, per_request: int = 60
+) -> list[dict[str, Any]]:
+    """型紙の位置合わせ(型紙なし)+ 額縁の四隅 + 環の形 + 塊の読み(per_request 個ずつ)の応答。
+
+    `misjudge` は Claude が描き手の上を取り違えた数(額縁の四隅をその数だけずらして返す。認識器が始まりの印で直す)。
+    """
+    from jin_glyph.recognize import free_geometry, rectify_frame
+
+    half, side, size = _free_frame(model)
+    unit = side / (2.0 * half)  # 完全陣の 1 升の px
+    square = [(0.0, 0.0), (side, 0.0), (side, side), (0.0, side)]
+    to_photo = homography(square, _free_place(size, turn))
+
+    def photo_of(x: float, y: float) -> tuple[float, float]:
+        return apply(to_photo, (x + half) * unit, (y + half) * unit)
+
+    shift = FREE_ERROR * unit
+    corners_photo = _free_place(size, turn)
+    claimed = corners_photo[misjudge:] + corners_photo[:misjudge]
+    frame_reply = {
+        "found": True,
+        "corners": [{"x": (x + shift) / size[0], "y": (y - shift) / size[1]} for x, y in claimed],
+    }
+    rect_side, rect_to_photo = rectify_frame(claimed)
+    to_rect = homography([apply(rect_to_photo, *p) for p in _square(rect_side)], _square(rect_side))
+    cell = unit * rect_side / side  # 正面図の 1 升の px(遠近の歪みはここでは無視する)
+
+    def rect_of(x: float, y: float) -> tuple[float, float]:
+        return apply(to_rect, *photo_of(x, y))
+
+    def frac(point: tuple[float, float], error: float = FREE_ERROR) -> dict[str, float]:
+        return {
+            "x": (point[0] + error * cell) / rect_side,
+            "y": (point[1] + error * cell) / rect_side,
+        }
+
+    rings, frame = _free_truth(model)
+    layout_rings = []
+    for ring in rings:
+        turns = max(rc.ring for rc in ring["cells"]) + 1
+        radii = [
+            ((ring["inner"] + 0.5 + k * g2.FULL_RING_PITCH) * cell + 0.25 * cell) / rect_side
+            for k in range(turns)
+        ]
+        start = ring["cells"][0].center
+        layout_rings.append(
+            {"radii": radii, "start": [frac(rect_of(*start))], **frac(rect_of(*ring["center"]))}
+        )
+    layout_reply = {
+        "cell": 1.1 * cell / rect_side,
+        "frame_rows": [(1.5 + FREE_ERROR) * cell / rect_side] if frame else [],
+        "rings": layout_rings,
+    }
+    photo = load_free(synthetic_free_photo(model, turn))
+    geometry = free_geometry(photo, _Scripted([frame_reply, layout_reply]))  # type: ignore[arg-type]
+
+    # 正解の升(写真の中の中心)を、同じ持ち主の塊に割り当てる
+    from_photo = homography(
+        [apply(geometry.to_photo, *p) for p in _square(geometry.side)], _square(geometry.side)
+    )
+    reach = 0.5 * geometry.cell
+    truth: list[tuple[Any, list[tuple[Any, tuple[float, float]]]]] = [
+        (k, [(rc.cell, apply(from_photo, *photo_of(*rc.center))) for rc in ring["cells"]])
+        for k, ring in enumerate(rings)
+    ]
+    truth.append(("frame", [(c, apply(from_photo, *photo_of(*at))) for c, at in frame]))
+    reads: list[list[Any]] = [[] for _ in geometry.inks]
+    for owner, cells in truth:
+        mine = [i for i, ink in enumerate(geometry.inks) if ink.owner == owner]
+        for order, (ink_cell, (x, y)) in enumerate(cells):
+            hits = [
+                i
+                for i in mine
+                if geometry.inks[i].blob.box[0] - reach <= x <= geometry.inks[i].blob.box[2] + reach
+                and geometry.inks[i].blob.box[1] - reach
+                <= y
+                <= geometry.inks[i].blob.box[3] + reach
+            ]
+            inside = [
+                i
+                for i in hits
+                if geometry.inks[i].blob.box[0] <= x <= geometry.inks[i].blob.box[2]
+                and geometry.inks[i].blob.box[1] <= y <= geometry.inks[i].blob.box[3]
+            ]
+            chosen = inside or hits
+            if len(chosen) != 1:
+                raise AssertionError(
+                    f"正解の升 {ink_cell.t}:{ink_cell.v}({owner})が切り分けの塊 {len(chosen)} 個に当たりました"
+                )
+            reads[chosen[0]].append((order, ink_cell))
+    for i, ink in enumerate(geometry.inks):
+        if reads[i]:
+            continue
+        x0, y0, x1, y1 = ink.blob.box
+        mid = ((x0 + x1) / 2, (y0 + y1) / 2)
+        for owner, cells in truth:
+            if owner != ink.owner:
+                continue
+            for ink_cell, (x, y) in cells:
+                if (
+                    abs(mid[0] - x) < 0.35 * geometry.cell
+                    and abs(mid[1] - y) < 0.35 * geometry.cell
+                ):
+                    raise AssertionError(
+                        f"正解の升 {ink_cell.t}:{ink_cell.v} が切り分けで割れました"
+                    )
+    out = [
+        _message({"grade": "none", "corners": []}, 0),
+        _message(frame_reply, 1),
+        _message(layout_reply, 2),
+    ]
+    blobs = [
+        {
+            "n": 0,
+            "symbols": [
+                {"t": c.t, "v": c.v, "unsure": []} for _, c in sorted(read, key=lambda r: r[0])
+            ],
+        }
+        for read in reads
+    ]
+    for begin in range(0, len(blobs), per_request):
+        batch = blobs[begin : begin + per_request]
+        for n, blob in enumerate(batch, start=1):
+            blob["n"] = n
+        out.append(_message({"blobs": batch}, len(out)))
+    return out
+
+
+def _square(side: float) -> list[tuple[float, float]]:
+    return [(0.0, 0.0), (float(side), 0.0), (float(side), float(side)), (0.0, float(side))]
+
+
+def load_free(data: bytes) -> Image.Image:
+    from jin_glyph.recognize import load_photo
+
+    return load_photo(data)

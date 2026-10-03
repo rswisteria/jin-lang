@@ -33,6 +33,7 @@ from jin_render.v2.sheet_layout import GRADES, Grade, Sheet, Slot, sheet_layout
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from pydantic import BaseModel
 
+from jin_glyph import freehand
 from jin_glyph.cells import _flatten
 from jin_glyph.scene import Band, Cell, Figure, ImageInfo, JinScene
 
@@ -177,9 +178,10 @@ def is_blank(patch: Image.Image) -> bool:
 # ---- 字形表 -------------------------------------------------------------------------------------
 
 
-def glyph_table() -> Image.Image:
-    """紋(式紋・判別の紋・継ぎの紋)と構造の印の字形を id 付きで並べた表(Claude への見本)。決定的。"""
-    ids = _GLYPH_IDS + _STRUCT_IDS
+def glyph_table(*, with_start: bool = False) -> Image.Image:
+    """紋(式紋・判別の紋・継ぎの紋)と構造の印の字形を id 付きで並べた表(Claude への見本)。決定的。
+    `with_start` は始まりの印も載せる(フリーハンドでは描き手が描くので読む対象・型紙では刷ってあるので載せない)。"""
+    ids = _GLYPH_IDS + _STRUCT_IDS + ([START_MARK] if with_start else [])
     tile, columns = 120, 10
     rows = math.ceil(len(ids) / columns)
     image = Image.new("L", (tile * columns, tile * rows), 255)
@@ -259,7 +261,9 @@ class Recognizer:
                 ) from exc
         return self.client
 
-    def ask(self, content: list[dict[str, Any]], schema: type[BaseModel]) -> Any:
+    def ask(
+        self, content: list[dict[str, Any]], schema: type[BaseModel], system: str | None = None
+    ) -> Any:
         try:
             response = self._client().beta.messages.parse(
                 model=self.model,
@@ -267,7 +271,7 @@ class Recognizer:
                 betas=[FALLBACK_BETA],
                 fallbacks="default",
                 output_config={"effort": "medium"},
-                system=SYSTEM,
+                system=SYSTEM if system is None else system,
                 messages=[{"role": "user", "content": content}],
                 output_format=schema,
             )
@@ -326,15 +330,22 @@ class _Ink:
     box: tuple[float, float, float, float]  # 写真の座標
 
 
-def _align(photo: Image.Image, recognizer: Recognizer) -> tuple[Grade, list[tuple[float, float]]]:
-    small = photo.copy()
+def _small_jpeg(image: Image.Image) -> dict[str, Any]:
+    small = image.copy()
     small.thumbnail((ALIGN_LONG_SIDE, ALIGN_LONG_SIDE))
+    return _image_block(_jpeg(small), "image/jpeg")
+
+
+def _align(
+    photo: Image.Image, recognizer: Recognizer
+) -> tuple[Grade, list[tuple[float, float]]] | None:
+    """型紙の等級と四隅の護符。型紙が写っていなければ None(フリーハンドとして読む・S6)。"""
     reply: _Alignment = recognizer.ask(
-        [_image_block(_jpeg(small), "image/jpeg"), {"type": "text", "text": ALIGN_PROMPT}],
+        [_small_jpeg(photo), {"type": "text", "text": ALIGN_PROMPT}],
         _Alignment,
     )
     if reply.grade == "none" or reply.grade not in GRADES:
-        raise RecognizeError("写真に型紙（四隅の護符と等級の印）が見つかりません")
+        return None
     circles = [i for i, c in enumerate(reply.corners) if c.circle]
     if len(reply.corners) != 4 or len(circles) != 1:
         raise RecognizeError(
@@ -387,7 +398,9 @@ def _cells_of(
     return inks
 
 
-def _cell_of(read: _CellRead | None) -> tuple[str, str, list[str]] | None:
+def _cell_of(
+    read: _CellRead | None, structs: Sequence[str] = _STRUCT_IDS
+) -> tuple[str, str, list[str]] | None:
     """Claude の読み → (t, v, unsure)。空なら None。契約に合わない読みは「?」と迷いにする(場面グラフは人が直せる)。"""
     if read is None:
         return ("latin", "?", ["(読めませんでした)"])
@@ -396,7 +409,7 @@ def _cell_of(read: _CellRead | None) -> tuple[str, str, list[str]] | None:
     valid = (
         (read.t == "latin" and len(read.v) == 1)
         or (read.t == "glyph" and read.v in _GLYPH_IDS)
-        or (read.t == "struct" and read.v in _STRUCT_IDS)
+        or (read.t == "struct" and read.v in structs)
     )
     if not valid:
         return ("latin", "?", [f"{read.t}:{read.v}"] + list(read.unsure))
@@ -500,7 +513,10 @@ def recognize_photo(data: bytes, *, recognizer: Recognizer | None = None) -> Jin
     """型紙に手で描いた陣の写真 → 場面グラフ。写真を Anthropic の API に送る(モジュールの docstring)。"""
     recognizer = recognizer or Recognizer()
     photo = load_photo(data)
-    grade, corners = _align(photo, recognizer)
+    aligned = _align(photo, recognizer)
+    if aligned is None:
+        return _recognize_free(data, photo, recognizer)
+    grade, corners = aligned
     sheet = sheet_layout(grade)
     gray = photo.convert("L")
     refined = _locate(gray, sheet, corners)
@@ -524,16 +540,326 @@ def recognize_photo(data: bytes, *, recognizer: Recognizer | None = None) -> Jin
     )
 
 
+# ---- フリーハンド(モード 1・陣書き S6) -----------------------------------------------------------
+
+#: 正面化した額縁の一辺の px の範囲(写真の中の額縁の大きさに合わせ、この範囲に収める)
+FREE_SIDE_MIN = 800
+FREE_SIDE_MAX = 3000
+#: 塊の画像: 字の大きさの 1.2 倍を CELL_IMAGE_PX にする倍率で縮め、長辺はこの倍数まで
+FREE_BLOB_MAX = 4
+#: 塊の切り出しの余白(字の大きさに対する比)
+FREE_BLOB_PAD = 0.25
+
+FREE_SYSTEM = f"""You read a hand-drawn "Jin" magic circle drawn freehand on blank paper (no printed template).
+The drawing is a square frame containing one or more circles. Around each circle runs an inscription: symbols written one by one
+along concentric circular lines ("turns"), starting at a start mark at the top of the circle and going clockwise. The frame
+itself carries a short inscription written along the inside of its edges, starting at the top-left corner and going clockwise.
+Each inscription symbol is drawn by hand with a pen and is exactly one of:
+- a single Latin/digit/kana/kanji character (names, numbers and string contents), or
+- one of the special glyphs shown in the glyph table image (answer its id, e.g. "add", "sep", "quote_l", "loop_count"), or
+- one of the structure marks shown in the same table (ids starting with "s_", e.g. "s_set", "s_rite"; a small shape inside a
+  double square frame), or the start mark (id "start", a small triangle over a bar) that begins every circle's inscription.
+Lines, circles, arrows and small shapes of the diagram inside each circle, and the decorations in the frame corners, are not
+inscription symbols.
+Never guess a whole word: read each symbol on its own.
+Glyph ids: {", ".join(_GLYPH_IDS)}.
+Structure mark ids: {", ".join(_STRUCT_IDS + [START_MARK])}."""
+
+FRAME_PROMPT = """This photo shows a magic circle drawn by hand on paper, inside a hand-drawn square frame.
+Return found (false if there is no such square frame) and the four corners of the frame as fractions of the image width (x) and
+height (y), from 0 to 1, in this order: top-left, top-right, bottom-right, bottom-left of the drawing. Judge "top" from the drawing
+itself, not from the photo: the handwriting is upright when the drawing is the right way up, and every circle's start mark sits at
+the top of its circle."""
+
+LAYOUT_PROMPT = """This image is the square frame of the drawing, straightened so that its corners are the image corners.
+Return, as fractions of the image side (0 to 1):
+- cell: the typical height of one handwritten inscription symbol
+- frame_rows: for each row of the frame's inscription, the distance from the frame edge to the middle of that row of symbols
+  (outermost row first; [] if the frame has no inscription)
+- rings: one entry per circle that has an inscription around it: x, y (the circle's centre), radii (the radius of the middle line
+  of each turn of its inscription, innermost first) and start (the centre of its start mark; [] if you cannot see one)."""
+
+BLOBS_PROMPT = """Each numbered image below is a piece of an inscription. It usually holds one symbol, but may hold several symbols
+(read them in the order given in its label: "left to right", "top to bottom", ...) or none (a stray line or a piece of the
+diagram). For every image return n (its number) and symbols: one entry per symbol with t ("latin" for one character, "glyph" for
+a glyph id, "struct" for a structure mark id or "start"), v (the character or the id) and unsure (other plausible readings, most
+likely first; [] when you are sure). Return symbols [] when the image holds no inscription symbol."""
+
+
+class _Point(BaseModel):
+    x: float
+    y: float
+
+
+class _FreeFrame(BaseModel):
+    found: bool
+    corners: list[_Point]
+
+
+class _FreeRing(BaseModel):
+    x: float
+    y: float
+    radii: list[float]
+    start: list[_Point]
+
+
+class _FreeLayout(BaseModel):
+    cell: float
+    frame_rows: list[float]
+    rings: list[_FreeRing]
+
+
+class _Symbol(BaseModel):
+    t: Literal["latin", "glyph", "struct"]
+    v: str
+    unsure: list[str]
+
+
+class _BlobRead(BaseModel):
+    n: int
+    symbols: list[_Symbol]
+
+
+class _BlobReads(BaseModel):
+    blobs: list[_BlobRead]
+
+
+_FREE_STRUCTS = [*_STRUCT_IDS, START_MARK]
+
+Point = tuple[float, float]
+
+
+@dataclass(frozen=True)
+class FreeRing:
+    """正面図の上の環 1 つ(Claude の値を詰め直した後): 中心・周の半径(内から)・始まりの角度(度)。"""
+
+    center: Point
+    radii: list[float]
+    start: float
+
+
+@dataclass(frozen=True)
+class FreeInk:
+    """読みに送る墨の塊 1 つ。owner は環の添字(`int`)か `"frame"`。"""
+
+    owner: int | str
+    blob: freehand.Blob
+    image: str  # base64 PNG
+    box: tuple[float, float, float, float]  # 写真の座標
+
+
+@dataclass(frozen=True)
+class FreeGeometry:
+    """フリーハンドの写真から切り出したもの(読みの前まで)。テストの応答の合成もこれを使う。"""
+
+    side: int
+    to_photo: tuple[float, ...]  # 正面図の px → 写真の px
+    cell: float
+    rings: list[FreeRing]
+    inks: list[FreeInk]
+
+
+def _free_corners(photo: Image.Image, recognizer: Recognizer) -> list[Point]:
+    reply: _FreeFrame = recognizer.ask(
+        [_small_jpeg(photo), {"type": "text", "text": FRAME_PROMPT}], _FreeFrame, FREE_SYSTEM
+    )
+    if not reply.found:
+        raise RecognizeError("写真に型紙も、フリーハンドの陣の額縁（四角い枠）も見つかりません")
+    if len(reply.corners) != 4:
+        raise RecognizeError(f"額縁の四隅を 4 つ見つけられません（{len(reply.corners)} 個）")
+    return [(c.x * photo.width, c.y * photo.height) for c in reply.corners]
+
+
+def rectify_frame(corners: Sequence[Point]) -> tuple[int, tuple[float, ...]]:
+    """額縁の四隅(左上・右上・右下・左下・写真の px)→ (正面図の一辺 px, 正面図 → 写真の射影)。"""
+    mean = sum(math.dist(corners[i], corners[(i + 1) % 4]) for i in range(4)) / 4.0
+    side = max(FREE_SIDE_MIN, min(FREE_SIDE_MAX, round(mean)))
+    return side, homography(_square(side), corners)
+
+
+def _rectify(
+    gray: Image.Image, corners: Sequence[Point]
+) -> tuple[int, tuple[float, ...], Image.Image]:
+    side, to_photo = rectify_frame(corners)
+    rect = gray.transform(
+        (side, side), Image.Transform.PERSPECTIVE, to_photo, Image.Resampling.BICUBIC, fillcolor=255
+    )
+    return side, to_photo, rect
+
+
+def _upright(layout: _FreeLayout) -> int:
+    """正面図の何回 90° 右に回った位置に描き手の上があるか(0〜3)。額縁の中心に最も近い環の始まりの印の向きで決める
+    (完全陣の配置では root の陣が中央にあり、始まりの印は 12 時にある)。印が無ければ Claude の向きのまま(0)。"""
+    marked = [r for r in layout.rings if r.start]
+    if not marked:
+        return 0
+    ring = min(marked, key=lambda r: math.dist((r.x, r.y), (0.5, 0.5)))
+    angle = math.degrees(math.atan2(ring.start[0].y - ring.y, ring.start[0].x - ring.x))
+    return round(((angle - freehand.TOP) % 360.0) / 90.0) % 4
+
+
+def _blob_image(rect: Image.Image, box: tuple[int, int, int, int], cell: float) -> str:
+    pad = FREE_BLOB_PAD * cell
+    x0, y0, x1, y1 = box
+    view = rect.crop((round(x0 - pad), round(y0 - pad), round(x1 + pad), round(y1 + pad)))
+    scale = CELL_IMAGE_PX / (1.2 * cell)
+    limit = FREE_BLOB_MAX * CELL_IMAGE_PX
+    width = max(8, min(limit, round(view.width * scale)))
+    height = max(8, min(limit, round(view.height * scale)))
+    return _png(view.resize((width, height), Image.Resampling.LANCZOS))
+
+
+def _photo_box(
+    to_photo: Sequence[float], box: tuple[int, int, int, int]
+) -> tuple[float, float, float, float]:
+    x0, y0, x1, y1 = box
+    corners = [apply(to_photo, x, y) for x in (x0, x1) for y in (y0, y1)]
+    return (
+        round(min(c[0] for c in corners), 1),
+        round(min(c[1] for c in corners), 1),
+        round(max(c[0] for c in corners), 1),
+        round(max(c[1] for c in corners), 1),
+    )
+
+
+def free_geometry(photo: Image.Image, recognizer: Recognizer) -> FreeGeometry:
+    """額縁の四隅 → 正面化 → 環の形 → 詰め直し → 切り分け(Claude への要求は 2 本)。"""
+    gray = photo.convert("L")
+    corners = _free_corners(photo, recognizer)
+    side, to_photo, rect = _rectify(gray, corners)
+    layout: _FreeLayout = recognizer.ask(
+        [_small_jpeg(rect), {"type": "text", "text": LAYOUT_PROMPT}], _FreeLayout, FREE_SYSTEM
+    )
+    turn = _upright(layout)
+    if turn:
+        # 描き手の上が正面図の右(turn = 1)なら、左上は今の右上。正面図を作り直し、Claude の座標を新しい正面図へ写す
+        old = to_photo
+        corners = corners[turn:] + corners[:turn]
+        side, to_photo, rect = _rectify(gray, corners)
+        back = homography(corners, _square(side))
+
+        def move(x: float, y: float) -> Point:
+            px, py = apply(back, *apply(old, x * side, y * side))
+            return (px / side, py / side)
+
+        for ring in layout.rings:
+            ring.x, ring.y = move(ring.x, ring.y)
+            for point in ring.start:
+                point.x, point.y = move(point.x, point.y)
+    cell = max(4.0, layout.cell * side)
+    rings: list[FreeRing] = []
+    for ring in layout.rings:
+        radii = sorted(r * side for r in ring.radii if r > 0.0)
+        center, radii = freehand.refine_ring(rect, (ring.x * side, ring.y * side), radii, cell)
+        if ring.start:
+            sx, sy = ring.start[0].x * side, ring.start[0].y * side
+            start = math.degrees(math.atan2(sy - center[1], sx - center[0]))
+        else:
+            start = freehand.TOP  # 始まりの印が無い環(構文解析器が JIN301 で知らせる)
+        rings.append(FreeRing(center, radii, start))
+    inks: list[FreeInk] = []
+    for index, ring in enumerate(rings):
+        for blobs in freehand.ring_turns(rect, ring.center, ring.radii, ring.start, cell):
+            for blob in blobs:
+                inks.append(
+                    FreeInk(
+                        index,
+                        blob,
+                        _blob_image(rect, blob.box, cell),
+                        _photo_box(to_photo, blob.box),
+                    )
+                )
+    rows = sorted(r * side for r in layout.frame_rows if r > 0.0)
+    for k, row in enumerate(rows):
+        insets = freehand.refine_inset(rect, side, row, cell)
+        width = freehand.band_half_width(rows, k, cell)
+        for blob in freehand.frame_blobs(rect, side, insets, width, cell):
+            inks.append(
+                FreeInk(
+                    "frame", blob, _blob_image(rect, blob.box, cell), _photo_box(to_photo, blob.box)
+                )
+            )
+    return FreeGeometry(side, to_photo, cell, rings, inks)
+
+
+def _square(side: int) -> list[Point]:
+    return [(0.0, 0.0), (float(side), 0.0), (float(side), float(side)), (0.0, float(side))]
+
+
+def _read_blobs(
+    inks: list[FreeInk], recognizer: Recognizer
+) -> list[list[tuple[str, str, list[str]]]]:
+    table = {
+        **_image_block(_png(glyph_table(with_start=True)), "image/png"),
+        "cache_control": {"type": "ephemeral"},
+    }
+    out: list[list[tuple[str, str, list[str]]]] = []
+    for begin in range(0, len(inks), CELLS_PER_REQUEST):
+        batch = inks[begin : begin + CELLS_PER_REQUEST]
+        content: list[dict[str, Any]] = [table, {"type": "text", "text": BLOBS_PROMPT}]
+        for n, ink in enumerate(batch, start=1):
+            content.append({"type": "text", "text": f"#{n} ({ink.blob.direction})"})
+            content.append(_image_block(ink.image, "image/png"))
+        reply: _BlobReads = recognizer.ask(content, _BlobReads, FREE_SYSTEM)
+        by_number: dict[int, _BlobRead] = {}
+        for read in reply.blobs:
+            by_number.setdefault(read.n, read)
+        for n in range(1, len(batch) + 1):
+            read = by_number.get(n)
+            if read is None:
+                out.append([("latin", "?", ["(読めませんでした)"])])
+                continue
+            symbols = []
+            for symbol in read.symbols:
+                cell = _cell_of(
+                    _CellRead(n=n, t=symbol.t, v=symbol.v, unsure=symbol.unsure), _FREE_STRUCTS
+                )
+                if cell is not None:
+                    symbols.append(cell)
+            out.append(symbols)
+    return out
+
+
+def _recognize_free(data: bytes, photo: Image.Image, recognizer: Recognizer) -> JinScene:
+    geometry = free_geometry(photo, recognizer)
+    reads = _read_blobs(geometry.inks, recognizer)
+    ring_cells: list[list[Cell]] = [[] for _ in geometry.rings]
+    frame_cells: list[Cell] = []
+    for ink, symbols in zip(geometry.inks, reads, strict=True):
+        cells = [Cell(t=t, v=v, unsure=unsure, box=ink.box) for t, v, unsure in symbols]  # type: ignore[arg-type]
+        (frame_cells if ink.owner == "frame" else ring_cells[ink.owner]).extend(cells)  # type: ignore[index]
+    texts = [
+        freehand.RingText(ring.center, apply(geometry.to_photo, *ring.center), cells)
+        for ring, cells in zip(geometry.rings, ring_cells, strict=True)
+    ]
+    middle = (geometry.side / 2.0, geometry.side / 2.0)
+    figures, bands = freehand.assemble(
+        texts, frame_cells, middle, apply(geometry.to_photo, *middle)
+    )
+    return JinScene(
+        jinscene=1,
+        sheet="free",
+        image=ImageInfo(
+            sha256=hashlib.sha256(data).hexdigest(), width=photo.width, height=photo.height
+        ),
+        figures=figures,
+        bands=bands,
+    )
+
+
 __all__ = [
     "MODEL",
+    "FreeGeometry",
     "RecognizeError",
     "Recognizer",
     "apply",
+    "free_geometry",
     "glyph_table",
     "homography",
     "is_blank",
     "load_photo",
     "order_corners",
     "recognize_photo",
+    "rectify_frame",
     "refine_talisman",
 ]
