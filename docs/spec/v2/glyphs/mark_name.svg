@@ -1,3 +1,3 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-<path d="M12 50 H52 M70 34 C78.8 34 86 41.2 86 50 C86 58.8 78.8 66 70 66 C61.2 66 54 58.8 54 50 C54 41.2 61.2 34 70 34" fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.000 50.000 L52.000 50.000 M70.000 34.000 C78.800 34.000 86.000 41.200 86.000 50.000 C86.000 58.800 78.800 66.000 70.000 66.000 C61.200 66.000 54.000 58.800 54.000 50.000 C54.000 41.200 61.200 34.000 70.000 34.000" fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
