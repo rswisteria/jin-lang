@@ -135,3 +135,28 @@ def test_the_whole_program_is_in_the_picture(rendered: dict) -> None:
         "/stage/width",
     ):
         assert pointer in drawn, pointer
+
+
+def test_the_single_entry_point_draws_the_full_circle(rendered: dict) -> None:
+    from jin_render import render
+
+    model, svg = rendered["fib"]
+    assert render(model, full=True) == svg
+
+
+@pytest.mark.parametrize("kwargs", [{"focus": "Fib"}, {"trace": []}, {"trace": [], "upto": 0}])
+def test_full_cannot_be_combined_with_focus_or_trace(rendered: dict, kwargs: dict) -> None:
+    from jin_render import RenderError, render
+
+    model, _ = rendered["fib"]
+    with pytest.raises(RenderError, match="--full"):
+        render(model, full=True, **kwargs)
+
+
+def test_full_is_only_for_v2() -> None:
+    from jin_render import RenderError, render
+
+    path = REPO_ROOT / "examples/pipeline/pipeline.jin"
+    model = check_text(path.read_text(encoding="utf-8"), path.name).model
+    with pytest.raises(RenderError, match="v2"):
+        render(model, full=True)
