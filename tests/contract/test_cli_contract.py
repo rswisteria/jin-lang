@@ -280,7 +280,7 @@ def test_cwd_cannot_shadow_an_installed_package_in_a_real_process(tmp_path: Path
     名前）を置いた cwd で `jin run` する。`insert(0, cwd)` なら cwd 側の `__init__.py` が走って exit 1
     になる（reviewer の実測）。末尾（append）でも import 窓方式でも site-packages の本物が先に解決され
     exit 0。**この検査はインストール済みの名前しか見ない**ので、「Runner 実行中に cwd を残す」変異には
-    反応しない。それは下の `anthropic` 版（未インストール名）が担う。
+    反応しない。それは下の `openai` 版（未インストール名）が担う。
     同一プロセスのテストでは ADK の遅延 import が既に済んでいて再現しないので、**別プロセス**で見る。
     """
     shadow = tmp_path / "authlib"
@@ -305,25 +305,29 @@ def test_cwd_cannot_supply_an_uninstalled_optional_dependency_during_the_run(
 ) -> None:
     """F-S-P2-101: Runner 実行中に cwd が `sys.path` に無いことを**実プロセス**で固定する。
 
-    google-adk 2.8.0 は LLM 要求のたびに `anthropic` を import しようとする
-    （`google/adk/models/contents.py` → `anthropic_llm.py`・`ImportError` は握りつぶす）。
-    `anthropic` は jin の依存に無い（**未インストール名**）ので、Runner 実行中に cwd が `sys.path` に
-    あれば末尾でも cwd の `anthropic/__init__.py` が実行される（append 実装では exit 1 になった・
-    reviewer の実測）。import 窓方式なら Runner 実行中は cwd が無いので exit 0。
+    google-adk 2.8.0 は Runner の実行中に `openai` を import しようとする
+    （`google/adk/labs/openai/_openai_llm.py` など・`ImportError` は握りつぶす）。
+    `openai` は jin の依存に無い（**未インストール名**）ので、Runner 実行中に cwd が `sys.path` に
+    あれば末尾でも cwd の `openai/__init__.py` が実行される。import 窓方式なら Runner 実行中は cwd が無いので exit 0。
 
-    **この検査は 2 つの事実に依存する**（F-W-P2-102）: (1) `anthropic` が未インストールであること
-    （冒頭の assert・lock が保証）、(2) ADK が実行中に `anthropic` を遅延 import すること（ADK を上げたら再確認）。
+    当初は `anthropic` で見ていたが、陣書き S4 で `jin-glyph` が `anthropic` に依存して**インストール済み**になった
+    （2026-10-03）。差し替え先は実測で選んだ: 「import 窓が cwd を外さない」変異で `jin run` を回すと、
+    cwd に置いた `a2a` / `bcrypt` / `brotli` / `chardet` / `openai` / `simplejson` / `socks` が実行され
+    （変異なしでは 0 件）、`RuntimeError` を投げる `openai` で exit 1 になった。
+
+    **この検査は 2 つの事実に依存する**（F-W-P2-102）: (1) `openai` が未インストールであること
+    （冒頭の assert・lock が保証）、(2) ADK が実行中に `openai` を遅延 import すること（ADK を上げたら再確認）。
     (2) が崩れると、この検査は変異に反応しなくなる（緑のまま）。
     """
-    # 前提は uv.lock が保証する（anthropic は依存に無い）。崩れたら skip で黙らず失敗させる（F-W-P2-201）
-    assert importlib.util.find_spec("anthropic") is None, (
-        "anthropic がインストールされている（lock に入った）。この検査は「未インストール名」が前提なので、"
+    # 前提は uv.lock が保証する（openai は依存に無い）。崩れたら skip で黙らず失敗させる（F-W-P2-201）
+    assert importlib.util.find_spec("openai") is None, (
+        "openai がインストールされている（lock に入った）。この検査は「未インストール名」が前提なので、"
         "別の未インストール名（ADK が実行中に遅延 import するもの）に差し替えること"
     )
-    shadow = tmp_path / "anthropic"
+    shadow = tmp_path / "openai"
     shadow.mkdir()
     (shadow / "__init__.py").write_text(
-        "raise RuntimeError('SHADOW anthropic FROM CWD LOADED')\n", encoding="utf-8"
+        "raise RuntimeError('SHADOW openai FROM CWD LOADED')\n", encoding="utf-8"
     )
     result = _run(
         "run",

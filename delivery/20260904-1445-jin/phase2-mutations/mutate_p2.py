@@ -380,7 +380,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         [T_RUNTIME, "-k", "workflow_root_is_a_run_error_from_run_model_async"],
     ),
     # R2 DP-IMPL-JIN-P2-SYSPATH-01（再々判断）: import 窓の finally を消すと Runner 実行中も cwd が残る。
-    # 未インストール名（anthropic）の契約テストが別プロセスで赤・同一プロセスの 2 件も赤
+    # 未インストール名（当初は anthropic・陣書き S4 で anthropic が入ったので openai）の契約テストが別プロセスで赤・同一プロセスの 2 件も赤
     (
         "RUN-cwd-stays-after-import",
         RUNTIME,

@@ -1049,7 +1049,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=1.11.0" },
+    { name = "anthropic", specifier = ">=1.11,<2" },
     { name = "jin-core", editable = "packages/jin-core" },
     { name = "jin-render", editable = "packages/jin-render" },
     { name = "pillow", specifier = ">=12.3,<13" },
