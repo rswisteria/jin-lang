@@ -33,6 +33,7 @@ UNKNOWN_DISTANCE = 120.0
 #: 読める升の大きさの下限(px)
 MIN_CELL_PX = 2.0 * g2.FULL_CELL_PX
 _CANVAS = 240  # 理想の格子を描く下書きの一辺(px)
+_NEAR = 10  # ずらして測り直す近い候補の数
 _STRUCT_IDS = frozenset(m.id for m in STRUCT_MARKS) | {START_MARK}
 
 
@@ -130,26 +131,67 @@ _LINE_IDEALS: dict[str, Image.Image] = {gid: _line_ideal(gid) for gid in GLYPH_P
 _DOT_GROUPS = _dot_groups()
 
 
+def _shifted_boxes(
+    box: tuple[float, float, float, float], cell_px: float
+) -> list[tuple[float, float, float, float]]:
+    unit = cell_px / GRID
+    x0, y0, x1, y1 = box
+    return [
+        (x0 + dx * unit, y0 + dy * unit, x1 + dx * unit, y1 + dy * unit)
+        for dx in (-1, 0, 1)
+        for dy in (-1, 0, 1)
+        if (dx, dy) != (0, 0) and x0 + dx * unit >= 0 and y0 + dy * unit >= 0
+    ]
+
+
 def duplicate_dot_groups() -> list[tuple[str, ...]]:
     """同じ点の並びを持つ字の組(先頭が読み取りで採る字)。"""
     return [tuple(group) for group in _DOT_GROUPS.values() if len(group) > 1]
 
 
-def read_cell(image: Image.Image, center_px: tuple[float, float], cell_px: float) -> Read:
+def distance_to(
+    image: Image.Image, center_px: tuple[float, float], cell_px: float, gid: str
+) -> float:
+    """升と線の字 gid の差(ずらさない)。升の位置を合わせ込むのに使う(`read_cell` はずれを吸うので位置に鈍い)。"""
+    cx, cy = center_px
+    box = (cx - cell_px / 2, cy - cell_px / 2, cx + cell_px / 2, cy + cell_px / 2)
+    return _distance(
+        _ink(image.resize((GRID, GRID), Image.Resampling.BOX, box=box)), _LINE_IDEALS[gid]
+    )
+
+
+def read_cell(
+    image: Image.Image,
+    center_px: tuple[float, float],
+    cell_px: float,
+    unknown_distance: float = UNKNOWN_DISTANCE,
+) -> Read:
     """画像(グレースケール・白地)の、中心 center_px・一辺 cell_px の升を読む。"""
     cx, cy = center_px
     box = (cx - cell_px / 2, cy - cell_px / 2, cx + cell_px / 2, cy + cell_px / 2)
     observed = _ink(image.resize((GRID, GRID), Image.Resampling.BOX, box=box))
     if ImageStat.Stat(observed).sum[0] < EMPTY_INK:
         return Read("empty", "", 0.0)
+    # 線は升の 1/12 の細さなので、升が格子 1 目(升の 1/24)ずれるだけで二重枠の差が中の記号の差を上回る。
+    # ずれ 0 で全候補を測り、近い候補(構造の印が入れば構造の印と始まりの印すべて)を ±1 目ずらした升でも測って最小を採る
+    first = sorted((_distance(observed, ideal), gid) for gid, ideal in _LINE_IDEALS.items())
+    near = {gid for _, gid in first[:_NEAR]}
+    if near & _STRUCT_IDS:
+        near |= _STRUCT_IDS
+    near.add(START_MARK)  # 始まりの印は細く、1 目のずれで上位から落ちる(走査の手がかり)
+    shifted = [
+        _ink(image.resize((GRID, GRID), Image.Resampling.BOX, box=b))
+        for b in _shifted_boxes(box, cell_px)
+    ]
     best: tuple[float, str, str] | None = None
-    for gid, ideal in _LINE_IDEALS.items():
-        distance = _distance(observed, ideal)
+    for distance, gid in first:
+        if gid in near:
+            distance = min([distance] + [_distance(view, _LINE_IDEALS[gid]) for view in shifted])
         if best is None or distance < best[0]:
             best = (distance, "struct" if gid in _STRUCT_IDS else "glyph", gid)
     dots = _ink(image.resize((8, 8), Image.Resampling.BOX, box=box))
     dot_bits = 0
-    for i, value in enumerate(dots.getdata()):
+    for i, value in enumerate(dots.get_flattened_data()):
         col, row = i % 8, i // 8
         if 1 <= col <= 6 and value / 255.0 > DOT_FRACTION:
             dot_bits |= 1 << ((col - 1) * 8 + row)
@@ -159,9 +201,9 @@ def read_cell(image: Image.Image, center_px: tuple[float, float], cell_px: float
         if best is None or distance <= best[0]:
             best = (distance, "latin", group[0])
     assert best is not None
-    if best[0] > UNKNOWN_DISTANCE:
+    if best[0] > unknown_distance:
         return Read("unknown", best[2], best[0])
     return Read(best[1], best[2], best[0])  # type: ignore[arg-type]
 
 
-__all__ = ["MIN_CELL_PX", "Read", "duplicate_dot_groups", "read_cell"]
+__all__ = ["MIN_CELL_PX", "Read", "distance_to", "duplicate_dot_groups", "read_cell"]

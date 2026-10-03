@@ -31,9 +31,13 @@ def cell_svg(t: str, v: str, margin: float = 1.0) -> str:
     )
 
 
+def png_data(svg: str, scale: float) -> bytes:
+    """白地の PNG のバイト列(完全陣は Pillow の爆弾検査に掛かる大きさになるので、Pillow を通さない)。"""
+    return cairosvg.svg2png(bytestring=svg.encode(), scale=scale, background_color="white")
+
+
 def to_png(svg: str, scale: float) -> Image.Image:
-    data = cairosvg.svg2png(bytestring=svg.encode(), scale=scale, background_color="white")
-    return Image.open(io.BytesIO(data)).convert("L")
+    return Image.open(io.BytesIO(png_data(svg, scale))).convert("L")
 
 
 def cell_image(t: str, v: str, scale: float) -> tuple[Image.Image, tuple[float, float], float]:

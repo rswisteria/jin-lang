@@ -45,6 +45,17 @@ def test_the_spec_example_validates_and_round_trips() -> None:
     assert JinScene.model_validate(dumped) == scene
 
 
+def test_struct_cells_and_the_full_sheet_are_accepted() -> None:
+    # S3: デコーダは銘環の始まりの印・構造の印もそのまま升に残す(JIN301 / JIN302 を構文解析器が見るため)
+    scene = json.loads(json.dumps(EXAMPLE))
+    scene["sheet"] = "full"
+    scene["bands"][0]["cells"] = [{"t": "struct", "v": "start"}, {"t": "struct", "v": "s_set"}]
+    assert JinScene.model_validate(scene).bands[0].cells[1].v == "s_set"
+    scene["bands"][0]["cells"] = [{"t": "struct", "v": "add"}]
+    with pytest.raises(ValidationError, match="add"):
+        JinScene.model_validate(scene)
+
+
 def test_an_unknown_glyph_id_is_rejected() -> None:
     bad = json.loads(json.dumps(EXAMPLE))
     bad["bands"][0]["cells"][1] = {"t": "glyph", "v": "nope"}
