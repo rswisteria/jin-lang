@@ -132,6 +132,9 @@ from jin_core.v2.model import JinFileV2
 from jin_lsp.server import main as lsp_main
 from jin_render import RenderError, TraceRowError, brief
 from jin_render import render as render_svg
+from jin_render.v2.sheet import render_sheet
+from jin_render.v2.sheet_layout import GRADES as SHEET_GRADES
+from jin_render.v2.sheet_layout import SheetOverflow
 from jin_wasm.bundle import WriteRefused as BundleWriteRefused
 from jin_wasm.bundle import write_bundle
 from jin_wasm.codegen import CodegenError
@@ -283,7 +286,8 @@ def _collect(paths: list[Path]) -> list[Path]:
             if path.suffix != ".jin" and not _is_glyph_input(path):
                 typer.echo(
                     f"'.jin' ではありません: {path}"
-                    "（Jin が読むのは拡張子 .jin のファイルと、名指しした完全陣の .png / .jinscene.json だけです）",
+                    "（Jin が読むのは拡張子 .jin のファイルと、名指しした完全陣の .png・型紙の写真"
+                    "（.jpg / .jpeg / .webp）・.jinscene.json だけです）",
                     err=True,
                 )
                 raise typer.Exit(code=2)
@@ -296,19 +300,34 @@ def _collect(paths: list[Path]) -> list[Path]:
 
 #: 陣書き S3: `check` / `fmt` が名指しで受ける画像と場面グラフ（ディレクトリの走査では拾わない）
 _SCENE_SUFFIX = ".jinscene.json"
+#: 陣書き S4: 型紙に手で描いた陣の写真（Claude 認識器で読む・Anthropic の API に送る）。
+#: PNG は完全陣（決定的デコーダ）だけで、デコードに失敗しても API へは回さない（送るのは写真の拡張子を名指ししたときだけ）
+_PHOTO_SUFFIXES = (".jpg", ".jpeg", ".webp")
+#: 写真を送るときに stderr へ出す 1 行（外部送信を黙って行わない・設計書 §3.7）
+_SENDING_NOTICE = (
+    "{path}: 写真を Anthropic の API（Claude）に送って読み取ります"
+    "（送らずに済ませるには --offline。結果は {scene} に保存し、次回からは送りません）"
+)
+
+
+def _is_photo(path: Path) -> bool:
+    return path.suffix.lower() in _PHOTO_SUFFIXES
 
 
 def _is_glyph_input(path: Path) -> bool:
-    return path.suffix == ".png" or path.name.endswith(_SCENE_SUFFIX)
+    return path.suffix == ".png" or _is_photo(path) or path.name.endswith(_SCENE_SUFFIX)
 
 
-def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
-    """(場面グラフのテキスト, その場所)。PNG はデコードし、`write_scene` なら隣の `<名前>.jinscene.json` に書く。
+def _scene_text(path: Path, *, write_scene: bool, offline: bool = False) -> tuple[str, Path]:
+    """(場面グラフのテキスト, その場所)。PNG はデコードし、写真は Claude で読み、隣の `<名前>.jinscene.json` に書く
+    （PNG は `write_scene` のときだけ。写真は読み直すと費用がかかるので常に書く）。
 
-    `jin_glyph` は関数の中で import する（Pillow と升の照合の表を、画像を読まないコマンドの起動に乗せない）。
+    `jin_glyph` は関数の中で import する（Pillow と升の照合の表・`anthropic` を、画像を読まないコマンドの起動に乗せない）。
     書き出しは `jin render -o` と同じ `_write_atomically(allow_create=True)`（新しい書き込み経路を作らない）。
+    写真を送るのは隣に同じ画像の場面グラフが無く、`--offline` でないときだけ（設計書 §3.2 / §3.7）。
 
     guard: _scene_text -> _write_atomically(scene_path,text,allow_create=True)
+    guard: _scene_text -> _existing_scene_for(scene_path,hashlib.sha256(data).hexdigest())
     """
     if path.name.endswith(_SCENE_SUFFIX):
         try:
@@ -316,8 +335,6 @@ def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
         except JinReadError as exc:
             typer.echo(_safe(str(exc)), err=True)
             raise typer.Exit(code=2) from exc
-    from jin_glyph.decode import DecodeError, decode_png
-
     scene_path = path.with_name(path.stem + _SCENE_SUFFIX)
     try:
         data = path.read_bytes()
@@ -330,23 +347,17 @@ def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
         existing = _existing_scene_for(scene_path, hashlib.sha256(data).hexdigest())
         if existing is not None:
             return existing, scene_path
-        if write_scene:
+        if write_scene or _is_photo(path):
             typer.echo(
                 f"{_safe(str(scene_path))}: 別の画像の場面グラフかリンクがあるので上書きしません"
                 "（消すか名前を変えてから読み直してください）",
                 err=True,
             )
             raise typer.Exit(code=2)
-    try:
-        scene = decode_png(data)
-    except (DecodeError, OSError) as exc:
-        typer.echo(
-            f"{_safe(str(path))}: 完全陣の画像として読めません（{_safe(str(exc))}）", err=True
-        )
-        raise typer.Exit(code=2) from exc
+    scene = _recognize(path, data, scene_path, offline) if _is_photo(path) else _decode(path, data)
     payload = scene.model_dump(mode="json", by_alias=True, exclude_defaults=True)
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-    if write_scene:
+    if write_scene or _is_photo(path):
         try:
             _write_atomically(scene_path, text, allow_create=True)
         except WriteRefused as exc:
@@ -355,6 +366,44 @@ def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
             )
             raise typer.Exit(code=2) from exc
     return text, scene_path
+
+
+def _decode(path: Path, data: bytes) -> Any:
+    from jin_glyph.decode import DecodeError, decode_png
+
+    try:
+        return decode_png(data)
+    except (DecodeError, OSError) as exc:
+        typer.echo(
+            f"{_safe(str(path))}: 完全陣の画像として読めません（{_safe(str(exc))}）"
+            "（型紙に手で描いた陣の写真なら .jpg で渡してください。PNG は Claude に送りません）",
+            err=True,
+        )
+        raise typer.Exit(code=2) from exc
+
+
+def _recognize(path: Path, data: bytes, scene_path: Path, offline: bool) -> Any:
+    """写真を Claude 認識器で場面グラフにする。`--offline` なら送らずに失敗する。
+
+    guard: _recognize -> typer.Exit(code=2)
+    """
+    if offline:
+        typer.echo(
+            f"{_safe(str(path))}: --offline なので写真を送りません。隣に同じ写真の場面グラフ"
+            f"（{_safe(scene_path.name)}）がありません",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    from jin_glyph.recognize import RecognizeError, recognize_photo
+
+    typer.echo(
+        _SENDING_NOTICE.format(path=_safe(str(path)), scene=_safe(scene_path.name)), err=True
+    )
+    try:
+        return recognize_photo(data)
+    except RecognizeError as exc:
+        typer.echo(f"{_safe(str(path))}: 読み取れません（{_safe(str(exc))}）", err=True)
+        raise typer.Exit(code=2) from exc
 
 
 def _existing_scene_for(scene_path: Path, sha256: str) -> str | None:
@@ -371,11 +420,11 @@ def _existing_scene_for(scene_path: Path, sha256: str) -> str | None:
     return None
 
 
-def _check_glyph(path: Path) -> CheckResult:
+def _check_glyph(path: Path, offline: bool) -> CheckResult:
     """画像・場面グラフの診断。診断は場面グラフ（`.jinscene.json`）に対して出す（diagnostics.md §5）。"""
     from jin_glyph.parse import parse_scene_text
 
-    text, scene_path = _scene_text(path, write_scene=True)
+    text, scene_path = _scene_text(path, write_scene=True, offline=offline)
     model, diagnostics = parse_scene_text(text, file=str(scene_path))
     return CheckResult(file=str(scene_path), diagnostics=diagnostics, model=model)
 
@@ -397,7 +446,7 @@ def _format_human(diagnostic: Diagnostic) -> str:
     return body
 
 
-def _run_checks(paths: list[Path], resolve: bool) -> list[CheckResult]:
+def _run_checks(paths: list[Path], resolve: bool, offline: bool = False) -> list[CheckResult]:
     # `--resolve` を渡したときだけ、実際に import する解決器を注入する。
     # `jin_core` はこの実装を知らない（security review S1 / jin_cli.resolver の docstring）。
     # 同一プロセスで import する `ImportResolver` は使わない: 1 ファイル目の `ref` が 2 ファイル目の
@@ -406,7 +455,7 @@ def _run_checks(paths: list[Path], resolve: bool) -> list[CheckResult]:
     out: list[CheckResult] = []
     for path in _collect(paths):
         if _is_glyph_input(path):
-            out.append(_check_glyph(path))
+            out.append(_check_glyph(path, offline))
             continue
         try:
             out.append(check_file(path, resolver=resolver))
@@ -652,7 +701,7 @@ def _write_canonical(path: Path, text: str) -> str | None:
     return None
 
 
-def _fmt_glyph(paths: list[Path], out: Path | None, check_only: bool) -> int:
+def _fmt_glyph(paths: list[Path], out: Path | None, check_only: bool, offline: bool = False) -> int:
     """`jin fmt <画像|場面グラフ> --out <.jin>`。exit コードを返す。
 
     書き先は新しいファイルに限る（画像からの読み戻しで手元の `.jin` を黙って上書きしない）。
@@ -663,7 +712,8 @@ def _fmt_glyph(paths: list[Path], out: Path | None, check_only: bool) -> int:
 
     if len(paths) != 1 or not _is_glyph_input(paths[0]) or out is None or check_only:
         typer.echo(
-            "--out は完全陣の画像（.png）か場面グラフ（.jinscene.json）1 本と一緒に使います"
+            "--out は完全陣の画像（.png）・型紙の写真（.jpg / .jpeg / .webp）・場面グラフ（.jinscene.json）"
+            "の 1 本と一緒に使います"
             "（jin fmt <画像> --out <新しい .jin>。--check とは併用しません）",
             err=True,
         )
@@ -678,7 +728,7 @@ def _fmt_glyph(paths: list[Path], out: Path | None, check_only: bool) -> int:
     if out.exists() or out.is_symlink():
         typer.echo(f"書き先が既にあります（上書きしません）: {_safe(str(out))}", err=True)
         return 2
-    text, scene_path = _scene_text(source, write_scene=False)
+    text, scene_path = _scene_text(source, write_scene=False, offline=offline)
     model, diagnostics = parse_scene_text(text, file=str(scene_path))
     for diagnostic in diagnostics:
         typer.echo(_format_human(diagnostic), err=True)
@@ -692,6 +742,11 @@ def _fmt_glyph(paths: list[Path], out: Path | None, check_only: bool) -> int:
         return 1
     typer.echo(f"書きました: {out}")
     return 0
+
+
+_OFFLINE_HELP = (
+    "型紙の写真を Anthropic の API に送らない（隣の .jinscene.json だけを読み、無ければ失敗する）"
+)
 
 
 @app.command()
@@ -710,9 +765,14 @@ def check(
             ),
         ),
     ] = False,
+    offline: Annotated[bool, typer.Option("--offline", help=_OFFLINE_HELP)] = False,
 ) -> None:
-    """診断（JSON 構文・スキーマ・意味）。error があれば exit 1。"""
-    results = _run_checks(_default_paths(paths), resolve)
+    """診断（JSON 構文・スキーマ・意味）。error があれば exit 1。
+
+    型紙に手で描いた陣の写真（.jpg / .jpeg / .webp）を名指しすると、写真を Anthropic の API（Claude）に送って読み取る
+    （結果は隣の .jinscene.json に保存し、次回からは送らない）。--offline では送らない。
+    """
+    results = _run_checks(_default_paths(paths), resolve, offline)
     diagnostics = [d for r in results for d in r.diagnostics]
 
     if json_output:
@@ -743,13 +803,20 @@ def fmt(
         Path | None,
         typer.Option(
             "--out",
-            help="完全陣の画像（.png）か場面グラフ（.jinscene.json）1 本から正準形の .jin を書く先（既存のファイルは上書きしない）",
+            help=(
+                "完全陣の画像（.png）・型紙の写真（.jpg / .jpeg / .webp）・場面グラフ（.jinscene.json）の 1 本から"
+                "正準形の .jin を書く先（既存のファイルは上書きしない）"
+            ),
         ),
     ] = None,
+    offline: Annotated[bool, typer.Option("--offline", help=_OFFLINE_HELP)] = False,
 ) -> None:
-    """正準形へ正規化する。`--check` は差分があれば exit 1。画像・場面グラフは `--out` へ .jin を書く。"""
+    """正準形へ正規化する。`--check` は差分があれば exit 1。画像・場面グラフは `--out` へ .jin を書く。
+
+    写真は Anthropic の API（Claude）に送って読み取る（`jin check` と同じ。--offline では送らない）。
+    """
     if out is not None or any(_is_glyph_input(p) for p in paths or []):
-        raise typer.Exit(code=_fmt_glyph(paths or [], out, check_only))
+        raise typer.Exit(code=_fmt_glyph(paths or [], out, check_only, offline))
     targets = _collect(_default_paths(paths))
     changed: list[Path] = []
     failed: list[Path] = []
@@ -1638,7 +1705,7 @@ def _write_stdout_bytes(text: str) -> None:
         _fail_on_stdout(exc)
 
 
-def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
+def _write_svg(source: Path | None, path: Path, text: str, *, force: bool) -> None:
     """`-o` の書き出し。`jin fmt` / `jin build` と同じ規約。
 
     先に見る条件は 2 種類ある（F-S-P3-101 で分けた）。
@@ -1672,7 +1739,8 @@ def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
     parent = path.parent
     if not parent.is_dir():
         raise WriteRefused(f"出力先のディレクトリがありません: {parent}")
-    if path.exists() and path.resolve() == source.resolve():
+    if source is not None and path.exists() and path.resolve() == source.resolve():
+        # 白紙の型紙（`--sheet` で FILE なし）は入力のファイルが無いので source は None。
         # `.jin` を SVG で上書きすると入力そのものが消える（`--force` でも通さない）。
         raise WriteRefused("入力の .jin と同じファイルには書けません")
     if path.exists() and not force:
@@ -1682,7 +1750,9 @@ def _write_svg(source: Path, path: Path, text: str, *, force: bool) -> None:
 
 @app.command()
 def render(
-    file: Annotated[Path, typer.Argument(help="対象の .jin")],
+    file: Annotated[
+        Path | None, typer.Argument(help="対象の .jin（--sheet のときは渡さない）")
+    ] = None,
     out: Annotated[
         Path | None,
         typer.Option("-o", "--out", help="SVG の出力先（省略時は標準出力）"),
@@ -1712,6 +1782,17 @@ def render(
             help="完全陣（v2 のプログラムの情報をすべて載せた 1 枚・陣書き）。--focus / --trace とは併用できない",
         ),
     ] = False,
+    sheet: Annotated[
+        str | None,
+        typer.Option(
+            "--sheet",
+            metavar="S|M",
+            help=(
+                "手で描く型紙（陣書き・印刷して 1 升 5 mm）。S = 1 陣 × 4 手順、M = 3 陣 × 各 4 手順。"
+                "FILE を渡すとその銘文を書き込んだ写し書きの手本になる。--full / --focus / --trace とは併用できない"
+            ),
+        ),
+    ] = None,
 ) -> None:
     """魔法陣 SVG を出す（要件書 §4 / §5）。同じ入力なら常にバイト単位で同じ出力になる。
 
@@ -1726,6 +1807,11 @@ def render(
         raise typer.Exit(code=2)
     if upto is not None and upto < 0:
         typer.echo(f"--upto は 0 以上の整数です（指定値: {brief(upto)}）", err=True)
+        raise typer.Exit(code=2)
+    if sheet is not None:
+        _render_sheet(sheet, file, out, force=force, others=(trace, focus, full))
+    if file is None:
+        typer.echo("対象の .jin を指定してください（型紙なら --sheet S か --sheet M）", err=True)
         raise typer.Exit(code=2)
     model = _load_model_or_exit(file)
     rows: list[dict] | None = None
@@ -1766,6 +1852,43 @@ def render(
     except SymlinkWriteRefused as exc:
         # 一層目・二層目とも文言にパスが入っているので、ここで前置しない
         # （前置すると競合時にパスが 2 回出る・F-V-P3-104）。
+        typer.echo(_safe(str(exc)), err=True)
+        raise typer.Exit(code=1) from exc
+    except WriteRefused as exc:
+        typer.echo(f"{_safe(str(out))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_or_exit(f"書き出しました: {_safe(str(out))}")
+    raise typer.Exit(code=0)
+
+
+def _render_sheet(
+    grade: str, file: Path | None, out: Path | None, *, force: bool, others: tuple[Any, ...]
+) -> None:
+    """`jin render [FILE] --sheet S|M`（陣書き S4）。FILE が無ければ白紙の型紙、あれば写し書きの手本。"""
+    trace, focus, full = others
+    if trace is not None or focus is not None or full:
+        typer.echo("--sheet は --full / --focus / --trace と一緒に使えません", err=True)
+        raise typer.Exit(code=2)
+    if grade not in SHEET_GRADES:
+        typer.echo(f"--sheet は S か M です（指定値: {brief(grade)}）", err=True)
+        raise typer.Exit(code=2)
+    model = None
+    if file is not None:
+        model = _load_model_or_exit(file)
+        if not isinstance(model, JinFileV2):
+            typer.echo(f"{_safe(str(file))}: --sheet の手本は v2 の .jin だけを描きます", err=True)
+            raise typer.Exit(code=2)
+    try:
+        svg = render_sheet(grade, model)
+    except SheetOverflow as exc:
+        typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
+        raise typer.Exit(code=2) from exc
+    if out is None:
+        _write_stdout_bytes(svg)
+        raise typer.Exit(code=0)
+    try:
+        _write_svg(file, out, svg, force=force)
+    except SymlinkWriteRefused as exc:
         typer.echo(_safe(str(exc)), err=True)
         raise typer.Exit(code=1) from exc
     except WriteRefused as exc:

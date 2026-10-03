@@ -115,27 +115,23 @@ def frame_positions(count: int, half: float) -> list[tuple[float, float]]:
     return out[:count]
 
 
-def _stage(canvas: _Canvas, model: JinFileV2) -> Node:
+def talisman_nodes(canvas: _Canvas) -> list[Node]:
+    """四隅の護符(一辺 FULL_TALISMAN 升)。右上だけ中が丸(向きの印)。完全陣と型紙(S4)で共通。"""
     half = canvas.half
-    group = shapes.group("/stage", "stage")
-    group.children.append(
-        shapes.path(_square_d(canvas, -half, -half, half, half), "/stage", "stage")
-    )
+    out: list[Node] = []
     t = g2.FULL_TALISMAN
     corners = ((-half, -half), (half - t, -half), (-half, half - t), (half - t, half - t))
     for n, (x, y) in enumerate(corners):
-        group.children.append(
+        out.append(
             shapes.path(
                 _square_d(canvas, x + 0.2, y + 0.2, x + t - 0.2, y + t - 0.2), "/stage", "stage"
             )
         )
         cx, cy = canvas.px(x + t / 2, y + t / 2)
         if n == 1:  # 右上だけ丸(向きの印)
-            group.children.append(
-                shapes.circle((cx, cy), 0.6 * canvas.unit, "/stage", "stage", filled=True)
-            )
+            out.append(shapes.circle((cx, cy), 0.6 * canvas.unit, "/stage", "stage", filled=True))
         else:
-            group.children.append(
+            out.append(
                 Node(
                     "path",
                     [
@@ -156,6 +152,16 @@ def _stage(canvas: _Canvas, model: JinFileV2) -> Node:
                     accent_attr="fill",
                 )
             )
+    return out
+
+
+def _stage(canvas: _Canvas, model: JinFileV2) -> Node:
+    half = canvas.half
+    group = shapes.group("/stage", "stage")
+    group.children.append(
+        shapes.path(_square_d(canvas, -half, -half, half, half), "/stage", "stage")
+    )
+    group.children.extend(talisman_nodes(canvas))
     cells = frame_band(model)
     for cell, center in zip(cells, frame_positions(len(cells), half), strict=False):
         node = _cell_node(canvas, cell, center)
@@ -352,4 +358,4 @@ def render_full(model: JinFileV2) -> str:
     return document([], body, 2.0 * placement.half * canvas.unit)
 
 
-__all__ = ["frame_positions", "render_full"]
+__all__ = ["frame_positions", "render_full", "talisman_nodes"]

@@ -150,7 +150,7 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
 | v2.1 | v1 の陣（LLM エージェント）を v2 から呼ぶ `agent` の sigil（Issue #54・設計書 §11 #55・runtime.md §11。問いは tick 結果の `asks`・答えは入力イベント `reply`・答えるのはヘッドレスの `jin_cli.agents.AgentHost` だけ・`jin run --model fake` / `--record`・jil: 6） | 実装済み |
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
 | v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 = プレイヤーの `WasmGcHost` + manifest の `target` + `--single` + ブラウザの e2e + `runtime.wat` の生成物化: **実装済み**。Issue #53 完了） |
-| 陣書き | 紙や PNG の魔法陣をプログラムとして読む（`docs/superpowers/specs/2026-10-03-jin-glyph-design.md`・正典 `docs/spec/v2/glyph.md`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s0-s1.md`）。S0 = 手描き認識の spike（`delivery/20260904-1445-jin/glyph-spike/`）・S1 = 紋の語彙 `jin_core.v2.glyph` / JIN3xx（`SCENE_CODES`）/ パッケージ `jin-glyph` と場面グラフ `jin_glyph.scene`（`schemas/jin-scene.schema.json`）・S2 = 完全陣（`jin render --full`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s2.md`。構造の印 21 字・線の字形の正本 `jin_render.v2.glyph_paths`（`docs/spec/v2/glyphs/*.svg` は `scripts/generate_glyph_svgs.py` の生成物）・ドットの字 `jin_render.v2.font`（`font_data.py` は `scripts/generate_glyphs.py` の生成物）・銘帯の中身 `jin_render.v2.inscribe`・配置 `full_layout`・描画 `full`。既定の出力は不変・`<text>` 無し・13 種のまま）・S3 = Jin が描いた完全陣の PNG を API 無しで読む（計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s3.md`・glyph.md §9。升の照合 `jin_glyph.cells`・デコーダ `jin_glyph.decode`・構文解析器 `jin_glyph.parse`・`jin check x.png` / `jin fmt x.png --out y.jin`。入れ子の境目 `s_else` / `s_end` と root の添字を銘文に書く） | S1・S2・S3 **実装済み**（紋 58 字（式紋 36・判別の紋 22。22 字目は state の `out` の `mark_out`）・構造の印 23 字・fib の完全陣はユーザー承認済み・**往復の契約** `tests/contract/test_glyph_roundtrip.py` が examples-v2 + v2-programs の 22 本でバイト一致）。S0 は道具まで（**撮影と認識の実測は未**）。S2 の実測で A3 の 1 升は fib 2.4 mm・tetris 0.5 mm（glyph.md §8。配置の詰め方が課題）。S4〜S7（Claude 認識器と型紙・エディタ・フリーハンド・鑑賞）は未着手 |
+| 陣書き | 紙や PNG の魔法陣をプログラムとして読む（`docs/superpowers/specs/2026-10-03-jin-glyph-design.md`・正典 `docs/spec/v2/glyph.md`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s0-s1.md`）。S0 = 手描き認識の spike（`delivery/20260904-1445-jin/glyph-spike/`）・S1 = 紋の語彙 `jin_core.v2.glyph` / JIN3xx（`SCENE_CODES`）/ パッケージ `jin-glyph` と場面グラフ `jin_glyph.scene`（`schemas/jin-scene.schema.json`）・S2 = 完全陣（`jin render --full`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s2.md`。構造の印 21 字・線の字形の正本 `jin_render.v2.glyph_paths`（`docs/spec/v2/glyphs/*.svg` は `scripts/generate_glyph_svgs.py` の生成物）・ドットの字 `jin_render.v2.font`（`font_data.py` は `scripts/generate_glyphs.py` の生成物）・銘帯の中身 `jin_render.v2.inscribe`・配置 `full_layout`・描画 `full`。既定の出力は不変・`<text>` 無し・13 種のまま）・S3 = Jin が描いた完全陣の PNG を API 無しで読む（計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s3.md`・glyph.md §9。升の照合 `jin_glyph.cells`・デコーダ `jin_glyph.decode`・構文解析器 `jin_glyph.parse`・`jin check x.png` / `jin fmt x.png --out y.jin`。入れ子の境目 `s_else` / `s_end` と root の添字を銘文に書く）・S4 = 型紙に手で描いた陣の写真を Claude で読む（glyph.md §10。型紙 `jin render [x.jin] --sheet S\|M`・幾何 `jin_render.v2.sheet_layout`・認識器 `jin_glyph.recognize`・`jin check x.jpg` / `--offline`） | S1・S2・S3・S4 **実装済み**（紋 58 字（式紋 36・判別の紋 22。22 字目は state の `out` の `mark_out`）・構造の印 23 字・fib の完全陣はユーザー承認済み・**往復の契約** `tests/contract/test_glyph_roundtrip.py` が examples-v2 + v2-programs の 22 本でバイト一致）。S0 は道具まで（**撮影と認識の実測は未**）。S2 の実測で A3 の 1 升は fib 2.4 mm・tetris 0.5 mm（glyph.md §8。配置の詰め方が課題）。S4 は合成写真と合成した応答で fib / clicker がバイト一致まで（**撮影した写真と本物の API での実測は未**・API キー待ち）。S5〜S7（エディタ・フリーハンド・鑑賞）は未着手 |
 
 ### 陣書き S3（完全陣の PNG を読む）の要点（正典は `docs/spec/v2/glyph.md` §9・設計書 §9 #29〜#34）
 
@@ -161,6 +161,23 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
 - **升の照合は位置のずれに弱い**: 倍率 2 で 1 px ずれると構造の印・ドットの字を取り違える。`read_cell` は近い候補を ±1 格子目ずらして測り、
   位置の合わせ込み（`_refine` / `_locate`）はずらさない差 `distance_to` で行う。完全陣の描き方（線の太さ・円どうしの線）を変えたら往復の契約を回す
 - 診断は `.jinscene.json` に対して（JIN3xx・写した JIN0xx / 2xx）。fixture は `tests/fixtures/errors/scene/`（6 本）。`jin_glyph` は CLI の関数の中で import する
+
+### 陣書き S4（型紙の写真を Claude で読む）の要点（正典は `docs/spec/v2/glyph.md` §10・設計書 §9 #35〜#41）
+
+- **型紙の幾何は `jin_render.v2.sheet_layout.sheet_layout` の 1 か所**。描く `jin_render.v2.sheet` も切り出す `jin_glyph.recognize` もそれだけを読む
+  （レイアウトを二重に実装しない）。銘環・額縁の銘帯・護符の規則は完全陣と共有し、大きさだけ `SHEET_*`（1 升 5 mm・一辺 285 mm）。
+  割り付け（継ぎの紋 → 続きの帯を番号の順）は `fill_sheet` 1 本で、手本（`jin render x.jin --sheet S`）とテストの正解が使う。
+  型紙を直したら `uv run pytest packages/jin-render --snapshot-update`（`test_sheet.ambr`）で更新し、差分を読んでからコミット
+- **外部送信は写真の拡張子（`.jpg` / `.jpeg` / `.webp`）を名指ししたときだけ**。`.png` はデコーダだけで API に回さない。隣に同じ写真（sha256）の
+  `.jinscene.json` があれば送らない。`--offline` は送らない。送る前に stderr へ 1 行。`anthropic` を import するのは `jin_glyph.recognize` だけで、
+  CLI は関数の中で import する（`jin --help` や `.jin` の検査の起動に乗せない）
+- **SDK の呼び方は記憶で書かない**: 一次証拠は `delivery/20260904-1445-jin/glyph-recognize-api-probe.md`（anthropic 1.11.0。`system` は画像を受けない・
+  キー無しは送る前に `TypeError`・`fallbacks: "default"` の beta は `server-side-fallback-2026-07-01`）。**API の往復は未実測**
+- **テストの応答の fixture は合成**（`tests/fixtures/recognize/fib-S.synthetic/`・本物の録画ではない）。写真も手本から合成する（`tests/glyph_photo.py`。
+  jin-glyph と jin-cli のテストが共有）。生成器とずれたら `UPDATE_RECORDINGS=1 uv run pytest packages/jin-glyph/tests/test_recognize.py -k recorded`。
+  本物の写真での評価と録画は `scripts/glyph_recognize_eval.py`（手動・要 API キー・CI では回さない）
+- **`anthropic` が入ったので**、Runner 実行中に cwd が `sys.path` に無いことの契約（`test_cwd_cannot_supply_an_uninstalled_optional_dependency_during_the_run`）は
+  未インストール名を `openai` に差し替えた（ADK 2.8.0 が実行中に遅延 import することを変異で実測）。`openai` を依存に足すときは別の名前に差し替える
 
 ### Jin v2.1（`--target wasm-gc`・`jin-wasmgc`）の要点（正典は `docs/spec/v2/jil.md` §6・設計書 §11 #56・`wasmgc-api-probe.md`）
 
@@ -663,6 +680,9 @@ uv run jin render examples-v2/fib/fib.jin --full -o /tmp/fib-full.svg   # 完全
 uv run python -c "import cairosvg; cairosvg.svg2png(url='/tmp/fib-full.svg', write_to='/tmp/fib.png', scale=2, background_color='white')"   # 完全陣を PNG に（2 倍以上）
 uv run jin check /tmp/fib.png && uv run jin fmt /tmp/fib.png --out /tmp/fib-back.jin   # 陣書き S3: 画像を読む（隣に fib.jinscene.json を書く）→ 正準形の .jin に戻す
 uv run python scripts/generate_glyph_svgs.py --check   # docs/spec/v2/glyphs/*.svg が jin_render.v2.glyph_paths からの生成物とずれていないか
+uv run jin render --sheet S -o /tmp/sheet-S.svg && uv run jin render examples-v2/fib/fib.jin --sheet S -o /tmp/fib-S.svg   # 陣書き S4: 白紙の型紙と写し書きの手本（A3 に一辺 285 mm で刷る）
+uv run jin check /tmp/fib.jpg && uv run jin fmt /tmp/fib.jpg --out /tmp/fib-back.jin   # 型紙の写真を Claude で読む（Anthropic の API に送る・隣に fib.jinscene.json を書き次回は送らない。--offline で送らない）
+uv run python scripts/glyph_recognize_eval.py --photo /tmp/fib.jpg --expect examples-v2/fib/fib.jin --record /tmp/rec   # 認識器の手動評価（要 API キー・手直しの升数と合格線 2%）
 uv run python scripts/measure_full_circle.py   # examples-v2 の完全陣の大きさ（一辺・銘環の周回数・升の総数・A3 で 1 升の mm）
 uv run python scripts/generate_tutorial_figures.py --check   # docs/tetris-tutorial.md の図（docs/images/tutorial/*.svg + ステップの表）が段階サンプルからの生成物とずれていないか（--check 無しで書き直す）
 uv run jin run tests/fixtures/v2-programs/storage.jin --ticks 3 --storage /tmp/memory.json   # 同（記憶を実行をまたいで読み書き。2 回目は runs が 2）
