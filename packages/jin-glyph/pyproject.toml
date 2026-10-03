@@ -6,13 +6,17 @@ requires-python = ">=3.12"
 # jin-glyph は jin-lsp / jin-wasmgc の**兄弟**(import-linter の layers 契約 `"jin_lsp | jin_wasmgc | jin_glyph"`)。
 # 設計は docs/superpowers/specs/2026-10-03-jin-glyph-design.md §4.2。import するのは jin_cli だけ
 # (`anthropic` を LSP の起動経路に乗せない)。紋の語彙と欄の順は jin_core.v2.glyph(レンダラと共有)。
-# jin-render(幾何の共有)・Pillow・anthropic は使う段(S2〜S4)で足す。
+# anthropic は S4(Claude 認識器)で足す。
 dependencies = [
   "jin-core",
+  "jin-render",
+  # 升の読み取り（S3・jin_glyph.cells）。版は 2026-10-03 の実測（12.3.0）
+  "pillow>=12.3,<13",
 ]
 
 [tool.uv.sources]
 jin-core = { workspace = true }
+jin-render = { workspace = true }
 
 [build-system]
 requires = ["hatchling>=1.32"]

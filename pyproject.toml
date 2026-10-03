@@ -38,6 +38,8 @@ dev = [
   "import-linter>=2.14,<3",
   # 生成 agent.py のスナップショット（要件書 §9「コード生成」）。版は version-matrix.md §8（Phase 2）
   "syrupy>=6.0,<7",
+  # 陣書き S3 の往復の契約テスト（完全陣の SVG → PNG）。版は 2026-10-03 の実測（2.9.1）。libcairo が要る
+  "cairosvg>=2.9,<3",
   # 要件書 §9「LSP: pytest-lsp で … 各ラウンドトリップ」。版は version-matrix.md §9（Phase 4）。
   # **ws のラウンドトリップは pytest-lsp では張れない**（`ClientServerConfig` が
   # `server_command` しか受けず WebSocket の接続先を持たない・lsp-api-probe.md §2 の実測）。
