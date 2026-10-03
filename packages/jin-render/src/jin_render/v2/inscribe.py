@@ -260,6 +260,9 @@ def circle_ring(model: JinFileV2, ci: int) -> list[InkCell]:
         sub.type_(state["type"], f"{p}/type")
         sub.field()
         sub.expr(state["init"], f"{p}/init")
+        if state.get("out"):  # 公開は判別の紋だけの欄(図の二重線は画素からは読めない大きさ)
+            sub.field()
+            sub.glyph(_DISC[("optional", "out")], sub.at(f"{p}/out"))
         cells += sub.cells
     for j, sigil in enumerate(circle.get("sigils", [])):
         p = f"{base}/sigils/{j}"

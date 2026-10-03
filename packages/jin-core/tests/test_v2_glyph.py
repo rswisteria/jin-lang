@@ -20,8 +20,8 @@ def by_slot(slot: str) -> set[str]:
 
 def test_glyph_counts_match_the_spec() -> None:
     assert sum(g.layer == "expr" for g in GLYPHS) == 36
-    assert sum(g.layer == "disc" for g in GLYPHS) == 21
-    assert len(GLYPH_IDS) == len(GLYPHS) == 57
+    assert sum(g.layer == "disc" for g in GLYPHS) == 22
+    assert len(GLYPH_IDS) == len(GLYPHS) == 58
 
 
 def test_glyph_ids_are_lowercase_identifiers() -> None:
@@ -40,7 +40,7 @@ def test_discriminators_cover_the_model_literals_exactly() -> None:
     assert by_slot("flow") == set(get_args(FlowKind))
     assert by_slot("asset") == set(get_args(AssetKind))
     assert by_slot("wait") == {"ticks", "until"}
-    assert by_slot("optional") == {"into", "name", "message"}
+    assert by_slot("optional") == {"into", "name", "message", "out"}
     assert {g.slot for g in GLYPHS if g.slot} == {
         "loop",
         "sigil",

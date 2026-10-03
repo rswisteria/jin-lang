@@ -127,6 +127,21 @@ def test_latin_cells_hold_one_code_point() -> None:
         assert all(len(c.v) == 1 for c in all_bands(load(path)) if c.t == "latin"), path
 
 
+def test_a_public_state_carries_the_out_mark_and_a_private_one_does_not() -> None:
+    # S2 の最終レビュー #3 → ユーザーの判断(b): out を銘帯に載せる(画素から図の二重線は読めない)
+    model = load(REPO_ROOT / "examples-v2/paddle/paddle.jin")
+    for ci, circle in enumerate(model.circles):
+        cells = circle_ring(model, ci)
+        for j, state in enumerate(circle.state):
+            marks = [
+                c
+                for c in cells
+                if c.v == "mark_out" and c.pointer.startswith(f"/circles/{ci}/state/{j}")
+            ]
+            assert len(marks) == (1 if state.out else 0), (circle.name, state.name)
+    assert any(s.out for c in model.circles for s in c.state)
+
+
 def test_the_standard_schema_url_is_not_inscribed_but_a_custom_one_is() -> None:
     model = load(REPO_ROOT / "examples-v2/fib/fib.jin")
     assert all(c.pointer != "/$schema" for c in frame_band(model))

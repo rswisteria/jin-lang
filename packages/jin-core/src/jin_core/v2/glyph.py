@@ -30,7 +30,7 @@ def _disc(gid: str, slot: str, token: str) -> Glyph:
     return Glyph(gid, "disc", token, slot)
 
 
-#: spec §1.1 の表の順(= glyph.md の紋の表の順)。式紋 36 字・判別の紋 21 字。
+#: spec §1.1 の表の順(= glyph.md の紋の表の順)。式紋 36 字・判別の紋 22 字。
 GLYPHS: tuple[Glyph, ...] = (
     _expr("add", "+"),
     _expr("sub", "-"),
@@ -89,6 +89,7 @@ GLYPHS: tuple[Glyph, ...] = (
     _disc("mark_into", "optional", "into"),
     _disc("mark_name", "optional", "name"),
     _disc("mark_message", "optional", "message"),
+    _disc("mark_out", "optional", "out"),
 )
 
 GLYPH_IDS: frozenset[str] = frozenset(g.id for g in GLYPHS)
