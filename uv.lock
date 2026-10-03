@@ -935,6 +935,7 @@ source = { editable = "packages/jin-cli" }
 dependencies = [
     { name = "jin-adk" },
     { name = "jin-core" },
+    { name = "jin-glyph" },
     { name = "jin-lsp" },
     { name = "jin-render" },
     { name = "jin-wasm" },
@@ -946,6 +947,7 @@ dependencies = [
 requires-dist = [
     { name = "jin-adk", editable = "packages/jin-adk" },
     { name = "jin-core", editable = "packages/jin-core" },
+    { name = "jin-glyph", editable = "packages/jin-glyph" },
     { name = "jin-lsp", editable = "packages/jin-lsp" },
     { name = "jin-render", editable = "packages/jin-render" },
     { name = "jin-wasm", editable = "packages/jin-wasm" },
