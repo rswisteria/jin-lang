@@ -371,7 +371,8 @@ Jin が描いた完全陣の PNG は API を使わずに読む(`jin_glyph.decode
 
 - テストはネットワークと API キーを使わない。写真は手本の SVG → PNG → 台形に歪めた JPEG(`tests/glyph_photo.py`)、Claude の応答は
   生の Messages API の JSON を `httpx2.MockTransport` で返す(SDK の parse の経路を通す)。**fixture `tests/fixtures/recognize/fib-S.synthetic/`
-  は本物の録画ではなく正解から合成したもの**(実装時に API キーが無かった・§9 #41)。fib と clicker が元の `.jin` とバイト一致し、
-  写真を 90° 回しても読める
+  は本物の録画ではなく正解から合成したもの**(実装時に API キーが無かった・§9 #41)。examples-v2 と v2-programs のうち型紙に収まる
+  全本(S 13 本・M 11 本。clicker は続きの帯、M は 3 陣と root が先頭でない陣を含む)が元の `.jin` とバイト一致し、写真を 90° 回しても、
+  EXIF の向きで持っていても読める
 - 本物の写真での評価は `scripts/glyph_recognize_eval.py --photo x.jpg --expect x.jin [--record DIR]`(手動・要 API キー)。
   手直しの升数(持ち主ごとの銘帯の編集距離の和)と割合(合格線 2%・設計書 §9 #17)を出す。**撮影した fib / clicker での実測は未**(設計書 §6 の S4 の完了の条件)

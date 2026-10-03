@@ -278,7 +278,7 @@ class Recognizer:
                 raise
             raise RecognizeError(
                 "Anthropic の API の認証情報がありません"
-                "（ANTHROPIC_API_KEY を設定するか `ant auth login` をしてください。写真は送っていません）"
+                "（ANTHROPIC_API_KEY を設定するか `ant auth login` をしてください。送る前に止めたので写真は外へ出ていません）"
             ) from exc
         except anthropic.AuthenticationError as exc:
             raise RecognizeError(

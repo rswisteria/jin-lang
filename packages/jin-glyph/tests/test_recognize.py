@@ -32,7 +32,7 @@ from jin_glyph.recognize import (
     order_corners,
     recognize_photo,
 )
-from jin_render.v2.sheet_layout import sheet_layout
+from jin_render.v2.sheet_layout import GRADES, SheetOverflow, fill_sheet, sheet_layout
 from PIL import Image, ImageDraw
 
 from tests.glyph_photo import (
@@ -220,16 +220,65 @@ def test_the_boxes_are_in_photo_coordinates(fib_photo: bytes) -> None:
             assert 40 < x1 - x0 < 90  # 1 升 ≈ 60 px(手本の倍率 5)
 
 
-def test_a_photo_of_the_hand_written_clicker_sheet_uses_the_strips_and_reads_back() -> None:
-    """継ぎの紋 → 続きの帯(clicker の手順陣 272 升は 110 升の環に入らない)。"""
-    model = load("clicker")
-    scene = recognize_photo(
-        synthetic_photo(model),
-        recognizer=Recognizer(client=replay_client(synthetic_responses(model), [])),
+def _programs_that_fit() -> list:
+    """examples-v2 と v2-programs のうち、型紙(S / M)に収まるもの(陣・手順の数と続きの帯の升)。"""
+    out = []
+    paths = sorted((REPO_ROOT / "examples-v2").glob("*/*.jin")) + sorted(
+        (REPO_ROOT / "tests" / "fixtures" / "v2-programs").glob("*.jin")
     )
-    parsed, diagnostics = parse_scene(scene, file="clicker.jinscene.json")
-    assert diagnostics == []
-    assert parsed is not None and dumps(parsed) == source("clicker")
+    for path in paths:
+        model = check_text(path.read_text(encoding="utf-8"), path.name).model
+        if not isinstance(model, JinFileV2):
+            continue
+        for grade in GRADES:
+            try:
+                fill_sheet(sheet_layout(grade), model)
+            except SheetOverflow:
+                continue
+            out.append(pytest.param(path, grade, id=f"{grade}-{path.stem}"))
+    return out
+
+
+@pytest.mark.parametrize(("path", "grade"), _programs_that_fit())
+def test_a_photo_of_every_program_that_fits_a_sheet_reads_back(path: Path, grade: str) -> None:
+    """型紙に収まるすべてのプログラムで、手本の写真 → 場面グラフ → 構文解析が元の .jin とバイト一致する。
+    S の clicker は継ぎの紋 → 続きの帯、M は 3 陣(emit_message ほか)と root が先頭でない陣(root_not_first)を通す。"""
+    text = path.read_text(encoding="utf-8")
+    model = check_text(text, path.name).model
+    assert isinstance(model, JinFileV2)
+    scene = recognize_photo(
+        synthetic_photo(model, grade),
+        recognizer=Recognizer(client=replay_client(synthetic_responses(model, grade), [])),
+    )
+    assert scene.sheet == grade
+    parsed, diagnostics = parse_scene(scene, file=f"{path.stem}.jinscene.json")
+    assert [d for d in diagnostics if d.severity == "error"] == []
+    assert parsed is not None and dumps(parsed) == dumps(model)
+
+
+def test_the_sheets_cover_clicker_and_multi_circle_programs() -> None:
+    """上の網が「収まるものだけ」に縮んで黙らないよう、通すべき組を名指しする。"""
+    ids = {p.id for p in _programs_that_fit()}
+    assert {"S-fib", "S-clicker", "M-fib", "M-emit_message", "M-root_not_first"} <= ids
+
+
+def test_an_exif_rotated_photo_is_turned_upright_before_reading(fib_photo: bytes) -> None:
+    """スマホの写真は画素を回さず EXIF の向き(0x0112)で持つ。画素を左に 90° 回して向き 6(表示時に右へ 90°)を付けた写真は、
+    向きを直した後の座標で読む(位置合わせの座標は回す前の fixture のまま通る)。"""
+    import io
+
+    image = Image.open(io.BytesIO(fib_photo)).rotate(90, expand=True)
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", quality=88, exif=exif)
+    scene = recognize_photo(
+        buffer.getvalue(), recognizer=Recognizer(client=replay_client(recordings(), []))
+    )
+    model, diagnostics = parse_scene(scene, file="fib.jinscene.json")
+    assert diagnostics == [] and model is not None and dumps(model) == source("fib")
+    original = Image.open(io.BytesIO(fib_photo))
+    assert (scene.image.width, scene.image.height) == original.size
 
 
 def test_a_rotated_photo_reads_back_too(fib_photo: bytes) -> None:
