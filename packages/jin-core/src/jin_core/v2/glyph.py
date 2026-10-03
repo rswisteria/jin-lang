@@ -145,6 +145,9 @@ FIELD_ORDER: dict[str, tuple[str, ...]] = {
     "guard": ("assert", "message"),
     "delegate": ("circle",),
     "description": ("description",),
+    # S3(入れ子の境目・ユーザーの判断 B): 欄を持たない印だけの銘帯。`if` の `else` の始まりと、`if` / `loop` のブロックの終わり
+    "else": (),
+    "end": (),
 }
 
 #: `loop` の種別の紋の後に続く欄の並び(`count` は `times` が先で、`name` は印の紋付きで後)。

@@ -99,7 +99,7 @@ S0 の手描き認識の実測(§7)で読めない字が出たときだけ描き
 
 銘環の中で銘帯 1 本の頭に置き、どの図形の銘文かを示す(区切りを兼ねる・設計書 §1.1 / §1.3 / §9 #24)。字形は二重の正方形の枠の中に
 layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれとも形が違う。額縁は辺が始まりなので印を持たない。
-実装は `jin_core.v2.glyph.STRUCT_MARKS`(並びは §3 の欄の順の表と同じ)。
+実装は `jin_core.v2.glyph.STRUCT_MARKS`(並びは §3 の欄の順の表と同じ)。S3 で入れ子の境目の 2 字(`s_else` / `s_end`)を足して 23 字: `if` の銘帯 → then の前順 →(else が空でなければ `s_else` → else の前順)→ `s_end`、`loop` の銘帯 → 本文の前順 → `s_end`(本文が空でも書く)。入れ子は銘文だけで決まる(設計書 §9 #29)。
 
 <!-- machine-readable: struct-marks -->
 
@@ -126,6 +126,8 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 | `s_guard` | `guard` | ![s_guard](glyphs/s_guard.svg) |
 | `s_delegate` | `delegate` | ![s_delegate](glyphs/s_delegate.svg) |
 | `s_description` | `description` | ![s_description](glyphs/s_description.svg) |
+| `s_else` | `else` | ![s_else](glyphs/s_else.svg) |
+| `s_end` | `end` | ![s_end](glyphs/s_end.svg) |
 
 <!-- /machine-readable -->
 
@@ -163,6 +165,8 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 | `guard` | `assert`・`message` |
 | `delegate` | `circle` |
 | `description` | `description` |
+| `else` | — |
+| `end` | — |
 
 <!-- /machine-readable -->
 
@@ -187,6 +191,7 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
   JSON のエスケープには無い、視覚層だけの規則)。その他の制御文字は `esc` + `u` + 16 進 4 桁
 - 文字列の欄(陣の `description`・guard の `message`・asset の `path`・agent の `file`)も同じ書き方で括る。名前(`Name`)の欄は括らない
   (`emit` の `message`・`host` の `host` も名前。S2 で確定・実装は `jin_render.v2.inscribe`)
+- root が `circles[0]` でないときだけ、額縁の銘帯の `seed` の後に root の添字(ラテンの数字・pointer `/root`)を書く(陣の並びは第 1 軌道の順と root の添字から戻す・S3・設計書 §9 #30)
 - `$schema` は標準の URL なら額縁の銘帯に書かない(モデルに必ずあるので、書かれていなければ標準)。核なし陣の `flow.steps` は
   陣の名前の並び(`comma` 区切り)として陣の核の銘帯に書く。`let` の `type` は欄の数(3 つなら型あり)で見分ける
 - 型は型紋(`t_num` `t_bool` `t_str`)、`list<T>` は `t_list_l` T `t_list_r`、型紙名はラテン文字
