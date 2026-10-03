@@ -558,7 +558,8 @@ Each inscription symbol is drawn by hand with a pen and is exactly one of:
 - a single Latin/digit/kana/kanji character (names, numbers and string contents), or
 - one of the special glyphs shown in the glyph table image (answer its id, e.g. "add", "sep", "quote_l", "loop_count"), or
 - one of the structure marks shown in the same table (ids starting with "s_", e.g. "s_set", "s_rite"; a small shape inside a
-  double square frame), or the start mark (id "start", a small triangle over a bar) that begins every circle's inscription.
+  double square frame), or the start mark (id "start", a horizontal bar with a downward-pointing triangle under it,
+  shown as "start" in the glyph table) that begins every circle's inscription.
 Lines, circles, arrows and small shapes of the diagram inside each circle, and the decorations in the frame corners, are not
 inscription symbols.
 Never guess a whole word: read each symbol on its own.
