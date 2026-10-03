@@ -49,6 +49,12 @@ _OPEN = frozenset({"paren_l", "brack_l", "brace_l", "t_list_l"})
 _CLOSE = frozenset({"paren_r", "brack_r", "brace_r", "t_list_r"})
 _UNESCAPE = frozenset(ESCAPE_LETTERS.values())
 _HEX = frozenset("0123456789abcdefABCDEF")
+#: 文字列の中でラテンの升に生のまま置けない字(銘文は esc で書く。生のままだと to_expr が組む JSON が壊れる・最終レビュー #1)
+_NEEDS_ESCAPE = frozenset(ESCAPE_LETTERS) | {chr(c) for c in range(0x20)}
+#: 額縁の数の欄の桁数の上限(stage の値の上限より十分大きく、int() の桁数の上限より十分小さい)
+_MAX_DIGITS = 12
+#: 型の list の入れ子の上限(手書きの場面グラフで再帰が溢れないように)
+_MAX_LIST_DEPTH = 32
 #: 陣の銘環・手順陣の銘環・額縁の銘帯に現れてよい銘帯の頭(先頭の 1 本は別に決まっている)
 _CIRCLE_PARTS = frozenset({"description", "state", "sigil", "on", "guard", "delegate"})
 _FRAME_PARTS = frozenset({"form", "asset"})
@@ -171,8 +177,12 @@ def _name(run: Run, segment: _Segment, what: str = "名前") -> str:
 
 def _int(run: Run, segment: _Segment, what: str) -> int:
     text = _name(run, segment, what)
-    if not (text.isascii() and text.isdigit()):
-        raise _Bad("JIN302", run[0].at, f"{what} が数ではありません: {text!r}")
+    if not (text.isascii() and text.isdigit()) or len(text) > _MAX_DIGITS:
+        raise _Bad(
+            "JIN302",
+            run[0].at,
+            f"{what} が数ではありません(0 以上の整数・{_MAX_DIGITS} 桁まで): {text[:20]!r}",
+        )
     return int(text)
 
 
@@ -205,7 +215,18 @@ def _check_string_body(body: Run) -> None:
             continue
         if cell.t != "latin":
             raise _Bad("JIN302", cell.at, f"文字列の中に紋 {cell.v} があります")
+        _check_raw(cell)
         k += 1
+
+
+def _check_raw(cell: _C) -> None:
+    if cell.v in _NEEDS_ESCAPE:
+        raise _Bad(
+            "JIN302",
+            cell.at,
+            f"文字列の中の {cell.v!r} は esc で書きます",
+            "表は glyph.md §3(空白は esc s)",
+        )
 
 
 def _expr(run: Run, segment: _Segment, what: str) -> str:
@@ -225,6 +246,8 @@ def _expr(run: Run, segment: _Segment, what: str) -> str:
                 in_string = False
             elif cell.t != "latin":
                 raise _Bad("JIN302", cell.at, f"文字列の中に紋 {cell.v} があります")
+            else:
+                _check_raw(cell)
             continue
         if cell.t == "glyph":
             if cell.v in _DISC:
@@ -239,11 +262,17 @@ def _expr(run: Run, segment: _Segment, what: str) -> str:
 
 
 def _type(run: Run, segment: _Segment) -> str:
+    depth = 0
+    # 再帰せずに剥く(手書きの深い入れ子で RecursionError にしない)
+    while len(run) >= 3 and _is(run[0], "t_list_l") and _is(run[-1], "t_list_r"):
+        run, depth = run[1:-1], depth + 1
+        if depth > _MAX_LIST_DEPTH:
+            raise _Bad("JIN302", run[0].at, f"list の入れ子が深すぎます({_MAX_LIST_DEPTH} 段まで)")
     if len(run) == 1 and run[0].t == "glyph" and run[0].v in _TYPE_OF_GLYPH:
-        return _TYPE_OF_GLYPH[run[0].v]
-    if len(run) >= 3 and _is(run[0], "t_list_l") and _is(run[-1], "t_list_r"):
-        return f"list<{_type(run[1:-1], segment)}>"
-    return _name(run, segment, "型")
+        inner = _TYPE_OF_GLYPH[run[0].v]
+    else:
+        inner = _name(run, segment, "型")
+    return "list<" * depth + inner + ">" * depth
 
 
 def _typed(run: Run, segment: _Segment) -> tuple[str, str]:

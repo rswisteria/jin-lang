@@ -103,6 +103,7 @@ from __future__ import annotations
 
 import asyncio
 import errno
+import hashlib
 import json
 import os
 import shutil
@@ -317,8 +318,27 @@ def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
             raise typer.Exit(code=2) from exc
     from jin_glyph.decode import DecodeError, decode_png
 
+    scene_path = path.with_name(path.stem + _SCENE_SUFFIX)
     try:
-        scene = decode_png(path.read_bytes())
+        data = path.read_bytes()
+    except OSError as exc:
+        typer.echo(f"{_safe(str(path))}: 読めません（{_safe(str(exc))}）", err=True)
+        raise typer.Exit(code=2) from exc
+    if scene_path.exists() or scene_path.is_symlink():
+        # glyph.md §5: 隣の場面グラフが同じ画像のもの（image.sha256 が一致）ならそれを読む（手直しを消さない・
+        # デコードも省く）。別の画像のものやリンクは上書きしない
+        existing = _existing_scene_for(scene_path, hashlib.sha256(data).hexdigest())
+        if existing is not None:
+            return existing, scene_path
+        if write_scene:
+            typer.echo(
+                f"{_safe(str(scene_path))}: 別の画像の場面グラフかリンクがあるので上書きしません"
+                "（消すか名前を変えてから読み直してください）",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+    try:
+        scene = decode_png(data)
     except (DecodeError, OSError) as exc:
         typer.echo(
             f"{_safe(str(path))}: 完全陣の画像として読めません（{_safe(str(exc))}）", err=True
@@ -326,7 +346,6 @@ def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
         raise typer.Exit(code=2) from exc
     payload = scene.model_dump(mode="json", by_alias=True, exclude_defaults=True)
     text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-    scene_path = path.with_name(path.stem + _SCENE_SUFFIX)
     if write_scene:
         try:
             _write_atomically(scene_path, text, allow_create=True)
@@ -336,6 +355,20 @@ def _scene_text(path: Path, *, write_scene: bool) -> tuple[str, Path]:
             )
             raise typer.Exit(code=2) from exc
     return text, scene_path
+
+
+def _existing_scene_for(scene_path: Path, sha256: str) -> str | None:
+    """隣の場面グラフのテキスト。リンクでなく、`image.sha256` が画像と一致するときだけ。"""
+    if scene_path.is_symlink() or not scene_path.is_file():
+        return None
+    try:
+        text = read_source(scene_path)
+        image = json.loads(text).get("image")
+    except (JinReadError, ValueError, AttributeError):
+        return None
+    if isinstance(image, dict) and image.get("sha256") == sha256:
+        return text
+    return None
 
 
 def _check_glyph(path: Path) -> CheckResult:

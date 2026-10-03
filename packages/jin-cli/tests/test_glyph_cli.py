@@ -115,3 +115,35 @@ def test_a_directory_scan_still_reads_only_jin_files(fib_png: Path, tmp_path: Pa
     result = run("check", str(tmp_path))
     assert result.exit_code == 0
     assert not (tmp_path / "fib.jinscene.json").exists()
+
+
+def test_an_edited_scene_graph_of_the_same_image_is_read_not_overwritten(
+    fib_png: Path, tmp_path: Path
+) -> None:
+    # 最終レビュー #2・glyph.md §5: 隣の .jinscene.json の image.sha256 が画像と一致すればそれを読む(手直しを消さない)
+    png = tmp_path / "fib.png"
+    shutil.copy(fib_png, png)
+    assert run("check", str(png)).exit_code == 0
+    scene_path = tmp_path / "fib.jinscene.json"
+    scene = json.loads(scene_path.read_text(encoding="utf-8"))
+    scene["bands"][0]["cells"][0]["unsure"] = ["?"]
+    edited = json.dumps(scene, ensure_ascii=False, indent=2) + "\n"
+    scene_path.write_text(edited, encoding="utf-8")
+    result = run("check", "--json", str(png))
+    assert result.exit_code == 0, result.output
+    assert [d["code"] for d in json.loads(result.stdout)] == ["JIN306"]
+    assert scene_path.read_text(encoding="utf-8") == edited
+    out = tmp_path / "back.jin"
+    assert run("fmt", str(png), "--out", str(out)).exit_code == 0
+
+
+def test_a_scene_graph_of_another_image_is_not_overwritten(fib_png: Path, tmp_path: Path) -> None:
+    png = tmp_path / "fib.png"
+    shutil.copy(fib_png, png)
+    scene_path = tmp_path / "fib.jinscene.json"
+    other = (SCENE_ERRORS / "JIN306_unsure_cell.jinscene.json").read_text(encoding="utf-8")
+    scene_path.write_text(other, encoding="utf-8")
+    result = run("check", str(png))
+    assert result.exit_code == 2
+    assert "別の画像" in result.output
+    assert scene_path.read_text(encoding="utf-8") == other

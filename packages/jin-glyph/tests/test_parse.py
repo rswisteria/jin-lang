@@ -100,3 +100,39 @@ def test_a_broken_json_or_scene_is_a_diagnostic_not_an_exception() -> None:
     assert [d.code for d in syntax] == ["JIN001"]
     _, schema = parse_scene_text('{"jinscene": 1}', file="x.jinscene.json")
     assert schema and {d.code for d in schema} == {"JIN002"}
+
+
+def _frame_lead_end(cells: list[Cell]) -> int:
+    return next((i for i, c in enumerate(cells) if c.t == "struct"), len(cells))
+
+
+def _hostile(kind: str):
+    """手書き・壊れた場面グラフ(最終レビュー #1)。どれも例外ではなく JIN302 になる。"""
+    scene = inscribed_scene(load(REPO_ROOT / "examples-v2/fib/fib.jin"))
+    frame = scene.bands[0].cells
+    if kind in ("quote", "control", "backslash_n"):
+        body = {"quote": ['"'], "control": ["\n"], "backslash_n": ["\\", "n"]}[kind]
+        head = [Cell(t="glyph", v="quote_l")]
+        head += [Cell(t="latin", v=ch) for ch in body] + [Cell(t="glyph", v="quote_r")]
+        frame[0:0] = [*head, Cell(t="glyph", v="sep")]
+    elif kind == "long_number":
+        end = _frame_lead_end(frame)
+        frame[end:end] = [Cell(t="glyph", v="sep")] + [Cell(t="latin", v="9")] * 5000
+    elif kind == "deep_type":
+        ring = scene.bands[1].cells
+        at = next(i for i, c in enumerate(ring) if c.t == "struct" and c.v == "s_state")
+        sep = next(i for i in range(at, len(ring)) if ring[i].v == "sep")
+        nxt = next(i for i in range(sep + 1, len(ring)) if ring[i].v == "sep")
+        ring[sep + 1 : nxt] = (
+            [Cell(t="glyph", v="t_list_l")] * 3000
+            + [Cell(t="glyph", v="t_num")]
+            + [Cell(t="glyph", v="t_list_r")] * 3000
+        )
+    return scene
+
+
+@pytest.mark.parametrize("kind", ["quote", "control", "backslash_n", "long_number", "deep_type"])
+def test_a_hostile_scene_is_a_diagnostic_not_an_exception(kind: str) -> None:
+    parsed, diagnostics = parse_scene(_hostile(kind), file="x.jinscene.json")
+    assert parsed is None
+    assert [d.code for d in diagnostics] == ["JIN302"], [(d.code, d.message) for d in diagnostics]

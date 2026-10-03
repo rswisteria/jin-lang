@@ -101,3 +101,32 @@ def test_a_png_without_the_talisman_is_refused() -> None:
 
     with pytest.raises(DecodeError, match="護符"):
         decode_png(png_data(cell_svg("glyph", "add"), 2))
+
+
+def test_more_than_twelve_circles_on_the_first_orbit_are_all_found() -> None:
+    # 最終レビュー #3: 陣の数に上限は無い(衛星 = 手順は JIN020 で 12 まで)。12 で頭打ちにすると 13 陣が 1 陣に化けた
+    circles = [
+        {"name": f"C{k}", "core": "go", "rites": [{"name": "go", "steps": [{"do": "finish"}]}]}
+        for k in range(14)
+    ]
+    model = JinFileV2.model_validate(
+        {
+            "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+            "version": 2,
+            "root": "C0",
+            "stage": {"width": 64, "height": 64},
+            "circles": circles,
+        }
+    )
+    scene = decode_png(png_bytes(model, 2))
+    assert sorted(f.id for f in scene.figures if f.id.startswith("c")) == sorted(
+        f"c{k}" for k in range(14)
+    )
+
+
+@pytest.mark.parametrize("cut", [16, 20, 23])
+def test_a_png_cut_inside_its_header_is_refused(cut: int) -> None:
+    # 最終レビュー #1: 署名と IHDR の名前は通るが大きさの 8 バイトが欠けている(struct.error を漏らさない)
+    header = b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 10, 10)
+    with pytest.raises(DecodeError, match="PNG"):
+        decode_png(header[:cut])

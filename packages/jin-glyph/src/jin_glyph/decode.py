@@ -39,7 +39,10 @@ from jin_glyph.scene import Band, Cell, Figure, ImageInfo, JinScene
 
 _SCAN_STEP = 0.1
 _REFINE_STEP = 0.02
-_MAX_ORBIT = 12
+#: 衛星(手順陣)の数の上限 = 1 つの陣の手順の数の上限(JIN020 の 12)
+_MAX_SATELLITES = 12
+#: 第 1 軌道の陣の数の上限(circles[] に上限は無い。これを超える完全陣は読めない・glyph.md §9)
+_MAX_CIRCLES = 64
 _LOCATE_REACH = 0.3  # 1 回目の中心を合わせ込む範囲(升)
 _LOCATE_STEP = 0.05
 #: Jin が描いた画像では最も近い候補が正しい(倍率 3 の構造の印は差が 130 前後まで開く)。これより離れていたら読めない升
@@ -83,7 +86,7 @@ def _load(data: bytes) -> Image.Image:
 
     完全陣は大きく(othello は 2 倍で 14749 px 四方・2.2 億画素)、Pillow の爆弾検査(既定 1.8 億画素で例外)に掛かる。
     自分の上限で先に断ったうえで、開く間だけ Pillow の上限を外す。"""
-    if data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
         raise DecodeError("PNG ではありません")
     width, height = struct.unpack(">II", data[16:24])
     if width * height > MAX_PIXELS:
@@ -249,10 +252,18 @@ def _locate(canvas: _Canvas, x: float, y: float, inner: float) -> tuple[float, f
 
 
 def _count_around(
-    canvas: _Canvas, cx: float, cy: float, distance: float, inner: float, head: str
+    canvas: _Canvas,
+    cx: float,
+    cy: float,
+    distance: float,
+    inner: float,
+    head: str,
+    most: int,
 ) -> list[tuple[float, float]]:
-    """`orbit_centers` の全位置(合わせ込んだ中心)で head の銘環が読める最大の n の中心の列。"""
-    for n in range(_MAX_ORBIT, 0, -1):
+    """`orbit_centers` の全位置(合わせ込んだ中心)で head の銘環が読める最大の n(most 以下)の中心の列。
+
+    真の数 N が most を超えると N の約数に化ける(13 → 1・15 → 5)。most は軌道に載りうる数の上限にすること。"""
+    for n in range(most, 0, -1):
         found = []
         for x, y in orbit_centers(cx, cy, distance, n):
             x, y = _locate(canvas, x, y, inner)
@@ -302,7 +313,7 @@ def decode_png(data: bytes) -> JinScene:
         distance = _scan_up(canvas, cx, cy, first, rite_inner(), "s_rite")
         if distance is None:
             return count, []
-        centers = _count_around(canvas, cx, cy, distance, rite_inner(), "s_rite")
+        centers = _count_around(canvas, cx, cy, distance, rite_inner(), "s_rite", _MAX_SATELLITES)
         return count, [_payload_count(_read_ring(canvas, x, y, rite_inner())) for x, y in centers]
 
     def exact(count: int, sats: list[int]) -> tuple[float, float, float]:
@@ -318,7 +329,9 @@ def decode_png(data: bytes) -> JinScene:
     if rough is not None:
         clusters += [
             survey(x, y)
-            for x, y in _count_around(canvas, 0.0, 0.0, rough, circle_inner(), "s_circle")
+            for x, y in _count_around(
+                canvas, 0.0, 0.0, rough, circle_inner(), "s_circle", _MAX_CIRCLES
+            )
         ]
 
     # 2 回目(正確な位置で読む)
