@@ -31,7 +31,8 @@
         "t": {
           "enum": [
             "latin",
-            "glyph"
+            "glyph",
+            "struct"
           ],
           "title": "T",
           "type": "string"
@@ -206,7 +207,8 @@
       "enum": [
         "S",
         "M",
-        "free"
+        "free",
+        "full"
       ],
       "title": "Sheet",
       "type": "string"

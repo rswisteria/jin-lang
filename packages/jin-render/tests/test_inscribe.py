@@ -98,8 +98,13 @@ def test_bands_start_with_their_struct_mark_in_preorder(path: Path) -> None:
         out: list[str] = []
         for step in steps:
             out.append(STRUCT_MARK_OF["step." + step["do"]])
-            for key in ("then", "else", "steps"):
-                out += preorder(step.get(key, []))
+            if step["do"] == "if":  # S3: then → (else があれば s_else → else)→ s_end
+                out += preorder(step["then"])
+                if step.get("else"):
+                    out += [STRUCT_MARK_OF["else"], *preorder(step["else"])]
+                out.append(STRUCT_MARK_OF["end"])
+            elif step["do"] == "loop":  # 本文 → s_end(本文が空でも)
+                out += [*preorder(step["steps"]), STRUCT_MARK_OF["end"]]
         return out
 
     model = load(path)
@@ -174,3 +179,21 @@ def test_a_character_without_dots_is_escaped_with_its_code_point() -> None:
     text = "".join(c.v if c.t == "latin" else f"<{c.v}>" for c in cells)
     assert "a<esc>u3000b" in text, text
     assert canonical_expr(to_expr(cells)) == canonical_expr('"a　b"')
+
+
+def test_a_character_that_reads_back_as_another_is_escaped_with_its_code_point() -> None:
+    # S3: 字形の無い字(□ で描かれ、同じ点の並びの 囗 に読める)と、同じ点の並びの組の先頭でない字(！ は ! に読める)。
+    # BMP の外は UTF-16 のサロゲートの組で書く
+    cells = expr_cells('"a！😀"', "/x", "step")
+    text = "".join(c.v if c.t == "latin" else f"<{c.v}>" for c in cells)
+    assert text == "<quote_l>a<esc>uff01<esc>ud83d<esc>ude00<quote_r>", text
+    assert canonical_expr(to_expr(cells)) == canonical_expr('"a！😀"')
+
+
+def test_the_root_index_is_inscribed_only_when_root_is_not_first() -> None:
+    # S3: root が circles[0] でないときだけ額縁の銘帯の 6 つ目の欄に root の添字(往復で circles[] の並びを戻すため)
+    model = load(REPO_ROOT / "examples-v2/paddle/paddle.jin")
+    assert all(c.pointer != "/root" for c in frame_band(model))
+    moved = model.model_copy(update={"circles": [*model.circles[1:], model.circles[0]]})
+    cells = [c for c in frame_band(moved) if c.pointer == "/root"]
+    assert [c.v for c in cells] == list(str(len(model.circles) - 1))

@@ -8,6 +8,7 @@ base64 の展開は import のときに 1 回だけ行い、結果は変更で�
 from __future__ import annotations
 
 import base64
+import functools
 from bisect import bisect_left
 
 from jin_render.svg import fmt_coord
@@ -38,6 +39,27 @@ def pixels(ch: str) -> tuple[tuple[int, int], ...]:
     )
 
 
+@functools.cache
+def dot_groups() -> dict[tuple[tuple[int, int], ...], tuple[str, ...]]:
+    """点の並び → その並びを持つ字の組(ASCII → k6x8 の小さい符号位置の順)。点の無い字は入らない。
+
+    読み取り(`jin_glyph.cells`)は点の並びを組の先頭の字に読む。7001 字を展開するので初めて呼んだときに 1 回だけ作る。"""
+    groups: dict[tuple[tuple[int, int], ...], list[str]] = {}
+    for ch in [c for c in ASCII if c != " "] + [chr(code) for code in _CODES]:
+        dots = pixels(ch)
+        if dots:
+            groups.setdefault(dots, []).append(ch)
+    return {dots: tuple(chars) for dots, chars in groups.items()}
+
+
+def readable(ch: str) -> bool:
+    """升に描いた字が点の並びから同じ字に読み戻せるか(字形があり、同じ点の並びの組の先頭)。
+
+    字形の無い字は □ で描かれ、□ と同じ点の字(囗)に読める。銘文はこれが偽の字を `esc u` + 符号位置で書く(S3)。"""
+    group = dot_groups().get(pixels(ch))
+    return group is not None and group[0] == ch
+
+
 def char_d(ch: str, x: float, y: float, size: float) -> str:
     """字を左上 (x, y)・一辺 size の升に描く `d`(点ごとの閉じた正方形。塗って使う)。点が無ければ空文字。"""
     p = size / GRID
@@ -53,4 +75,4 @@ def char_d(ch: str, x: float, y: float, size: float) -> str:
     return " ".join(parts)
 
 
-__all__ = ["GRID", "char_d", "pixels"]
+__all__ = ["GRID", "char_d", "dot_groups", "pixels", "readable"]

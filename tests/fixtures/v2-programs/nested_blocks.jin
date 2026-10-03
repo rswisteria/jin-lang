@@ -1,0 +1,108 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Only",
+  "stage": {
+    "width": 64,
+    "height": 64
+  },
+  "circles": [
+    {
+      "name": "Only",
+      "core": "main",
+      "state": [
+        {
+          "name": "n",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "k",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "main",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "n > 100",
+              "then": [],
+              "else": [
+                {
+                  "do": "set",
+                  "target": "n",
+                  "expr": "n + 1"
+                }
+              ]
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "times": "2",
+              "steps": []
+            },
+            {
+              "do": "loop",
+              "kind": "count",
+              "name": "i",
+              "times": "2",
+              "steps": [
+                {
+                  "do": "if",
+                  "cond": "i >= 0",
+                  "then": [
+                    {
+                      "do": "loop",
+                      "kind": "while",
+                      "cond": "k < 3",
+                      "steps": [
+                        {
+                          "do": "set",
+                          "target": "k",
+                          "expr": "k + 1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "if",
+              "cond": "k == 3",
+              "then": [
+                {
+                  "do": "if",
+                  "cond": "n == 1",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "n",
+                      "expr": "n + 10"
+                    }
+                  ],
+                  "else": [
+                    {
+                      "do": "loop",
+                      "kind": "count",
+                      "times": "1",
+                      "steps": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

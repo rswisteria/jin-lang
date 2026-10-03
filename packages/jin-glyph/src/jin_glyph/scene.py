@@ -10,11 +10,13 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from jin_core.schema_export import SCHEMA_DIALECT, serialize
-from jin_core.v2.glyph import GLYPH_IDS
+from jin_core.v2.glyph import GLYPH_IDS, START_MARK, STRUCT_MARKS
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SCENE_SCHEMA_PATH = "schemas/jin-scene.schema.json"
 SCENE_SCHEMA_ID = "https://xtone.internal/jin/schemas/jin-scene.schema.json"
+#: `t == "struct"` の升の値(構造の印と銘環の始まりの印・S3)
+_STRUCT_IDS = frozenset(m.id for m in STRUCT_MARKS) | {START_MARK}
 
 
 class _Strict(BaseModel):
@@ -25,7 +27,7 @@ class Cell(_Strict):
     """銘帯の 1 升。`t == "glyph"` なら `v` は紋の id(`jin_core.v2.glyph.GLYPH_IDS`)、
     `t == "latin"` なら `v` はちょうど 1 字(1 コードポイント。名前や数は升ごとに 1 字ずつ並ぶ)。"""
 
-    t: Literal["latin", "glyph"]
+    t: Literal["latin", "glyph", "struct"]
     v: str
     unsure: list[str] = []
     box: tuple[float, float, float, float] | None = None
@@ -34,6 +36,8 @@ class Cell(_Strict):
     def _glyph_is_known(self) -> Cell:
         if self.t == "glyph" and self.v not in GLYPH_IDS:
             raise ValueError(f"未知の紋 id です: {self.v!r}")
+        if self.t == "struct" and self.v not in _STRUCT_IDS:
+            raise ValueError(f"未知の構造の印です: {self.v!r}")
         if self.t == "latin" and len(self.v) != 1:
             raise ValueError(f"ラテン層の升は 1 字(1 コードポイント)です: {self.v!r}")
         return self
@@ -66,7 +70,7 @@ class ImageInfo(_Strict):
 
 class JinScene(_Strict):
     jinscene: Literal[1]
-    sheet: Literal["S", "M", "free"]
+    sheet: Literal["S", "M", "free", "full"]  # full = Jin が描いた完全陣(S3 の決定的デコーダ)
     image: ImageInfo
     figures: list[Figure]
     bands: list[Band]

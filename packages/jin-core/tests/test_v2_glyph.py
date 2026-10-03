@@ -107,6 +107,8 @@ def test_field_order_covers_every_figure_of_the_spec() -> None:
         "guard",
         "delegate",
         "description",
+        "else",
+        "end",
     }
 
 
@@ -121,10 +123,10 @@ def test_struct_marks_cover_every_figure_but_the_frame() -> None:
     # spec §1.1 / §1.3: 銘環の銘帯の頭に置く構造の印。額縁は辺が始まりなので印を持たない
     from jin_core.v2.glyph import STRUCT_MARK_OF, STRUCT_MARKS
 
-    assert len(STRUCT_MARKS) == 21
+    assert len(STRUCT_MARKS) == 23
     assert {m.owner for m in STRUCT_MARKS} == set(FIELD_ORDER) - {"frame"}
     ids = {m.id for m in STRUCT_MARKS}
-    assert len(ids) == 21
+    assert len(ids) == 23
     assert not ids & GLYPH_IDS
     assert START_MARK not in ids
     assert all(m.id == "s_" + m.owner.replace("step.", "") for m in STRUCT_MARKS)

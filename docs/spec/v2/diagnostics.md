@@ -94,5 +94,8 @@
   構文解析器の対応表でモデルの pointer を場面グラフの pointer に写す)、`range` はその JSON テキスト上の位置。画像上の座標はその
   pointer の `box` から引く
 - `jin_core.diagnostics.SCENE_CODES` は番号と重さだけを持つ(`jin_core` は画像を知らない)
-- **fixture(`tests/fixtures/errors/scene/JIN3xx_*.jinscene.json`)と「コードごとに fixture がある」の検査は、構文解析器(陣書き S3)と
-  一緒に足す**。規律は §3 と同じ(対応コードをちょうど 1 つだけ出す)
+- fixture は `tests/fixtures/errors/scene/JIN3xx_*.jinscene.json`(6 本・陣書き S3)。規律は §3 と同じ(対応コードをちょうど 1 つだけ出す)で、
+  「コードごとに fixture がある」と合わせて `packages/jin-glyph/tests/test_parse.py` が固定する
+- JIN301〜305 が 1 つでもあればモデルを組まない(`check_text` も呼ばない)。無ければ組んだ JSON を `check_text` に通し、JIN0xx / 2xx の
+  pointer を欄ごとの対応表でモデルから場面グラフの中へ写す。場面グラフ自体の誤りは JIN001(JSON)/ JIN002(schema)。
+  画像として読めないもの(護符が無い・大きすぎる)は診断ではなく `jin check` の exit 2

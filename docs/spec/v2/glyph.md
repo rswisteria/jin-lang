@@ -99,7 +99,7 @@ S0 の手描き認識の実測(§7)で読めない字が出たときだけ描き
 
 銘環の中で銘帯 1 本の頭に置き、どの図形の銘文かを示す(区切りを兼ねる・設計書 §1.1 / §1.3 / §9 #24)。字形は二重の正方形の枠の中に
 layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれとも形が違う。額縁は辺が始まりなので印を持たない。
-実装は `jin_core.v2.glyph.STRUCT_MARKS`(並びは §3 の欄の順の表と同じ)。
+実装は `jin_core.v2.glyph.STRUCT_MARKS`(並びは §3 の欄の順の表と同じ)。S3 で入れ子の境目の 2 字(`s_else` / `s_end`)を足して 23 字: `if` の銘帯 → then の前順 →(else が空でなければ `s_else` → else の前順)→ `s_end`、`loop` の銘帯 → 本文の前順 → `s_end`(本文が空でも書く)。入れ子は銘文だけで決まる(設計書 §9 #29)。
 
 <!-- machine-readable: struct-marks -->
 
@@ -126,6 +126,8 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 | `s_guard` | `guard` | ![s_guard](glyphs/s_guard.svg) |
 | `s_delegate` | `delegate` | ![s_delegate](glyphs/s_delegate.svg) |
 | `s_description` | `description` | ![s_description](glyphs/s_description.svg) |
+| `s_else` | `else` | ![s_else](glyphs/s_else.svg) |
+| `s_end` | `end` | ![s_end](glyphs/s_end.svg) |
 
 <!-- /machine-readable -->
 
@@ -163,6 +165,8 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 | `guard` | `assert`・`message` |
 | `delegate` | `circle` |
 | `description` | `description` |
+| `else` | — |
+| `end` | — |
 
 <!-- /machine-readable -->
 
@@ -184,9 +188,12 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 - 読み取りは「銘文 → トークン列 → 式紋を ASCII に写す → `jin_core.v2.expr.parse_expr`」。往復の一致は `canonical.dumps` の正準化が保証する
 - 文字列は `quote_l` … `quote_r` で挟み、中身は文字のまま。升に描けない文字は `esc` + ラテン文字 1 字で書く(表は `jin_core.v2.glyph.ESCAPE_LETTERS`):
   `"` → `"`、`\` → `\`、改行 → `n`、タブ → `t`、CR → `r`、BS → `b`、FF → `f`、**空白 → `s`**(空白の升は空の升と見分けられないため。
-  JSON のエスケープには無い、視覚層だけの規則)。その他の制御文字は `esc` + `u` + 16 進 4 桁
+  JSON のエスケープには無い、視覚層だけの規則)。**点から同じ字に読み戻せない字**(制御文字・点の無い全角空白・字形が無く □ で描かれる字・
+  同じ点の並びの組の先頭でない字。判定は `jin_render.v2.font.readable`)は `esc` + `u` + 16 進 4 桁。BMP の外は UTF-16 のサロゲートの組
+  (`esc u d83d esc u de00`。JSON の `\u` エスケープと同じ・S3)
 - 文字列の欄(陣の `description`・guard の `message`・asset の `path`・agent の `file`)も同じ書き方で括る。名前(`Name`)の欄は括らない
   (`emit` の `message`・`host` の `host` も名前。S2 で確定・実装は `jin_render.v2.inscribe`)
+- root が `circles[0]` でないときだけ、額縁の銘帯の `seed` の後に root の添字(ラテンの数字・pointer `/root`)を書く(陣の並びは第 1 軌道の順と root の添字から戻す・S3・設計書 §9 #30)
 - `$schema` は標準の URL なら額縁の銘帯に書かない(モデルに必ずあるので、書かれていなければ標準)。核なし陣の `flow.steps` は
   陣の名前の並び(`comma` 区切り)として陣の核の銘帯に書く。`let` の `type` は欄の数(3 つなら型あり)で見分ける
 - 型は型紋(`t_num` `t_bool` `t_str`)、`list<T>` は `t_list_l` T `t_list_r`、型紙名はラテン文字
@@ -205,7 +212,10 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 `scripts/generate_schema.py` が生成する。手で編集しない)。形の例は設計書 §3.2。
 
 - `cells[].t` は `latin`(`v` は**ちょうど 1 コードポイント**。名前や数は升ごとに 1 字ずつ並ぶ。0 字・2 字以上は検証エラー)か
-  `glyph`(`v` は §2 の id。それ以外は検証エラー)
+  `glyph`(`v` は §2 の id。それ以外は検証エラー)か `struct`(`v` は §2.1 の構造の印か始まりの印 `start`・S3)
+- `sheet` は `S` / `M` / `free` / `full`(`full` = Jin が描いた完全陣を決定的デコーダで読んだもの・S3)。`full` の図形の id は
+  `frame` / 陣 `c<k>`(`c0` が root、`c1`… が第 1 軌道を 12 時から時計回り)/ 手順陣 `r<k>_<j>`(陣 `c<k>` の衛星を 12 時から時計回り)。
+  銘帯は図形ごとに 1 本で、銘環の銘帯は始まりの印と継ぎの紋 `cont` も含む
 - `unsure` は迷ったときの他の候補、`box` は画像上の升の矩形(画素)
 - 写真の隣に `<写真名>.jinscene.json` として保存し、`image.sha256` が一致すれば認識を呼び直さない(設計書 §3.2)
 
@@ -259,3 +269,35 @@ layout.md §3 の図形を縮めた記号で、式紋・判別の紋のどれと
 すべて 1 枚に収まるが、A3 に刷ると 1 升は fib でも 2.4 mm、tetris / othello は 0.5 mm で、設計書 §2.4 の見積もり(手描き 5 mm・印刷 2 mm)に届かない。
 主因は**配置の詰め方**: 第 1 軌道の距離が最大の塊で決まるので額縁の中が大きく空く(tetris は 3793 升に対して一辺 543 升)。
 tetris / othello は当面「Jin が描いた PNG をそのまま読む」使い方に限る(設計書 §9 #8 の線引き)。詰め方の改善は S2 の後の課題
+
+## 9. 読み取り(S3: 決定的デコーダと構文解析器)
+
+Jin が描いた完全陣の PNG は API を使わずに読む(`jin_glyph.decode.decode_png` → 場面グラフ → `jin_glyph.parse.parse_scene` → モデル)。
+**往復の契約**: examples-v2 と `tests/fixtures/v2-programs/` の全本で `.jin` → 完全陣 → PNG(2 倍)→ デコード → 構文解析 → `canonical.dumps` が
+元の正準形とバイト一致する(`tests/contract/test_glyph_roundtrip.py`)。
+
+- **升の照合**(`jin_glyph.cells.read_cell`): 升を 24 × 24 の格子に縮めた「塗られた割合」と、候補の理想の格子の差の総和の最小を採る。
+  候補は線の字(`glyph_paths` の 82 字・線の太さは完全陣と同じ 1/12 升)とドットの字(升を 8 × 8 に縮めた列 1〜6 の点の並びを
+  `font.dot_groups` で引いた組の先頭)。**近い候補は ±1 格子目(升の 1/24)ずらした升でも測る**(倍率 2 では 1 px のずれで二重枠の差が
+  中の記号の差を上回る)。ドットの字も同じずれで測る(線の字だけずらすと `o` が `flow_loop` に負けた)
+- 読める大きさの下限は 1 升 24 px(完全陣の SVG を **2 倍以上**で PNG に。1 倍は線が 1 px で ÷ の点などが潰れる)。
+  `UNKNOWN_DISTANCE` = 120(全字形の往復で決めた値)、デコーダは 250(Jin が描いた画像では最も近い候補が正しい)
+- **デコーダ**: 左上の護符の中の塗りの暗さの総和から升の px → root の銘環 → 陣の中心から真上へ 0.1 升刻みで始まりの印を走査し、
+  前後 0.5 升を 0.02 升刻みで(ずらさない差で)合わせ込んで頭の構造の印を確かめる → 数は `orbit_centers` の全位置で読める最大の n。
+  候補の中心は ±0.3 升の平面で始まりの印に合わせ込む(塊の向こう側の衛星では中心のずれが 2 倍になる)。2 回目は 1 回目で数えた字数から
+  `full_layout` と同じ式で中心を求め直して読む(走査のずれを持ち越さない)。核なし陣(陣の核の銘帯に flow の紋)は衛星を探さない
+- 円どうしの線は、両端以外の陣・手順陣の円板の内側で切る(銘環を横切ると升が読めない・S3 で完全陣の出力が変わった)
+- 軌道に載る数の上限: 衛星は 12(手順の数の上限 JIN020 と同じ)、第 1 軌道の陣は 64(`circles[]` に上限は無いがこれを超える完全陣は読めない。
+  数は「全位置で読める最大の n」なので、上限を超えると真の数の約数に化ける)
+- 画素数の上限は 4 億(`MAX_PIXELS`。PNG の IHDR を読んで先に断り、開く間だけ Pillow の爆弾検査を外す。othello は 2 倍で 2.2 億画素)
+- **構文解析器**: 銘帯を構造の印で切り、欄(`sep`)・並び(括弧の深さ 0 の `comma`)・`名前 colon 型`・文字列・式(`to_expr` →
+  `canonical_expr`)に割る。ステップの列は `s_else` / `s_end` で木に戻す。組んだ JSON を `check_text` に通し、JIN0xx / 2xx の pointer は
+  欄ごとの対応表でモデルから場面グラフの中へ写す。JIN301〜305 が 1 つでもあればモデルを組まない。手書きの場面グラフの壊れ方
+  (文字列の中に生の `"` / `\` / 制御文字のラテン升・12 桁を超える数・32 段を超える `list<>`)も例外ではなく JIN302
+- **CLI**: `jin check x.png`(隣に `x.jinscene.json` を書いて診断はそれに対して。既にあって `image.sha256` が一致すればデコードせず
+  それを読む(手直しを消さない)。別の画像のものやリンクなら上書きせず exit 2)・`jin check x.jinscene.json`・
+  `jin fmt <画像|場面グラフ> --out y.jin`(新しいファイルだけ)。画像は名指しのときだけ受け、ディレクトリの走査は `.jin` だけ。
+  サブコマンドは 9 個のまま
+
+実測(2026-10-03・2 倍の PNG・cairosvg の描画込み): fib 0.9 秒・paddle 7 秒・tetris 27 秒・othello 42 秒(最大 RSS 2.2 GB)。
+1 升の読み取りは約 3 ms(ずらした升の照合を入れる前は 1 ms)。

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -24,7 +24,7 @@ from jin_core.schema_export import SCHEMA_ID_V2
 from jin_core.v2.glyph import ESCAPE_LETTERS, EXPR_TOKEN_OF, GLYPHS, STRUCT_MARK_OF
 from jin_core.v2.model import JinFileV2
 
-from jin_render.v2.font import pixels
+from jin_render.v2.font import readable
 
 
 @dataclass(frozen=True)
@@ -125,10 +125,15 @@ def _string_cells(text: str, pointer: str, kind: str) -> list[InkCell]:
                 InkCell("glyph", "esc", pointer, kind),
                 InkCell("latin", ESCAPE_LETTERS[ch], pointer, kind),
             ]
-        elif ord(ch) < 0x20 or ord(ch) == 0x7F or not pixels(ch):
-            # 制御文字と、点が 1 つも無い字(全角空白など。升が空に見えて復号で消える)は符号位置で書く
-            out.append(InkCell("glyph", "esc", pointer, kind))
-            out += [InkCell("latin", c, pointer, kind) for c in f"u{ord(ch):04x}"]
+        elif not readable(ch):
+            # 点から同じ字に読み戻せない字(制御文字・点の無い全角空白・字形が無く □ で描かれる字・同じ点の並びの組の先頭でない字)は
+            # 符号位置で書く。BMP の外は UTF-16 のサロゲートの組(JSON の \u エスケープと同じ)
+            data = ch.encode("utf-16-be")
+            for k in range(0, len(data), 2):
+                out.append(InkCell("glyph", "esc", pointer, kind))
+                out += [
+                    InkCell("latin", c, pointer, kind) for c in f"u{data[k] << 8 | data[k + 1]:04x}"
+                ]
         else:
             out.append(InkCell("latin", ch, pointer, kind))
     out.append(InkCell("glyph", "quote_r", pointer, kind))
@@ -196,6 +201,11 @@ def frame_band(model: JinFileV2) -> list[InkCell]:
     for key in ("width", "height", "fps", "seed"):
         band.field()
         band.name(str(data["stage"].get(key, defaults.get(key))), f"/stage/{key}")
+    names = [c["name"] for c in data["circles"]]
+    if data["root"] in names and names.index(data["root"]) > 0:
+        # S3: root が circles[0] でないときだけ root の添字(第 1 軌道の並びからは root の位置が分からない)
+        band.field()
+        band.name(str(names.index(data["root"])), "/root")
     cells = band.cells
     for i, form in enumerate(data.get("forms", [])):
         sub = _Band(data, f"/forms/{i}", "form")
@@ -333,19 +343,29 @@ def rite_ring(model: JinFileV2, ci: int, ri: int) -> list[InkCell]:
     if "returns" in rite:
         head.field()
         head.type_(rite["returns"], f"{base}/returns")
-    cells = head.cells
-    for pointer, step in _preorder(rite["steps"], f"{base}/steps"):
-        cells += _step_band(data, pointer, step)
-    return cells
+    return head.cells + _steps_cells(data, rite["steps"], f"{base}/steps")
 
 
-def _preorder(steps: list[Any], prefix: str) -> Iterator[tuple[str, Any]]:
+def _steps_cells(data: Any, steps: list[Any], prefix: str) -> list[InkCell]:
+    """ステップの列を前順に。`if` は then → (else があれば s_else → else)→ s_end、`loop` は本文 → s_end
+    (入れ子の境目を銘文に書く・S3・ユーザーの判断 B。s_end は本文が空でも書く)。"""
+    cells: list[InkCell] = []
     for k, step in enumerate(steps):
         pointer = f"{prefix}/{k}"
-        yield pointer, step
-        for key in ("then", "else", "steps"):
-            if key in step:
-                yield from _preorder(step[key], f"{pointer}/{key}")
+        cells += _step_band(data, pointer, step)
+        if step["do"] == "if":
+            cells += _steps_cells(data, step["then"], f"{pointer}/then")
+            if step.get("else"):
+                mark = _Band(data, f"{pointer}/else", "step")
+                mark.struct(STRUCT_MARK_OF["else"])
+                cells += mark.cells + _steps_cells(data, step["else"], f"{pointer}/else")
+        elif step["do"] == "loop":
+            cells += _steps_cells(data, step["steps"], f"{pointer}/steps")
+        if step["do"] in ("if", "loop"):
+            end = _Band(data, pointer, "step")
+            end.struct(STRUCT_MARK_OF["end"])
+            cells += end.cells
+    return cells
 
 
 def _step_band(data: Any, p: str, step: Any) -> list[InkCell]:
