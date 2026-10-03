@@ -18,7 +18,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     # wiring review W-11: ぶら下がったジョブが 6 時間走り続けないようにする。
-    timeout-minutes: 15
+    # 15 → 25（2026-10-03・PR #123）: pytest 全体は main で 9〜12 分だが、遅いランナーでは一様に約 1.5 倍になり
+    # 15 分で 83〜98% のところで打ち切られた（失敗したテストは 0 件。2 回続けて実測）。
+    timeout-minutes: 25
     env:
       # wiring review W-01: `uv sync --frozen` は stale な uv.lock を素通りさせ、
       # その後の裸の `uv run` が lock を黙って書き換える（CI の中で lock が変わる）。
