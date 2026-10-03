@@ -327,7 +327,7 @@ def _scene_text(path: Path, *, write_scene: bool, offline: bool = False) -> tupl
     写真を送るのは隣に同じ画像の場面グラフが無く、`--offline` でないときだけ（設計書 §3.2 / §3.7）。
 
     guard: _scene_text -> _write_atomically(scene_path,text,allow_create=True)
-    guard: _scene_text -> offline
+    guard: _scene_text -> _existing_scene_for(scene_path,hashlib.sha256(data).hexdigest())
     """
     if path.name.endswith(_SCENE_SUFFIX):
         try:
@@ -385,7 +385,7 @@ def _decode(path: Path, data: bytes) -> Any:
 def _recognize(path: Path, data: bytes, scene_path: Path, offline: bool) -> Any:
     """写真を Claude 認識器で場面グラフにする。`--offline` なら送らずに失敗する。
 
-    guard: _recognize -> offline
+    guard: _recognize -> typer.Exit(code=2)
     """
     if offline:
         typer.echo(
