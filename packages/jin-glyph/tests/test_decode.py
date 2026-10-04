@@ -137,7 +137,7 @@ def test_a_frame_band_longer_than_three_rows_widens_the_frame_and_reads_back() -
     from jin_core.canonical import dumps
     from jin_glyph.parse import parse_scene
     from jin_render.v2 import geometry as g2
-    from jin_render.v2.full_layout import FRAME_ROWS, frame_rows
+    from jin_render.v2.full_layout import FRAME_ROWS, frame_margin, frame_rows
 
     forms = [
         {"name": f"Form{k:02d}", "fields": [{"name": f"field{j}", "type": "num"} for j in range(6)]}
@@ -161,12 +161,73 @@ def test_a_frame_band_longer_than_three_rows_widens_the_frame_and_reads_back() -
     )
     placement = place(model)
     frame = placement.inscription.frame
-    # 収まる最小の広さまで広げた(1 段狭いと FRAME_ROWS 周を超える)
-    assert frame_rows(len(frame), placement.half) <= FRAME_ROWS
-    assert frame_rows(len(frame), placement.half - g2.FULL_RING_PITCH) > FRAME_ROWS
+    # 銘帯と次の 1 升が FRAME_ROWS 周を超えるので余白を広げ、銘帯の全部と次の 1 升が余白に収まる
+    rows = frame_rows(len(frame) + 1, placement.half)
+    assert rows > FRAME_ROWS
+    margin = frame_margin(len(frame), placement.half)
+    assert margin > g2.FULL_FRAME_MARGIN
+    assert 1.5 + (rows - 1) * g2.FULL_RING_PITCH + 0.5 <= margin
     scene = decode_png(png_bytes(model, 2))
     bands = {band.owner: payload(band.cells) for band in scene.bands}
     assert bands["frame"] == [(c.t, c.v) for c in frame]
     parsed, diagnostics = parse_scene(scene, file="forms.jinscene.json")
     assert not [d for d in diagnostics if d.severity == "error"], diagnostics
     assert dumps(parsed) == dumps(model)
+
+
+def test_clusters_on_several_shelves_read_back() -> None:
+    """#118: 陣の塊が 3 段に並び、2 段目に 3 つある完全陣。同じ段の 2 つ目以降の対角線は下の段の塊の近くを通るが、
+    見つけた陣の字数から求めた位置と合わないものは採らずに走査を続け、全部の塊を棚の順に読む。"""
+    from jin_core.canonical import dumps
+    from jin_glyph.parse import parse_scene
+
+    circles = []
+    for k, n in enumerate([1, 8, 2, 3, 2, 1, 4]):
+        rites = [
+            {
+                "name": f"r{j}",
+                "steps": [
+                    {
+                        "do": "set",
+                        "target": "v",
+                        "expr": " + ".join(["v"] * (1 + (j * 7 + k * 3) % 9)),
+                    }
+                ],
+            }
+            for j in range(n)
+        ]
+        circles.append(
+            {
+                "name": f"C{k}",
+                "core": "r0",
+                "state": [{"name": "v", "type": "num", "init": "0"}],
+                "rites": rites,
+            }
+        )
+    model = JinFileV2.model_validate(
+        {
+            "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+            "version": 2,
+            "root": "C0",
+            "stage": {"width": 64, "height": 64},
+            "circles": circles,
+        }
+    )
+    placement = place(model)
+    tops = sorted(
+        {round(y - _extent(placement, ci), 3) for ci, (_, y) in placement.circles.items()}
+    )
+    assert len(tops) == 3  # 3 段
+    scene = decode_png(png_bytes(model, 2))
+    assert [f.id for f in scene.figures if f.kind == "ring.circle"] == [f"c{k}" for k in range(7)]
+    parsed, diagnostics = parse_scene(scene, file="shelves.jinscene.json")
+    assert not [d for d in diagnostics if d.severity == "error"], diagnostics
+    assert dumps(parsed) == dumps(model)
+
+
+def _extent(placement, ci: int) -> float:
+    cx, cy = placement.circles[ci]
+    parts = [((cx, cy), placement.circle_radius[ci])] + [
+        (placement.rites[k], placement.rite_radius[k]) for k in placement.rites if k[0] == ci
+    ]
+    return max(max(abs(x - cx), abs(y - cy)) + r for (x, y), r in parts)
