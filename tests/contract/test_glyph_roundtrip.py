@@ -7,6 +7,7 @@ root が circles[0] でない並び(`root_not_first.jin`)と、空の then / 空
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import cairosvg
@@ -42,3 +43,25 @@ def test_the_full_circle_png_reads_back_byte_for_byte(path: Path) -> None:
     assert [(d.code, d.pointer, d.message) for d in diagnostics] == []
     assert parsed is not None
     assert dumps(parsed) == dumps(model) == text
+
+
+def test_strings_in_the_frame_band_read_back_through_the_chant_band() -> None:
+    """額縁の銘帯の文字列(asset の path)も詠唱帯で括り、空白は語の区切りの紋で書く(Issue #129)。examples-v2 と
+    v2-programs には asset を持つプログラムが無いので、fib に足したモデルで見る。1 本は額縁の角を回る長さ(帯が辺で切れて続く)。"""
+    data = json.loads((REPO_ROOT / "examples-v2/fib/fib.jin").read_text(encoding="utf-8"))
+    data["stage"]["assets"] = [
+        {"name": "bgm", "kind": "sound", "path": "sounds/the main theme.ogg"},
+        {
+            "name": "hero",
+            "kind": "sprite",
+            "path": "images/a hero walking through the long corridor of the old castle.png",
+        },
+    ]
+    model = check_text(json.dumps(data), "fib-assets.jin").model
+    assert isinstance(model, JinFileV2)
+    svg = render_full(model)
+    png = cairosvg.svg2png(bytestring=svg.encode(), scale=2, background_color="white")
+    parsed, diagnostics = parse_scene(decode_png(png), file="fib-assets.jinscene.json")
+    assert [(d.code, d.pointer, d.message) for d in diagnostics] == []
+    assert parsed is not None
+    assert dumps(parsed) == dumps(model)

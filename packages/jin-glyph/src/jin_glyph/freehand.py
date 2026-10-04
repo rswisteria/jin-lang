@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -37,6 +38,16 @@ BAND = 0.75
 BAND_OF_PITCH = 0.48
 #: 道に沿ってこれより狭い隙間はつなぐ(字の大きさに対する比)
 GAP = 0.3
+#: 文字列の詠唱帯の線(周の線から ±0.8 字の弧・額縁の行に沿う直線・Issue #129)として捨てる墨の連結成分: 道に沿った長さが
+#: BAND_LINE_LENGTH 字を超え、道を BAND_LINE_BIN 字ずつに区切ったどの区間でも道に直交する厚みが BAND_LINE_THICK 字未満のもの。
+#: 帯は飾りで(括りは封の紋が担う)、残すと字と字の隙間を墨でつなぎ、弧に沿った塊の外接矩形が隣の升まで覆う。
+#: 字は縦の画で厚みを持つので(手描きで字どうしが触れていても)捨てない
+BAND_LINE_LENGTH = 1.2
+BAND_LINE_BIN = 0.2
+BAND_LINE_THICK = 0.25
+#: 帯の線は輪の縁(周の間)にかかるので、輪より BAND_LINE_MARGIN 字広く墨を集めて線をまるごと見てから捨て、輪の幅に絞る
+#: (輪の中だけを見ると線は細かな切れ端になり、短くて線と見分けられないまま字の隙間をつなぐ)
+BAND_LINE_MARGIN = 0.25
 #: 詰め直しで墨を集める幅(字の大きさに対する比)と回数・中心が動いてよい上限(字)
 REFINE_REACH = 0.9
 REFINE_ROUNDS = 3
@@ -144,7 +155,7 @@ def refine_ring(
             reach = band_half_width(current, i, cell, REFINE_REACH)
             ink = [
                 (x + 0.5 - cx, y + 0.5 - cy)
-                for x, y in _annulus(gray, (cx, cy), max(0.0, r - reach), r + reach, dark)
+                for _, x, y in _ring_ink(gray, (cx, cy), r, reach, cell, dark)
             ]
             if len(ink) >= _MIN_TURN_INK * cell:
                 turns.append((i, ink))
@@ -232,6 +243,73 @@ def _runs(
     return out
 
 
+def _without_band_lines(
+    samples: list[tuple[float, float, int, int]], cell: float, period: float | None = None
+) -> list[tuple[float, float, int, int]]:
+    """(道の座標, 道に直交する位置, x, y) の墨から、詠唱帯の線の連結成分(細くて道に沿って長いもの)を除く。
+
+    period があれば道は閉じていて、継ぎ目(道の座標 0)をまたぐ成分の長さは折り返して測る(最大と最小の差だと周長になり、
+    2 周目以降の 12 時に乗る細い字を捨ててしまう)。"""
+    index = {(x, y): k for k, (_, _, x, y) in enumerate(samples)}
+    seen = [False] * len(samples)
+    keep: list[tuple[float, float, int, int]] = []
+    for k in range(len(samples)):
+        if seen[k]:
+            continue
+        seen[k] = True
+        stack, part = [k], []
+        while stack:
+            i = stack.pop()
+            part.append(i)
+            _, _, x, y = samples[i]
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    j = index.get((x + dx, y + dy))
+                    if j is not None and not seen[j]:
+                        seen[j] = True
+                        stack.append(j)
+        along = sorted(samples[i][0] for i in part)
+        length = along[-1] - along[0]
+        if period is not None:
+            gaps = [b - a for a, b in itertools.pairwise(along)] + [along[0] + period - along[-1]]
+            length = period - max(gaps)
+        long = length > BAND_LINE_LENGTH * cell
+        if long:
+            bins: dict[int, list[float]] = {}
+            for i in part:
+                bins.setdefault(math.floor(samples[i][0] / (BAND_LINE_BIN * cell)), []).append(
+                    samples[i][1]
+                )
+            if all(max(v) - min(v) < BAND_LINE_THICK * cell for v in bins.values()):
+                continue
+        keep += [samples[i] for i in part]
+    return keep
+
+
+def _ring_ink(
+    gray: Image.Image,
+    center: Point,
+    radius: float,
+    half_width: float,
+    cell: float,
+    dark: int,
+    start: float = 0.0,
+) -> list[tuple[float, int, int]]:
+    """周(中心 center・半径 radius・半幅 half_width)の墨を、詠唱帯の線を除いて (道の座標, x, y) で。道の座標は角度 start(度)から。"""
+    cx, cy = center
+    reach = half_width + BAND_LINE_MARGIN * cell
+    found: list[tuple[float, float, int, int]] = []
+    for x, y in _annulus(gray, center, max(0.0, radius - reach), radius + reach, dark):
+        dx, dy = x + 0.5 - cx, y + 0.5 - cy
+        angle = math.degrees(math.atan2(dy, dx))
+        found.append((math.radians((angle - start) % 360.0) * radius, math.hypot(dx, dy), x, y))
+    return [
+        (along, x, y)
+        for along, r, x, y in _without_band_lines(found, cell, 2.0 * math.pi * radius)
+        if abs(r - radius) <= half_width
+    ]
+
+
 def _bbox(pixels: list[tuple[int, int]]) -> Box:
     return (
         min(x for x, _ in pixels),
@@ -254,11 +332,7 @@ def ring_blobs(
     最初の塊は start に最も近い塊(start を含む塊があればそれ)。1 周目なら始まりの印、2 周目以降なら 12 時の升。
     """
     dark = paper_level(gray) - DARK_DELTA
-    cx, cy = center
-    samples: list[tuple[float, int, int]] = []
-    for x, y in _annulus(gray, center, max(0.0, radius - half_width), radius + half_width, dark):
-        angle = math.degrees(math.atan2(y + 0.5 - cy, x + 0.5 - cx))
-        samples.append((math.radians((angle - start) % 360.0) * radius, x, y))
+    samples = _ring_ink(gray, center, radius, half_width, cell, dark, start)
     period = 2.0 * math.pi * radius
     runs = _runs(samples, GAP * cell, period, _min_ink(cell))
     if not runs:
@@ -311,10 +385,11 @@ def frame_blobs(
     offsets = [0.0]
     for length in lengths[:-1]:
         offsets.append(offsets[-1] + length)
-    samples: list[tuple[float, int, int]] = []
+    found: list[tuple[float, float, int, int]] = []
     width, height = gray.size
-    lo_x, hi_x = max(0, math.floor(x0 - half_width)), min(width, math.ceil(x1 + half_width) + 1)
-    lo_y, hi_y = max(0, math.floor(y0 - half_width)), min(height, math.ceil(y1 + half_width) + 1)
+    reach = half_width + BAND_LINE_MARGIN * cell
+    lo_x, hi_x = max(0, math.floor(x0 - reach)), min(width, math.ceil(x1 + reach) + 1)
+    lo_y, hi_y = max(0, math.floor(y0 - reach)), min(height, math.ceil(y1 + reach) + 1)
     for y in range(lo_y, hi_y):
         py = y + 0.5
         for x in range(lo_x, hi_x):
@@ -327,10 +402,15 @@ def frame_blobs(
                 (abs(px - x0), 3, y1 - py),
             )
             near, edge, along = min(candidates)
-            if near > half_width or not (-half_width <= along <= lengths[edge] + half_width):
+            if near > reach or not (-half_width <= along <= lengths[edge] + half_width):
                 continue
             if pixels[x, y] < dark:  # type: ignore[operator]
-                samples.append((offsets[edge] + along, x, y))
+                found.append((offsets[edge] + along, near, x, y))
+    samples = [
+        (along, x, y)
+        for along, near, x, y in _without_band_lines(found, cell)
+        if near <= half_width
+    ]
     out = []
     heading = ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0))
     for s0, s1, ink in _runs(samples, GAP * cell, None, _min_ink(cell)):

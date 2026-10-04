@@ -1,7 +1,7 @@
 """構文解析器: 場面グラフ(`.jinscene.json`)→ モデル(陣書き S3・設計書 §3.5)。`jin_render.v2.inscribe` の逆。
 
 1. 銘帯の升を構造の印で切り、銘帯の頭の印(`FIELD_ORDER` の鍵)ごとに欄(`sep`)・並び(括弧の深さ 0 の `comma`)・
-   `名前 colon 型`・文字列(`quote_l` … `quote_r` と `esc`)・式(`to_expr`)に割る
+   `名前 colon 型`・文字列(`quote_l` … `quote_r` と `esc`・空白の `divider`)・式(`to_expr`)に割る
 2. 手順陣のステップの列を `s_else` / `s_end` で木に戻す
 3. 陣の並び: 図形 `c0` が root、`c1`… が他の陣を `circles[]` の順に。額縁の 6 つ目の欄(root の添字)があれば root をそこへ差し込む
 4. 組んだ JSON を `jin_core.check.check_text` に通す(schema と意味の検査)。その診断の pointer はモデルの中なので、
@@ -25,6 +25,7 @@ from jin_core.pointer import loc_to_pointer
 from jin_core.schema_export import SCHEMA_ID_V2
 from jin_core.v2.expr import canonical_expr
 from jin_core.v2.glyph import (
+    DIVIDER,
     ESCAPE_LETTERS,
     EXPR_TOKEN_OF,
     GLYPHS,
@@ -50,7 +51,8 @@ _CLOSE = frozenset({"paren_r", "brack_r", "brace_r", "t_list_r"})
 _UNESCAPE = frozenset(ESCAPE_LETTERS.values())
 _HEX = frozenset("0123456789abcdefABCDEF")
 #: 文字列の中でラテンの升に生のまま置けない字(銘文は esc で書く。生のままだと to_expr が組む JSON が壊れる・最終レビュー #1)
-_NEEDS_ESCAPE = frozenset(ESCAPE_LETTERS) | {chr(c) for c in range(0x20)}
+#: 空白は esc ではなく語の区切りの紋 divider で書く(空白の升は空の升と見分けられない・Issue #129)
+_NEEDS_ESCAPE = frozenset(ESCAPE_LETTERS) | {" "} | {chr(c) for c in range(0x20)}
 #: 額縁の数の欄の桁数の上限(stage の値の上限より十分大きく、int() の桁数の上限より十分小さい)
 _MAX_DIGITS = 12
 #: 型の list の入れ子の上限(手書きの場面グラフで再帰が溢れないように)
@@ -213,6 +215,9 @@ def _check_string_body(body: Run) -> None:
                 continue
             k += 2
             continue
+        if _is(cell, DIVIDER):
+            k += 1
+            continue
         if cell.t != "latin":
             raise _Bad("JIN302", cell.at, f"文字列の中に紋 {cell.v} があります")
         _check_raw(cell)
@@ -224,8 +229,10 @@ def _check_raw(cell: _C) -> None:
         raise _Bad(
             "JIN302",
             cell.at,
-            f"文字列の中の {cell.v!r} は esc で書きます",
-            "表は glyph.md §3(空白は esc s)",
+            f"文字列の中の {cell.v!r} は esc で書きます"
+            if cell.v != " "
+            else "文字列の中の空白は語の区切りの紋 divider で書きます",
+            "表は glyph.md §3",
         )
 
 
@@ -244,6 +251,8 @@ def _expr(run: Run, segment: _Segment, what: str) -> str:
                     raise _Bad("JIN302", cell.at, "esc の後の字が読めません")
             elif _is(cell, "quote_r"):
                 in_string = False
+            elif _is(cell, DIVIDER):
+                pass
             elif cell.t != "latin":
                 raise _Bad("JIN302", cell.at, f"文字列の中に紋 {cell.v} があります")
             else:

@@ -83,11 +83,14 @@ def test_every_expression_round_trips_through_cells(path: Path) -> None:
         assert canonical_expr(to_expr(expr_cells(text, "/x", "step"))) == canonical_expr(text), text
 
 
-def test_a_space_in_a_string_is_escaped() -> None:
-    cells = expr_cells('"SCORE " ++ str(score)', "/x", "step")
+def test_a_space_in_a_string_is_written_with_the_word_divider() -> None:
+    # Issue #129: 空白は esc s ではなく語の区切りの紋 divider 1 升(空白の升は空の升と見分けられない)
+    cells = expr_cells('"LUCKY +10" ++ str(score)', "/x", "step")
     assert not any(c.t == "latin" and c.v == " " for c in cells)
     pairs = [(a.v, b.v) for a, b in itertools.pairwise(cells)]
-    assert ("esc", "s") in pairs
+    assert ("Y", "divider") in pairs and ("divider", "+") in pairs
+    assert "esc" not in [c.v for c in cells]
+    assert to_expr(cells) == '"LUCKY +10" ++ str ( score )'
 
 
 @pytest.mark.parametrize("path", PROGRAMS, ids=lambda p: p.stem)
