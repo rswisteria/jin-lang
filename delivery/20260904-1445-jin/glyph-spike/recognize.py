@@ -191,6 +191,14 @@ def main() -> int:
     ], CORNER_SCHEMA, 16000)
     log["usage"].append(usage)
     log["corners"] = corners
+    problem = corner_problem(corners)
+    if problem is not None:  # 取り違えた四隅で正面化すると -flat.png を見るまで気づけない(#119)
+        (HERE / "results").mkdir(exist_ok=True)
+        (HERE / "results" / f"{args.photo.stem}.json").write_text(
+            json.dumps(log, ensure_ascii=False, indent=1) + "\n"
+        )
+        print(f"四隅の並びがおかしい: {problem}(応答は results/ に残した)")
+        return 1
     flat = rectify(photo, {k: [v / scale for v in corners[k]] for k in corners})
     (HERE / "results").mkdir(exist_ok=True)
     flat.save(HERE / "results" / f"{args.photo.stem}-flat.png")
@@ -225,6 +233,26 @@ def main() -> int:
     return 0
 
 
+def corner_problem(corners: dict) -> str | None:
+    """四隅の役割の向きを検査する。紙の上で tl → tr → br → bl は時計回りなので、画像の座標(y が下向き)の
+    符号付き面積は正。負なら裏返し(役割の取り違え)、0 に近ければ潰れた四角。"""
+    order = [corners[k] for k in ("tl", "tr", "br", "bl")]
+    area = 0.0
+    for (x0, y0), (x1, y1) in zip(order, order[1:] + order[:1]):
+        area += x0 * y1 - x1 * y0
+    area /= 2.0
+    span = max(abs(x0 - x1) + abs(y0 - y1) for (x0, y0) in order for (x1, y1) in order)
+    if area <= 0:
+        return f"tl→tr→br→bl が反時計回り(符号付き面積 {area:.0f})。役割を取り違えている"
+    if area < 0.05 * span * span:
+        return f"四隅が潰れている(面積 {area:.0f})"
+    return None
+
+
+#: S0 の合格線(設計書 §6: 認識後の手直しが升数の 2% 以内)
+PASS_RATE = 0.02
+
+
 def norm(cell: dict) -> str:
     if cell.get("t") == "empty" or cell.get("v", "") == "":
         return "∅"
@@ -233,7 +261,7 @@ def norm(cell: dict) -> str:
 
 def score(lines, got) -> int:
     stats = {"program": Counter(), "extra": Counter()}
-    confusion: Counter = Counter()
+    confusion: dict[str, Counter] = {"program": Counter(), "extra": Counter()}
     expected_keys = set()
     for row, start, _, n in lines:
         kind = "extra" if row.label.startswith("extra") else "program"
@@ -246,15 +274,23 @@ def score(lines, got) -> int:
                 stats[kind]["errors"] += 1
                 reason = "phantom" if want == "∅" else ("missing" if have == "∅" else "wrong")
                 stats[kind][reason] += 1
-                confusion[(want, have)] += 1
+                confusion[kind][(want, have)] += 1
     phantom = sum(1 for key, c in got.items() if key not in expected_keys and norm(c) != "∅")
     for kind, s in stats.items():
         if s["cells"]:
             print(f"{kind}: 升 {s['cells']} / 誤り {s['errors']}(違う字 {s['wrong']}・欠落 {s['missing']}"
                   f"・幻の字 {s['phantom']})/ 誤り率 {s['errors'] / s['cells']:.1%}")
     print(f"升の外に返した字: {phantom}")
-    for (want, have), n in confusion.most_common(10):
-        print(f"  {want} → {have} ×{n}")
+    program = stats["program"]
+    if program["cells"]:
+        rate = program["errors"] / program["cells"]
+        verdict = "合格" if rate <= PASS_RATE else "不合格"
+        print(f"判定(program の誤り率 ≤ {PASS_RATE:.0%}): {verdict}({rate:.1%})")
+    for kind in ("program", "extra"):  # 取り違えの組はプログラムの升と字形表の升を混ぜない
+        if confusion[kind]:
+            print(f"取り違えの多い組({kind}):")
+            for (want, have), n in confusion[kind].most_common(10):
+                print(f"  {want} → {have} ×{n}")
     return stats
 
 

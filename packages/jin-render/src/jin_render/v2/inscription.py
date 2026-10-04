@@ -21,7 +21,7 @@ from jin_render.v2 import shapes
 from jin_render.v2.font import char_d
 from jin_render.v2.full_layout import ring_cells, ring_outer
 from jin_render.v2.glyph_paths import glyph_d
-from jin_render.v2.inscribe import InkCell, circle_ring, frame_band, rite_ring
+from jin_render.v2.inscribe import InkCell, inscribe
 
 #: 帯の内縁。手順の図の環の外へ抜ける線の先(0.95 + 0.05 + 0.07 = 1.07・`STEP_TAIL`)より外。
 BAND_INNER = 1.10
@@ -35,11 +35,12 @@ _SHRINK = 0.97
 
 def band_cells(model: JinFileV2) -> list[InkCell]:
     """帯に並べる升の列(額縁の銘帯 → 陣ごとに陣の銘環 → その手順の銘環)。"""
-    cells = list(frame_band(model))
+    inscription = inscribe(model)
+    cells = list(inscription.frame)
     for ci, circle in enumerate(model.circles):
-        cells += circle_ring(model, ci)
+        cells += inscription.circles[ci]
         for ri in range(len(circle.rites)):
-            cells += rite_ring(model, ci, ri)
+            cells += inscription.rites[(ci, ri)]
     return cells
 
 

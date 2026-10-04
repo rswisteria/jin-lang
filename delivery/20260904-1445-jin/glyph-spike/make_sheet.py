@@ -55,7 +55,10 @@ def string_cells(value: str) -> list[dict]:
 
 def expr_cells(text: str) -> list[dict]:
     out: list[dict] = []
-    for tok in TOKEN.findall(text):
+    tokens = TOKEN.findall(text)
+    if TOKEN.sub("", text).strip():  # 字句を除いて空白以外が残る = 知らない字(黙って落とさない・#119)
+        raise ValueError(f"式に字句にならない字があります: {text!r}")
+    for tok in tokens:
         if tok.startswith('"'):
             out += string_cells(json.loads(tok))
         elif tok in ("true", "false", "and", "or", "not"):
@@ -97,6 +100,7 @@ class Row:
     label: str
     cells: list[dict]
     exprs: list[str] = field(default_factory=list)  # 検算用: この行に入った式の原文
+    strings: list[str] = field(default_factory=list)  # 検算用: この行に入った文字列(host / file / message)
 
 
 def step_rows(steps: list[dict], base: str, rows: list[Row]) -> None:
@@ -155,7 +159,28 @@ def step_rows(steps: list[dict], base: str, rows: list[Row]) -> None:
                 step_rows(s[key], f"{p}/{key}", rows)
 
 
+#: spike の型紙が書けない欄(fib / clicker には無い)。黙って落とすと手描きの答えが元と合わなくなるので断る(#119)
+STANDARD_SCHEMA = "https://xtone.internal/jin/schemas/jin-v2.schema.json"
+
+
+def unsupported(model: dict) -> list[str]:
+    found = []
+    if model.get("$schema") != STANDARD_SCHEMA:
+        found.append("$schema")
+    if model["stage"].get("assets"):
+        found.append("/stage/assets")
+    for i, c in enumerate(model["circles"]):
+        for key in ("description", "delegate"):
+            if key in c:
+                found.append(f"/circles/{i}/{key}")
+        if "exit" in c.get("flow", {}):
+            found.append(f"/circles/{i}/flow/exit")
+    return found
+
+
 def linearize(model: dict) -> list[Row]:
+    if missing := unsupported(model):
+        raise ValueError(f"spike の型紙はこの欄を書けません: {', '.join(missing)}")
     rows: list[Row] = []
     st = model["stage"]
     rows.append(Row("r0", "/stage", joined(*(L(str(st.get(k, d))) for k, d in
@@ -173,7 +198,8 @@ def linearize(model: dict) -> list[Row]:
         for j, sg in enumerate(c.get("sigils", [])):
             extra = {"host": [string_cells(sg.get("host", ""))], "summon": [L(sg.get("circle", "")), L(sg.get("rite", ""))],
                      "agent": [string_cells(sg.get("file", ""))]}[sg["kind"]]
-            rows.append(Row(f"r{len(rows)}", f"{cp}/sigils/{j}", joined(L(sg["name"]), [G(DISC[("sigil", sg["kind"])])], *extra)))
+            texts = [sg[k] for k in ("host", "file") if k in sg]
+            rows.append(Row(f"r{len(rows)}", f"{cp}/sigils/{j}", joined(L(sg["name"]), [G(DISC[("sigil", sg["kind"])])], *extra), strings=texts))
         for j, r in enumerate(c.get("rites", [])):
             parts = [L(r["name"]), listed([L(pm["name"]) + type_cells(pm["type"]) for pm in r.get("params", [])])]
             if "returns" in r:
@@ -187,7 +213,8 @@ def linearize(model: dict) -> list[Row]:
             parts = [expr_cells(gd["assert"])]
             if "message" in gd:
                 parts.append([G("mark_message"), *string_cells(gd["message"])])
-            rows.append(Row(f"r{len(rows)}", f"{cp}/boundary/guards/{j}", joined(*parts), [gd["assert"]]))
+            texts = [gd["message"]] if "message" in gd else []
+            rows.append(Row(f"r{len(rows)}", f"{cp}/boundary/guards/{j}", joined(*parts), [gd["assert"]], texts))
     for row in rows:
         assert row.cells, row.label
     return rows
@@ -240,6 +267,11 @@ def check(rows: list[Row]) -> int:
             got = canonical_expr(to_ascii(expr_cells(ex)))
             if got != canonical_expr(ex):
                 print(f"NG {row.label}: {ex!r} -> {got!r}")
+                bad += 1
+        for text in row.strings:  # 文字列(エスケープ込み)も往復する(#119)
+            got = json.loads(to_ascii(string_cells(text)))
+            if got != text:
+                print(f"NG {row.label}: {text!r} -> {got!r}")
                 bad += 1
     total = sum(len(r.cells) for r in rows)
     seps = sum(c == G("sep") for r in rows for c in r.cells)

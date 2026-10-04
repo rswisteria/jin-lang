@@ -24,13 +24,14 @@ from jin_render.v2.full_layout import (
     Placement,
     RingCell,
     circle_inner,
+    frame_positions,
     place,
     ring_cells,
     rite_inner,
 )
 from jin_render.v2.glyph_paths import glyph_d
-from jin_render.v2.inscribe import InkCell, circle_ring, frame_band, rite_ring
-from jin_render.v2.layout import BUILTIN_FORMS, _Builder
+from jin_render.v2.inscribe import InkCell
+from jin_render.v2.layout import circle_drawer, circle_index
 from jin_render.v2.rite import draw_rite
 
 _TEXT_TAGS = ("text", "textPath")
@@ -93,28 +94,6 @@ def _ring_group(canvas: _Canvas, pointer: str, kind: str, placed: Sequence[RingC
     return group
 
 
-def frame_positions(count: int, half: float) -> list[tuple[float, float]]:
-    """額縁の銘帯の升の中心: 額縁の内側を左上から時計回りに巡る(四隅の護符の区画は飛ばす)。足りなければ内側の周へ。"""
-    out: list[tuple[float, float]] = []
-    inset = 1.5
-    while len(out) < count:
-        h = half - inset
-        lo, hi = -h + g2.FULL_TALISMAN + 0.5, h - g2.FULL_TALISMAN - 0.5
-        steps = max(0, math.floor(hi - lo) + 1)
-        edge = [lo + k for k in range(steps)]
-        ring = (
-            [(x, -h) for x in edge]
-            + [(h, y) for y in edge]
-            + [(x, h) for x in reversed(edge)]
-            + [(-h, y) for y in reversed(edge)]
-        )
-        if not ring:
-            break
-        out += ring
-        inset += g2.FULL_RING_PITCH
-    return out[:count]
-
-
 def talisman_nodes(canvas: _Canvas) -> list[Node]:
     """四隅の護符(一辺 FULL_TALISMAN 升)。右上だけ中が丸(向きの印)。完全陣と型紙(S4)で共通。"""
     half = canvas.half
@@ -155,15 +134,15 @@ def talisman_nodes(canvas: _Canvas) -> list[Node]:
     return out
 
 
-def _stage(canvas: _Canvas, model: JinFileV2) -> Node:
+def _stage(canvas: _Canvas, cells: Sequence[InkCell]) -> Node:
     half = canvas.half
     group = shapes.group("/stage", "stage")
     group.children.append(
         shapes.path(_square_d(canvas, -half, -half, half, half), "/stage", "stage")
     )
     group.children.extend(talisman_nodes(canvas))
-    cells = frame_band(model)
-    for cell, center in zip(cells, frame_positions(len(cells), half), strict=False):
+    # 額縁の半辺は銘帯が額縁の余白に収まる大きさ(`full_layout.place`)なので、位置が尽きることは無い
+    for cell, center in zip(cells, frame_positions(len(cells), half), strict=True):
         node = _cell_node(canvas, cell, center)
         if node is not None:
             group.children.append(node)
@@ -337,23 +316,20 @@ def render_full(model: JinFileV2) -> str:
     """完全陣の SVG。schema を通るモデルなら意味エラーを含んでいても例外を投げない。"""
     placement = place(model)
     canvas = _Canvas(placement.half)
-    index_of: dict[str, int] = {}
-    for position, circle in enumerate(model.circles):
-        index_of.setdefault(circle.name, position)
-    form_names = frozenset(form.name for form in model.forms) | frozenset(BUILTIN_FORMS)
-    builder = _Builder(model=model, index_of=index_of, form_names=form_names)
+    index_of = circle_index(model)
+    draw_circle = circle_drawer(model)
 
-    body: list[Node] = [_stage(canvas, model)]
+    body: list[Node] = [_stage(canvas, placement.inscription.frame)]
     links = shapes.group("/circles", "circle")  # 線の既定(黒・1 px)を効かせる入れ物
     links.children.extend(_links(canvas, model, placement, index_of))
     body.append(links)
     for ci, (x, y) in placement.circles.items():
-        body.append(_without_text(builder.draw_circle(ci, canvas.frame(x, y), 1)))
-        placed = ring_cells(circle_ring(model, ci), x, y, circle_inner())
+        body.append(_without_text(draw_circle(ci, canvas.frame(x, y), 1)))
+        placed = ring_cells(placement.inscription.circles[ci], x, y, circle_inner())
         body.append(_ring_group(canvas, f"/circles/{ci}", "circle", placed))
     for (ci, ri), (x, y) in placement.rites.items():
         body.append(_without_text(draw_rite(model, ci, ri, canvas.frame(x, y), index_of)))
-        placed = ring_cells(rite_ring(model, ci, ri), x, y, rite_inner())
+        placed = ring_cells(placement.inscription.rites[(ci, ri)], x, y, rite_inner())
         body.append(_ring_group(canvas, f"/circles/{ci}/rites/{ri}", "circle", placed))
     return document([], body, 2.0 * placement.half * canvas.unit)
 

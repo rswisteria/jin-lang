@@ -19,7 +19,7 @@ from jin_core.v2.model import JinFileV2
 
 from jin_render import geometry as base
 from jin_render.v2 import geometry as geo
-from jin_render.v2.inscribe import InkCell, circle_ring, rite_ring
+from jin_render.v2.inscribe import InkCell, Inscription, inscribe
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,7 @@ class Placement:
     circle_radius: dict[int, float]  # 銘環の最外周の外縁まで
     rite_radius: dict[tuple[int, int], float]
     half: float  # 額縁の半辺
+    inscription: Inscription  # 配置に使った銘帯(描く側が組み直さない)
 
 
 def ring_capacity(ring: int, inner: float) -> int:
@@ -52,11 +53,10 @@ def slot_kinds(count: int, inner: float) -> list[tuple[int, int, str]]:
     out = [(0, 0, "start")]
     ring, slot, left = 0, 1, count
     while left:
+        # 周の最後の 1 升は、まだ 2 字以上残っていれば継ぎの紋にして外の周へ。残りが 1 字ならその字で周が埋まって終わるので、
+        # 周の升の数を越える番号には来ない
         if slot == ring_capacity(ring, inner) - 1 and left > 1:
             out.append((ring, slot, "cont"))
-            ring, slot = ring + 1, 0
-            continue
-        if slot == ring_capacity(ring, inner):
             ring, slot = ring + 1, 0
             continue
         out.append((ring, slot, "cell"))
@@ -128,15 +128,63 @@ def orbit_centers(cx: float, cy: float, distance: float, n: int) -> list[tuple[f
     return out
 
 
+def frame_positions(count: int, half: float) -> list[tuple[float, float]]:
+    """額縁の銘帯の升の中心: 額縁の内側を左上から時計回りに巡る(四隅の護符の区画は飛ばす)。足りなければ内側の周へ。"""
+    out: list[tuple[float, float]] = []
+    inset = 1.5
+    while len(out) < count:
+        h = half - inset
+        lo, hi = -h + geo.FULL_TALISMAN + 0.5, h - geo.FULL_TALISMAN - 0.5
+        steps = max(0, math.floor(hi - lo) + 1)
+        edge = [lo + k for k in range(steps)]
+        ring = (
+            [(x, -h) for x in edge]
+            + [(h, y) for y in edge]
+            + [(x, h) for x in reversed(edge)]
+            + [(-h, y) for y in reversed(edge)]
+        )
+        if not ring:
+            break
+        out += ring
+        inset += geo.FULL_RING_PITCH
+    return out[:count]
+
+
+def frame_rows(count: int, half: float) -> int:
+    """count 字の額縁の銘帯が使う周の数(`frame_positions` の内側への周の数)。"""
+    rows, left, inset = 0, count, 1.5
+    while left > 0:
+        h = half - inset
+        steps = max(0, math.floor(2.0 * (h - geo.FULL_TALISMAN - 0.5)) + 1)
+        if steps == 0:
+            return rows + 1_000_000  # 額縁が小さすぎて収まらない(呼び手が額縁を広げる)
+        left -= 4 * steps
+        rows += 1
+        inset += geo.FULL_RING_PITCH
+    return rows
+
+
+#: 額縁の余白(`FULL_FRAME_MARGIN`)に収まる額縁の銘帯の周の数(1.5 + 2 × 1.6 + 0.5 = 5.2 < 6)。
+FRAME_ROWS = 3
+
+
+def frame_capacity(half: float, rows: int = FRAME_ROWS) -> int:
+    """額縁の銘帯の rows 周に入る升の数(読み手が額縁の銘帯を最後まで辿る上限)。"""
+    total, inset = 0, 1.5
+    for _ in range(rows):
+        h = half - inset
+        total += 4 * max(0, math.floor(2.0 * (h - geo.FULL_TALISMAN - 0.5)) + 1)
+        inset += geo.FULL_RING_PITCH
+    return total
+
+
 def place(model: JinFileV2) -> Placement:
+    inscription = inscribe(model)
     circle_radius = {
-        ci: ring_outer(len(circle_ring(model, ci)), circle_inner())
-        for ci in range(len(model.circles))
+        ci: ring_outer(len(cells), circle_inner()) for ci, cells in inscription.circles.items()
     }
     rite_radius = {
-        (ci, ri): ring_outer(len(rite_ring(model, ci, ri)), rite_inner())
-        for ci, circle in enumerate(model.circles)
-        for ri in range(len(circle.rites))
+        key: ring_outer(len(cells), rite_inner()) for key, cells in inscription.rites.items()
     }
 
     # 陣ごとの塊(陣の中心からの相対位置)
@@ -165,19 +213,28 @@ def place(model: JinFileV2) -> Placement:
         [max(abs(x), abs(y)) + circle_radius[ci] for ci, (x, y) in centers.items()]
         + [max(abs(x), abs(y)) + rite_radius[key] for key, (x, y) in rites.items()]
     )
+    # 額縁の銘帯が FRAME_ROWS 周を超えるなら、超えた周の分だけ余白を広げる(黙って切らない・4 周目が陣に食い込まない)
+    margin = geo.FULL_FRAME_MARGIN
+    while frame_rows(len(inscription.frame), extent + margin) > FRAME_ROWS:
+        margin += geo.FULL_RING_PITCH
     return Placement(
         circles=dict(sorted(centers.items())),
         rites=dict(sorted(rites.items())),
         circle_radius=circle_radius,
         rite_radius=rite_radius,
-        half=extent + geo.FULL_FRAME_MARGIN,
+        half=extent + margin,
+        inscription=inscription,
     )
 
 
 __all__ = [
+    "FRAME_ROWS",
     "Placement",
     "RingCell",
     "circle_inner",
+    "frame_capacity",
+    "frame_positions",
+    "frame_rows",
     "orbit_centers",
     "orbit_distance",
     "place",

@@ -24,7 +24,7 @@ from jin_core.v2.model import JinFileV2
 from jin_render.v2 import geometry as geo
 from jin_render.v2.full import frame_positions
 from jin_render.v2.full_layout import ring_capacity, ring_slot_center
-from jin_render.v2.inscribe import InkCell, circle_ring, frame_band, rite_ring
+from jin_render.v2.inscribe import InkCell, inscribe
 
 Grade = Literal["S", "M"]
 GRADES: tuple[Grade, ...] = ("S", "M")
@@ -242,9 +242,10 @@ def _program_bands(sheet: Sheet, model: JinFileV2) -> dict[str, list[InkCell]]:
         raise SheetOverflow(
             f"陣が {len(order)} 個あります(等級 {sheet.grade} の型紙は {circles} 個まで)"
         )
-    bands: dict[str, list[InkCell]] = {"frame": frame_band(model)}
+    inscription = inscribe(model)
+    bands: dict[str, list[InkCell]] = {"frame": inscription.frame}
     for k, ci in enumerate(order):
-        bands[f"c{k}"] = circle_ring(model, ci)
+        bands[f"c{k}"] = inscription.circles[ci]
         rites = model.circles[ci].rites
         slots = sum(1 for r in sheet.rings if r.owner.startswith(f"r{k}_"))
         if len(rites) > slots:
@@ -252,7 +253,7 @@ def _program_bands(sheet: Sheet, model: JinFileV2) -> dict[str, list[InkCell]]:
                 f"陣 {names[ci]} の手順が {len(rites)} 個あります(型紙は 1 陣に {slots} 個まで)"
             )
         for j in range(len(rites)):
-            bands[f"r{k}_{j}"] = rite_ring(model, ci, j)
+            bands[f"r{k}_{j}"] = inscription.rites[(ci, j)]
     return bands
 
 

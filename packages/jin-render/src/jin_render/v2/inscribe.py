@@ -37,10 +37,12 @@ class InkCell:
     kind: str
 
 
-#: 式の字句(expr.md §1 の終端記号と同じ集合)。長い記号を先に並べる。
+#: 式の字句(expr.md §1 の終端記号と同じ集合)。長い記号を先に並べる。`jin_core.v2.expr` の Lark の字句と同じ切り方に
+#: なることは `test_inscribe.py::test_the_token_pattern_cuts_like_the_expression_lexer` が全 fixture の式で見る。
+#: 最後の `\S` は文法に無い字(JIN201 の式)で、黙って落とさずラテンの升にする(読めない式もそのまま往復させる)。
 _TOKEN = re.compile(
     r'"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?'
-    r"|==|!=|<=|>=|\+\+|[-+*/%<>()\[\]{},:.]"
+    r"|==|!=|<=|>=|\+\+|[-+*/%<>()\[\]{},:.]|\S"
 )
 _GLYPH_OF_TOKEN = {token: gid for gid, token in EXPR_TOKEN_OF.items()}
 _DISC = {(g.slot, g.token): g.id for g in GLYPHS if g.layer == "disc"}
@@ -190,17 +192,40 @@ def _canonical(model: JinFileV2) -> Any:
     return json.loads(dumps(model))
 
 
-def frame_band(model: JinFileV2) -> list[InkCell]:
-    """額縁の銘帯: (標準でない `$schema`)→ width / height / fps / seed → 型紙 → asset。"""
+@dataclass(frozen=True)
+class Inscription:
+    """プログラム全体の銘文(額縁の銘帯・陣の銘環・手順の銘環)。正準 JSON を 1 回だけ作って全部の帯を組む。"""
+
+    frame: list[InkCell]
+    circles: dict[int, list[InkCell]]
+    rites: dict[tuple[int, int], list[InkCell]]
+
+
+def inscribe(model: JinFileV2) -> Inscription:
+    """全部の銘帯。完全陣・型紙・鑑賞の帯が同じ帯を何度も組まないように使う(環ごとに `dumps` し直すと遅い)。"""
     data = _canonical(model)
+    return Inscription(
+        frame=frame_band(model, data=data),
+        circles={ci: circle_ring(model, ci, data=data) for ci in range(len(model.circles))},
+        rites={
+            (ci, ri): rite_ring(model, ci, ri, data=data)
+            for ci, circle in enumerate(model.circles)
+            for ri in range(len(circle.rites))
+        },
+    )
+
+
+def frame_band(model: JinFileV2, *, data: Any = None) -> list[InkCell]:
+    """額縁の銘帯: (標準でない `$schema`)→ width / height / fps / seed → 型紙 → asset。"""
+    data = _canonical(model) if data is None else data
     band = _Band(data, "/stage", "stage")
     if data.get("$schema") != SCHEMA_ID_V2:
         band.field()
         band.string(data["$schema"], "/$schema")
-    defaults = {"fps": 60, "seed": 0}
     for key in ("width", "height", "fps", "seed"):
         band.field()
-        band.name(str(data["stage"].get(key, defaults.get(key))), f"/stage/{key}")
+        # 正準形は既定値の欄を落とすので、値はモデルから読む(既定値を写さない)
+        band.name(str(getattr(model.stage, key)), f"/stage/{key}")
     names = [c["name"] for c in data["circles"]]
     if data["root"] in names and names.index(data["root"]) > 0:
         # S3: root が circles[0] でないときだけ root の添字(第 1 軌道の並びからは root の位置が分からない)
@@ -233,9 +258,9 @@ def frame_band(model: JinFileV2) -> list[InkCell]:
     return cells
 
 
-def circle_ring(model: JinFileV2, ci: int) -> list[InkCell]:
+def circle_ring(model: JinFileV2, ci: int, *, data: Any = None) -> list[InkCell]:
     """陣の銘環: 陣の核 → description → 記憶 → 道具 → on → guard → 委譲(glyph 設計書 §1.3)。"""
-    data = _canonical(model)
+    data = _canonical(model) if data is None else data
     circle = data["circles"][ci]
     base = f"/circles/{ci}"
     head = _Band(data, base, "circle")
@@ -325,9 +350,9 @@ def circle_ring(model: JinFileV2, ci: int) -> list[InkCell]:
     return cells
 
 
-def rite_ring(model: JinFileV2, ci: int, ri: int) -> list[InkCell]:
+def rite_ring(model: JinFileV2, ci: int, ri: int, *, data: Any = None) -> list[InkCell]:
     """手順陣の銘環: 手順陣の核(名前・引数・戻り値)→ ステップを前順で(glyph 設計書 §1.3)。"""
-    data = _canonical(model)
+    data = _canonical(model) if data is None else data
     rite = data["circles"][ci]["rites"][ri]
     base = f"/circles/{ci}/rites/{ri}"
     head = _Band(data, base, "rite")
@@ -435,4 +460,13 @@ def _step_band(data: Any, p: str, step: Any) -> list[InkCell]:
     return band.cells
 
 
-__all__ = ["InkCell", "circle_ring", "expr_cells", "frame_band", "rite_ring", "to_expr"]
+__all__ = [
+    "InkCell",
+    "Inscription",
+    "circle_ring",
+    "expr_cells",
+    "frame_band",
+    "inscribe",
+    "rite_ring",
+    "to_expr",
+]

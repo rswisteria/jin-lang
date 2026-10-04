@@ -11,7 +11,15 @@ from typing import Any, Literal
 
 from jin_core.schema_export import SCHEMA_DIALECT, serialize
 from jin_core.v2.glyph import GLYPH_IDS, START_MARK, STRUCT_MARKS
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StrictStr,
+    field_validator,
+    model_validator,
+)
 
 SCENE_SCHEMA_PATH = "schemas/jin-scene.schema.json"
 SCENE_SCHEMA_ID = "https://xtone.internal/jin/schemas/jin-scene.schema.json"
@@ -20,7 +28,11 @@ _STRUCT_IDS = frozenset(m.id for m in STRUCT_MARKS) | {START_MARK}
 
 
 class _Strict(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    """知らない欄を拒む。文字列と整数の欄は `StrictStr` / `StrictInt` で型を変換しない(`"width": "4032"` を通さない・
+    #119。モデル全体を strict にすると JSON から読んだ dict の座標の配列が tuple でないと拒まれる)。
+    `from` は別名でだけ受ける(`from_` は通さない)。"""
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class Cell(_Strict):
@@ -28,8 +40,8 @@ class Cell(_Strict):
     `t == "latin"` なら `v` はちょうど 1 字(1 コードポイント。名前や数は升ごとに 1 字ずつ並ぶ)。"""
 
     t: Literal["latin", "glyph", "struct"]
-    v: str
-    unsure: list[str] = []
+    v: StrictStr
+    unsure: list[StrictStr] = []
     box: tuple[float, float, float, float] | None = None
 
     @model_validator(mode="after")
@@ -44,28 +56,28 @@ class Cell(_Strict):
 
 
 class Band(_Strict):
-    owner: str
+    owner: StrictStr
     cells: list[Cell]
 
 
 class Figure(_Strict):
-    id: str
-    kind: str
+    id: StrictStr
+    kind: StrictStr
     at: tuple[float, float]
-    ring: str | None = None
+    ring: StrictStr | None = None
     angle: float | None = None
 
 
 class Line(_Strict):
-    from_: str = Field(alias="from")
-    to: str
+    from_: StrictStr = Field(alias="from")
+    to: StrictStr
     style: Literal["solid", "dashed"]
 
 
 class ImageInfo(_Strict):
-    sha256: str
-    width: int
-    height: int
+    sha256: StrictStr = Field(pattern=r"^[0-9a-f]{64}$")
+    width: StrictInt = Field(ge=1)
+    height: StrictInt = Field(ge=1)
 
 
 class JinScene(_Strict):
@@ -85,6 +97,20 @@ class JinScene(_Strict):
                 raise ValueError(f"図形の id が重複しています: {f.id!r}")
             seen.add(f.id)
         return figures
+
+    @model_validator(mode="after")
+    def _references_resolve(self) -> JinScene:
+        """線の両端と図形の `ring` は図形の id を指す。銘帯の `owner` は構文解析器が JIN305 で知らせる
+        (読み取りの誤りとして利用者に返す)ので、ここでは見ない。"""
+        ids = {f.id for f in self.figures}
+        for f in self.figures:
+            if f.ring is not None and f.ring not in ids:
+                raise ValueError(f"図形 {f.id!r} の ring {f.ring!r} が図形にありません")
+        for line in self.lines:
+            for end in (line.from_, line.to):
+                if end not in ids:
+                    raise ValueError(f"線の端 {end!r} が図形にありません")
+        return self
 
 
 Box = tuple[float, float, float, float]

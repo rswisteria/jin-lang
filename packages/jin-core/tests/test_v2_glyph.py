@@ -142,3 +142,26 @@ def test_escape_letters_cover_every_undrawable_character_including_space() -> No
     letters = list(ESCAPE_LETTERS.values())
     assert len(letters) == len(set(letters)), "読み戻せるよう 1 対 1"
     assert "u" not in letters, "u は 16 進 4 桁の前置き(その他の制御文字)に予約"
+
+
+def test_the_expression_token_table_is_unambiguous() -> None:
+    """#119: 同じ字句を持つ紋(`>` の gt / t_list_r、`"` の quote_l / quote_r)は、文脈で決まる側(型・文字列)を
+    式の字句の表から外してあるので、式の字句 → 紋の逆引きは 1 対 1。重複はこの組と判別の紋の `message` だけ。"""
+    from collections import Counter
+
+    from jin_core.v2.glyph import EXPR_TOKEN_OF, GLYPHS
+
+    tokens = list(EXPR_TOKEN_OF.values())
+    assert len(tokens) == len(set(tokens))
+    shared = {
+        token: sorted(g.id for g in GLYPHS if g.token == token)
+        for token, n in Counter(g.token for g in GLYPHS).items()
+        if n > 1
+    }
+    assert shared == {
+        ">": ["gt", "t_list_r"],
+        '"': ["quote_l", "quote_r"],
+        "message": ["event_message", "mark_message"],
+    }
+    assert "t_list_r" not in EXPR_TOKEN_OF
+    assert "quote_l" not in EXPR_TOKEN_OF and "quote_r" not in EXPR_TOKEN_OF

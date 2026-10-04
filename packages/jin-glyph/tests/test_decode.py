@@ -130,3 +130,43 @@ def test_a_png_cut_inside_its_header_is_refused(cut: int) -> None:
     header = b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 10, 10)
     with pytest.raises(DecodeError, match="PNG"):
         decode_png(header[:cut])
+
+
+def test_a_frame_band_longer_than_three_rows_widens_the_frame_and_reads_back() -> None:
+    """#119: 額縁の銘帯が 3 周を超えたら余白を広げる(4 周目が陣に食い込まない・位置が尽きて黙って切らない)。"""
+    from jin_core.canonical import dumps
+    from jin_glyph.parse import parse_scene
+    from jin_render.v2 import geometry as g2
+    from jin_render.v2.full_layout import FRAME_ROWS, frame_rows
+
+    forms = [
+        {"name": f"Form{k:02d}", "fields": [{"name": f"field{j}", "type": "num"} for j in range(6)]}
+        for k in range(24)
+    ]
+    model = JinFileV2.model_validate(
+        {
+            "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+            "version": 2,
+            "root": "Main",
+            "stage": {"width": 64, "height": 64},
+            "forms": forms,
+            "circles": [
+                {
+                    "name": "Main",
+                    "core": "go",
+                    "rites": [{"name": "go", "steps": [{"do": "finish"}]}],
+                }
+            ],
+        }
+    )
+    placement = place(model)
+    frame = placement.inscription.frame
+    # 収まる最小の広さまで広げた(1 段狭いと FRAME_ROWS 周を超える)
+    assert frame_rows(len(frame), placement.half) <= FRAME_ROWS
+    assert frame_rows(len(frame), placement.half - g2.FULL_RING_PITCH) > FRAME_ROWS
+    scene = decode_png(png_bytes(model, 2))
+    bands = {band.owner: payload(band.cells) for band in scene.bands}
+    assert bands["frame"] == [(c.t, c.v) for c in frame]
+    parsed, diagnostics = parse_scene(scene, file="forms.jinscene.json")
+    assert not [d for d in diagnostics if d.severity == "error"], diagnostics
+    assert dumps(parsed) == dumps(model)
