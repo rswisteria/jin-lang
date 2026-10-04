@@ -1789,6 +1789,13 @@ def render(
             help="鑑賞ページの銘環の帯（v2 の銘文を図の外周に巡らせた SVG・陣書き S7）。--full / --focus / --trace とは併用できない",
         ),
     ] = False,
+    panorama: Annotated[
+        bool,
+        typer.Option(
+            "--panorama",
+            help="鑑賞ページの全景（v2 のすべての陣と手順の図を完全陣と同じ配置に並べた 1 枚）。--inscription と併せると同じ座標系の銘。--full / --focus / --trace とは併用できない",
+        ),
+    ] = False,
     sheet: Annotated[
         str | None,
         typer.Option(
@@ -1816,7 +1823,9 @@ def render(
         typer.echo(f"--upto は 0 以上の整数です（指定値: {brief(upto)}）", err=True)
         raise typer.Exit(code=2)
     if sheet is not None:
-        _render_sheet(sheet, file, out, force=force, others=(trace, focus, full or inscription))
+        _render_sheet(
+            sheet, file, out, force=force, others=(trace, focus, full or inscription or panorama)
+        )
     if file is None:
         typer.echo("対象の .jin を指定してください（型紙なら --sheet S か --sheet M）", err=True)
         raise typer.Exit(code=2)
@@ -1827,7 +1836,13 @@ def render(
         rows, numbers = _read_trace_rows(trace)
     try:
         svg = render_svg(
-            model, focus=focus, trace=rows, upto=upto, full=full, inscription=inscription
+            model,
+            focus=focus,
+            trace=rows,
+            upto=upto,
+            full=full,
+            inscription=inscription,
+            panorama=panorama,
         )
     except RenderError as exc:
         # 未定義の focus。診断コード（JINxxx）は増やさない（CLAUDE.md / ADR-012）。

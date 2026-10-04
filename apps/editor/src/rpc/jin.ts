@@ -41,6 +41,11 @@ export interface RenderOptions {
   readonly upto?: number | undefined;
   /** `true` で鑑賞ページの銘環の帯（陣書き S7・docs/spec/v2/stage.md §2.2）。`focus` / `trace` / `upto` とは併用しない。 */
   readonly inscription?: boolean | undefined;
+  /**
+   * `true` で鑑賞ページの全景（すべての陣と手順の図・stage.md §2.3）。`inscription: true` と併せると全景の銘。
+   * `focus` / `trace` / `upto` とは併用しない。
+   */
+  readonly panorama?: boolean | undefined;
 }
 
 /**

@@ -103,6 +103,7 @@ export class StageRenderer {
 	/**
 	 * 場面と、召喚の窓の舞台の大きさ（無ければ窓を出さない・仕様書 2026-10-01-jin-stage-summon §2.1）。
 	 * 窓は作り直さず、裏のキャンバスだけを差し替える。銘環の帯（`band`）は無ければ描かない。
+	 * `panorama`（全景・stage.md §2.3）では環の管と目盛りを陣の大きさに合わせ、帯を回さない。
 	 */
 	setScene(
 		scene: Scene,
@@ -112,6 +113,7 @@ export class StageRenderer {
 			readonly height: number;
 		} | null = null,
 		band: Band | null = null,
+		panorama = false,
 	): void {
 		this.summon.setStage(stageSize, METALS.yellow.color);
 		if (this.model !== null) {
@@ -125,10 +127,10 @@ export class StageRenderer {
 			this.inscription = null;
 		}
 		if (band !== null) {
-			this.inscription = new InscriptionView(band);
+			this.inscription = new InscriptionView(band, !panorama);
 			this.scene.add(this.inscription.object);
 		}
-		this.model = buildGilded(scene, names);
+		this.model = buildGilded(scene, names, panorama);
 		this.view = new GlowView(this.model);
 		this.pointers = scene.pointers;
 		this.scene.add(this.model.root);

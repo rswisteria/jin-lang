@@ -36,6 +36,9 @@ describe("StagePanel（stage.md §6）", () => {
 				fileName="paddle.jin"
 				circleName="Play"
 				hidden
+				panorama={false}
+				panoramaOn
+				onPanoramaChange={() => undefined}
 			/>,
 		);
 		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
@@ -66,6 +69,9 @@ describe("StagePanel（stage.md §6）", () => {
 				fileName="paddle.jin"
 				circleName="Play"
 				hidden={false}
+				panorama={false}
+				panoramaOn
+				onPanoramaChange={() => undefined}
 			/>,
 		);
 		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
@@ -130,6 +136,9 @@ describe("StagePanel は同じ内容を送り直さない（stage.md §6）", ()
 				fileName="paddle.jin"
 				circleName="Play"
 				hidden={false}
+				panorama={false}
+				panoramaOn
+				onPanoramaChange={() => undefined}
 			/>
 		);
 	}
@@ -177,6 +186,9 @@ describe("StagePanel は舞台の大きさを stage.scene の stageSize で送�
 				fileName="tetris.jin"
 				circleName="Play"
 				hidden={false}
+				panorama={false}
+				panoramaOn
+				onPanoramaChange={() => undefined}
 			/>
 		);
 	}
@@ -220,6 +232,9 @@ describe("StagePanel は銘環の帯を stage.scene の inscription で送る（
 				fileName="fib.jin"
 				circleName="Play"
 				hidden={false}
+				panorama={false}
+				panoramaOn
+				onPanoramaChange={() => undefined}
 			/>
 		);
 	}
@@ -243,5 +258,59 @@ describe("StagePanel は銘環の帯を stage.scene の inscription で送る（
 		view.rerender(panel("<svg>band</svg>"));
 		view.rerender(panel("<svg>band</svg>"));
 		expect(bands()).toEqual([null, "<svg>band</svg>"]);
+	});
+});
+
+describe("StagePanel は全景を stage.scene の panorama で知らせる（stage.md §2.3・Issue #132）", () => {
+	function panel(
+		panorama: boolean,
+		onPanoramaChange: (on: boolean) => void = () => undefined,
+	): React.JSX.Element {
+		return (
+			<StagePanel
+				svg={panorama ? "<svg>whole</svg>" : "<svg/>"}
+				inscription={null}
+				model={{ circles: [{ name: "Play", sigils: [] }] }}
+				rows={[]}
+				seed={7}
+				fileName="tetris-plus.jin"
+				circleName="Game"
+				hidden={false}
+				panorama={panorama}
+				panoramaOn
+				onPanoramaChange={onPanoramaChange}
+			/>
+		);
+	}
+
+	test("全景か否かを欄で送り、切り替えると送り直す", () => {
+		const view = render(panel(true));
+		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
+		const post = vi.fn();
+		Object.defineProperty(frame, "contentWindow", {
+			value: { postMessage: post },
+		});
+		act(() => {
+			frame.dispatchEvent(new Event("load"));
+		});
+		const flags = (): unknown[] =>
+			post.mock.calls
+				.map(([message]) => message as { type: string; panorama?: unknown })
+				.filter((message) => message.type === "stage.scene")
+				.map((message) => message.panorama);
+		expect(flags()).toEqual([true]);
+		view.rerender(panel(false));
+		expect(flags()).toEqual([true, false]);
+	});
+
+	test("「全景」のチェックは既定の状態を映し、外すと知らせる", () => {
+		const changes: boolean[] = [];
+		render(panel(true, (on) => changes.push(on)));
+		const box = screen.getByTestId("jin-stage-panorama") as HTMLInputElement;
+		expect(box.checked).toBe(true);
+		act(() => {
+			box.click();
+		});
+		expect(changes).toEqual([false]);
 	});
 });

@@ -175,6 +175,14 @@ export function App({
 	// 鑑賞モードにいて本文（`text`）が前に取った時から変わったときだけ取り直す（スクラブ・ライブの描き直しには乗せない）。
 	const [inscription, setInscription] = useState<string | null>(null);
 	const inscribedText = useRef<string | null>(null);
+	// 鑑賞モードの全景（すべての陣と手順の図・stage.md §2.3・`jin/renderSvg` の `panorama`）。「全景」のチェックは既定 ON で、
+	// 陣や手順を選んでいる間（focus が root でない）はその図に寄る。全景の図と全景の銘は本文が変わったときだけ一緒に取り直す。
+	const [panoramaOn, setPanoramaOn] = useState(true);
+	const [panoramaScene, setPanoramaScene] = useState<{
+		readonly svg: string;
+		readonly inscription: string | null;
+	} | null>(null);
+	const panoramaText = useRef<string | null>(null);
 	// プレイヤーが最後に知らせた seed（鑑賞ページの `stage.trace` に添える）。
 	const [playerSeed, setPlayerSeed] = useState<number | null>(null);
 	// v2 のパレット（ステップの種別 / 道具の名前空間）。
@@ -262,8 +270,34 @@ export function App({
 		[replayEvents],
 	);
 	const isV2 = model !== null && model["version"] === 2;
+	const panorama = isV2 && panoramaOn && focus === null;
 	useEffect(() => {
-		if (!isV2 || mode !== "stage" || inscribedText.current === text) return;
+		if (!panorama || mode !== "stage" || panoramaText.current === text) return;
+		let cancelled = false;
+		void Promise.all([
+			api.renderSvg(uri, { panorama: true }),
+			api
+				.renderSvg(uri, { panorama: true, inscription: true })
+				.then((result) => result.svg)
+				// 銘は飾り。取れなければ銘なしの全景で描く
+				.catch(() => null),
+		])
+			.then(([drawing, band]) => {
+				if (cancelled) return;
+				panoramaText.current = text;
+				setPanoramaScene({ svg: drawing.svg, inscription: band });
+			})
+			.catch(() => {
+				// 全景が取れなければ今の図（focus の図）で描く（次に本文が変わったら取り直す）
+				if (!cancelled) setPanoramaScene(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [api, uri, panorama, mode, text]);
+	useEffect(() => {
+		if (!isV2 || panorama || mode !== "stage" || inscribedText.current === text)
+			return;
 		let cancelled = false;
 		void api
 			.renderSvg(uri, { inscription: true })
@@ -280,7 +314,7 @@ export function App({
 		return () => {
 			cancelled = true;
 		};
-	}, [api, uri, isV2, mode, text]);
+	}, [api, uri, isV2, panorama, mode, text]);
 	const selectedPointer = useMemo(
 		() =>
 			model === null || selection === null
@@ -1080,8 +1114,15 @@ export function App({
 			{/* 鑑賞モード（docs/spec/v2/stage.md）。実行パネルと同じく、モードを切り替えても外さず隠すだけ。 */}
 			{isV2 && (state.kind === "ready" || state.kind === "stale") ? (
 				<StagePanel
-					svg={plainSvg}
-					inscription={inscription}
+					svg={panorama && panoramaScene !== null ? panoramaScene.svg : plainSvg}
+					inscription={
+						panorama && panoramaScene !== null
+							? panoramaScene.inscription
+							: inscription
+					}
+					panorama={panorama && panoramaScene !== null}
+					panoramaOn={panoramaOn}
+					onPanoramaChange={setPanoramaOn}
 					model={state.model}
 					rows={stageRows}
 					seed={playerSeed}

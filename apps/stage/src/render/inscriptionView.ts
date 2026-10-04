@@ -52,7 +52,13 @@ export class InscriptionView {
 	/** 灯った升の数（e2e の口）。 */
 	litCells = 0;
 
-	constructor(private readonly band: Band) {
+	/**
+	 * `spinning` が偽なら帯を回さない（全景・stage.md §2.3。銘環が陣ごとの中心にあり、原点まわりに回すと陣からずれる）。
+	 */
+	constructor(
+		private readonly band: Band,
+		private readonly spinning = true,
+	) {
 		this.object.rotation.x = -Math.PI / 2;
 		this.spinner.position.z = BAND_HEIGHT;
 		this.object.add(this.spinner);
@@ -93,7 +99,7 @@ export class InscriptionView {
 	}
 
 	apply(glows: readonly Glow[], seconds: number): void {
-		this.spinner.rotation.z = bandSpin(seconds);
+		this.spinner.rotation.z = this.spinning ? bandSpin(seconds) : 0;
 		const lights = bandLights(this.band, glows, (pointer) => {
 			let found = this.under.get(pointer);
 			if (found === undefined) {

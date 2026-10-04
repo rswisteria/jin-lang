@@ -28,6 +28,7 @@ from jin_render.svg import COORD_DECIMALS
 from jin_render.v2 import DATA_JIN_KINDS_V2, render_v2
 from jin_render.v2.full import render_full
 from jin_render.v2.inscription import render_inscription
+from jin_render.v2.panorama import render_panorama, render_panorama_inscription
 
 
 def render(
@@ -38,6 +39,7 @@ def render(
     upto: int | None = None,
     full: bool = False,
     inscription: bool = False,
+    panorama: bool = False,
 ) -> str:
     """意味モデルを SVG 文字列にする。**同じ入力なら常にバイト単位で同じ**（NFR-DET-001）。
 
@@ -48,11 +50,21 @@ def render(
       `focus` / `trace` / `upto` とは併用できない
     - `inscription`: 鑑賞ページの銘環の帯（陣書き S7・プログラムの銘文を通常の図と同じ座標系の外周に巡らせた SVG・
       `jin_render.v2.inscription`）。v2 だけで、`focus` / `trace` / `upto` / `full` とは併用できない
+    - `panorama`: 鑑賞ページの全景（すべての陣の図と手順の図を完全陣と同じ配置に並べた 1 枚・`jin_render.v2.panorama`）。
+      v2 だけで、`focus` / `trace` / `upto` / `full` とは併用できない。`inscription` と併せると全景と同じ座標系の銘
 
     v1（`JinFile`）は `jin_render.layout`、v2（`JinFileV2`）は `jin_render.v2` が描く。
     振り分けはここ 1 か所で、CLI / LSP は version を見ない（`full` は CLI の `--full` だけが渡す。
     `inscription` は CLI の `--inscription` と `jin/renderSvg` の `inscription` が渡す）。
     """
+    if panorama:
+        if not isinstance(model, JinFileV2):
+            raise RenderError("--panorama（全景）は v2 の .jin だけを描きます")
+        if full or focus is not None or trace is not None or upto is not None:
+            raise RenderError(
+                "--panorama（全景）は --full / --focus / --trace / --upto と一緒に使えません"
+            )
+        return render_panorama_inscription(model) if inscription else render_panorama(model)
     if inscription:
         if not isinstance(model, JinFileV2):
             raise RenderError("--inscription（銘環の帯）は v2 の .jin だけを描きます")

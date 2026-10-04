@@ -22,6 +22,11 @@ export interface SceneMessage {
 		readonly width: number;
 		readonly height: number;
 	} | null;
+	/**
+	 * 全景（すべての陣と手順の図を完全陣と同じ配置に並べた図・stage.md §2.3）か。`true` 以外は false。
+	 * 全景では陣が額縁の中に散らばるので、環の管と目盛りを陣の大きさに合わせて細くし、銘の帯を回さない。
+	 */
+	readonly panorama: boolean;
 }
 
 /**
@@ -104,6 +109,7 @@ export function parseInbound(data: unknown): Inbound | null {
 				jinName,
 				circleName,
 				stageSize: stageSizeOf(data["stageSize"]),
+				panorama: data["panorama"] === true,
 			},
 		};
 	}

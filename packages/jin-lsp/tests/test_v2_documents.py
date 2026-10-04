@@ -93,6 +93,25 @@ def test_render_svg_answers_the_inscription_band_only_for_true(state) -> None:
     assert caught.value.code == "JIN002"
 
 
+def test_render_svg_answers_the_panorama_only_for_true(state) -> None:
+    """`panorama: true` は鑑賞ページの全景（stage.md §2.3・Issue #132）。`inscription: true` と併せると全景の銘。"""
+    from jin_render import render
+
+    whole = requests.jin_render_svg(state, URI, panorama=True)
+    assert whole["svg"] == render(state.model, panorama=True)
+    band = requests.jin_render_svg(state, URI, panorama=True, inscription=True)
+    assert band["svg"] == render(state.model, panorama=True, inscription=True)
+    assert len({whole["svg"], band["svg"], requests.jin_render_svg(state, URI)["svg"]}) == 3
+    for other in (None, False, "true", 1):
+        assert (
+            requests.jin_render_svg(state, URI, panorama=other)["svg"]
+            == requests.jin_render_svg(state, URI)["svg"]
+        )
+    with pytest.raises(requests.RequestError) as caught:
+        requests.jin_render_svg(state, URI, focus="Play", panorama=True)
+    assert caught.value.code == "JIN002"
+
+
 def test_render_svg_accepts_seq_zero_traces_for_v2(state) -> None:
     rows = [{"seq": 0, "pointer": "/circles/1"}, {"seq": 1, "pointer": "/stage"}]
     result = requests.jin_render_svg(state, URI, focus="Play", trace=rows, upto=0)

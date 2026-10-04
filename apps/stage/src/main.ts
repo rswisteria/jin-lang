@@ -69,6 +69,13 @@ const renderer = new StageRenderer(canvas);
 	summon: () => renderer.summonShown(),
 	// 銘環の帯があるか・灯っている升の数（陣書き S7・e2e の口）。
 	inscription: () => renderer.inscriptionShown(),
+	// 全景か・場面に描かれた手順の図の数（stage.md §2.3・e2e の口）。
+	panorama: () => ({
+		panorama: state.scene?.panorama === true,
+		rites: [...scenePointers].filter((pointer) =>
+			/^\/circles\/\d+\/rites\/\d+$/.test(pointer),
+		).length,
+	}),
 	// プレビューで描いた回数（隠れている間は増えない・e2e の口）。
 	draws: () => previewDraws,
 	// 手で動かした構図（回す・寄る・ずらす・e2e の口）。
@@ -98,6 +105,9 @@ const statusText = element<HTMLSpanElement>("status");
 const rowsText = element<HTMLSpanElement>("rows");
 const start = element<HTMLInputElement>("start");
 const end = element<HTMLInputElement>("end");
+
+/** 最後に受けた場面の pointer（e2e の口 `panorama` が数える）。 */
+let scenePointers: ReadonlySet<string> = new Set();
 
 export const state = {
 	scene: null as SceneMessage | null,
@@ -317,11 +327,14 @@ function bandOf(svg: string | null): Band | null {
 function applyInbound(message: Inbound): void {
 	if (message.type === "scene") {
 		try {
+			const scene = parseScene(message.value.svg);
+			scenePointers = scene.pointers;
 			renderer.setScene(
-				parseScene(message.value.svg),
+				scene,
 				message.value.names,
 				message.value.stageSize,
 				bandOf(message.value.inscription),
+				message.value.panorama,
 			);
 			state.scene = message.value;
 			refire();

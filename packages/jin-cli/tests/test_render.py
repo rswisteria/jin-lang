@@ -567,3 +567,32 @@ def test_inscription_rejects_a_v1_file() -> None:
     result = run(str(PIPELINE), "--inscription")
     assert result.exit_code == 2, result.output
     assert "v2" in result.stderr
+
+
+# ---------------------------------------------------------------- 全景(鑑賞ページ・Issue #132)
+
+
+@pytest.mark.parametrize("band", [False, True], ids=["drawing", "inscription"])
+def test_panorama_writes_byte_identical_to_the_library(tmp_path: Path, band: bool) -> None:
+    from jin_core.check import check_text
+    from jin_render.v2.panorama import render_panorama, render_panorama_inscription
+
+    out = tmp_path / "fib-panorama.svg"
+    result = run(str(FIB), "--panorama", *(["--inscription"] if band else []), "-o", str(out))
+    assert result.exit_code == 0, result.output
+    model = check_text(FIB.read_text(encoding="utf-8"), FIB.name).model
+    expected = render_panorama_inscription(model) if band else render_panorama(model)
+    assert out.read_text(encoding="utf-8") == expected
+
+
+@pytest.mark.parametrize("extra", [["--focus", "Fib"], ["--trace", str(TRACE)], ["--full"]])
+def test_panorama_rejects_focus_trace_and_full(extra: list[str]) -> None:
+    result = run(str(FIB), "--panorama", *extra)
+    assert result.exit_code == 2, result.output
+    assert "--panorama" in result.stderr
+
+
+def test_panorama_rejects_a_v1_file() -> None:
+    result = run(str(PIPELINE), "--panorama")
+    assert result.exit_code == 2, result.output
+    assert "v2" in result.stderr

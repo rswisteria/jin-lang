@@ -34,8 +34,27 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 				jinName: "paddle.jin",
 				circleName: "Play",
 				stageSize: null,
+				panorama: false,
 			},
 		});
+	});
+
+	test("stage.scene の panorama（全景・stage.md §2.3）: true だけが全景で、無い・別の型は false で場面は受ける", () => {
+		const flagOf = (panorama: unknown) => {
+			const parsed = parseInbound({
+				type: "stage.scene",
+				svg: "<svg/>",
+				names: {},
+				fps: 30,
+				jinName: "t.jin",
+				circleName: "Game",
+				panorama,
+			});
+			return parsed?.type === "scene" ? parsed.value.panorama : "rejected";
+		};
+		expect(flagOf(true)).toBe(true);
+		for (const other of [undefined, null, false, 1, "true"])
+			expect(flagOf(other)).toBe(false);
 	});
 
 	test("stage.scene の inscription（陣書き S7・stage.md §2.2）: 文字列ならそのまま、無い・別の型なら null で場面は受ける", () => {

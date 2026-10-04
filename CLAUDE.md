@@ -207,6 +207,12 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
   fixture `tests/fixtures/recognize/fib-free.synthetic/`）。生成器は認識器と同じ `free_geometry` で塊を出し、正解の升が塊に割れたら落ちる。
   切り分けや詰め直しを変えたら `UPDATE_RECORDINGS=1 uv run pytest packages/jin-glyph/tests/test_recognize_free.py -k recorded` で書き直す
 
+### 鑑賞モードの全景（Issue #132）の要点（正典は `docs/spec/v2/stage.md` §2.3・v2 layout.md §11）
+
+- **既定の図は深さ 1 まで**なので、鑑賞モードは既定で**全景**（`jin_render.v2.panorama`・完全陣と同じ配置にすべての陣と手順の図）を写す。陣や手順を開いている（ダブルクリック・`focus`）間はその図。`jin/renderSvg` の `panorama: true`（`inscription: true` と併せると全景の銘）・`jin render --panorama`・`stage.scene` の欄 `panorama`（語彙は 4 語のまま）
+- 全景の部品は `jin_render.v2.full` の関数を呼ぶだけで、**`render_full` の出力と node の順を変えない**。全景 + 全景の銘 = 完全陣（`<text>` と四隅の護符を除く）を `packages/jin-render/tests/test_panorama.py` が固定する
+- stage は全景のときだけ、環の管と目盛りに陣の単位を掛け（固定寸法だとステップが管に埋もれる）、銘の帯を回さない
+
 ### 陣書き S7（鑑賞ページの銘環の帯）の要点（正典は `docs/spec/v2/stage.md` §2.2・glyph.md §13・設計書 §9 #52〜#55）
 
 - **帯は Python が通常の図と同じ座標系に描く**（`jin_render.v2.inscription`・環 1.10〜1.30・升の並べ方は完全陣の `ring_cells`）。
