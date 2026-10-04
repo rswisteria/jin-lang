@@ -171,6 +171,10 @@ export function App({
 	const [generated, setGenerated] = useState<JinGenerated | null>(null);
 	// 鑑賞ページに渡す**オーバーレイ無し**の SVG（v2 だけ）。トレースを重ねた SVG は色が変わるので渡さない。
 	const [plainSvg, setPlainSvg] = useState<string | null>(null);
+	// 鑑賞ページの銘環の帯（陣書き S7・stage.md §2.2・`jin/renderSvg` の `inscription`）。モデルだけで決まるので、
+	// 鑑賞モードにいて本文（`text`）が前に取った時から変わったときだけ取り直す（スクラブ・ライブの描き直しには乗せない）。
+	const [inscription, setInscription] = useState<string | null>(null);
+	const inscribedText = useRef<string | null>(null);
 	// プレイヤーが最後に知らせた seed（鑑賞ページの `stage.trace` に添える）。
 	const [playerSeed, setPlayerSeed] = useState<number | null>(null);
 	// v2 のパレット（ステップの種別 / 道具の名前空間）。
@@ -258,6 +262,25 @@ export function App({
 		[replayEvents],
 	);
 	const isV2 = model !== null && model["version"] === 2;
+	useEffect(() => {
+		if (!isV2 || mode !== "stage" || inscribedText.current === text) return;
+		let cancelled = false;
+		void api
+			.renderSvg(uri, { inscription: true })
+			.then((result) => {
+				// 取れた本文を覚えるのは受け取ったときだけ（取っている間にモードを離れたら、戻ったときに取り直す）。
+				if (cancelled) return;
+				inscribedText.current = text;
+				setInscription(result.svg);
+			})
+			.catch(() => {
+				// 帯は飾り。取れなければ帯なしで描く（次に鑑賞モードへ来たか本文が変わったら取り直す）。
+				if (!cancelled) setInscription(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [api, uri, isV2, mode, text]);
 	const selectedPointer = useMemo(
 		() =>
 			model === null || selection === null
@@ -647,7 +670,9 @@ export function App({
 
 	/** 境界のイベント名（schema の `OnHandler.event` の enum から。名前を書き写さない）。 */
 	const onEvents = useMemo(() => {
-		const event = resolveRef(schemaV2, "#/$defs/OnHandler")?.properties?.["event"];
+		const event = resolveRef(schemaV2, "#/$defs/OnHandler")?.properties?.[
+			"event"
+		];
 		return (event?.enum ?? []).map((value) => String(value));
 	}, [schemaV2]);
 
@@ -798,11 +823,7 @@ export function App({
 			: "";
 
 	return (
-		<main
-			className="jin-app"
-			data-version={isV2 ? "2" : "1"}
-			data-mode={mode}
-		>
+		<main className="jin-app" data-version={isV2 ? "2" : "1"} data-mode={mode}>
 			<header className="jin-toolbar">
 				<button
 					type="button"
@@ -1060,6 +1081,7 @@ export function App({
 			{isV2 && (state.kind === "ready" || state.kind === "stale") ? (
 				<StagePanel
 					svg={plainSvg}
+					inscription={inscription}
 					model={state.model}
 					rows={stageRows}
 					seed={playerSeed}

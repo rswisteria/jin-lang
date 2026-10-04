@@ -11,6 +11,7 @@ import type { Glow } from "../effects";
 import { cameraNudge } from "../motion";
 import type { StageNames } from "../names";
 import { METALS } from "../palette";
+import type { Band } from "../inscription";
 import type { Scene } from "../scene";
 import type { ScreenFrame, WindowState } from "../screen/frames";
 import { Armillary } from "./armillary";
@@ -18,6 +19,7 @@ import { SummonWindow, WINDOW } from "./summonWindow";
 import { Floor } from "./floor";
 import { buildGilded, type GildedModel } from "./gilded";
 import { GlowView } from "./glowView";
+import { InscriptionView } from "./inscriptionView";
 import { Pillar } from "./pillar";
 import { buildPost, type PostChain } from "./post";
 
@@ -60,6 +62,8 @@ export class StageRenderer {
 	private readonly target = new THREE.Vector3();
 	private model: GildedModel | null = null;
 	private view: GlowView | null = null;
+	/** 銘環の帯（陣書き S7・stage.md §2.2）。帯が届いていなければ null。 */
+	private inscription: InscriptionView | null = null;
 	private pointers: ReadonlySet<string> = new Set();
 	private width = 1;
 	private height = 1;
@@ -98,7 +102,7 @@ export class StageRenderer {
 
 	/**
 	 * 場面と、召喚の窓の舞台の大きさ（無ければ窓を出さない・仕様書 2026-10-01-jin-stage-summon §2.1）。
-	 * 窓は作り直さず、裏のキャンバスだけを差し替える。
+	 * 窓は作り直さず、裏のキャンバスだけを差し替える。銘環の帯（`band`）は無ければ描かない。
 	 */
 	setScene(
 		scene: Scene,
@@ -107,12 +111,22 @@ export class StageRenderer {
 			readonly width: number;
 			readonly height: number;
 		} | null = null,
+		band: Band | null = null,
 	): void {
 		this.summon.setStage(stageSize, METALS.yellow.color);
 		if (this.model !== null) {
 			this.scene.remove(this.model.root);
 			this.view?.dispose();
 			this.model.dispose();
+		}
+		if (this.inscription !== null) {
+			this.scene.remove(this.inscription.object);
+			this.inscription.dispose();
+			this.inscription = null;
+		}
+		if (band !== null) {
+			this.inscription = new InscriptionView(band);
+			this.scene.add(this.inscription.object);
 		}
 		this.model = buildGilded(scene, names);
 		this.view = new GlowView(this.model);
@@ -175,6 +189,7 @@ export class StageRenderer {
 			Math.sin(seconds * 0.5) * 1.4,
 		);
 		this.view?.apply(frame.glows, frame.tick, frame.fps, this.pointers);
+		this.inscription?.apply(frame.glows, seconds);
 		this.floor.setRipples(this.view?.ripples ?? []);
 		const pillar = this.view?.pillar ?? null;
 		if (pillar === null) this.pillar.set([0, 0], 0, 0, 0, seconds);
@@ -203,6 +218,14 @@ export class StageRenderer {
 		return this.summon.shown();
 	}
 
+	/** 銘環の帯があるか・灯っている升の数（e2e の口）。 */
+	inscriptionShown(): { readonly band: boolean; readonly lit: number } {
+		return {
+			band: this.inscription !== null,
+			lit: this.inscription?.litCells ?? 0,
+		};
+	}
+
 	/** GPU に載っている geometry と texture の数（e2e が「送り直しても増えない」を見る）。 */
 	memory(): { readonly geometries: number; readonly textures: number } {
 		const { geometries, textures } = this.renderer.info.memory;
@@ -212,6 +235,7 @@ export class StageRenderer {
 	dispose(): void {
 		this.view?.dispose();
 		this.model?.dispose();
+		this.inscription?.dispose();
 		this.floor.dispose();
 		this.pillar.dispose();
 		this.armillary.dispose();

@@ -1782,6 +1782,13 @@ def render(
             help="完全陣（v2 のプログラムの情報をすべて載せた 1 枚・陣書き）。--focus / --trace とは併用できない",
         ),
     ] = False,
+    inscription: Annotated[
+        bool,
+        typer.Option(
+            "--inscription",
+            help="鑑賞ページの銘環の帯（v2 の銘文を図の外周に巡らせた SVG・陣書き S7）。--full / --focus / --trace とは併用できない",
+        ),
+    ] = False,
     sheet: Annotated[
         str | None,
         typer.Option(
@@ -1809,7 +1816,7 @@ def render(
         typer.echo(f"--upto は 0 以上の整数です（指定値: {brief(upto)}）", err=True)
         raise typer.Exit(code=2)
     if sheet is not None:
-        _render_sheet(sheet, file, out, force=force, others=(trace, focus, full))
+        _render_sheet(sheet, file, out, force=force, others=(trace, focus, full or inscription))
     if file is None:
         typer.echo("対象の .jin を指定してください（型紙なら --sheet S か --sheet M）", err=True)
         raise typer.Exit(code=2)
@@ -1819,7 +1826,9 @@ def render(
     if trace is not None:
         rows, numbers = _read_trace_rows(trace)
     try:
-        svg = render_svg(model, focus=focus, trace=rows, upto=upto, full=full)
+        svg = render_svg(
+            model, focus=focus, trace=rows, upto=upto, full=full, inscription=inscription
+        )
     except RenderError as exc:
         # 未定義の focus。診断コード（JINxxx）は増やさない（CLAUDE.md / ADR-012）。
         typer.echo(f"{_safe(str(file))}: {_safe(str(exc))}", err=True)
@@ -1867,7 +1876,9 @@ def _render_sheet(
     """`jin render [FILE] --sheet S|M`（陣書き S4）。FILE が無ければ白紙の型紙、あれば写し書きの手本。"""
     trace, focus, full = others
     if trace is not None or focus is not None or full:
-        typer.echo("--sheet は --full / --focus / --trace と一緒に使えません", err=True)
+        typer.echo(
+            "--sheet は --full / --inscription / --focus / --trace と一緒に使えません", err=True
+        )
         raise typer.Exit(code=2)
     if grade not in SHEET_GRADES:
         typer.echo(f"--sheet は S か M です（指定値: {brief(grade)}）", err=True)

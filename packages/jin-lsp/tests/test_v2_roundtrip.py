@@ -155,3 +155,21 @@ async def test_navigation_and_rename_answer_for_v2_over_the_protocol(
     )
     assert edit is not None and edit.changes is not None
     assert "Play.points" in edit.changes[URI][0].new_text
+
+
+@pytest.mark.asyncio
+async def test_render_svg_passes_the_inscription_flag_over_the_protocol(
+    client: LanguageClient,
+) -> None:
+    """`jin/renderSvg` の `inscription: true` が鑑賞ページの銘環の帯を返す（陣書き S7・stage.md §2.2）。"""
+    from jin_core.check import check_text
+    from jin_render import render
+
+    await open_paddle(client)
+    model = check_text(PADDLE, "paddle.jin").model
+    band = as_plain(
+        await client.protocol.send_request_async("jin/renderSvg", {"uri": URI, "inscription": True})
+    )
+    assert band["svg"] == render(model, inscription=True)
+    plain = as_plain(await client.protocol.send_request_async("jin/renderSvg", {"uri": URI}))
+    assert plain["svg"] == render(model)

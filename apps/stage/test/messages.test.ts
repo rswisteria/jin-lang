@@ -28,6 +28,7 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 			type: "scene",
 			value: {
 				svg: "<svg/>",
+				inscription: null,
 				names,
 				fps: 60,
 				jinName: "paddle.jin",
@@ -35,6 +36,24 @@ describe("エディタとの 4 語（stage.md §6）", () => {
 				stageSize: null,
 			},
 		});
+	});
+
+	test("stage.scene の inscription（陣書き S7・stage.md §2.2）: 文字列ならそのまま、無い・別の型なら null で場面は受ける", () => {
+		const bandOf = (inscription: unknown) => {
+			const parsed = parseInbound({
+				type: "stage.scene",
+				svg: "<svg/>",
+				names: {},
+				fps: 30,
+				jinName: "t.jin",
+				circleName: "Play",
+				inscription,
+			});
+			return parsed?.type === "scene" ? parsed.value.inscription : "rejected";
+		};
+		expect(bandOf("<svg>band</svg>")).toBe("<svg>band</svg>");
+		for (const other of [undefined, null, 1, true, { svg: "x" }])
+			expect(bandOf(other)).toBeNull();
 	});
 
 	test("stage.scene の stageSize（仕様書 2026-10-01-jin-stage-summon §2.1）: 正しければそのまま、壊れていれば null で場面は受ける", () => {

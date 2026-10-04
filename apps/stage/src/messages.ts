@@ -11,6 +11,8 @@ export const STAGE_FILE = "stage.file";
 
 export interface SceneMessage {
 	readonly svg: string;
+	/** 銘環の帯の SVG（陣書き S7・stage.md §2.2）。無い・文字列でなければ null（帯を描かない・古いエディタ）。 */
+	readonly inscription: string | null;
 	readonly names: StageNames;
 	readonly fps: number;
 	readonly jinName: string;
@@ -95,6 +97,8 @@ export function parseInbound(data: unknown): Inbound | null {
 			type: "scene",
 			value: {
 				svg,
+				inscription:
+					typeof data["inscription"] === "string" ? data["inscription"] : null,
 				names: names as StageNames,
 				fps,
 				jinName,

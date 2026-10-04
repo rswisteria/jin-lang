@@ -37,6 +37,7 @@ import {
 import type { TraceRow } from "./names";
 import { captionText, Composer2D } from "./render/compose";
 import { StageRenderer } from "./render/stageRenderer";
+import { type Band, parseInscription } from "./inscription";
 import { parseScene, SceneError } from "./scene";
 import {
 	type Aspect,
@@ -66,6 +67,8 @@ const renderer = new StageRenderer(canvas);
 ).__jinStage = {
 	memory: () => renderer.memory(),
 	summon: () => renderer.summonShown(),
+	// 銘環の帯があるか・灯っている升の数（陣書き S7・e2e の口）。
+	inscription: () => renderer.inscriptionShown(),
 	// プレビューで描いた回数（隠れている間は増えない・e2e の口）。
 	draws: () => previewDraws,
 	// 手で動かした構図（回す・寄る・ずらす・e2e の口）。
@@ -301,6 +304,16 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
 	applyInbound(message);
 });
 
+/** 銘環の帯（陣書き S7・stage.md §2.2）。帯は飾りなので、無い・読めなければ帯なしで描く（陣は描く）。 */
+function bandOf(svg: string | null): Band | null {
+	if (svg === null) return null;
+	try {
+		return parseInscription(svg);
+	} catch {
+		return null;
+	}
+}
+
 function applyInbound(message: Inbound): void {
 	if (message.type === "scene") {
 		try {
@@ -308,6 +321,7 @@ function applyInbound(message: Inbound): void {
 				parseScene(message.value.svg),
 				message.value.names,
 				message.value.stageSize,
+				bandOf(message.value.inscription),
 			);
 			state.scene = message.value;
 			refire();

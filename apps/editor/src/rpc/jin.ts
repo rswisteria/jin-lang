@@ -39,6 +39,8 @@ export interface RenderOptions {
   readonly focus?: string | undefined;
   readonly trace?: readonly Record<string, unknown>[] | undefined;
   readonly upto?: number | undefined;
+  /** `true` で鑑賞ページの銘環の帯（陣書き S7・docs/spec/v2/stage.md §2.2）。`focus` / `trace` / `upto` とは併用しない。 */
+  readonly inscription?: boolean | undefined;
 }
 
 /**

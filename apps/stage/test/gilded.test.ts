@@ -73,6 +73,7 @@ describe("陣全体の演出（設計書 §2.3）", () => {
 		seq: 1,
 		target: "/circles/1",
 		source: null,
+		inscribed: "/circles/0",
 		gem: "gold",
 		effect: "ignite",
 		intensity: 1,
@@ -261,6 +262,7 @@ describe("宝玉の色の光と層の自転（仕様書 2026-10-01 §5）", () =
 		seq: 5,
 		target: "/circles/1/sigils/0",
 		source: "/circles/1/rites/2",
+		inscribed: "/circles/0",
 		effect: "beam",
 		gem: "sapphire",
 		intensity: 1,
@@ -300,6 +302,7 @@ describe("宝玉の色の光と層の自転（仕様書 2026-10-01 §5）", () =
 			gem: "ruby",
 			target: "/circles/1/boundary/guards/0",
 			source: null,
+			inscribed: "/circles/0",
 			progress: 0.3,
 		});
 		view.apply([...beams, warn], 0, 60, play.pointers);

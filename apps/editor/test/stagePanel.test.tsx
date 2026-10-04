@@ -29,6 +29,7 @@ describe("StagePanel（stage.md §6）", () => {
 		render(
 			<StagePanel
 				svg="<svg/>"
+				inscription={null}
 				model={{ circles: [] }}
 				rows={[]}
 				seed={null}
@@ -55,6 +56,7 @@ describe("StagePanel（stage.md §6）", () => {
 		render(
 			<StagePanel
 				svg="<svg/>"
+				inscription={null}
 				model={{
 					stage: { fps: 30 },
 					circles: [{ name: "Play", sigils: [{ name: "canvas" }] }],
@@ -121,6 +123,7 @@ describe("StagePanel は同じ内容を送り直さない（stage.md §6）", ()
 		return (
 			<StagePanel
 				svg="<svg/>"
+				inscription={null}
 				model={currentModel}
 				rows={currentRows}
 				seed={7}
@@ -167,6 +170,7 @@ describe("StagePanel は舞台の大きさを stage.scene の stageSize で送�
 		return (
 			<StagePanel
 				svg="<svg/>"
+				inscription={null}
 				model={{ stage, circles: [{ name: "Play", sigils: [] }] }}
 				rows={[]}
 				seed={7}
@@ -201,5 +205,43 @@ describe("StagePanel は舞台の大きさを stage.scene の stageSize で送�
 			{ width: 176, height: 120 },
 			{ width: 320, height: 240 },
 		]);
+	});
+});
+
+describe("StagePanel は銘環の帯を stage.scene の inscription で送る（陣書き S7・stage.md §2.2）", () => {
+	function panel(inscription: string | null): React.JSX.Element {
+		return (
+			<StagePanel
+				svg="<svg/>"
+				inscription={inscription}
+				model={{ circles: [{ name: "Play", sigils: [] }] }}
+				rows={[]}
+				seed={7}
+				fileName="fib.jin"
+				circleName="Play"
+				hidden={false}
+			/>
+		);
+	}
+
+	test("帯が届くと送り直し、同じ帯なら送らない", () => {
+		const view = render(panel(null));
+		const frame = screen.getByTestId("jin-stage") as HTMLIFrameElement;
+		const post = vi.fn();
+		Object.defineProperty(frame, "contentWindow", {
+			value: { postMessage: post },
+		});
+		act(() => {
+			frame.dispatchEvent(new Event("load"));
+		});
+		const bands = (): unknown[] =>
+			post.mock.calls
+				.map(([message]) => message as { type: string; inscription?: unknown })
+				.filter((message) => message.type === "stage.scene")
+				.map((message) => message.inscription);
+		expect(bands()).toEqual([null]);
+		view.rerender(panel("<svg>band</svg>"));
+		view.rerender(panel("<svg>band</svg>"));
+		expect(bands()).toEqual([null, "<svg>band</svg>"]);
 	});
 });
