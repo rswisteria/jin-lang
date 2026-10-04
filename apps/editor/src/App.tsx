@@ -264,17 +264,18 @@ export function App({
 	const isV2 = model !== null && model["version"] === 2;
 	useEffect(() => {
 		if (!isV2 || mode !== "stage" || inscribedText.current === text) return;
-		inscribedText.current = text;
 		let cancelled = false;
 		void api
 			.renderSvg(uri, { inscription: true })
 			.then((result) => {
-				if (!cancelled) setInscription(result.svg);
+				// 取れた本文を覚えるのは受け取ったときだけ（取っている間にモードを離れたら、戻ったときに取り直す）。
+				if (cancelled) return;
+				inscribedText.current = text;
+				setInscription(result.svg);
 			})
 			.catch(() => {
-				// 帯は飾り。取れなければ帯なしで描く（次に本文が変わったら取り直す）。
+				// 帯は飾り。取れなければ帯なしで描く（次に鑑賞モードへ来たか本文が変わったら取り直す）。
 				if (!cancelled) setInscription(null);
-				inscribedText.current = null;
 			});
 		return () => {
 			cancelled = true;

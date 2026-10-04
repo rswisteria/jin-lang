@@ -25,9 +25,9 @@ import { gemColorAt, METALS } from "../palette";
  */
 const MAX_LIT_SEGMENTS = 40000;
 /** 刻まれた銘の色（地金に対する比・stage.md §7）。 */
-const ENGRAVED_DIM = 0.55;
+const ENGRAVED_DIM = 0.3;
 /** 灯った銘の色の増分（明るさ 1 あたり）。 */
-const LIT_GAIN = 1.4;
+const LIT_GAIN = 3;
 
 export class InscriptionView {
 	/** 陣の面（root と同じ x 軸まわり −90°）。 */

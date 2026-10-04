@@ -502,8 +502,6 @@ test("銘環の帯が描かれ、発火した行の升が灯る（外すと消�
 	const at30 = await shown();
 	expect(at30.band).toBe(true);
 	expect(at30.lit).toBeGreaterThan(0);
-	if (process.env["STAGE_BAND_SHOT"] !== undefined)
-		await page.screenshot({ path: process.env["STAGE_BAND_SHOT"] });
 	await stage.getByTestId("stage-scrub").fill("80");
 	await page.waitForTimeout(300);
 	await stage.getByTestId("stage-scrub").fill("30");
