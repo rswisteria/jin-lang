@@ -1,0 +1,123 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": {
+    "width": 96,
+    "height": 32,
+    "fps": 30
+  },
+  "circles": [
+    {
+      "name": "Game",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "Play",
+          "Hud"
+        ]
+      }
+    },
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        {
+          "name": "score",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "input",
+          "kind": "host",
+          "host": "input"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "count",
+          "steps": [
+            {
+              "do": "if",
+              "cond": "input.pressed(\"Space\")",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "score",
+                  "expr": "score + 1"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "count"
+          }
+        ],
+        "guards": [
+          {
+            "assert": "score >= 0",
+            "message": "score は負にならない"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Hud",
+      "core": "begin",
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "draw",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.text",
+              "args": [
+                "\"SCORE \" ++ str(Play.score)",
+                "4",
+                "4"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "draw"
+          }
+        ]
+      }
+    }
+  ]
+}

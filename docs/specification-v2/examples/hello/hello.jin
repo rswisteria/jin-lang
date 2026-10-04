@@ -1,0 +1,72 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Hello",
+  "stage": {
+    "width": 64,
+    "height": 32,
+    "fps": 30
+  },
+  "circles": [
+    {
+      "name": "Hello",
+      "core": "begin",
+      "state": [
+        {
+          "name": "x",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "canvas",
+          "kind": "host",
+          "host": "canvas"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "move",
+          "steps": [
+            {
+              "do": "set",
+              "target": "x",
+              "expr": "x + 1"
+            },
+            {
+              "do": "cast",
+              "target": "canvas.clear",
+              "args": [
+                "\"#000\""
+              ]
+            },
+            {
+              "do": "cast",
+              "target": "canvas.rect",
+              "args": [
+                "x",
+                "12",
+                "8",
+                "8"
+              ]
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "move"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Blink",
+  "stage": {
+    "width": 32,
+    "height": 32,
+    "fps": 30
+  },
+  "circles": [
+    {
+      "name": "Blink",
+      "core": "begin",
+      "state": [
+        {
+          "name": "lit",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        },
+        {
+          "name": "flips",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "loop",
+              "kind": "while",
+              "cond": "true",
+              "steps": [
+                {
+                  "do": "wait",
+                  "ticks": "3"
+                },
+                {
+                  "do": "set",
+                  "target": "lit",
+                  "expr": "not lit"
+                },
+                {
+                  "do": "set",
+                  "target": "flips",
+                  "expr": "flips + 1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

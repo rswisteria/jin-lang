@@ -1,0 +1,16 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Calc",
+  "stage": { "width": 64, "height": 32, "fps": 60 },
+  "circles": [
+    {
+      "name": "Calc",
+      "core": "begin",
+      "state": [{ "name": "total", "type": "num", "init": "0", "out": false }],
+      "rites": [
+        { "name": "begin", "steps": [{ "do": "set", "target": "total", "expr": "(total+(1))*2.50" }] }
+      ]
+    }
+  ]
+}

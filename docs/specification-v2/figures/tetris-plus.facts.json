@@ -1,0 +1,15 @@
+{
+  "labels": [
+    "Game",
+    "Play",
+    "Board",
+    "Result"
+  ],
+  "edges": [
+    "Game->Play",
+    "Game->Result",
+    "Play->Board",
+    "Result->Board",
+    "Result->Play"
+  ]
+}

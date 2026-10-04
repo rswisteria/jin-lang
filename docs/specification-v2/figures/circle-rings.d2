@@ -1,0 +1,26 @@
+# 陣（circle）の中身: 核・4 つの環と、その間の参照（model.md §3 / §4）。事実シートは tools/facts.py が作る
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+direction: down
+*.style.font-size: 26
+(** -> **)[*].style.font-size: 24
+
+circle: "陣（circle）" {
+  core: "核（core）"
+  rites: "手順環（rites）"
+  state: "記憶環（state）"
+  sigils: "道具環（sigils）"
+  boundary: "境界環（boundary）" {
+    on: "on"
+    guards: "guards"
+  }
+
+  core -> rites: "入口の手順"
+  boundary.on -> rites: "イベントで呼ぶ"
+  rites -> state: "set"
+  rites -> sigils: "cast"
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Visits",
+  "stage": {
+    "width": 32,
+    "height": 32
+  },
+  "circles": [
+    {
+      "name": "Visits",
+      "core": "begin",
+      "state": [
+        {
+          "name": "count",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "storage",
+          "kind": "host",
+          "host": "storage"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "num(storage.get(\"visits\")) + 1"
+            },
+            {
+              "do": "cast",
+              "target": "storage.set",
+              "args": [
+                "\"visits\"",
+                "str(count)"
+              ]
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

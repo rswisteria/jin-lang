@@ -1,0 +1,4 @@
+# verify-book / figure-check / first-reader が作るもの（再生成できる）
+dist/
+figures/.figure-check/
+.first-reader/

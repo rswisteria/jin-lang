@@ -1,0 +1,138 @@
+{
+  "$comment": "本に引用する出力と、演習の答えを再生成する。cwd は本のディレクトリからの相対。jin はリポジトリの uv 環境で走る。",
+  "checks": [
+    {
+      "name": "facts",
+      "cmd": "uv run python tools/facts.py --check",
+      "expect": ["正本と一致"]
+    },
+    {
+      "name": "hello-check",
+      "cmd": "uv run jin check hello/hello.jin",
+      "cwd": "examples",
+      "expect": ["1 ファイル / error 0 件 / warning 0 件"]
+    },
+    {
+      "name": "hello-run",
+      "cmd": "uv run jin run hello/hello.jin --ticks 3 2>&1",
+      "cwd": "examples",
+      "expect": ["{\"Hello.x\": 3}", "3 tick 走らせました（seed 0）"]
+    },
+    {
+      "name": "renders",
+      "cmd": "uv run python tools/renders.py",
+      "expect": ["描きました: 5 枚"]
+    },
+    {
+      "name": "score-run",
+      "cmd": "uv run jin run score/score.jin --input score/space.jinrec 2>&1",
+      "cwd": "examples",
+      "expect": ["{\"Play.score\": 1}", "4 tick 走らせました（seed 0）"]
+    },
+    {
+      "name": "ex-out-start",
+      "cmd": "uv run jin check ex-out/start.jin; echo exit=$?",
+      "cwd": "examples",
+      "expect": [
+        "error JIN203: 陣 'Play' に公開 state 'score' はありません",
+        "hint: Play の state 'score' に \"out\": true を付ける",
+        "exit=1"
+      ]
+    },
+    {
+      "name": "steps-run",
+      "cmd": "uv run jin run steps/steps.jin 2>&1",
+      "cwd": "examples",
+      "expect": [
+        "{\"Calc.total\": 31, \"Calc.evens\": 3, \"Calc.label\": \"big 62\"}",
+        "1 tick 走らせました（seed 0、tick 0 で done）"
+      ]
+    },
+    {
+      "name": "messy-fmt",
+      "cmd": "cp steps/messy.jin $TMP/messy.jin && uv run jin fmt $TMP/messy.jin >/dev/null && cat $TMP/messy.jin",
+      "cwd": "examples",
+      "expect": ["\"expr\": \"(total + 1) * 2.5\""]
+    },
+    {
+      "name": "blink-trace",
+      "cmd": "uv run jin run time/blink.jin --ticks 10 --trace $TMP/blink.jsonl >/dev/null 2>&1 && grep '\"kind\":\"wait\"' $TMP/blink.jsonl",
+      "cwd": "examples",
+      "expect": [
+        "{\"seq\":2,\"tick\":-1,\"circle\":\"Blink\",\"kind\":\"wait\",\"name\":null,\"pointer\":\"/circles/0/rites/0/steps/0/steps/0\",\"input\":{\"ticks\":3},\"output\":\"suspend\"}",
+        "{\"seq\":5,\"tick\":2,\"circle\":\"Blink\",\"kind\":\"wait\",\"name\":null,\"pointer\":\"/circles/0/rites/0/steps/0/steps/0\",\"input\":{\"ticks\":0},\"output\":\"resume\"}"
+      ]
+    },
+    {
+      "name": "ex-wait-answer",
+      "cmd": "uv run jin run time/blink.jin --ticks 10 --trace $TMP/blink2.jsonl >/dev/null 2>&1 && grep '\"name\":\"lit\"' $TMP/blink2.jsonl | grep -o '\"tick\":[0-9-]*'",
+      "cwd": "examples",
+      "expect": ["\"tick\":2", "\"tick\":5", "\"tick\":8"]
+    },
+    {
+      "name": "buffer-run",
+      "cmd": "uv run jin run time/buffer.jin --ticks 3 2>&1",
+      "cwd": "examples",
+      "expect": ["{\"Writer.n\": 3, \"Reader.seen\": 2}"]
+    },
+    {
+      "name": "rounds-run",
+      "cmd": "uv run jin run rounds/rounds.jin 2>&1",
+      "cwd": "examples",
+      "expect": [
+        "{\"Play.turns\": 1, \"Tally.round\": 3, \"Tally.done\": true}",
+        "6 tick 走らせました（seed 0、tick 5 で done）"
+      ]
+    },
+    {
+      "name": "visits-run",
+      "cmd": "rm -f $TMP/memory.json; uv run jin run memory/visits.jin --storage $TMP/memory.json 2>/dev/null; uv run jin run memory/visits.jin --storage $TMP/memory.json 2>/dev/null",
+      "cwd": "examples",
+      "expect": ["{\"Visits.count\": 1}", "{\"Visits.count\": 2}"]
+    },
+    {
+      "name": "ex-fix-start",
+      "cmd": "uv run jin check ex-fix/start.jin; echo exit=$?",
+      "cwd": "examples",
+      "expect": [
+        "ex-fix/start.jin:73:32: error JIN202: '++' の右辺は str です（実際 num）",
+        "hint: 型を合わせてください（docs/spec/v2/expr.md §2）",
+        "pointer: /circles/0/rites/2/steps/1/args/0",
+        "ex-fix/start.jin:87:11: error JIN230: 'key' イベントを受けるには input の許可が要ります",
+        "hint: \"sigils\" に {\"name\": \"input\", \"kind\": \"host\", \"host\": \"input\"} を足す",
+        "exit=1"
+      ]
+    },
+    {
+      "name": "ex-fix-answer",
+      "cmd": "uv run jin check ex-fix/answer.jin",
+      "cwd": "examples",
+      "expect": ["1 ファイル / error 0 件 / warning 0 件"]
+    },
+    {
+      "name": "oops-run",
+      "cmd": "uv run jin run debug/oops.jin --ticks 5; echo exit=$?",
+      "cwd": "examples",
+      "expect": [
+        "{\"Oops.i\": 3, \"Oops.last\": 30}",
+        "exit=1",
+        "4 tick 走らせました（seed 0、tick 3 で done）",
+        "debug/oops.jin: 実行時エラー: 添字 3 は範囲外です（長さ 3）"
+      ]
+    },
+    {
+      "name": "guard-trace",
+      "cmd": "uv run jin run debug/guard.jin --ticks 4 --trace $TMP/guard.jsonl >/dev/null 2>&1; grep '\"kind\":\"assert\"' $TMP/guard.jsonl",
+      "cwd": "examples",
+      "expect": [
+        "{\"seq\":13,\"tick\":2,\"circle\":\"Hero\",\"kind\":\"assert\",\"name\":null,\"pointer\":\"/circles/0/boundary/guards/0\",\"input\":null,\"output\":\"hp は負にならない\"}"
+      ]
+    },
+    {
+      "name": "ex-out-answer",
+      "cmd": "uv run jin check ex-out/answer.jin",
+      "cwd": "examples",
+      "expect": ["1 ファイル / error 0 件 / warning 0 件"]
+    }
+  ]
+}
