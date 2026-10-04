@@ -76,6 +76,23 @@ def test_render_svg_answers_for_v2_with_a_rite_focus(state) -> None:
     assert caught.value.code == "JIN002"
 
 
+def test_render_svg_answers_the_inscription_band_only_for_true(state) -> None:
+    """`inscription: true` は鑑賞ページの銘環の帯（陣書き S7・stage.md §2.2）。`true` 以外は通常の図。"""
+    from jin_render import render
+
+    band = requests.jin_render_svg(state, URI, inscription=True)
+    assert band["svg"] == render(state.model, inscription=True)
+    assert band["svg"] != requests.jin_render_svg(state, URI)["svg"]
+    for other in (None, False, "true", 1):
+        assert (
+            requests.jin_render_svg(state, URI, inscription=other)["svg"]
+            == requests.jin_render_svg(state, URI)["svg"]
+        )
+    with pytest.raises(requests.RequestError) as caught:
+        requests.jin_render_svg(state, URI, focus="Play", inscription=True)
+    assert caught.value.code == "JIN002"
+
+
 def test_render_svg_accepts_seq_zero_traces_for_v2(state) -> None:
     rows = [{"seq": 0, "pointer": "/circles/1"}, {"seq": 1, "pointer": "/stage"}]
     result = requests.jin_render_svg(state, URI, focus="Play", trace=rows, upto=0)

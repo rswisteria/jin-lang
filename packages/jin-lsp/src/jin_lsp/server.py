@@ -328,6 +328,7 @@ def create_server(
             focus=_field(params, "focus"),
             trace=_field(params, "trace"),
             upto=_field(params, "upto"),
+            inscription=_field(params, "inscription"),
         )
 
     @server.feature("jin/ops")

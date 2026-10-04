@@ -540,3 +540,30 @@ def test_full_rejects_a_v1_file() -> None:
     result = run(str(PIPELINE), "--full")
     assert result.exit_code == 2, result.output
     assert "v2" in result.stderr
+
+
+# ---------------------------------------------------------------- 銘環の帯(陣書き S7)
+
+
+def test_inscription_writes_the_band_byte_identical_to_the_library(tmp_path: Path) -> None:
+    from jin_core.check import check_text
+    from jin_render.v2.inscription import render_inscription
+
+    out = tmp_path / "fib-band.svg"
+    result = run(str(FIB), "--inscription", "-o", str(out))
+    assert result.exit_code == 0, result.output
+    model = check_text(FIB.read_text(encoding="utf-8"), FIB.name).model
+    assert out.read_text(encoding="utf-8") == render_inscription(model)
+
+
+@pytest.mark.parametrize("extra", [["--focus", "Fib"], ["--trace", str(TRACE)], ["--full"]])
+def test_inscription_rejects_focus_trace_and_full(extra: list[str]) -> None:
+    result = run(str(FIB), "--inscription", *extra)
+    assert result.exit_code == 2, result.output
+    assert "--inscription" in result.stderr
+
+
+def test_inscription_rejects_a_v1_file() -> None:
+    result = run(str(PIPELINE), "--inscription")
+    assert result.exit_code == 2, result.output
+    assert "v2" in result.stderr

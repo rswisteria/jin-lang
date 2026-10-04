@@ -371,7 +371,7 @@ CLI・Claude Code・VS Code・視覚エディタの全てが、`jin_core` の同
 | リクエスト | 内容 |
 |---|---|
 | `jin/model` | 現在のドキュメントのモデル JSON と pointer→range 対応表 |
-| `jin/renderSvg` | `{ uri, focus?, trace?, upto? }` → SVG 文字列 |
+| `jin/renderSvg` | `{ uri, focus?, trace?, upto?, inscription? }` → SVG 文字列（`inscription: true` は Jin v2 の鑑賞ページの銘環の帯・`docs/spec/v2/stage.md` §2.2） |
 | `jin/applyOps` | 意味オペレーション列 → サーバがモデルを更新し、正準形テキストとの差分を `workspace/applyEdit` で適用。結果として新モデルと診断を返す |
 | `jin/ops` | 利用可能なオペレーションの一覧(`docs/spec/ops.md` と同内容) |
 
