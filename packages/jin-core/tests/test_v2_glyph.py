@@ -19,9 +19,9 @@ def by_slot(slot: str) -> set[str]:
 
 
 def test_glyph_counts_match_the_spec() -> None:
-    assert sum(g.layer == "expr" for g in GLYPHS) == 36
+    assert sum(g.layer == "expr" for g in GLYPHS) == 37
     assert sum(g.layer == "disc" for g in GLYPHS) == 22
-    assert len(GLYPH_IDS) == len(GLYPHS) == 58
+    assert len(GLYPH_IDS) == len(GLYPHS) == 59
 
 
 def test_glyph_ids_are_lowercase_identifiers() -> None:
@@ -133,11 +133,12 @@ def test_struct_marks_cover_every_figure_but_the_frame() -> None:
     assert STRUCT_MARK_OF == {m.owner: m.id for m in STRUCT_MARKS}
 
 
-def test_escape_letters_cover_every_undrawable_character_including_space() -> None:
-    # 最終レビュー #1: 文字列の中の空白は空の升と区別できないので esc + 字で書く
-    from jin_core.v2.glyph import ESCAPE_LETTERS
+def test_escape_letters_cover_every_undrawable_character() -> None:
+    from jin_core.v2.glyph import DIVIDER, ESCAPE_LETTERS, EXPR_TOKEN_OF, GLYPH_IDS
 
-    assert ESCAPE_LETTERS[" "] == "s"
+    # 最終レビュー #1 / Issue #129: 文字列の中の空白は空の升と区別できないので、esc ではなく語の区切りの紋 1 升で書く
+    assert " " not in ESCAPE_LETTERS
+    assert DIVIDER in GLYPH_IDS and DIVIDER not in EXPR_TOKEN_OF
     assert {'"', "\\", "\n", "\t", "\r", "\b", "\f"} <= set(ESCAPE_LETTERS)
     letters = list(ESCAPE_LETTERS.values())
     assert len(letters) == len(set(letters)), "読み戻せるよう 1 対 1"

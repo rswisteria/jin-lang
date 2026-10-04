@@ -17,6 +17,10 @@ from jin_render.svg import fmt_coord
 from jin_render.v2.font_data import ASCII, BITMAPS, CODEPOINTS
 
 GRID = 8  # 升を 8 × 8 の格子に割り、字形の 6 列を中央に置く
+#: 文字列の中身の字の点を描く珠の半径(格子 1 目に対して)。0.5 だと 1 目の 1/3 ずれた升で塗りの割合が読み取りのしきい値
+#: (`jin_glyph.cells.DOT_FRACTION` = 0.5)すれすれになる。0.55 ならずれても 0.6 を超え、隣の目へのはみ出しは 0.1 未満(Issue #129)
+BEAD_RADIUS = 0.55
+_KAPPA = 0.5522847498
 _BOX = "7F4141417F"
 _PACKED = base64.b64decode(CODEPOINTS)
 _CODES: tuple[int, ...] = tuple(
@@ -62,13 +66,19 @@ def readable(ch: str) -> bool:
     return group is not None and group[0] == ch
 
 
-def char_d(ch: str, x: float, y: float, size: float) -> str:
-    """字を左上 (x, y)・一辺 size の升に描く `d`(点ごとの閉じた正方形。塗って使う)。点が無ければ空文字。"""
+def char_d(ch: str, x: float, y: float, size: float, *, bead: bool = False) -> str:
+    """字を左上 (x, y)・一辺 size の升に描く `d`(点ごとの閉じた図形。塗って使う)。点が無ければ空文字。
+
+    点は既定で正方形、`bead` なら珠(格子の目の中心に半径 `BEAD_RADIUS` 目の円・3 次ベジェ 4 本)。珠は完全陣の
+    文字列の中身にだけ使う(詠唱帯・glyph.md §8)。読み取りは目の塗りの割合を見るので、どちらも同じ字に読める。"""
     p = size / GRID
     left = x + p  # 6 列を 8 列の中央に置く
     parts = []
     for col, row in pixels(ch):
         x0, y0 = left + col * p, y + row * p
+        if bead:
+            parts.append(_bead_d(x0 + p / 2, y0 + p / 2, BEAD_RADIUS * p))
+            continue
         x1, y1 = x0 + p, y0 + p
         parts.append(
             f"M{fmt_coord(x0)} {fmt_coord(y0)} L{fmt_coord(x1)} {fmt_coord(y0)} "
@@ -77,4 +87,16 @@ def char_d(ch: str, x: float, y: float, size: float) -> str:
     return " ".join(parts)
 
 
-__all__ = ["GRID", "char_d", "dot_groups", "pixels", "readable"]
+def _bead_d(cx: float, cy: float, r: float) -> str:
+    k = _KAPPA * r
+    f = fmt_coord
+    return (
+        f"M{f(cx)} {f(cy - r)} "
+        f"C{f(cx + k)} {f(cy - r)} {f(cx + r)} {f(cy - k)} {f(cx + r)} {f(cy)} "
+        f"C{f(cx + r)} {f(cy + k)} {f(cx + k)} {f(cy + r)} {f(cx)} {f(cy + r)} "
+        f"C{f(cx - k)} {f(cy + r)} {f(cx - r)} {f(cy + k)} {f(cx - r)} {f(cy)} "
+        f"C{f(cx - r)} {f(cy - k)} {f(cx - k)} {f(cy - r)} {f(cx)} {f(cy - r)} Z"
+    )
+
+
+__all__ = ["BEAD_RADIUS", "GRID", "char_d", "dot_groups", "pixels", "readable"]

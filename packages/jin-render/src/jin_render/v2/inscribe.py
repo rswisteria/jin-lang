@@ -5,7 +5,7 @@ S3 の構文解析器はこの逆を行う(欄の順は `jin_core.v2.glyph` か�
 
 - 名前と数はラテン 1 字 1 升。演算子・括弧・区切り・真偽は式紋 1 升
 - 文字列(式の文字列リテラル・`description`・guard の `message`・asset の `path`・agent の `file`)は `quote_l` … `quote_r`。
-  升に描けない字は `esc` + `ESCAPE_LETTERS`、それ以外の制御文字は `esc` `u` + 16 進 4 桁
+  升に描けない字は `esc` + `ESCAPE_LETTERS`、それ以外の制御文字は `esc` `u` + 16 進 4 桁、空白は語の区切りの紋 `divider` 1 升
 - 名前(`Name`)の欄は括らない(`emit` の `message`・`host` の `host` も名前)
 - 欄は `sep`、並びの要素は `comma`。省略できる欄は判別の紋(枠 `optional` / `wait`)を頭に置く
 - `$schema` は標準の URL なら書かない(モデルに必ずあるので、書かれていなければ標準)
@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 from jin_core.canonical import dumps
 from jin_core.schema_export import SCHEMA_ID_V2
-from jin_core.v2.glyph import ESCAPE_LETTERS, EXPR_TOKEN_OF, GLYPHS, STRUCT_MARK_OF
+from jin_core.v2.glyph import DIVIDER, ESCAPE_LETTERS, EXPR_TOKEN_OF, GLYPHS, STRUCT_MARK_OF
 from jin_core.v2.model import JinFileV2
 
 from jin_render.v2.font import readable
@@ -122,7 +122,9 @@ def _resolves(data: Any, pointer: str) -> bool:
 def _string_cells(text: str, pointer: str, kind: str) -> list[InkCell]:
     out = [InkCell("glyph", "quote_l", pointer, kind)]
     for ch in text:
-        if ch in ESCAPE_LETTERS:
+        if ch == " ":
+            out.append(InkCell("glyph", DIVIDER, pointer, kind))
+        elif ch in ESCAPE_LETTERS:
             out += [
                 InkCell("glyph", "esc", pointer, kind),
                 InkCell("latin", ESCAPE_LETTERS[ch], pointer, kind),
@@ -167,6 +169,8 @@ def to_expr(cells: Sequence[InkCell]) -> str:
                 escaped = False
             elif cell.t == "glyph" and cell.v == "esc":
                 escaped = True
+            elif cell.t == "glyph" and cell.v == DIVIDER:
+                buf += " "
             elif cell.t == "glyph" and cell.v == "quote_r":
                 out.append(buf + '"')
                 buf, in_string = "", False

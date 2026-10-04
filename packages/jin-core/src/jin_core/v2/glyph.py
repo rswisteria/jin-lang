@@ -30,7 +30,7 @@ def _disc(gid: str, slot: str, token: str) -> Glyph:
     return Glyph(gid, "disc", token, slot)
 
 
-#: spec §1.1 の表の順(= glyph.md の紋の表の順)。式紋 36 字・判別の紋 22 字。
+#: spec §1.1 の表の順(= glyph.md の紋の表の順)。式紋 37 字・判別の紋 22 字。
 GLYPHS: tuple[Glyph, ...] = (
     _expr("add", "+"),
     _expr("sub", "-"),
@@ -59,6 +59,7 @@ GLYPHS: tuple[Glyph, ...] = (
     _expr("quote_l", '"'),
     _expr("quote_r", '"'),
     _expr("esc", "\\"),
+    _expr("divider", "<space>"),
     _expr("true", "true"),
     _expr("false", "false"),
     _expr("t_num", "num"),
@@ -96,14 +97,27 @@ GLYPH_IDS: frozenset[str] = frozenset(g.id for g in GLYPHS)
 
 #: 式の字句に写る式紋だけ(文字列の括り・エスケープ・型・欄の区切り・継ぎは式の字句ではない)。
 _NOT_EXPR_TOKENS = frozenset(
-    {"quote_l", "quote_r", "esc", "t_num", "t_bool", "t_str", "t_list_l", "t_list_r", "sep", "cont"}
+    {
+        "quote_l",
+        "quote_r",
+        "esc",
+        "divider",
+        "t_num",
+        "t_bool",
+        "t_str",
+        "t_list_l",
+        "t_list_r",
+        "sep",
+        "cont",
+    }
 )
 EXPR_TOKEN_OF: dict[str, str] = {
     g.id: g.token for g in GLYPHS if g.layer == "expr" and g.id not in _NOT_EXPR_TOKENS
 }
 
 #: 文字列の中で升に描けない文字 → `esc` の後に書くラテン文字(1 対 1)。式の文字列リテラルの JSON エスケープ
-#: (expr.md §1)に**空白**(`s`)を足したもの: 空白の升は空の升と見分けられないため。これ以外の制御文字は
+#: (expr.md §1)と同じ。**空白**は空の升と見分けられないので、エスケープではなく語の区切りの紋 `divider` 1 升で書く
+#: (`DIVIDER`・glyph.md §3)。これ以外の制御文字は
 #: `esc` + `u` + 16 進 4 桁で書く(`u` は予約)。視覚層だけの規則で、読み取りは ASCII の式に写すときに戻す。
 ESCAPE_LETTERS: dict[str, str] = {
     '"': '"',
@@ -113,8 +127,10 @@ ESCAPE_LETTERS: dict[str, str] = {
     "\n": "n",
     "\r": "r",
     "\t": "t",
-    " ": "s",
 }
+
+#: 文字列の中の空白を書く紋(碑文の語の区切り)。空白の升は空の升と見分けられないため(Issue #129)。
+DIVIDER = "divider"
 
 #: 各環の 12 時に置く「始まりの印」。構造紋なので `GLYPHS` には入れない(spec §1.4)。
 START_MARK = "start"
@@ -176,6 +192,7 @@ STRUCT_MARKS: tuple[StructMark, ...] = tuple(
 STRUCT_MARK_OF: dict[str, str] = {m.owner: m.id for m in STRUCT_MARKS}
 
 __all__ = [
+    "DIVIDER",
     "ESCAPE_LETTERS",
     "EXPR_TOKEN_OF",
     "FIELD_ORDER",
