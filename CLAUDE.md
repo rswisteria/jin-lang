@@ -793,6 +793,10 @@ uv run jin editor examples-v2/paddle/paddle.jin --no-browser          # Jin v2 �
   `tests/contract/test_cli_contract.py::test_the_showcase_example_runs_with_the_fake_model`）
 - `tests/fixtures/traces/pipeline-fake.jsonl` — `jin run --model fake` の出力（11 行）。`jin-render` の
   テストは `jin_adk` を import できないのでこれを読む（実行結果との突合は `tests/contract/test_render_contract.py`）
+- `examples-v2/tetris-plus/` — **LSP で組み立てたサンプル**（7-bag・ホールド・ゴースト・レベル・ポーズ・`storage` のハイスコア）。`.jin` は手で直さず、
+  `scripts/build_tetris_plus.py`（`jin lsp` に `didOpen` → `jin/applyOps` を送り、応答の正準形の `text` を書く。stdio では `jin/save` が無効）の op を直して
+  `uv run python scripts/build_tetris_plus.py` で再生成する（`--check` を `tests/contract/test_tetris_plus.py` が呼ぶ）。遊び方は録画 2 本
+  （`tests/fixtures/jinrec/tetris-plus-*.jinrec`）を Lua / wasm-GC の両方に流して固定する。直したら録画の期待値（得点・行数）も見直す
 - `docs/samples/tetris/` — 入門教材 `docs/tetris-tutorial.md` の段階サンプル 9 本（`01-canvas` … `09-tetris`。**最終段は
   `examples-v2/tetris/tetris.jin` とバイト一致**なので tetris.jin を直したら `09-tetris.jin` も同じに直す）。
   `tests/contract/test_docs_tetris_tutorial.py` が check / fmt / 90 tick の実行 / 本文の図がサンプルからの生成物と一致すること /

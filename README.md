@@ -36,6 +36,7 @@ v2 のサンプルは `examples-v2/` にあります。
 - [Clicker](examples-v2/clicker/clicker.jin)：`ui.button` で押すボタンと `random`、`wait` で待つ手順の例。
 - [Othello](examples-v2/othello/othello.jin)：相手が **v1 の陣（LLM エージェント）** のオセロ。`agent` の道具で隣の [`agents/rival.jin`](examples-v2/othello/agents/rival.jin) に盤面と合法手を問い、答え（`d3` のような座標）を読んで打つ。ブラウザのプレイヤーは問いに答えないので、そこでは 2 秒待って内蔵の AI（取れる石が最多の手）が代わりに打つ。盤面の規則は `Board` 陣に置き、`Play` から `summon` で呼ぶ。
 - [Tetris](examples-v2/tetris/tetris.jin)：10×20 の盤面を `list<num>` で持ち、型紙 `Piece` と 7 種のミノの表、`wait` で刻む重力、`random`、行消去を組み合わせたゲーム。上の動画の題材。 9 段階で作り上げるプログラミング入門教材は [テトリスを作りながらプログラミングを学ぶ](docs/tetris-tutorial.md) を参照。
+- [Tetris Plus](examples-v2/tetris-plus/tetris-plus.jin)：v2.1 までの機能で作り直したテトリス。7-bag の出現順と NEXT 3 つ、ホールド（C / 左 Shift）、ゴースト、10 行ごとに上がるレベル、ポーズ（P / Esc・`wait until` で落下を止める）、`storage` に残るハイスコア（新記録は「新記録！」と k6x8 の字形で出る）。盤面の規則は `summon` だけで使う `Board` 陣に置く。**この `.jin` は手で書いておらず**、[`scripts/build_tetris_plus.py`](scripts/build_tetris_plus.py) が `jin lsp` に `jin/applyOps` を送って組み立てた正準形をそのまま書き出したもの（直すときもスクリプトの op を直して再生成する）。
 
 v2 の実行パネルはプレイヤー（`apps/player`）のビルド物を使うので、[エディタの実行方法](#エディタの実行方法) のセットアップに加えてプレイヤーもビルドしてから開きます。
 
