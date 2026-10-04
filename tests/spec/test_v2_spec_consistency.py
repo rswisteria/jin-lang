@@ -204,7 +204,14 @@ def _steps(steps: list[dict]):
 
 
 def test_there_are_four_v2_examples() -> None:
-    assert [p.parent.name for p in EXAMPLES_V2] == ["clicker", "fib", "othello", "paddle", "tetris"]
+    assert [p.parent.name for p in EXAMPLES_V2] == [
+        "clicker",
+        "fib",
+        "othello",
+        "paddle",
+        "tetris",
+        "tetris-plus",
+    ]
 
 
 @pytest.mark.parametrize("path", EXAMPLES_V2, ids=[p.stem for p in EXAMPLES_V2])

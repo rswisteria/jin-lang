@@ -76,10 +76,33 @@ EVENTS: dict[str, list[dict]] = {
         {"tick": 44, "kind": "key", "name": "Space", "down": True},
         {"tick": 45, "kind": "key", "name": "Space", "down": False},
     ],
+    # ホールド → 回転 → ポーズと再開(wait until)→ ハードドロップ。通しの流れは test_tetris_plus.py
+    "tetris-plus": [
+        {"tick": 3, "kind": "key", "name": "KeyC", "down": True},
+        {"tick": 4, "kind": "key", "name": "KeyC", "down": False},
+        {"tick": 8, "kind": "key", "name": "ArrowUp", "down": True},
+        {"tick": 9, "kind": "key", "name": "ArrowUp", "down": False},
+        {"tick": 12, "kind": "key", "name": "KeyP", "down": True},
+        {"tick": 13, "kind": "key", "name": "KeyP", "down": False},
+        {"tick": 40, "kind": "key", "name": "KeyP", "down": True},
+        {"tick": 41, "kind": "key", "name": "KeyP", "down": False},
+        {"tick": 50, "kind": "key", "name": "Space", "down": True},
+        {"tick": 51, "kind": "key", "name": "Space", "down": False},
+        {"tick": 56, "kind": "key", "name": "ShiftLeft", "down": True},
+        {"tick": 57, "kind": "key", "name": "ShiftLeft", "down": False},
+    ],
 }
 
 #: 走らせる tick 数（既定 5。核が wait で待つものは長め）
-TICKS = {"paddle": 40, "clicker": 80, "tetris": 60, "othello": 40, "wait_until": 6, "transfer": 6}
+TICKS = {
+    "paddle": 40,
+    "clicker": 80,
+    "tetris": 60,
+    "tetris-plus": 70,
+    "othello": 40,
+    "wait_until": 6,
+    "transfer": 6,
+}
 
 #: 両経路とも実行時エラー（exit 1・stderr の「実行時エラー」の行が同じ）
 RUNTIME_ERRORS = {"bad_color", "runtime_error_index"}
@@ -89,6 +112,7 @@ ALL_PROGRAMS = sorted(p.stem for p in PROGRAMS.glob("*.jin")) + [
     "paddle",
     "clicker",
     "tetris",
+    "tetris-plus",
     "othello",
 ]
 
