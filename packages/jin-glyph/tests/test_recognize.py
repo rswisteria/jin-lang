@@ -325,10 +325,16 @@ def test_a_truncated_reply_is_a_recognize_error(fib_photo: bytes) -> None:
         )
 
 
-def test_a_photo_without_a_sheet_is_refused(fib_photo: bytes) -> None:
-    body = _message({"grade": "none", "corners": []}, 0)
-    with pytest.raises(RecognizeError, match="型紙"):
-        recognize_photo(fib_photo, recognizer=Recognizer(client=replay_client([body], [])))
+def test_a_photo_without_a_sheet_or_a_frame_is_refused(fib_photo: bytes) -> None:
+    """型紙が無ければフリーハンドとして額縁を探し(S6)、額縁も無ければ断る。要求はその 2 本で止まる。"""
+    align = _message({"grade": "none", "corners": []}, 0)
+    frame = _message({"found": False, "corners": []}, 1)
+    requests: list[dict] = []
+    with pytest.raises(RecognizeError, match="型紙も.*額縁"):
+        recognize_photo(
+            fib_photo, recognizer=Recognizer(client=replay_client([align, frame], requests))
+        )
+    assert len(requests) == 2
 
 
 def test_corners_without_exactly_one_circle_are_refused(fib_photo: bytes) -> None:

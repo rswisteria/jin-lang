@@ -1,12 +1,13 @@
 """Claude 認識器の手動評価(陣書き S4・設計書 §5「撮影の評価セット」・S0 の合格線)。**本物の API を叩く。CI では回さない。**
 
-型紙に手で描いた陣の写真を `jin_glyph.recognize.recognize_photo` で読み、正解の `.jin` と比べて
+型紙に手で描いた陣の写真(S4)か白紙に描いた陣の写真(S6・フリーハンド)を `jin_glyph.recognize.recognize_photo` で読み、正解の `.jin` と比べて
 「手直しの升数」(持ち主ごとの銘帯の升の列の編集距離の和)と、その升数に対する割合を出す(合格線は 2%・設計書 §9 #17)。
 
     uv run python scripts/glyph_recognize_eval.py --photo fib.jpg --expect examples-v2/fib/fib.jin
     uv run python scripts/glyph_recognize_eval.py --photo fib.jpg --expect examples-v2/fib/fib.jin --record /tmp/rec
 
-- `--record DIR` は Messages API の生の応答を `DIR/00-align.json`・`01-cells.json`… に書く(`tests/fixtures/recognize/` と同じ形。
+- `--record DIR` は Messages API の生の応答を `DIR/00-align.json`・`01-cells.json`… に書く(フリーハンドでは 01 が額縁・
+  02 が環の形・03 以降が塊の読み。名前は `cells` のまま)(`tests/fixtures/recognize/` と同じ形。
   本物の録画に差し替えるときに使う)
 - `--scene OUT` は読んだ場面グラフを書く(手で直して `jin check OUT` に掛けられる)
 - 認証は SDK の既定の解決順(`ANTHROPIC_API_KEY` ほか)。写真と升の画像を Anthropic の API に送る
@@ -91,7 +92,11 @@ def main() -> int:
         )
 
     want = expected_bands(model)
-    got = {band.owner: [(c.t, c.v) for c in band.cells] for band in scene.bands}
+    # フリーハンド(S6)の環の銘帯は周の終わりの継ぎの紋を含む。どこで周を折り返すかは描き手の自由なので数えない
+    got = {
+        band.owner: [(c.t, c.v) for c in band.cells if not (c.t == "glyph" and c.v == "cont")]
+        for band in scene.bands
+    }
     total = sum(len(cells) for cells in want.values())
     fixes = 0
     for owner in sorted(set(want) | set(got)):
