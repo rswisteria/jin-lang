@@ -37,7 +37,11 @@
       "objectives": [
         {
           "id": "run-and-judge",
-          "text": "jin check と jin run の出力から、プログラムが tick ごとに動いたかを判定できる"
+          "text": "jin run の出力と画面から、プログラムが tick ごとに動いたかを判定できる"
+        },
+        {
+          "id": "change-move",
+          "text": "手順の式を変えて、動きを変えられる"
         },
         {
           "id": "read-parts",

@@ -21,7 +21,7 @@
     {
       "name": "renders",
       "cmd": "uv run python tools/renders.py",
-      "expect": ["描きました: 5 枚"]
+      "expect": ["描きました: 6 枚"]
     },
     {
       "name": "score-run",
