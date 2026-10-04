@@ -96,6 +96,64 @@ def test_ink_off_the_band_is_not_read() -> None:
     assert len(ring_blobs(image, center, radius, 0.75 * CELL, TOP, CELL)) == 1
 
 
+def band(
+    draw: ImageDraw.ImageDraw, center: tuple[float, float], radius: float, a0: float, a1: float
+) -> None:
+    """詠唱帯の線の代わり: 周の線から ±0.8 字の同心の弧 2 本(Issue #129)。"""
+    cx, cy = center
+    for r in (radius - 0.8 * CELL, radius + 0.8 * CELL):
+        draw.arc((cx - r, cy - r, cx + r, cy + r), a0, a1, fill=20, width=2)
+
+
+def test_the_chant_band_lines_do_not_join_the_characters_they_enclose() -> None:
+    # 帯の弧は字と字の隙間を墨でつなぐが、細くて道に沿って長い線は捨ててから切る(Issue #129)
+    image = blank()
+    draw = ImageDraw.Draw(image)
+    center, radius = (300.0, 300.0), 200.0
+    angles = [TOP + 30.0 + k * 360.0 / 20 for k in range(5)]
+    for angle in angles:
+        stroke(draw, on_circle(center, radius, angle))
+    band(draw, center, radius, angles[0], angles[-1])
+    # Claude の半径は 0.25 字ずれる(合成写真の FREE_ERROR と同じ程度)。外の弧が輪に入る
+    blobs = ring_blobs(image, center, radius + 0.25 * CELL, 0.75 * CELL, TOP, CELL)
+    assert len(blobs) == len(angles)
+    for blob, angle in zip(blobs, angles, strict=True):
+        x, y = on_circle(center, radius, angle)
+        assert blob.box[0] <= x <= blob.box[2] and blob.box[1] <= y <= blob.box[3]
+        assert blob.box[2] - blob.box[0] < 1.5 * CELL  # 弧の墨で外接矩形が膨らまない
+
+
+def test_refine_ring_is_not_pulled_by_the_chant_band_lines() -> None:
+    image = blank()
+    draw = ImageDraw.Draw(image)
+    center, radii = (300.0, 300.0), (150.0, 150.0 + 1.6 * CELL)
+    for radius in radii:
+        for k in range(6):  # 字の墨より帯の弧の墨が多い(ドットの字の文字列が長い周)
+            dots(draw, on_circle(center, radius, TOP + 15.0 + k * 50.0))
+        band(draw, center, radius, TOP, TOP + 340.0)
+    rough = [
+        r + 0.25 * CELL for r in radii
+    ]  # Claude の半径のずれ(周の間の弧が両方の周の当てはめに入る)
+    _, refined = refine_ring(image, (305.0, 296.0), rough, CELL)
+    # 帯の弧を当てはめに入れると、周が弧へ 0.75 字ほど引かれる(clicker の陣の 2 周目が輪から外れた)
+    assert refined == pytest.approx(list(radii), abs=0.15 * CELL)
+
+
+@pytest.mark.parametrize("seam", [False, True])
+def test_a_thin_short_character_on_the_seam_is_kept(seam: bool) -> None:
+    # 2 周目以降の 12 時の升は道の継ぎ目(道の座標 0)に乗る。継ぎ目をまたいでも長さは折り返して測る
+    image = blank()
+    draw = ImageDraw.Draw(image)
+    center, radius = (300.0, 300.0), 200.0
+    x, y = on_circle(center, radius, TOP)
+    draw.line(
+        (x - 0.35 * CELL, y, x + 0.35 * CELL, y), fill=20, width=3
+    )  # 細い横線 1 本の字(「-」)
+    start = TOP if seam else TOP - 30.0
+    blobs = ring_blobs(image, center, radius, 0.75 * CELL, start, CELL)
+    assert len(blobs) == 1
+
+
 def test_refine_ring_pulls_a_rough_centre_and_radius_onto_the_ink() -> None:
     image = blank()
     draw = ImageDraw.Draw(image)

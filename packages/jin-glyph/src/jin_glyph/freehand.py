@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -243,9 +244,12 @@ def _runs(
 
 
 def _without_band_lines(
-    samples: list[tuple[float, float, int, int]], cell: float
+    samples: list[tuple[float, float, int, int]], cell: float, period: float | None = None
 ) -> list[tuple[float, float, int, int]]:
-    """(道の座標, 道に直交する位置, x, y) の墨から、詠唱帯の線の連結成分(細くて道に沿って長いもの)を除く。"""
+    """(道の座標, 道に直交する位置, x, y) の墨から、詠唱帯の線の連結成分(細くて道に沿って長いもの)を除く。
+
+    period があれば道は閉じていて、継ぎ目(道の座標 0)をまたぐ成分の長さは折り返して測る(最大と最小の差だと周長になり、
+    2 周目以降の 12 時に乗る細い字を捨ててしまう)。"""
     index = {(x, y): k for k, (_, _, x, y) in enumerate(samples)}
     seen = [False] * len(samples)
     keep: list[tuple[float, float, int, int]] = []
@@ -265,7 +269,11 @@ def _without_band_lines(
                         seen[j] = True
                         stack.append(j)
         along = sorted(samples[i][0] for i in part)
-        long = along[-1] - along[0] > BAND_LINE_LENGTH * cell
+        length = along[-1] - along[0]
+        if period is not None:
+            gaps = [b - a for a, b in itertools.pairwise(along)] + [along[0] + period - along[-1]]
+            length = period - max(gaps)
+        long = length > BAND_LINE_LENGTH * cell
         if long:
             bins: dict[int, list[float]] = {}
             for i in part:
@@ -297,7 +305,7 @@ def _ring_ink(
         found.append((math.radians((angle - start) % 360.0) * radius, math.hypot(dx, dy), x, y))
     return [
         (along, x, y)
-        for along, r, x, y in _without_band_lines(found, cell)
+        for along, r, x, y in _without_band_lines(found, cell, 2.0 * math.pi * radius)
         if abs(r - radius) <= half_width
     ]
 
