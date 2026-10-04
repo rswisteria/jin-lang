@@ -11,7 +11,7 @@ import { buildStageNames } from "./names";
  * （three は `apps/stage` にだけある）。書き出されたファイルは親がダウンロードさせる。
  *
  * 語彙（stage.md §6。**エディタ側で語を書いてよいのはこのファイルだけ**）:
- * - 親 → stage: `stage.scene`（svg / names / fps / jinName / circleName）、`stage.trace`（rows / seed）
+ * - 親 → stage: `stage.scene`（svg / inscription / names / fps / jinName / circleName / stageSize）、`stage.trace`（rows / seed）
  * - stage → 親: `stage.status`（ready / rows / codec / exporting / error）、`stage.file`（name / mime / bytes）
  */
 export const STAGE_PATH = "./stage/";
@@ -19,6 +19,8 @@ export const STAGE_PATH = "./stage/";
 export interface StagePanelProps {
 	/** `jin/renderSvg` の**オーバーレイ無し**の SVG。 */
 	readonly svg: string | null;
+	/** `jin/renderSvg` の `inscription: true` の SVG（銘環の帯・陣書き S7・stage.md §2.2）。まだ無ければ null。 */
+	readonly inscription: string | null;
 	readonly model: Readonly<Record<string, unknown>> | null;
 	readonly rows: readonly TraceRow[];
 	readonly seed: number | null;
@@ -125,12 +127,13 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 	const size = stageSizeOf(props.model);
 	const sizeKey =
 		size === null ? "" : `${String(size.width)}x${String(size.height)}`;
-	const { svg, fileName, circleName, rows, seed } = props;
+	const { svg, inscription, fileName, circleName, rows, seed } = props;
 
 	useEffect(() => {
 		if (loads === 0 || svg === null) return;
 		const key = JSON.stringify([
 			svg,
+			inscription,
 			fps,
 			fileName,
 			circleName,
@@ -144,13 +147,14 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 		post({
 			type: "stage.scene",
 			svg,
+			inscription,
 			names,
 			fps,
 			jinName: fileName,
 			circleName,
 			stageSize,
 		});
-	}, [loads, svg, names, fps, fileName, circleName, sizeKey, post]);
+	}, [loads, svg, inscription, names, fps, fileName, circleName, sizeKey, post]);
 
 	useEffect(() => {
 		if (loads === 0) return;

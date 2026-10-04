@@ -87,6 +87,26 @@ test("録画を再生して鑑賞モードへ → 行数が jin run --input と�
 	await expect(page.getByTestId("jin-stage-status")).toHaveText(
 		`トレース ${String(expected)} 行`,
 	);
+	// 銘環の帯（陣書き S7・stage.md §2.2）: 鑑賞モードに入るとエディタが `jin/renderSvg` の `inscription` で帯を取り、
+	// `stage.scene` の `inscription` で送る。stage は帯を描き、再生した行で升が灯る。
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	await expect
+		.poll(
+			() =>
+				stageFrame.evaluate(
+					() =>
+						(
+							window as unknown as {
+								__jinStage: { inscription(): { band: boolean } };
+							}
+						).__jinStage.inscription().band,
+				),
+			{ timeout: 60_000 },
+		)
+		.toBe(true);
 	// 編集モードへ戻ってもプレイヤーの iframe は残る（鑑賞モードが実行パネルを外していない）
 	await page.getByTestId("jin-mode-edit").click();
 	await expect(page.getByTestId("jin-player")).toBeAttached();
