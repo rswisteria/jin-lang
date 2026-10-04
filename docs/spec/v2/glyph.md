@@ -435,3 +435,16 @@ HTTP の口の正本は `docs/spec/ops.md` §5.3(防御の 5 段と書き出し�
   読める・clicker(銘環が何周にもなる)も一致・始まりの印が読めなければ JIN301。`test_freehand.py` は切り分け・詰め直し・組み立ての純関数
 - 本物の写真での評価は §10.4 と同じ `scripts/glyph_recognize_eval.py`(フリーハンドの写真もそのまま受ける。周の継ぎの紋は手直しに数えない)。
   **白紙に手で描いた fib の撮影と本物の API での実測は未**(設計書 §6 の S6 の完了の条件)
+
+## 13. 鑑賞ページの銘環の帯(S7)
+
+設計書 §6 の S7・§9 #52〜#55。正典は `docs/spec/v2/stage.md` §2.2(鑑賞ページの側)。
+
+- `jin render x.jin --inscription`(`jin_render.render(..., inscription=True)`・LSP は `jin/renderSvg` の `inscription: true`)が、
+  §8 の銘文(`frame_band` → 陣ごとに `circle_ring` → `rite_ring`)を 1 本の帯につなぎ、**通常の図と同じ座標系**の環 1.10〜1.30 に
+  §8 の銘環と同じ規則(`full_layout.ring_cells`: 12 時に始まりの印・時計回り・周の終わりに継ぎの紋)で並べた SVG を返す。
+  違うのは升の大きさだけ(帯に収まる最大・上限 0.06)。`--full` / `--focus` / `--trace` / `--upto` とは併用できず、v1 は断る
+- 字形は §8 と同じ(`glyph_paths.glyph_d` / `font.char_d`)。`<text>` は出さない。升の pointer は欄の pointer、kind は持ち主の 13 種
+- 完全陣・型紙の出力と往復の契約には触れない(帯は銘文を読むだけ)。テストは `packages/jin-render/tests/test_inscription.py`
+  (同じ升の列・環に収まる・pointer の空間・決定性・fib のスナップショット)
+

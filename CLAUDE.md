@@ -152,7 +152,7 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
 | v2.1 | 文字入力 `input.text()`（この tick に確定した文字列・入力スナップショットの `text` イベント・プレイヤーは見えない入力欄と `compositionend`・`.jinrec` の版は 1 のまま・jil: 5） | 実装済み |
 | v2.1 | `jin build --target wasm-gc`（wasm-GC を直接出す第 2 の生成系。Issue #53・設計書 §11 #56・jil.md §6・`wasmgc-api-probe.md`。新しい兄弟パッケージ `jin-wasmgc` + WAT → `wasmtime.wat2wasm`・引数も戻りも JSON 1 本を線形メモリで・ヘッドレスは wasmtime・`wait` は状態機械） | 仕様確定。実装は Sub-Issue #73〜#76（#73 = パッケージ + WAT 生成系の最小形 + fib の公開 state 一致: **実装済み**。#74 = ランタイム部（文字列 / list / 型紙 / JSON / 数値の書式と strtod / PCG32 / 能力 / 純関数 / 効果 / エラー機構 / 命令数の上限）+ `on` の配達 + 6 本の fixture の release `--frames` 一致: **実装済み**。#75 = スケジューラ（陣の順 / flow / transfer / emit / summon / guard / `asks` + `reply`）+ `wait` の状態機械 + debug（トレース / `snapshot` / `resume`）+ 17 本の debug `--trace` / `--frames` 一致: **実装済み**。#76 = プレイヤーの `WasmGcHost` + manifest の `target` + `--single` + ブラウザの e2e + `runtime.wat` の生成物化: **実装済み**。Issue #53 完了） |
 | v2.1 | LSP の v2 の definition / references / documentSymbol / rename / codeAction（設計書 §11 #58。参照の表 `jin_core.v2.references` を `rename` と共有・codeAction は ops.md §4 の表） | 実装済み |
-| 陣書き | 紙や PNG の魔法陣をプログラムとして読む（`docs/superpowers/specs/2026-10-03-jin-glyph-design.md`・正典 `docs/spec/v2/glyph.md`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s0-s1.md`）。S0 = 手描き認識の spike（`delivery/20260904-1445-jin/glyph-spike/`）・S1 = 紋の語彙 `jin_core.v2.glyph` / JIN3xx（`SCENE_CODES`）/ パッケージ `jin-glyph` と場面グラフ `jin_glyph.scene`（`schemas/jin-scene.schema.json`）・S2 = 完全陣（`jin render --full`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s2.md`。構造の印 21 字・線の字形の正本 `jin_render.v2.glyph_paths`（`docs/spec/v2/glyphs/*.svg` は `scripts/generate_glyph_svgs.py` の生成物）・ドットの字 `jin_render.v2.font`（`font_data.py` は `scripts/generate_glyphs.py` の生成物）・銘帯の中身 `jin_render.v2.inscribe`・配置 `full_layout`・描画 `full`。既定の出力は不変・`<text>` 無し・13 種のまま）・S3 = Jin が描いた完全陣の PNG を API 無しで読む（計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s3.md`・glyph.md §9。升の照合 `jin_glyph.cells`・デコーダ `jin_glyph.decode`・構文解析器 `jin_glyph.parse`・`jin check x.png` / `jin fmt x.png --out y.jin`。入れ子の境目 `s_else` / `s_end` と root の添字を銘文に書く）・S4 = 型紙に手で描いた陣の写真を Claude で読む（glyph.md §10。型紙 `jin render [x.jin] --sheet S\|M`・幾何 `jin_render.v2.sheet_layout`・認識器 `jin_glyph.recognize`・`jin check x.jpg` / `--offline`） | S1・S2・S3・S4 **実装済み**（紋 58 字（式紋 36・判別の紋 22。22 字目は state の `out` の `mark_out`）・構造の印 23 字・fib の完全陣はユーザー承認済み・**往復の契約** `tests/contract/test_glyph_roundtrip.py` が examples-v2 + v2-programs の 22 本でバイト一致）。S0 は道具まで（**撮影と認識の実測は未**）。S2 の実測で A3 の 1 升は fib 2.4 mm・tetris 0.5 mm（glyph.md §8。配置の詰め方が課題）。S4 は合成写真と合成した応答で fib / clicker がバイト一致まで（**撮影した写真と本物の API での実測は未**・API キー待ち）。S5 = エディタへの写真の取り込み（`jin editor` の `POST /read`・glyph.md §11・ops.md §5.3）**実装済み**。S6 = フリーハンド（白紙に描いた陣の写真・`jin_glyph.freehand`・glyph.md §12）**実装済み**（完全陣を撮った合成写真と合成した応答で fib / clicker がバイト一致まで。**白紙に手で描いた写真と本物の API での実測は未**）。S7（鑑賞）は未着手 |
+| 陣書き | 紙や PNG の魔法陣をプログラムとして読む（`docs/superpowers/specs/2026-10-03-jin-glyph-design.md`・正典 `docs/spec/v2/glyph.md`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s0-s1.md`）。S0 = 手描き認識の spike（`delivery/20260904-1445-jin/glyph-spike/`）・S1 = 紋の語彙 `jin_core.v2.glyph` / JIN3xx（`SCENE_CODES`）/ パッケージ `jin-glyph` と場面グラフ `jin_glyph.scene`（`schemas/jin-scene.schema.json`）・S2 = 完全陣（`jin render --full`・計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s2.md`。構造の印 21 字・線の字形の正本 `jin_render.v2.glyph_paths`（`docs/spec/v2/glyphs/*.svg` は `scripts/generate_glyph_svgs.py` の生成物）・ドットの字 `jin_render.v2.font`（`font_data.py` は `scripts/generate_glyphs.py` の生成物）・銘帯の中身 `jin_render.v2.inscribe`・配置 `full_layout`・描画 `full`。既定の出力は不変・`<text>` 無し・13 種のまま）・S3 = Jin が描いた完全陣の PNG を API 無しで読む（計画 `docs/superpowers/plans/2026-10-03-jin-glyph-s3.md`・glyph.md §9。升の照合 `jin_glyph.cells`・デコーダ `jin_glyph.decode`・構文解析器 `jin_glyph.parse`・`jin check x.png` / `jin fmt x.png --out y.jin`。入れ子の境目 `s_else` / `s_end` と root の添字を銘文に書く）・S4 = 型紙に手で描いた陣の写真を Claude で読む（glyph.md §10。型紙 `jin render [x.jin] --sheet S\|M`・幾何 `jin_render.v2.sheet_layout`・認識器 `jin_glyph.recognize`・`jin check x.jpg` / `--offline`） | S1・S2・S3・S4 **実装済み**（紋 58 字（式紋 36・判別の紋 22。22 字目は state の `out` の `mark_out`）・構造の印 23 字・fib の完全陣はユーザー承認済み・**往復の契約** `tests/contract/test_glyph_roundtrip.py` が examples-v2 + v2-programs の 22 本でバイト一致）。S0 は道具まで（**撮影と認識の実測は未**）。S2 の実測で A3 の 1 升は fib 2.4 mm・tetris 0.5 mm（glyph.md §8。配置の詰め方が課題）。S4 は合成写真と合成した応答で fib / clicker がバイト一致まで（**撮影した写真と本物の API での実測は未**・API キー待ち）。S5 = エディタへの写真の取り込み（`jin editor` の `POST /read`・glyph.md §11・ops.md §5.3）**実装済み**。S6 = フリーハンド（白紙に描いた陣の写真・`jin_glyph.freehand`・glyph.md §12）**実装済み**（完全陣を撮った合成写真と合成した応答で fib / clicker がバイト一致まで。**白紙に手で描いた写真と本物の API での実測は未**）。S7 = 鑑賞ページの銘環の帯（`jin render --inscription` / `jin/renderSvg` の `inscription`・`jin_render.v2.inscription`・stage.md §2.2・glyph.md §13）**実装済み** |
 
 ### 陣書き S3（完全陣の PNG を読む）の要点（正典は `docs/spec/v2/glyph.md` §9・設計書 §9 #29〜#34）
 
@@ -204,6 +204,21 @@ LSP の起動経路に乗せない。`jin_lsp` → `jin_glyph` が落ちるこ�
 - **テストの写真は完全陣の合成写真、応答は正解からの合成**（`tests/glyph_photo.synthetic_free_photo` / `synthetic_free_responses`・
   fixture `tests/fixtures/recognize/fib-free.synthetic/`）。生成器は認識器と同じ `free_geometry` で塊を出し、正解の升が塊に割れたら落ちる。
   切り分けや詰め直しを変えたら `UPDATE_RECORDINGS=1 uv run pytest packages/jin-glyph/tests/test_recognize_free.py -k recorded` で書き直す
+
+### 陣書き S7（鑑賞ページの銘環の帯）の要点（正典は `docs/spec/v2/stage.md` §2.2・glyph.md §13・設計書 §9 #52〜#55）
+
+- **帯は Python が通常の図と同じ座標系に描く**（`jin_render.v2.inscription`・環 1.10〜1.30・升の並べ方は完全陣の `ring_cells`）。
+  完全陣の SVG は送らない（配置が別で、stage の写しでは縮み層が散る）。stage は `svgFrame` で写すだけで升を置き直さない
+- 経路は `jin/renderSvg` の任意の param `inscription: true`（`true` 以外は通常の図・要件書 §6.3 の表に足した）→ `stage.scene` の欄
+  `inscription`（`jin/…` は 6 種・語彙は 4 語のまま）。エディタ（`App.tsx`）は**鑑賞モードにいて `text` が変わったときだけ**取る
+- **帯の升を `Scene` に混ぜない**（`parseInscription` は別。`pointers` / 宝玉 / 光線の端点が欄の pointer に解決されてしまう）。
+  灯すのは `Firing.inscribed`（**行の pointer**。陣全体の演出は陣へ上げる）で、`target`（`cast` なら sigil）ではない。`stage-effects` の表に行を足さない
+- 字形の `d` は命令の直後に空白が無い（`M1.000 2.000`）。`scene.ts` の `pathSegments` は両方の書き方を読む
+- **帯の線は素の `LineSegments`**（`LineSegments2` にしない）。被写界深度の深度のパスは `MeshDepthMaterial` で上書きして描き直し、
+  インスタンス描画の太い線は区間の数だけ素の四角を重ね描きする。帯（数万区間）を太い線にするとソフトウェア GL の e2e が固まった
+- 帯の fixture `apps/stage/test/fixtures/paddle-band.svg` はレンダラの出力（契約テスト）。描き方を変えたら
+  `uv run jin render examples-v2/paddle/paddle.jin --inscription -o apps/stage/test/fixtures/paddle-band.svg` と
+  `uv run pytest packages/jin-render/tests/test_inscription.py --snapshot-update`
 
 ### Jin v2.1（`--target wasm-gc`・`jin-wasmgc`）の要点（正典は `docs/spec/v2/jil.md` §6・設計書 §11 #56・`wasmgc-api-probe.md`）
 
@@ -710,6 +725,7 @@ uv run jin run examples-v2/paddle/paddle.jin --target wasm-gc --ticks 300 --trac
 uv run python scripts/generate_number_fixture.py --check   # 数値の書式の共有 fixture（tests/fixtures/numbers.jsonl）がずれていないか
 uv run jin build examples-v2/fib/fib.jin --target wasm-gc --out /tmp/dist-gc   # game.wasm + game.manifest.json（target: "wasm-gc"）+ 同梱していれば index.html / player.js（--single も可）
 uv run python scripts/generate_runtime_wat.py --check   # jin_wasmgc/runtime.wat が部品（packages/jin-wasmgc/runtime/）からの生成物とずれていないか
+uv run jin render examples-v2/paddle/paddle.jin --inscription -o /tmp/band.svg   # 鑑賞ページの銘環の帯（陣書き S7・通常の図と同じ座標系）
 uv run jin render examples-v2/fib/fib.jin --full -o /tmp/fib-full.svg   # 完全陣（陣書き S2。プログラムの情報をすべて載せた 1 枚・<text> 無し）
 uv run python -c "import cairosvg; cairosvg.svg2png(url='/tmp/fib-full.svg', write_to='/tmp/fib.png', scale=2, background_color='white')"   # 完全陣を PNG に（2 倍以上）
 uv run jin check /tmp/fib.png && uv run jin fmt /tmp/fib.png --out /tmp/fib-back.jin   # 陣書き S3: 画像を読む（隣に fib.jinscene.json を書く）→ 正準形の .jin に戻す

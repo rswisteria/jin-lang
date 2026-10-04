@@ -129,6 +129,31 @@
 
 <!-- /machine-readable -->
 
+### 2.2 銘環の帯（陣書き S7）
+
+glyph 設計書 `docs/superpowers/specs/2026-10-03-jin-glyph-design.md` §6 の S7・§9 #52〜#55。プログラムの銘文（完全陣の銘帯と同じ升の列）を、
+陣の外周に巡る文字の帯として刻み、発動した行の升を灯す。帯は飾りで、無くても陣は描く。
+
+- **配置の元は SVG**: エディタが `jin/renderSvg` を `inscription: true` で呼んだ SVG（`jin render x.jin --inscription` とバイト一致・
+  `jin_render.v2.inscription`）を `stage.scene` の `inscription` で送る。**通常の図と同じ座標系**（1000 px 四方）で、升は環 1.10〜1.30
+  （手順の図の環の外へ抜ける線の先 1.07 より外・陣を収める半径 1.45 の内）に、12 時から時計回り・内の周から外の周へ螺旋で並ぶ。
+  stage は §1 と同じ写し（`scene.ts` の `svgFrame`）で読むだけで、升を置き直さない（`inscription.ts` の `parseInscription`）
+- **中身**: 額縁の銘帯 → 陣ごとに陣の銘環 → その陣の手順の銘環（モデルの順・`focus` によらない）。升の大きさは帯に収まる最大
+  （上限 0.06・fib 0.06・paddle 0.025・tetris 0.012・othello 0.011）。升は欄の pointer と持ち主の kind（13 種のまま）を持つ
+- **帯の升は場面（`Scene`）に入れない**。`pointers` / 宝玉 / 光線の端点を欄の pointer に解決させないため
+- **灯す升**: 発火（§3 の表の行）ごとに、**行の pointer**（実行したステップ・手順・境界のイベント）の配下（`/` の段で同じか下）の升。
+  陣全体の演出（`ignite` / `fade` / `crown` / `crack`）は陣（`/circles/i`）へ上げる。`frame` は `/stage`（額縁の銘帯）。
+  §3.1 の光らせる先（`cast` なら sigil）は使わない。明るさは §3.2 / §3.3 の強さと包絡のまま、色はその発火の宝玉（§2.1）。
+  同じ升に重なれば強い方
+- **読み上げ**: 灯る升の列（帯の順）を、光の先頭が進み 0 から 0.6 までに端から端へ渡る（`bandLights`）。先頭の升は強さそのまま、
+  通り過ぎた升は 0.35 倍で残り、まだ来ていない升は先頭の幅（列の長さ × 0.08・2 升以上）の中だけ立ち上がる。陣の鼓動（`pulse`）は渡らず一様
+- **巡る**: 帯全体が陣の中心まわりに毎秒 −0.02 rad で回る（層の自転より遅い・時刻だけで決まる）。高さは層 1（外周の環と同じ面）
+- 描画は `render/inscriptionView.ts`: 刻まれた銘（全升・地金のイエロー × 0.55・1 本の `LineSegments`）と、灯った銘（宝玉の色 × 明るさ × 1.4 の
+  加算・枠 40000 区間の `LineSegments` を `setDrawRange` で絞る。枠を超えたら帯の順で先の升から描く）。**太い線（`LineSegments2`）にしない**:
+  被写界深度の深度のパスは場面を `MeshDepthMaterial` で上書きして描き直し、インスタンス描画の太い線は区間の数だけ素の四角を重ね描きする。
+  帯（paddle で 3.7 万区間）を太い線にすると、ソフトウェア GL（CI の Chromium）で 1 コマに数分かかり固まった。素の線なら深度のパスでも線のまま
+  正しい深度を書き、描画の回数は帯なしとほぼ同じ（5 秒で 16 回 → 14 回・paddle）
+
 ## 3. 演出
 
 <!-- machine-readable: stage-effects -->
@@ -240,12 +265,12 @@
 
 | 語 | 向き | 欄 |
 |---|---|---|
-| `stage.scene` | 親 → stage | `svg`（string）/ `names`（名前の表）/ `fps` / `jinName` / `circleName` / `stageSize`（`{width, height}` か null・召喚の窓の舞台の大きさ） |
+| `stage.scene` | 親 → stage | `svg`（string）/ `inscription`（銘環の帯の SVG か null・§2.2）/ `names`（名前の表）/ `fps` / `jinName` / `circleName` / `stageSize`（`{width, height}` か null・召喚の窓の舞台の大きさ） |
 | `stage.trace` | 親 → stage | `rows`（トレース行の配列）/ `seed`（number か null） |
 | `stage.status` | stage → 親 | `ready` / `rows` / `codec`（`"avc"` / `"vp9"` / null）/ `exporting`（`{done,total}` か null）/ `error` |
 | `stage.file` | stage → 親 | `name` / `mime` / `bytes`（ArrayBuffer） |
 
-名前の表: `{ [陣名]: { pointer, sigils: {名前: pointer}, state: {名前: pointer}, delegates: {陣名: pointer}, sigilKinds: {sigil 名: 名前空間 / "summon" / "agent"}, stateTypes: {state 名: 型}, isRoot?: true } }`（`sigilKinds` / `stateTypes` / `isRoot` は宝玉と地金のため・古いエディタは送らない）。`stageSize` が無い・壊れていれば召喚の窓を出さない。
+名前の表: `{ [陣名]: { pointer, sigils: {名前: pointer}, state: {名前: pointer}, delegates: {陣名: pointer}, sigilKinds: {sigil 名: 名前空間 / "summon" / "agent"}, stateTypes: {state 名: 型}, isRoot?: true } }`（`sigilKinds` / `stateTypes` / `isRoot` は宝玉と地金のため・古いエディタは送らない）。`stageSize` が無い・壊れていれば召喚の窓を出さない。`inscription` が無い・文字列でない・読めなければ帯を描かない（陣は描く）。エディタは帯を、鑑賞モードにいて本文が前に取った時から変わったときだけ取り直す（スクラブ・走らせている間の描き直しでは取らない）。
 
 `stage.trace` の `rows` は runtime.md §5 の行をそのまま載せる。`frame` 行の `circle` は null で、stage は名前の表を引かずに額縁（`/stage`）を鼓動（`pulse`・強さ 0.1）で灯す（§3.1）。
 
@@ -285,3 +310,4 @@
 | 後処理 | 描画 → 被写界深度（aperture 0.0015・maxblur 0.005・焦点はカメラから注視点）→ ゴッドレイ（48 サンプル・しきい値 0.55・減衰 0.95・濃さ **min(1, 灯った宝玉の和) × 0.35**）→ ブルーム → 出力 → **仕上げ**（色収差 0.0015・ビネット 0.35・グレイン **0.025**） | `render/post.ts` | 仕上げを出力の前に置くと、線形でかけたグレインが暗部で効かず、床の映り込みに同心円の縞（バンディング）が出た。和をそのまま使うと陣全体が灯る演出で白く飛んだ |
 | 召喚の窓 | 幅 **1.0**（初期値 1.2）・下端 **0.7**（初期値 0.95）・奥へ 0.35・枠 0.014・縁の光の板 × 1.14。窓が開くほど陣を収める半径 1.45 → **1.9**（初期値 1.75）・注視点 +**0.5**（新） | `render/summonWindow.ts` の `WINDOW` | 初期値では窓の上半分が画面の外に出て、額縁の下も切れた |
 | 銘 | 大きさ round(短辺 × 0.022) px・`500` の明朝系（`"Times New Roman", "Hiragino Mincho ProN", serif`）・`rgba(240, 214, 160, 0.72)`・右下（端から 1 文字ぶん内側） | `render/compose.ts` の `Composer2D.compose` | 初期値のまま |
+| 銘環の帯 | 環 1.10〜1.30・升の一辺の上限 0.06・刻まれた銘は地金 × **0.55**、灯った銘は宝玉の色 × 明るさ × **1.4**（加算）・どちらも素の線（1 デバイス px）・枠 40000 区間・巡り −0.02 rad/秒・読み上げは進み 0.6 で渡り切り残光 0.35・先頭の幅は列の 8%（2 升以上） | `jin_render.v2.inscription` の `BAND_*`・`inscription.ts`・`render/inscriptionView.ts` | 帯の内縁は手順の図が描く最も外（1.073・examples-v2 と v2-programs の全図で実測）の外。0.55 は目視（paddle・斜め 45°）で帯が陣の輪より暗く、字の並びは読める値。線の太さは上の「素の線」の理由で固定 |
