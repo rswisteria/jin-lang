@@ -102,6 +102,11 @@ export interface Firing {
 	readonly effect: EffectName;
 	readonly target: string;
 	readonly source: string | null;
+	/**
+	 * 銘環の帯で灯す pointer（陣書き S7・stage.md §2.2）。行の pointer（実行したステップ・手順・陣）で、
+	 * 陣全体の演出は陣へ上げる。`target` は名前の表で引いた先（`cast` なら sigil）なので帯には使わない。
+	 */
+	readonly inscribed: string;
 	readonly strength: number;
 	/** 光の宝玉（仕様書 2026-10-01 §2。`palette.ts` の `gemOfRow`）。 */
 	readonly gem: GemId;
@@ -111,6 +116,7 @@ export interface Glow {
 	readonly seq: number;
 	readonly target: string;
 	readonly source: string | null;
+	readonly inscribed: string;
 	readonly effect: EffectName;
 	readonly gem: GemId;
 	readonly intensity: number;
@@ -138,6 +144,7 @@ export function foldTrace(
 				effect: spec.effect,
 				target: PULSE_TARGET,
 				source: null,
+				inscribed: PULSE_TARGET,
 				strength: BEAT,
 				gem: "gold",
 			});
@@ -177,6 +184,7 @@ export function foldTrace(
 			effect: spec.effect,
 			target,
 			source: targets.source,
+			inscribed: glowTarget(spec.effect, row.pointer),
 			strength,
 			gem: gemOfRow(row, names),
 		});
@@ -207,6 +215,7 @@ export function glowsAt(
 			seq: firing.seq,
 			target: firing.target,
 			source: firing.source,
+			inscribed: firing.inscribed,
 			effect: firing.effect,
 			gem: firing.gem,
 			intensity: firing.strength * envelope,

@@ -14,6 +14,7 @@ const glow = (fields: Partial<Glow>): Glow => ({
 	seq: 3,
 	target: "/circles/1/sigils/0",
 	source: "/circles/1/rites/2",
+	inscribed: "/circles/0",
 	effect: "beam",
 	gem: "sapphire",
 	intensity: 1,

@@ -22,6 +22,7 @@ const PARENT = (
 	names: string,
 	rows: string,
 	stageSize: string,
+	inscription: string,
 ): string => `<!doctype html>
 <html><body style="margin:0">
 <iframe id="stage" src="./stage/?export=360" style="width:960px;height:720px;border:0"></iframe>
@@ -33,7 +34,7 @@ window.addEventListener("message", (event) => {
   if (event.data.type === "stage.file") window.JIN_FILES.push({ name: event.data.name, mime: event.data.mime, bytes: Array.from(new Uint8Array(event.data.bytes)) });
   if (event.data.type === "stage.status") window.JIN_STATUS = event.data;
 });
-window.JIN_SCENE = { type: "stage.scene", svg: ${svg}, names: ${names}, fps: 60, jinName: "paddle.jin", circleName: "Play", stageSize: ${stageSize} };
+window.JIN_SCENE = { type: "stage.scene", svg: ${svg}, names: ${names}, fps: 60, jinName: "paddle.jin", circleName: "Play", stageSize: ${stageSize}, inscription: ${inscription} };
 window.JIN_RESEND = () => frame.contentWindow.postMessage(window.JIN_SCENE, location.origin);
 frame.addEventListener("load", () => {
   frame.contentWindow.postMessage(window.JIN_SCENE, location.origin);
@@ -63,6 +64,8 @@ export interface HarnessFixture {
 	readonly trace: string;
 	/** 舞台の大きさ（召喚の窓）。無ければ窓を出さない場面。 */
 	readonly stageSize?: { readonly width: number; readonly height: number };
+	/** 銘環の帯の SVG（陣書き S7・`jin render --inscription`）。無ければ帯を送らない（古いエディタ）。 */
+	readonly inscription?: string;
 }
 
 export const PADDLE: HarnessFixture = {
@@ -75,6 +78,11 @@ export const TETRIS: HarnessFixture = {
 	names: "tetris-names.json",
 	trace: "tetris-trace.jsonl",
 	stageSize: { width: 176, height: 176 },
+};
+/** 銘環の帯つきの paddle（陣書き S7・stage.md §2.2）。 */
+export const PADDLE_BAND: HarnessFixture = {
+	...PADDLE,
+	inscription: "paddle-band.svg",
 };
 export const PADDLE_STEP: HarnessFixture = { ...PADDLE, svg: "play-step.svg" };
 /** 音の fixture: tetris でハードドロップを 3 回する録画（tests/fixtures/jinrec/tetris-drops.jinrec）のトレース。 */
@@ -97,6 +105,11 @@ export async function serveHarness(fixture: HarnessFixture = PADDLE): Promise<{
 			readFileSync(join(FIXTURES, fixture.names), "utf8"),
 			JSON.stringify(rows),
 			JSON.stringify(fixture.stageSize ?? null),
+			fixture.inscription === undefined
+				? "null"
+				: JSON.stringify(
+						readFileSync(join(FIXTURES, fixture.inscription), "utf8"),
+					),
 		),
 	);
 	const server: Server = createServer((request, response) => {

@@ -120,6 +120,22 @@ def test_the_svg_fixture_is_what_the_renderer_draws_today(
     assert out.read_bytes() == (STAGE / "test" / "fixtures" / fixture).read_bytes()
 
 
+def test_the_inscription_band_fixture_is_what_the_renderer_draws_today(tmp_path: Path) -> None:
+    """銘環の帯（陣書き S7・stage.md §2.2）の fixture もレンダラの出力（`jin render --inscription`）。
+
+    ずれたら `uv run jin render examples-v2/paddle/paddle.jin --inscription -o apps/stage/test/fixtures/paddle-band.svg`。
+    """
+    out = tmp_path / "paddle-band.svg"
+    subprocess.run(
+        ["uv", "run", "jin", "render", "examples-v2/paddle/paddle.jin", "--inscription"]
+        + ["-o", str(out)],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+    )
+    assert out.read_bytes() == (STAGE / "test" / "fixtures" / "paddle-band.svg").read_bytes()
+
+
 def test_the_kind_layers_in_the_code_are_the_table_of_stage_md() -> None:
     body = re.search(
         r"KIND_LAYERS[^=]*=\s*\{(.*?)\};", LAYERS_TS.read_text(encoding="utf-8"), re.DOTALL

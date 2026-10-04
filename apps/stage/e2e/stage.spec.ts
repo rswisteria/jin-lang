@@ -1,7 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
 import { ALL_FORMATS, BufferSource, Input } from "mediabunny";
 
-import { PADDLE_STEP, serveHarness, TETRIS, TETRIS_DROPS } from "./harness";
+import {
+	PADDLE_BAND,
+	PADDLE_STEP,
+	serveHarness,
+	TETRIS,
+	TETRIS_DROPS,
+} from "./harness";
 
 /**
  * 音（仕様書 2026-10-01-jin-stage-summon §3.3）: ハードドロップ 3 回の tetris（tick 4 / 34 / 64 で tone）の 2 秒（tick 0〜120・
@@ -459,4 +465,73 @@ test("召喚の窓のある場面でも、stage.scene を送り直して GPU の
 	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
 	expect(last.textures).toBeLessThanOrEqual(first.textures);
 	await tetris.close();
+});
+
+/**
+ * 銘環の帯（陣書き S7・stage.md §2.2）: 帯つきの場面で帯が描かれ、発火の直後（tick 30）に升が灯り、
+ * 灯った升の数は時刻だけで決まる（同じ tick へ戻すと同じ数）。帯を外して送り直すと消え、エラーにならない。
+ * 送り直しても GPU の資源は増え続けない。
+ */
+test("銘環の帯が描かれ、発火した行の升が灯る（外すと消える）", async ({
+	page,
+}) => {
+	const band = await serveHarness(PADDLE_BAND);
+	await page.goto(band.url);
+	const stage = page.frameLocator("#stage");
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	const stageFrame = page
+		.frames()
+		.find((frame) => frame.url().includes("/stage/"));
+	if (stageFrame === undefined) throw new Error("stage の iframe が無い");
+	type Shown = { band: boolean; lit: number };
+	type Memory = { geometries: number; textures: number };
+	const shown = (): Promise<Shown> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { inscription(): Shown } }
+			).__jinStage.inscription(),
+		);
+	const memory = (): Promise<Memory> =>
+		stageFrame.evaluate(() =>
+			(
+				window as unknown as { __jinStage: { memory(): Memory } }
+			).__jinStage.memory(),
+		);
+	await stage.getByTestId("stage-scrub").fill("30");
+	await page.waitForTimeout(500);
+	const at30 = await shown();
+	expect(at30.band).toBe(true);
+	expect(at30.lit).toBeGreaterThan(0);
+	if (process.env["STAGE_BAND_SHOT"] !== undefined)
+		await page.screenshot({ path: process.env["STAGE_BAND_SHOT"] });
+	await stage.getByTestId("stage-scrub").fill("80");
+	await page.waitForTimeout(300);
+	await stage.getByTestId("stage-scrub").fill("30");
+	await page.waitForTimeout(300);
+	expect((await shown()).lit).toBe(at30.lit);
+
+	const resend = async (): Promise<void> => {
+		await page.evaluate(() =>
+			(window as unknown as { JIN_RESEND(): void }).JIN_RESEND(),
+		);
+		await page.waitForTimeout(400);
+	};
+	await resend();
+	const first = await memory();
+	for (let k = 0; k < 3; k++) await resend();
+	const last = await memory();
+	expect(last.geometries).toBeLessThanOrEqual(first.geometries);
+
+	await page.evaluate(() => {
+		const w = window as unknown as {
+			JIN_SCENE: Record<string, unknown>;
+			JIN_RESEND(): void;
+		};
+		w.JIN_SCENE["inscription"] = null;
+		w.JIN_RESEND();
+	});
+	await page.waitForTimeout(400);
+	expect((await shown()).band).toBe(false);
+	await expect(stage.getByTestId("stage-status")).toHaveText("準備完了");
+	await band.close();
 });

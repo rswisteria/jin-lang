@@ -19,6 +19,7 @@ const glow = (fields: Partial<Glow>): Glow => ({
 	seq: 1,
 	target: "/circles/0",
 	source: null,
+	inscribed: "/circles/0",
 	effect: "ignite",
 	gem: "gold",
 	intensity: 1,

@@ -56,7 +56,14 @@ export const HALF_EXTENT = 1.25;
 
 const CIRCLE_GROUP = 'g[data-jin-kind="circle"]';
 
-export function parseScene(svgText: string): Scene {
+/** SVG の根と、`viewBox` の中心を原点・半幅を `HALF_EXTENT` に写す変換（y は上向きに反転）。 */
+export interface SvgFrame {
+	readonly root: Element;
+	readonly point: (x: string | null, y: string | null) => Vec2;
+	readonly length: (value: string | null) => number;
+}
+
+export function svgFrame(svgText: string): SvgFrame {
 	const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
 	const root = doc.documentElement;
 	if (
@@ -90,6 +97,11 @@ export function parseScene(svgText: string): Scene {
 		-(Number(y) - cy) / scale + 0,
 	];
 	const length = (value: string | null): number => Number(value) / scale;
+	return { root, point, length };
+}
+
+export function parseScene(svgText: string): Scene {
+	const { root, point, length } = svgFrame(svgText);
 
 	const units = new Map<Element, number>();
 	const unitOf = (group: Element | null): number => {
@@ -188,11 +200,15 @@ function shapeOf(
 /** 3 次ベジェは 12 本の線分に分ける（`jin_render` は円弧を 3 次ベジェで描き、`A` を使わない）。 */
 const BEZIER_STEPS = 12;
 
-function pathSegments(
+/**
+ * `d` の M / L / C / Z を線分にする。命令と数の間の空白は有っても無くてもよい
+ * （図は `M 1.000 2.000`、銘文の字形は `M1.000 2.000` と書く・`jin_render.v2.glyph_paths`）。
+ */
+export function pathSegments(
 	d: string,
 	point: (x: string | null, y: string | null) => Vec2,
 ): (readonly [Vec2, Vec2])[] {
-	const tokens = d.trim().split(/\s+/);
+	const tokens = d.match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) ?? [];
 	const segments: (readonly [Vec2, Vec2])[] = [];
 	let current: Vec2 | null = null;
 	let start: Vec2 | null = null;
