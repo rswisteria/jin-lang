@@ -1,0 +1,53 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Hero",
+  "stage": {
+    "width": 32,
+    "height": 32
+  },
+  "circles": [
+    {
+      "name": "Hero",
+      "core": "begin",
+      "state": [
+        {
+          "name": "hp",
+          "type": "num",
+          "init": "2",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "hit",
+          "steps": [
+            {
+              "do": "set",
+              "target": "hp",
+              "expr": "hp - 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "hit"
+          }
+        ],
+        "guards": [
+          {
+            "assert": "hp >= 0",
+            "message": "hp は負にならない"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Calc",
+  "stage": {
+    "width": 64,
+    "height": 32
+  },
+  "circles": [
+    {
+      "name": "Calc",
+      "core": "begin",
+      "state": [
+        {
+          "name": "total",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "evens",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "label",
+          "type": "str",
+          "init": "\"\"",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "let",
+              "name": "xs",
+              "expr": "[3, 1, 4, 1, 5, 9, 2, 6]"
+            },
+            {
+              "do": "loop",
+              "kind": "each",
+              "name": "x",
+              "in": "xs",
+              "steps": [
+                {
+                  "do": "set",
+                  "target": "total",
+                  "expr": "total + x"
+                },
+                {
+                  "do": "if",
+                  "cond": "x % 2 == 0",
+                  "then": [
+                    {
+                      "do": "set",
+                      "target": "evens",
+                      "expr": "evens + 1"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "do": "let",
+              "name": "big",
+              "expr": "0"
+            },
+            {
+              "do": "cast",
+              "target": "double",
+              "args": [
+                "total"
+              ],
+              "into": "big"
+            },
+            {
+              "do": "if",
+              "cond": "big > 50",
+              "then": [
+                {
+                  "do": "set",
+                  "target": "label",
+                  "expr": "\"big \" ++ str(big)"
+                }
+              ],
+              "else": [
+                {
+                  "do": "set",
+                  "target": "label",
+                  "expr": "\"small \" ++ str(big)"
+                }
+              ]
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        },
+        {
+          "name": "double",
+          "params": [
+            {
+              "name": "n",
+              "type": "num"
+            }
+          ],
+          "returns": "num",
+          "steps": [
+            {
+              "do": "return",
+              "expr": "n * 2"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

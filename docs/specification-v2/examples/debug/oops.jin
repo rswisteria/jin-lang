@@ -1,0 +1,63 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Oops",
+  "stage": {
+    "width": 32,
+    "height": 32
+  },
+  "circles": [
+    {
+      "name": "Oops",
+      "core": "begin",
+      "state": [
+        {
+          "name": "items",
+          "type": "list<num>",
+          "init": "[10, 20, 30]"
+        },
+        {
+          "name": "i",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "last",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "last",
+              "expr": "items[i]"
+            },
+            {
+              "do": "set",
+              "target": "i",
+              "expr": "i + 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    }
+  ]
+}

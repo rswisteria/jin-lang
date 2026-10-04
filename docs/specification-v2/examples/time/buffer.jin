@@ -1,0 +1,93 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": {
+    "width": 32,
+    "height": 32
+  },
+  "circles": [
+    {
+      "name": "Game",
+      "flow": {
+        "kind": "parallel",
+        "steps": [
+          "Writer",
+          "Reader"
+        ]
+      }
+    },
+    {
+      "name": "Writer",
+      "core": "begin",
+      "state": [
+        {
+          "name": "n",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "n",
+              "expr": "n + 1"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Reader",
+      "core": "begin",
+      "state": [
+        {
+          "name": "seen",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": []
+        },
+        {
+          "name": "step",
+          "steps": [
+            {
+              "do": "set",
+              "target": "seen",
+              "expr": "Writer.n"
+            }
+          ]
+        }
+      ],
+      "boundary": {
+        "on": [
+          {
+            "event": "tick",
+            "rite": "step"
+          }
+        ]
+      }
+    }
+  ]
+}

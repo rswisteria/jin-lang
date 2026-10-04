@@ -1,0 +1,131 @@
+{
+  "$schema": "https://xtone.internal/jin/schemas/jin-v2.schema.json",
+  "version": 2,
+  "root": "Game",
+  "stage": {
+    "width": 32,
+    "height": 32
+  },
+  "circles": [
+    {
+      "name": "Game",
+      "flow": {
+        "kind": "loop",
+        "steps": [
+          "Play",
+          "Tally"
+        ],
+        "exit": "Tally.done"
+      }
+    },
+    {
+      "name": "Play",
+      "core": "begin",
+      "state": [
+        {
+          "name": "turns",
+          "type": "num",
+          "init": "0",
+          "out": true
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "set",
+              "target": "turns",
+              "expr": "turns + 1"
+            },
+            {
+              "do": "wait",
+              "ticks": "2"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tally",
+      "core": "begin",
+      "state": [
+        {
+          "name": "round",
+          "type": "num",
+          "init": "0",
+          "out": true
+        },
+        {
+          "name": "done",
+          "type": "bool",
+          "init": "false",
+          "out": true
+        }
+      ],
+      "sigils": [
+        {
+          "name": "bump",
+          "kind": "summon",
+          "circle": "Lib",
+          "rite": "bump"
+        }
+      ],
+      "rites": [
+        {
+          "name": "begin",
+          "steps": [
+            {
+              "do": "cast",
+              "target": "bump",
+              "into": "round"
+            },
+            {
+              "do": "set",
+              "target": "done",
+              "expr": "round >= 3"
+            },
+            {
+              "do": "finish"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lib",
+      "core": "idle",
+      "state": [
+        {
+          "name": "count",
+          "type": "num",
+          "init": "0"
+        }
+      ],
+      "rites": [
+        {
+          "name": "idle",
+          "steps": []
+        },
+        {
+          "name": "bump",
+          "returns": "num",
+          "steps": [
+            {
+              "do": "set",
+              "target": "count",
+              "expr": "count + 1"
+            },
+            {
+              "do": "return",
+              "expr": "count"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

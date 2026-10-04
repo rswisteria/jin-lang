@@ -1,0 +1,21 @@
+# examples-v2/tetris-plus の陣のつながり。事実シートは tools/facts.py が .jin の flow.steps / summon / 式の 陣名.key から作る
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+direction: down
+*.style.font-size: 26
+(* -> *)[*].style.font-size: 22
+
+Game: "Game\n（流れ loop）"
+Play: "Play\n（操作・得点）"
+Board: "Board\n（盤面・summon 専用）"
+Result: "Result\n（結果画面）"
+
+Game -> Play: "1 番目"
+Game -> Result: "2 番目"
+Play -> Board: "summon"
+Result -> Board: "Board.cells を読む" {style.stroke-dash: 4}
+Result -> Play: "Play.score を読む" {style.stroke-dash: 4}

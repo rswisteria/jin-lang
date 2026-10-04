@@ -803,6 +803,11 @@ uv run jin editor examples-v2/paddle/paddle.jin --no-browser          # Jin v2 �
   `scripts/build_tetris_plus.py`（`jin lsp` に `didOpen` → `jin/applyOps` を送り、応答の正準形の `text` を書く。stdio では `jin/save` が無効）の op を直して
   `uv run python scripts/build_tetris_plus.py` で再生成する（`--check` を `tests/contract/test_tetris_plus.py` が呼ぶ）。遊び方は録画 2 本
   （`tests/fixtures/jinrec/tetris-plus-*.jinrec`）を Lua / wasm-GC の両方に流して固定する。直したら録画の期待値（得点・行数）も見直す
+- `docs/specification-v2/` — **Jin v2 の言語マニュアル**（人が読む本・8 章。v1 は `docs/specification.md`）。explainer-book の形
+  （`book.json` の章・学習目標・概念の導入順、`checks.json` が本文に引用した出力を再生成、図は D2 / Mermaid と `tools/facts.py` の事実シート、
+  `jin render` の絵は `tools/renders.py` が PNG に）。言語を直して本文の出力や図がずれたら、explainer の `verify-book.mjs` を回す
+  （Node / d2 / Chromium が要るので CI では回さない）。CI が守るのは `tests/contract/test_docs_specification_v2.py`
+  （例と答えが check / fmt を通る・演習の出発点が狙いの診断で落ちる・事実シートが正本と一致）。用語は state = 記憶、storage = 保存領域
 - `docs/samples/tetris/` — 入門教材 `docs/tetris-tutorial.md` の段階サンプル 9 本（`01-canvas` … `09-tetris`。**最終段は
   `examples-v2/tetris/tetris.jin` とバイト一致**なので tetris.jin を直したら `09-tetris.jin` も同じに直す）。
   `tests/contract/test_docs_tetris_tutorial.py` が check / fmt / 90 tick の実行 / 本文の図がサンプルからの生成物と一致すること /

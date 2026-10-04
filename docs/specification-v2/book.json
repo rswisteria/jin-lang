@@ -1,0 +1,254 @@
+{
+  "title": "Jin v2 でプログラムを書く",
+  "persona": "../../personas/jin-v2-newcomer.md",
+  "assumed": [
+    "JSON",
+    "変数",
+    "関数",
+    "条件分岐",
+    "繰り返し",
+    "リスト"
+  ],
+  "aliases": {
+    "保存領域": [
+      "storage"
+    ],
+    "流れ": [
+      "flow"
+    ]
+  },
+  "chapters": [
+    {
+      "file": "01-quickstart.md",
+      "short": "クイックスタート",
+      "kind": "quickstart",
+      "minutes": 10,
+      "requires": [
+        "JSON"
+      ],
+      "introduces": [
+        "陣",
+        "記憶",
+        "手順",
+        "ステップ",
+        "式",
+        "tick"
+      ],
+      "objectives": [
+        {
+          "id": "run-and-judge",
+          "text": "jin run の出力と画面から、プログラムが tick ごとに動いたかを判定できる"
+        },
+        {
+          "id": "change-move",
+          "text": "手順の式を変えて、動きを変えられる"
+        },
+        {
+          "id": "read-parts",
+          "text": "jin run の最後の 1 行に、どの記憶が出るかを言える"
+        }
+      ]
+    },
+    {
+      "file": "02-shape.md",
+      "short": ".jin の形",
+      "kind": "concept",
+      "minutes": 12,
+      "requires": [
+        "陣",
+        "記憶"
+      ],
+      "introduces": [
+        "核",
+        "道具",
+        "境界",
+        "流れ",
+        "公開",
+        "型紙"
+      ],
+      "objectives": [
+        {
+          "id": "find-field",
+          "text": "やりたいことから、陣のどの環にどの欄を書くかを決められる"
+        },
+        {
+          "id": "fix-out",
+          "text": "ほかの陣の記憶が読めないエラーを、持ち主の側で直せる"
+        }
+      ]
+    },
+    {
+      "file": "03-steps.md",
+      "short": "ステップと式",
+      "kind": "concept",
+      "minutes": 12,
+      "requires": [
+        "道具",
+        "型紙"
+      ],
+      "introduces": [
+        "純関数",
+        "正準形"
+      ],
+      "objectives": [
+        {
+          "id": "write-rite",
+          "text": "やりたい処理を、11 種のステップの組み合わせで書ける"
+        },
+        {
+          "id": "predict-fmt",
+          "text": "jin fmt が式をどう書き換えるかを予想できる"
+        }
+      ]
+    },
+    {
+      "file": "04-time.md",
+      "short": "時間の進み方",
+      "kind": "concept",
+      "minutes": 12,
+      "requires": [
+        "公開",
+        "境界"
+      ],
+      "introduces": [
+        "待機",
+        "二重バッファ",
+        "決定性"
+      ],
+      "objectives": [
+        {
+          "id": "predict-tick",
+          "text": "wait を含む手順で、値が変わる tick を予想し、トレースで確かめられる"
+        },
+        {
+          "id": "buffer-lag",
+          "text": "ほかの陣の公開した記憶が 1 tick 遅れて見える理由を説明できる"
+        }
+      ]
+    },
+    {
+      "file": "05-connect.md",
+      "short": "陣をつなぐ",
+      "kind": "concept",
+      "minutes": 12,
+      "requires": [
+        "流れ",
+        "待機"
+      ],
+      "introduces": [
+        "召喚",
+        "終了条件"
+      ],
+      "objectives": [
+        {
+          "id": "read-flow",
+          "text": "流れの loop が周ごとに子の記憶を戻すことを踏まえて、終了条件を書ける"
+        },
+        {
+          "id": "choose-summon",
+          "text": "複数の陣から使う処理を、召喚でつなぐ構成にできる"
+        }
+      ]
+    },
+    {
+      "file": "06-abilities.md",
+      "short": "能力の一覧",
+      "kind": "reference",
+      "minutes": 8,
+      "requires": [
+        "決定性"
+      ],
+      "introduces": [
+        "保存領域"
+      ],
+      "objectives": [
+        {
+          "id": "pick-ability",
+          "text": "やりたいことに使う道具のメンバと、式で書くか cast で書くかを決められる"
+        },
+        {
+          "id": "keep-value",
+          "text": "次の起動まで残したい値を保存領域に書き、読み戻せる"
+        }
+      ]
+    },
+    {
+      "file": "07-debug.md",
+      "short": "間違いを直す",
+      "kind": "practice",
+      "minutes": 12,
+      "requires": [
+        "純関数"
+      ],
+      "introduces": [
+        "診断",
+        "実行時エラー"
+      ],
+      "objectives": [
+        {
+          "id": "read-diagnostic",
+          "text": "診断の場所・番号・hint・pointer から、直す場所を特定できる"
+        },
+        {
+          "id": "fix-error",
+          "text": "jin check は通るのに止まるとき、実行時エラーとトレースから直す場所を決められる"
+        }
+      ]
+    },
+    {
+      "file": "08-views.md",
+      "short": "図として読む",
+      "kind": "reference",
+      "minutes": 8,
+      "requires": [
+        "召喚"
+      ],
+      "introduces": [
+        "完全陣",
+        "全景"
+      ],
+      "objectives": [
+        {
+          "id": "choose-view",
+          "text": "確かめたいことに合わせて、jin render の見え方を選べる"
+        },
+        {
+          "id": "why-full",
+          "text": "完全陣と全景の違いと、使い分けを説明できる"
+        }
+      ]
+    }
+  ],
+  "exercises": [
+    {
+      "id": "ex-out",
+      "chapter": "02-shape.md",
+      "kind": "write",
+      "starter": [
+        "ex-out-start"
+      ],
+      "answer": [
+        "ex-out-answer"
+      ]
+    },
+    {
+      "id": "ex-wait",
+      "chapter": "04-time.md",
+      "kind": "check",
+      "answer": [
+        "ex-wait-answer"
+      ]
+    },
+    {
+      "id": "ex-fix",
+      "chapter": "07-debug.md",
+      "kind": "write",
+      "starter": [
+        "ex-fix-start"
+      ],
+      "answer": [
+        "ex-fix-answer"
+      ]
+    }
+  ]
+}

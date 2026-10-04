@@ -1,0 +1,20 @@
+---
+config:
+  flowchart:
+    wrappingWidth: 480
+---
+%% 1 tick の中で行うこと（runtime.md §2 の 7 段）。事実シートは tools/facts.py が runtime.md から作る
+flowchart TD
+  s1["1. 配達<br/>前の tick の emit を on message へ"]
+  s2["2. 再開<br/>wait している手順を進める"]
+  s3["3. イベント<br/>key・pointer、最後に tick を on へ"]
+  s4["4. 確定<br/>公開した記憶の値を確定する"]
+  s5["5. 検査<br/>guards を確かめる（デバッグ時）"]
+  s6["6. 進行<br/>終わった陣の次を始める"]
+  s7["7. 返却<br/>画面と音をホストへ返す"]
+  s1 --> s2
+  s2 --> s3
+  s3 --> s4
+  s4 --> s5
+  s5 --> s6
+  s6 --> s7

@@ -1,0 +1,18 @@
+{
+  "labels": [
+    "陣（circle）",
+    "核（core）",
+    "記憶環（state）",
+    "道具環（sigils）",
+    "手順環（rites）",
+    "境界環（boundary）",
+    "on",
+    "guards"
+  ],
+  "edges": [
+    "circle.core->circle.rites",
+    "circle.boundary.on->circle.rites",
+    "circle.rites->circle.state",
+    "circle.rites->circle.sigils"
+  ]
+}
