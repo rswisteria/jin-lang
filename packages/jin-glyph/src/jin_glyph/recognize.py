@@ -830,7 +830,9 @@ def _recognize_free(data: bytes, photo: Image.Image, recognizer: Recognizer) -> 
         cells = [Cell(t=t, v=v, unsure=unsure, box=ink.box) for t, v, unsure in symbols]  # type: ignore[arg-type]
         (frame_cells if ink.owner == "frame" else ring_cells[ink.owner]).extend(cells)  # type: ignore[index]
     texts = [
-        freehand.RingText(ring.center, apply(geometry.to_photo, *ring.center), cells)
+        freehand.RingText(
+            ring.center, apply(geometry.to_photo, *ring.center), cells, max(ring.radii, default=0.0)
+        )
         for ring, cells in zip(geometry.rings, ring_cells, strict=True)
     ]
     middle = (geometry.side / 2.0, geometry.side / 2.0)

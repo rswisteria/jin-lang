@@ -9,7 +9,7 @@
    射影し、字の大きさの `GAP` 倍より狭い隙間はつなぐ。1 つの塊に字が 2 つ入ってよい(読み手が並びの向きに従って複数返す)。
    字の中の隙間(手描きの点や離れた画)で字を割らないよう、つなぐ側に寄せてある
 3. 組み立て(`assemble`): 銘帯の最初の構造の印で環の種類(陣 / 手順陣)を決め、完全陣の配置の規則(`jin_render.v2.full_layout`)の
-   逆で `c<k>` / `r<k>_<j>` を振る。root は額縁の中心に最も近い陣、他の陣は root の周りを、手順陣は持ち主(最も近い陣)の周りを
+   逆で `c<k>` / `r<k>_<j>` を振る。陣は棚の順(root が左上・段ごとに左から・#118)、手順陣は持ち主(最も近い陣)の周りを
    12 時から時計回り。12 時ちょうどの環が手のずれで最後に回らないよう、数え始めを隣との間隔の半分だけ手前に置く
 
 座標は正面化した画像(額縁を正方形にしたもの・y が下向き)の画素。角度は度で `atan2(dy, dx)`(時計回りが増える向き)。
@@ -359,6 +359,7 @@ class RingText:
     center: Point
     at: Point
     cells: list[Cell]
+    radius: float = 0.0  # 最も外の周の半径(正面図の画素)。陣の塊の左上を求めるのに使う
 
 
 def ring_kind(cells: Sequence[Cell]) -> str | None:
@@ -383,10 +384,37 @@ def _clockwise(center: Point, points: Sequence[Point]) -> list[int]:
     return sorted(range(len(points)), key=key)
 
 
+def _reading_order(rings: Sequence[RingText], owned: dict[int, list[int]]) -> list[int]:
+    """陣の塊を完全陣の棚の順(`full_layout.shelf`: root が左上、段ごとに左から)に並べる。
+
+    塊の左上は、陣の中心から上下左右への最大の張り出し e(陣と手順陣の環の中心 ± 半径)で求める。同じ段の塊は上端が揃うので、
+    上端の差が最も小さい塊の e 以内なら同じ段とする(次の段は少なくとも 2e 下にある)。"""
+
+    def corner(circle: int) -> tuple[float, float, float]:
+        cx, cy = rings[circle].center
+        reach = max(
+            max(abs(rings[i].center[0] - cx), abs(rings[i].center[1] - cy)) + rings[i].radius
+            for i in [circle, *owned[circle]]
+        )
+        return cx - reach, cy - reach, reach
+
+    corners = {c: corner(c) for c in owned}
+    tolerance = min(reach for _, _, reach in corners.values())
+    rows: list[list[int]] = []
+    for c in sorted(owned, key=lambda c: (corners[c][1], corners[c][0])):
+        if rows and corners[c][1] - corners[rows[-1][0]][1] <= tolerance:
+            rows[-1].append(c)
+        else:
+            rows.append([c])
+    return [c for row in rows for c in sorted(row, key=lambda c: corners[c][0])]
+
+
 def assemble(
     rings: Sequence[RingText], frame_cells: list[Cell], middle: Point, middle_at: Point
 ) -> tuple[list[Figure], list[Band]]:
     """読んだ環と額縁の升 → 場面グラフの図形と銘帯(`jin_glyph.parse` が読む id: `frame` / `c<k>` / `r<k>_<j>`)。
+
+    陣は完全陣の棚の順(`_reading_order`: root `c0` が左上、段ごとに左から)、手順陣は最も近い陣の周りを 12 時から時計回り。
 
     陣でも手順陣でもない環・陣の無い手順陣は `u<n>`(kind `ring`)として残し、構文解析器が JIN305 で知らせる。
     """
@@ -395,17 +423,13 @@ def assemble(
     rite_list = [i for i, k in enumerate(kinds) if k == "rite"]
     ids: dict[int, str] = {}
     if circle_list:
-        root = min(circle_list, key=lambda i: math.dist(rings[i].center, middle))
-        others = [i for i in circle_list if i != root]
-        order = [root] + [
-            others[j] for j in _clockwise(rings[root].center, [rings[i].center for i in others])
-        ]
+        owned: dict[int, list[int]] = {i: [] for i in circle_list}
+        for i in rite_list:
+            owner = min(circle_list, key=lambda c: math.dist(rings[c].center, rings[i].center))
+            owned[owner].append(i)
+        order = _reading_order(rings, owned)
         for k, i in enumerate(order):
             ids[i] = f"c{k}"
-        owned: dict[int, list[int]] = {i: [] for i in order}
-        for i in rite_list:
-            owner = min(order, key=lambda c: math.dist(rings[c].center, rings[i].center))
-            owned[owner].append(i)
         for k, owner in enumerate(order):
             mine = owned[owner]
             for j, n in enumerate(_clockwise(rings[owner].center, [rings[i].center for i in mine])):

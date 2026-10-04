@@ -128,15 +128,21 @@ _DOT_GROUPS: dict[int, tuple[str, ...]] = {
 
 
 def _shifted_boxes(
-    box: tuple[float, float, float, float], cell_px: float
+    box: tuple[float, float, float, float], cell_px: float, size: tuple[int, int] | None = None
 ) -> list[tuple[float, float, float, float]]:
+    """升を ±1 目ずらした 8 つの升(画像の外にはみ出すものは除く)。"""
     unit = cell_px / GRID
     x0, y0, x1, y1 = box
+    width, height = size if size is not None else (float("inf"), float("inf"))
     return [
         (x0 + dx * unit, y0 + dy * unit, x1 + dx * unit, y1 + dy * unit)
         for dx in (-1, 0, 1)
         for dy in (-1, 0, 1)
-        if (dx, dy) != (0, 0) and x0 + dx * unit >= 0 and y0 + dy * unit >= 0
+        if (dx, dy) != (0, 0)
+        and x0 + dx * unit >= 0
+        and y0 + dy * unit >= 0
+        and x1 + dx * unit <= width
+        and y1 + dy * unit <= height
     ]
 
 
@@ -175,7 +181,7 @@ def read_cell(
     if near & _STRUCT_IDS:
         near |= _STRUCT_IDS
     near.add(START_MARK)  # 始まりの印は細く、1 目のずれで上位から落ちる(走査の手がかり)
-    boxes = _shifted_boxes(box, cell_px)
+    boxes = _shifted_boxes(box, cell_px, image.size)
     shifted = [_ink(image.resize((GRID, GRID), Image.Resampling.BOX, box=b)) for b in boxes]
     best: tuple[float, str, str] | None = None
     for distance, gid in first:

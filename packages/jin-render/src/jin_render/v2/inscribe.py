@@ -228,7 +228,7 @@ def frame_band(model: JinFileV2, *, data: Any = None) -> list[InkCell]:
         band.name(str(getattr(model.stage, key)), f"/stage/{key}")
     names = [c["name"] for c in data["circles"]]
     if data["root"] in names and names.index(data["root"]) > 0:
-        # S3: root が circles[0] でないときだけ root の添字(第 1 軌道の並びからは root の位置が分からない)
+        # S3: root が circles[0] でないときだけ root の添字(陣の塊の並びからは root の添字が分からない)
         band.field()
         band.name(str(names.index(data["root"])), "/root")
     cells = band.cells

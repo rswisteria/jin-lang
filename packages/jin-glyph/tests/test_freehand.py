@@ -155,9 +155,9 @@ def test_band_half_width_shrinks_between_close_turns() -> None:
     assert band_half_width([100.0, 130.0, 200.0], 1, CELL) == pytest.approx(0.48 * 30.0)
 
 
-def _ring(head: str, center: tuple[float, float]) -> RingText:
+def _ring(head: str, center: tuple[float, float], radius: float = 0.0) -> RingText:
     cells = [Cell(t="struct", v=START_MARK), Cell(t="struct", v=head), Cell(t="latin", v="x")]
-    return RingText(center=center, at=center, cells=cells)
+    return RingText(center=center, at=center, cells=cells, radius=radius)
 
 
 def test_ring_kind_comes_from_the_first_structure_mark() -> None:
@@ -168,7 +168,7 @@ def test_ring_kind_comes_from_the_first_structure_mark() -> None:
 
 
 def test_assemble_names_the_rings_like_the_full_circle_layout() -> None:
-    """root は額縁の中心に最も近い陣、手順陣は持ち主の周りを 12 時から時計回り(12 時の環が少し左に倒れていても先頭)。"""
+    """陣は棚の順(左上が root)、手順陣は持ち主の周りを 12 時から時計回り(12 時の環が少し左に倒れていても先頭)。"""
     rings = [
         _ring("s_rite", (300.0, 520.0)),  # 6 時 → r0_1
         _ring("s_circle", (900.0, 300.0)),  # 2 つ目の陣 → c1
@@ -191,6 +191,25 @@ def test_assemble_names_the_rings_like_the_full_circle_layout() -> None:
     assert [b.owner for b in bands] == [f.id for f in figures]
     assert figures[0].at == (1.0, 2.0)
     assert figures[1].at == (310.0, 300.0)
+
+
+def test_circles_are_numbered_in_the_shelf_order_of_the_full_circle() -> None:
+    """#118: 完全陣は陣の塊を左上から棚に詰める。root は額縁の中心ではなく左上の塊、残りは段ごとに左から。
+    手描きのずれ(上端が数画素揃わない)は同じ段とみなす。"""
+    # c0: 中心 (130, 155)・張り出し 60 → 上端 95。c1: 手順陣が 12 時に 140 離れて張り出し 170 → 中心は上端 95 + 170。
+    # 2 段目は 1 段目の高さ 340 の下
+    rings = [
+        _ring("s_circle", (700.0, 268.0), 60.0),  # 1 段目の右(上端は 98・手描きのずれ 3)→ c1
+        _ring("s_circle", (130.0, 500.0), 60.0),  # 2 段目 → c2
+        _ring("s_circle", (130.0, 155.0), 60.0),  # 左上(額縁の中心から遠い)→ c0
+        _ring("s_rite", (700.0, 128.0), 30.0),  # c1 の 12 時 → r1_0
+    ]
+    figures, _ = assemble(rings, [], (450.0, 450.0), (0.0, 0.0))
+    at = {f.id: f.at for f in figures}
+    assert at["c0"] == (130.0, 155.0)
+    assert at["c1"] == (700.0, 268.0)
+    assert at["c2"] == (130.0, 500.0)
+    assert at["r1_0"] == (700.0, 128.0)
 
 
 def test_a_rite_without_any_circle_is_left_for_the_parser() -> None:

@@ -1,11 +1,14 @@
-"""完全陣の配置: 銘環の升の位置と、連環陣(陣の第 1 軌道・手順陣の第 2 軌道)の中心(glyph 設計書 §2)。
+"""完全陣の配置: 銘環の升の位置と、連環陣(陣の塊の棚・陣の周りの手順陣の軌道)の中心(glyph 設計書 §2)。
 
 単位は升(銘環の 1 字)。純関数で、同じモデルから同じ配置を返す。
 
 - 銘環: 1 周目の内縁は図の外接 + `FULL_RING_GAP`。1 周目の 12 時に始まりの印、時計回りに升。周の最後の升が `cont` で、
   1 つ外の周の 12 時から続ける。1 周の升の数は升の中心の周の長さ ÷ 1 升
 - 陣ごとの塊: 陣の周りに手順陣を 12 時から `rites[]` の順に等角。距離は隣り合う円が `FULL_ORBIT_GAP` 以上離れるまで広げる
-- root の塊を中央に、残りの陣の塊を第 1 軌道に同じ規則で並べる(root が未定義なら circles[0]・既存の描画と同じ)
+- 塊の詰め方(#118): 塊を root → 残りの陣(`circles[]` の順)で、額縁の内側の左上から棚に詰める(`shelf`)。塊の大きさは陣の中心から
+  上下左右への最大の張り出し `e`(正方形 2e)で、棚の上端に揃え、左から `FULL_ORBIT_GAP` を空けて並べ、入らなければ次の段へ。
+  額縁の一辺は詰められる最小の値(半辺を `HALF_STEP` 刻みで広げて探す)。陣が 1 つなら塊は額縁の中心に来る(以前の配置と同じ)。
+  root が未定義なら circles[0](既存の描画と同じ)
 """
 
 from __future__ import annotations
@@ -178,6 +181,55 @@ def frame_capacity(half: float, rows: int = FRAME_ROWS) -> int:
     return total
 
 
+#: 塊が複数のとき、額縁の半辺を広げて探す刻み(升)
+HALF_STEP = 0.25
+
+
+def cluster_layout(
+    circle_radius: float, rite_radii: Sequence[float]
+) -> tuple[list[tuple[float, float]], float]:
+    """陣の塊: 手順陣の中心(陣の中心からの相対位置)と、陣の中心から上下左右への最大の張り出し。"""
+    distance = orbit_distance(circle_radius, rite_radii)
+    local = orbit_centers(0.0, 0.0, distance, len(rite_radii))
+    extent = max(
+        [circle_radius]
+        + [max(abs(x), abs(y)) + r for (x, y), r in zip(local, rite_radii, strict=True)]
+    )
+    return local, extent
+
+
+def frame_margin(frame_count: int, half: float) -> float:
+    """額縁の余白: 額縁の銘帯と**その次の 1 升**が FRAME_ROWS 周を超えるなら、超えた周の分だけ広げる。
+
+    次の 1 升まで余白に収めるので、銘帯の後ろには必ず余白の中の空の升があり、デコーダは空の升まで読めば止まる
+    (銘帯がちょうど 3 周で終わっても、4 周目の位置にある陣の升を読み込まない)。"""
+    return geo.FULL_FRAME_MARGIN + geo.FULL_RING_PITCH * max(
+        0, frame_rows(frame_count + 1, half) - FRAME_ROWS
+    )
+
+
+def shelf(extents: Sequence[float], half: float, margin: float) -> list[tuple[float, float]] | None:
+    """塊(張り出し e の正方形)を額縁の内側の左上から棚に詰めた中心の列。入らなければ None。
+
+    デコーダ(`jin_glyph.decode`)は同じ規則を 1 つずつ辿る: 塊の中心は棚の今の位置 (x, top) から右下への対角線
+    (x + e, top + e)の上にあるので、e を知らなくても対角線を走査して陣の始まりの印を探せる。"""
+    width = 2.0 * (half - margin)
+    left = -half + margin
+    x = top = row = 0.0
+    out: list[tuple[float, float]] = []
+    eps = 1e-9
+    for e in extents:
+        if 2.0 * e > width + eps:
+            return None
+        if x > 0.0 and x + 2.0 * e > width + eps:
+            top += row + geo.FULL_ORBIT_GAP
+            x = row = 0.0
+        out.append((left + x + e, left + top + e))
+        x += 2.0 * e + geo.FULL_ORBIT_GAP
+        row = max(row, 2.0 * e)
+    return out if top + row <= width + eps else None
+
+
 def place(model: JinFileV2) -> Placement:
     inscription = inscribe(model)
     circle_radius = {
@@ -187,52 +239,52 @@ def place(model: JinFileV2) -> Placement:
         key: ring_outer(len(cells), rite_inner()) for key, cells in inscription.rites.items()
     }
 
-    # 陣ごとの塊(陣の中心からの相対位置)
+    # 陣ごとの塊(陣の中心からの相対位置と張り出し)
     local: dict[int, list[tuple[float, float]]] = {}
-    cluster: dict[int, float] = {}
+    extent: dict[int, float] = {}
     for ci, circle in enumerate(model.circles):
         radii = [rite_radius[(ci, ri)] for ri in range(len(circle.rites))]
-        distance = orbit_distance(circle_radius[ci], radii)
-        local[ci] = orbit_centers(0.0, 0.0, distance, len(radii))
-        cluster[ci] = max([circle_radius[ci]] + [distance + r for r in radii])
+        local[ci], extent[ci] = cluster_layout(circle_radius[ci], radii)
 
     names = [c.name for c in model.circles]
     root = names.index(model.root) if model.root in names else 0
-    others = [ci for ci in range(len(model.circles)) if ci != root]
-    distance = orbit_distance(cluster[root], [cluster[ci] for ci in others])
-    centers = {root: (0.0, 0.0)} | dict(
-        zip(others, orbit_centers(0.0, 0.0, distance, len(others)), strict=True)
-    )
-
+    order = [root] + [ci for ci in range(len(model.circles)) if ci != root]
+    extents = [extent[ci] for ci in order]
+    count = len(inscription.frame)
+    half = max(extents) + geo.FULL_FRAME_MARGIN
+    while True:
+        margin = frame_margin(count, half)
+        # 余白が広がった分だけ半辺も広げてから詰める(陣 1 つなら塊はちょうど中心に来る)
+        half = max(half, max(extents) + margin)
+        packed = shelf(extents, half, margin)
+        if packed is not None and frame_margin(count, half) == margin:
+            break
+        half += HALF_STEP
+    centers = dict(zip(order, packed, strict=True))
     rites = {
         (ci, ri): (centers[ci][0] + dx, centers[ci][1] + dy)
         for ci in centers
         for ri, (dx, dy) in enumerate(local[ci])
     }
-    extent = max(
-        [max(abs(x), abs(y)) + circle_radius[ci] for ci, (x, y) in centers.items()]
-        + [max(abs(x), abs(y)) + rite_radius[key] for key, (x, y) in rites.items()]
-    )
-    # 額縁の銘帯が FRAME_ROWS 周を超えるなら、超えた周の分だけ余白を広げる(黙って切らない・4 周目が陣に食い込まない)
-    margin = geo.FULL_FRAME_MARGIN
-    while frame_rows(len(inscription.frame), extent + margin) > FRAME_ROWS:
-        margin += geo.FULL_RING_PITCH
     return Placement(
         circles=dict(sorted(centers.items())),
         rites=dict(sorted(rites.items())),
         circle_radius=circle_radius,
         rite_radius=rite_radius,
-        half=extent + margin,
+        half=half,
         inscription=inscription,
     )
 
 
 __all__ = [
     "FRAME_ROWS",
+    "HALF_STEP",
     "Placement",
     "RingCell",
     "circle_inner",
+    "cluster_layout",
     "frame_capacity",
+    "frame_margin",
     "frame_positions",
     "frame_rows",
     "orbit_centers",
@@ -243,5 +295,6 @@ __all__ = [
     "ring_outer",
     "ring_slot_center",
     "rite_inner",
+    "shelf",
     "slot_kinds",
 ]

@@ -142,3 +142,61 @@ def test_slot_kinds_never_overrun_a_ring() -> None:
                 assert slot < ring_capacity(ring, inner)
                 if what == "cont":
                     assert slot == ring_capacity(ring, inner) - 1
+
+
+def _extent(placement, ci: int) -> float:
+    cx, cy = placement.circles[ci]
+    parts = [((cx, cy), placement.circle_radius[ci])] + [
+        (placement.rites[k], placement.rite_radius[k]) for k in placement.rites if k[0] == ci
+    ]
+    return max(max(abs(x - cx), abs(y - cy)) + r for (x, y), r in parts)
+
+
+@pytest.mark.parametrize("path", PROGRAMS, ids=lambda p: p.stem)
+def test_clusters_are_packed_on_shelves_from_the_top_left(path: Path) -> None:
+    """#118: 陣の塊(張り出し e の正方形)は root → circles[] の順に、額縁の内側の左上から棚に詰める。
+    塊どうしは FULL_ORBIT_GAP 以上離れ、同じ段の塊は上端が揃い、段は上から下へ。"""
+    from jin_render.v2.full_layout import frame_margin
+
+    model = load(path)
+    placement = place(model)
+    names = [c.name for c in model.circles]
+    root = names.index(model.root) if model.root in names else 0
+    order = [root] + [ci for ci in range(len(model.circles)) if ci != root]
+    margin = frame_margin(len(placement.inscription.frame), placement.half)
+    left = -placement.half + margin
+    boxes = []
+    for ci in order:
+        (cx, cy), e = placement.circles[ci], _extent(placement, ci)
+        boxes.append((cx - e, cy - e, cx + e, cy + e))
+    first = boxes[0]
+    assert first[0] == pytest.approx(left) and first[1] == pytest.approx(left)
+    for a, b in itertools.combinations(boxes, 2):
+        apart_x = max(a[0], b[0]) - min(a[2], b[2])
+        apart_y = max(a[1], b[1]) - min(a[3], b[3])
+        assert max(apart_x, apart_y) >= geo.FULL_ORBIT_GAP - 1e-6, path.name
+    for prev, box in itertools.pairwise(boxes):
+        same_row = box[1] == pytest.approx(prev[1])
+        assert same_row or box[1] > prev[1], path.name  # 段は下へ
+        if same_row:
+            assert box[0] > prev[0], path.name  # 同じ段は右へ
+        else:
+            assert box[0] == pytest.approx(left), path.name  # 新しい段は左端から
+
+
+def test_a_single_circle_stays_in_the_middle() -> None:
+    """陣が 1 つなら塊は額縁の中心(以前の配置と同じ・fib / clicker の完全陣はバイト不変)。"""
+    model = load(REPO_ROOT / "examples-v2/fib/fib.jin")
+    placement = place(model)
+    assert placement.circles == {0: (0.0, 0.0)}
+    assert placement.half == pytest.approx(_extent(placement, 0) + geo.FULL_FRAME_MARGIN)
+
+
+@pytest.mark.parametrize(
+    ("name", "most"),
+    [("paddle", 268.0), ("tetris", 387.0), ("othello", 448.0)],
+)
+def test_the_packing_shrinks_programs_with_several_circles(name: str, most: float) -> None:
+    """#118 の実測(glyph.md §8): 以前は paddle 307.7・tetris 543.1・othello 614.5 升。"""
+    placement = place(load(REPO_ROOT / "examples-v2" / name / f"{name}.jin"))
+    assert 2.0 * placement.half <= most

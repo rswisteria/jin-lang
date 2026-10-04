@@ -137,7 +137,7 @@ def test_a_frame_band_longer_than_three_rows_widens_the_frame_and_reads_back() -
     from jin_core.canonical import dumps
     from jin_glyph.parse import parse_scene
     from jin_render.v2 import geometry as g2
-    from jin_render.v2.full_layout import FRAME_ROWS, frame_rows
+    from jin_render.v2.full_layout import FRAME_ROWS, frame_margin, frame_rows
 
     forms = [
         {"name": f"Form{k:02d}", "fields": [{"name": f"field{j}", "type": "num"} for j in range(6)]}
@@ -161,9 +161,12 @@ def test_a_frame_band_longer_than_three_rows_widens_the_frame_and_reads_back() -
     )
     placement = place(model)
     frame = placement.inscription.frame
-    # 収まる最小の広さまで広げた(1 段狭いと FRAME_ROWS 周を超える)
-    assert frame_rows(len(frame), placement.half) <= FRAME_ROWS
-    assert frame_rows(len(frame), placement.half - g2.FULL_RING_PITCH) > FRAME_ROWS
+    # 銘帯と次の 1 升が FRAME_ROWS 周を超えるので余白を広げ、銘帯の全部と次の 1 升が余白に収まる
+    rows = frame_rows(len(frame) + 1, placement.half)
+    assert rows > FRAME_ROWS
+    margin = frame_margin(len(frame), placement.half)
+    assert margin > g2.FULL_FRAME_MARGIN
+    assert 1.5 + (rows - 1) * g2.FULL_RING_PITCH + 0.5 <= margin
     scene = decode_png(png_bytes(model, 2))
     bands = {band.owner: payload(band.cells) for band in scene.bands}
     assert bands["frame"] == [(c.t, c.v) for c in frame]
