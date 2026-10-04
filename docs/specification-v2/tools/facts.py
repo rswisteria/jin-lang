@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import sys
@@ -36,7 +37,9 @@ def circle_rings() -> dict:
         "rites": "手順環（rites）",
         "boundary": "境界環（boundary）",
     }
-    missing = [key for key in names if key not in circle] + [k for k in ("on", "guards") if k not in boundary]
+    missing = [key for key in names if key not in circle] + [
+        k for k in ("on", "guards") if k not in boundary
+    ]
     if missing:
         raise SystemExit(f"スキーマに無い欄: {missing}")
     labels = ["陣（circle）", *names.values(), "on", "guards"]
@@ -52,18 +55,20 @@ def circle_rings() -> dict:
 def tick_stages() -> dict:
     text = (REPO / "docs" / "spec" / "v2" / "runtime.md").read_text(encoding="utf-8")
     section = text.split("## 2. tick の手順", 1)[1].split("\n## ", 1)[0]
-    stages = re.findall(r"^\d\. \*\*(.+?)\*\*", section, flags=re.M)
+    stages = re.findall(r"^\d\. \*\*(.+?)\*\*", section, flags=re.MULTILINE)
     if len(stages) != 7:
         raise SystemExit(f"runtime.md §2 の段が 7 つではない: {stages}")
     ids = [f"s{i + 1}" for i in range(len(stages))]
     return {
         "labels": [f"{i + 1}. {name}" for i, name in enumerate(stages)],
-        "edges": [f"{a}->{b}" for a, b in zip(ids, ids[1:])],
+        "edges": [f"{a}->{b}" for a, b in itertools.pairwise(ids)],
     }
 
 
 def tetris_plus() -> dict:
-    model = json.loads((REPO / "examples-v2" / "tetris-plus" / "tetris-plus.jin").read_text(encoding="utf-8"))
+    model = json.loads(
+        (REPO / "examples-v2" / "tetris-plus" / "tetris-plus.jin").read_text(encoding="utf-8")
+    )
     names = [c["name"] for c in model["circles"]]
     edges: set[str] = set()
     for circle in model["circles"]:
@@ -102,7 +107,11 @@ def main() -> int:
     if stale:
         print("事実シートが正本とずれています: " + ", ".join(stale))
         return 1
-    print(f"事実シート {len(FACTS)} 枚: 正本と一致" if check else f"事実シート {len(FACTS)} 枚を書きました")
+    print(
+        f"事実シート {len(FACTS)} 枚: 正本と一致"
+        if check
+        else f"事実シート {len(FACTS)} 枚を書きました"
+    )
     return 0
 
 
