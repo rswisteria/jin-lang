@@ -128,3 +128,17 @@ def test_the_public_geometry_reproduces_the_layout(name: str) -> None:
                 assert len(rite_ring(model, *k)) >= 1
     assert len(frame_positions(10, placement.half)) == 10
     assert rite_inner() > circle_inner()
+
+
+def test_slot_kinds_never_overrun_a_ring() -> None:
+    """周の番号は周の升の数を越えず、各周の最後の升は継ぎの紋か列の最後の字(到達しない枝を消した根拠)。"""
+    from jin_render.v2.full_layout import ring_capacity, slot_kinds
+
+    for inner in (6.0, 13.5, 27.5):
+        for count in range(400):
+            kinds = slot_kinds(count, inner)
+            assert sum(1 for *_, what in kinds if what == "cell") == count
+            for ring, slot, what in kinds:
+                assert slot < ring_capacity(ring, inner)
+                if what == "cont":
+                    assert slot == ring_capacity(ring, inner) - 1

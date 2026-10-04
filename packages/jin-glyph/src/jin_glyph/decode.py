@@ -25,6 +25,7 @@ from jin_render.v2 import geometry as g2
 from jin_render.v2.full import frame_positions
 from jin_render.v2.full_layout import (
     circle_inner,
+    frame_capacity,
     orbit_centers,
     orbit_distance,
     ring_capacity,
@@ -345,7 +346,8 @@ def decode_png(data: bytes) -> JinScene:
             add(f"r{k}_{j}", "ring.rite", (x, y), _read_ring(canvas, x, y, rite_inner()))
 
     frame_cells: list[tuple[Read, tuple[float, float]]] = []
-    for at in frame_positions(4 * int(2 * canvas.half), canvas.half):
+    # 額縁の銘帯は FRAME_ROWS 周まで(あふれる銘帯は配置が額縁を広げて収める・`full_layout.place`)
+    for at in frame_positions(frame_capacity(canvas.half), canvas.half):
         read = canvas.read(*at)
         if read.t == "empty":
             break

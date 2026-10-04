@@ -116,3 +116,53 @@ def test_box_of_finds_the_photo_rectangle_behind_a_scene_pointer() -> None:
     assert box_of(JinScene.model_validate(widened), "/bands/0") == (10.0, 5.0, 70.0, 40.0)
     for pointer in ("", "/figures/0", "/bands/9/cells/0", "/bands/0/cells/x", "/image"):
         assert box_of(scene, pointer) is None, pointer
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        (("image", "width"), "4032"),
+        (("image", "height"), 0),
+        (("image", "sha256"), "abc"),
+        (("image", "sha256"), "G" * 64),
+        (("bands", 0, "owner"), 12),
+    ],
+)
+def test_scalar_fields_are_not_coerced(path: tuple, value: object) -> None:
+    # #119: 文字列の数・形の違う sha256 を黙って通さない
+    bad = json.loads(json.dumps(EXAMPLE))
+    node = bad
+    for key in path[:-1]:
+        node = node[key]
+    node[path[-1]] = value
+    with pytest.raises(ValidationError):
+        JinScene.model_validate(bad)
+    with pytest.raises(ValidationError):
+        JinScene.model_validate_json(json.dumps(bad))
+
+
+def test_coordinates_accept_integers() -> None:
+    ok = json.loads(json.dumps(EXAMPLE))
+    ok["figures"][0]["at"] = [100, 100]
+    assert JinScene.model_validate(ok).figures[0].at == (100.0, 100.0)
+
+
+def test_from_is_accepted_only_by_its_alias() -> None:
+    bad = json.loads(json.dumps(EXAMPLE))
+    bad["lines"] = [{"from_": "f12", "to": "f30", "style": "dashed"}]
+    with pytest.raises(ValidationError):
+        JinScene.model_validate(bad)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda s: s["lines"][0].__setitem__("to", "f99"),
+        lambda s: s["figures"][1].__setitem__("ring", "f99"),
+    ],
+)
+def test_lines_and_rings_point_at_figures(mutate) -> None:
+    bad = json.loads(json.dumps(EXAMPLE))
+    mutate(bad)
+    with pytest.raises(ValidationError, match="f99"):
+        JinScene.model_validate(bad)

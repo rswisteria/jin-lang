@@ -147,14 +147,17 @@
       "additionalProperties": false,
       "properties": {
         "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
           "title": "Sha256",
           "type": "string"
         },
         "width": {
+          "minimum": 1,
           "title": "Width",
           "type": "integer"
         },
         "height": {
+          "minimum": 1,
           "title": "Height",
           "type": "integer"
         }

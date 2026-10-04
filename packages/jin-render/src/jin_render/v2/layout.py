@@ -19,7 +19,7 @@ schema を通る `JinFileV2` なら例外を投げない。未解決の参照は
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -84,6 +84,28 @@ def type_resolves(type_text: str, form_names: frozenset[str]) -> bool:
 # --------------------------------------------------------------------------------------
 # 陣の図
 # --------------------------------------------------------------------------------------
+
+
+def circle_index(model: JinFileV2) -> dict[str, int]:
+    """陣名 → 添字(同じ名前が重なれば先の陣・JIN010 でも落ちない)。"""
+    index_of: dict[str, int] = {}
+    for position, circle in enumerate(model.circles):
+        index_of.setdefault(circle.name, position)
+    return index_of
+
+
+def form_names_of(model: JinFileV2) -> frozenset[str]:
+    """型紙の名前(組み込みの型紙を含む)。"""
+    return frozenset(form.name for form in model.forms) | frozenset(BUILTIN_FORMS)
+
+
+def circle_drawer(model: JinFileV2) -> Callable[[int, geo.Frame, int], Node]:
+    """陣の図を描く関数 `(陣の添字, 枠, 深さ) -> <g>`(完全陣が陣ごとの図を描くのに使う・`render_v2` と同じ描き方)。"""
+    return _Builder(
+        model=model, index_of=circle_index(model), form_names=form_names_of(model)
+    ).draw_circle
+
+
 @dataclass
 class _Builder:
     """1 回の `render_v2` の中だけで生きる組み立て器。"""
@@ -564,9 +586,7 @@ def render_v2(
     all_rows = read_trace(trace, min_seq=TRACE_MIN_SEQ) if trace is not None else []
     fired_rows = [row for row in all_rows if upto is None or row.seq <= upto]
 
-    index_of: dict[str, int] = {}
-    for position, circle in enumerate(model.circles):
-        index_of.setdefault(circle.name, position)
+    index_of = circle_index(model)
 
     root_unresolved = False
     rite_index: int | None = None
@@ -592,8 +612,7 @@ def render_v2(
         focus_index = 0
         root_unresolved = True
 
-    form_names = frozenset(form.name for form in model.forms) | frozenset(BUILTIN_FORMS)
-    builder = _Builder(model=model, index_of=index_of, form_names=form_names)
+    builder = _Builder(model=model, index_of=index_of, form_names=form_names_of(model))
     frame = geo.root_frame()
     body: list[Node] = [builder.stage(frame)]
     if rite_index is None:
@@ -619,6 +638,9 @@ __all__ = [
     "BUILTIN_FORMS",
     "DATA_JIN_KINDS_V2",
     "TRACE_MIN_SEQ",
+    "circle_drawer",
+    "circle_index",
+    "form_names_of",
     "render_v2",
     "split_focus",
     "type_resolves",

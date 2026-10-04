@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from jin_core.diagnostics import SCENE_CODES
@@ -53,7 +54,14 @@ def test_every_glyph_has_an_svg_and_nothing_else_does() -> None:
     expected = set(GLYPH_IDS) | {m.id for m in STRUCT_MARKS} | {START_MARK}
     assert {p.stem for p in GLYPH_DIR.glob("*.svg")} == expected
     for p in GLYPH_DIR.glob("*.svg"):
-        assert 'viewBox="0 0 100 100"' in p.read_text(encoding="utf-8"), p.name
+        # #119: 部分文字列ではなく SVG として読み、根の viewBox と、線の本体(空でない d の <path>)があることを見る
+        root = ET.fromstring(p.read_text(encoding="utf-8"))
+        assert root.tag == "{http://www.w3.org/2000/svg}svg", p.name
+        assert root.get("viewBox") == "0 0 100 100", p.name
+        paths = root.findall("{http://www.w3.org/2000/svg}path")
+        assert paths and all((path.get("d") or "").strip().startswith("M") for path in paths), (
+            p.name
+        )
 
 
 def test_the_field_order_table_matches_the_code() -> None:

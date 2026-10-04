@@ -197,3 +197,54 @@ def test_the_root_index_is_inscribed_only_when_root_is_not_first() -> None:
     moved = model.model_copy(update={"circles": [*model.circles[1:], model.circles[0]]})
     cells = [c for c in frame_band(moved) if c.pointer == "/root"]
     assert [c.v for c in cells] == list(str(len(model.circles) - 1))
+
+
+def _expressions(node: object) -> list[str]:
+    """モデルの式の欄(`x-jin-expr` の印)の文字列を全部(`expr_fields` で引く。欄の名前を書き写さない)。"""
+    from jin_core.v2.model import expr_fields
+    from pydantic import BaseModel
+
+    out: list[str] = []
+    if isinstance(node, BaseModel):
+        exprs = expr_fields(type(node))
+        for name, info in type(node).model_fields.items():
+            value = getattr(node, name)
+            if (info.alias or name) in exprs:
+                values = value if isinstance(value, list) else [value]
+                out += [v for v in values if isinstance(v, str)]
+            else:
+                out += _expressions(value)
+    elif isinstance(node, list):
+        for item in node:
+            out += _expressions(item)
+    return out
+
+
+def test_the_token_pattern_cuts_like_the_expression_lexer() -> None:
+    """#119: `_TOKEN` は `jin_core.v2.expr` の字句の 2 つ目の実装。全 fixture の式を両方で切って等しい。"""
+    from jin_core.v2.expr import _PARSER
+    from jin_render.v2.inscribe import _TOKEN
+
+    root = Path(__file__).resolve().parents[3]
+    paths = sorted((root / "examples-v2").glob("*/*.jin")) + sorted(
+        (root / "tests/fixtures/v2-programs").glob("*.jin")
+    )
+    paths += sorted((root / "docs/samples/tetris").glob("*.jin"))
+    seen = 0
+    for path in paths:
+        model = check_text(path.read_text(encoding="utf-8"), path.name).model
+        assert isinstance(model, JinFileV2), path
+        for text in _expressions(model):
+            lark = [token.value for token in _PARSER.lex(text)]
+            assert _TOKEN.findall(text) == lark, (path.name, text)
+            seen += 1
+    assert seen > 1000
+
+
+def test_characters_outside_the_grammar_are_kept_not_dropped() -> None:
+    """文法に無い字(JIN201 の式)は黙って落とさずラテンの升にする(`to_expr` で元に戻る)。"""
+    from jin_render.v2.inscribe import expr_cells, to_expr
+
+    cells = expr_cells("a @ b", "/p", "step")
+    assert [c.v for c in cells] == ["a", "@", "b"]
+    assert to_expr(cells).replace(" ", "") == "a@b"
