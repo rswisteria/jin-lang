@@ -93,17 +93,17 @@ text = ""
 
 
 def apply(label: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
-    """1 まとまりの編集を送り、返った正準形の全文で didChange してサーバの文書を揃える。"""
-    global version, text
+    """1 まとまりの編集を送り、返った正準形の全文を覚える。
+
+    **didChange は送らない**。`jin/applyOps` はサーバ自身が新しい本文で文書の状態を更新する(`analyze_now`)。didChange を
+    送ると 150 ms のデバウンスの後に解析され、遅いマシン(CI)では次の `jin/applyOps` が更新した状態を古い本文で上書きした
+    (最後の `jin/model` が 1 まとまり目のモデルを返した)。
+    """
+    global text
     result = client.request("jin/applyOps", {"uri": URI, "ops": ops})
     if not result.get("ok"):
         raise SystemExit(f"[{label}] 失敗: {result['error']}")
     text = result["text"]
-    version += 1
-    client.notify(
-        "textDocument/didChange",
-        {"textDocument": {"uri": URI, "version": version}, "contentChanges": [{"text": text}]},
-    )
     count = len(result.get("diagnostics", []))
     print(f"[{label}] ops {len(ops)} 件 → 診断 {count} 件", file=sys.stderr)
     return result
