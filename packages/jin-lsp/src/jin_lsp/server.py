@@ -329,6 +329,7 @@ def create_server(
             trace=_field(params, "trace"),
             upto=_field(params, "upto"),
             inscription=_field(params, "inscription"),
+            panorama=_field(params, "panorama"),
         )
 
     @server.feature("jin/ops")

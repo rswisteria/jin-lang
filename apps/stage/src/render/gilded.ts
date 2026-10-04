@@ -121,7 +121,15 @@ const WHITE = new THREE.Color(1, 1, 1);
 /** 刻印の凹凸の強さ（`bumpScale`）。stage.md §7。 */
 const ENGRAVE_DEPTH = 2;
 
-export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
+/**
+ * `panorama`（全景・stage.md §2.3）では、環の管の太さと目盛りの寸法に陣の大きさ（`unit`・1 で頭打ち）を掛ける。
+ * 全景の陣は額縁の中で縮むのに、管の太さは固定の寸法なので、掛けないと手順の図のステップが太い管に埋もれる。
+ */
+export function buildGilded(
+	scene: Scene,
+	names: StageNames = {},
+	panorama = false,
+): GildedModel {
 	const root = new THREE.Group();
 	root.rotation.x = -Math.PI / 2;
 	const circles = new Map<string, CircleLayers>();
@@ -200,8 +208,9 @@ export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 		const glowables: Glowable[] = [];
 		let center: THREE.Vector3;
 		const shape = item.shape;
+		const thin = panorama ? Math.min(1, item.unit) : 1;
 		if (shape.type === "ring") {
-			const tube = item.kind === "circle" ? RING_TUBE : SMALL_RING_TUBE;
+			const tube = (item.kind === "circle" ? RING_TUBE : SMALL_RING_TUBE) * thin;
 			const material = metal(metalColor(item), metalRoughness(item));
 			const geometry = new THREE.TorusGeometry(
 				shape.radius,
@@ -224,6 +233,7 @@ export function buildGilded(scene: Scene, names: StageNames = {}): GildedModel {
 						item.layer,
 						lineMaterial,
 						disposables,
+						thin,
 					),
 				);
 		} else if (shape.type === "segments") {
@@ -347,13 +357,14 @@ function ticker(
 	layerIndex: number,
 	lineMaterial: (color: THREE.Color) => LineMaterial,
 	disposables: { dispose(): void }[],
+	thin = 1,
 ): { group: THREE.Group; speed: number } {
 	const count = Math.max(24, Math.round(radius * 72));
 	const segments: number[] = [];
 	for (let k = 0; k < count; k++) {
 		const angle = (k / count) * Math.PI * 2;
-		const inner = radius + 0.014;
-		const outer = inner + (k % 6 === 0 ? 0.03 : 0.012);
+		const inner = radius + 0.014 * thin;
+		const outer = inner + (k % 6 === 0 ? 0.03 : 0.012) * thin;
 		segments.push(
 			Math.cos(angle) * inner,
 			Math.sin(angle) * inner,

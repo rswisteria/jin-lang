@@ -154,6 +154,28 @@ glyph 設計書 `docs/superpowers/specs/2026-10-03-jin-glyph-design.md` §6 の 
   帯（paddle で 3.7 万区間）を太い線にすると、ソフトウェア GL（CI の Chromium）で 1 コマに数分かかり固まった。素の線なら深度のパスでも線のまま
   正しい深度を書き、描画の回数は帯なしとほぼ同じ（5 秒で 16 回 → 14 回・paddle）
 
+### 2.3 全景（Issue #132）
+
+既定の図（v2 layout.md §1）は深さ 1 まで展開して以下を点にするので、手順の中身（ステップ）・孫の陣・`summon` だけで使う陣が描かれない。
+鑑賞モードの**全景**は、すべての陣の図とすべての手順の図を 1 枚に並べた図を写す。ユーザーの判断（2026-10-04）: 全景モードを足す・
+**既定は全景、陣や手順を開いている（ダブルクリック・`focus`）間はその図に寄る**。
+
+- **配置の元は SVG**: エディタが `jin/renderSvg` を `panorama: true` で呼んだ SVG（`jin render x.jin --panorama` とバイト一致・
+  `jin_render.v2.panorama.render_panorama`）。配置は**完全陣と同じ**（`full_layout.place`・v2 layout.md §9。陣の塊を左上から棚に詰め、
+  手順陣を陣の周りに 12 時から並べる）で、陣の図・手順の図・円どうしを結ぶ線・額縁を描き、銘文は描かない（名前の `<text>` は残す）。
+  配置は銘環の大きさ込みで決まるので、銘を出さないと陣の周りに銘環の分の余白が残る
+- **全景の銘**: `panorama: true` と `inscription: true` を併せた SVG（`--panorama --inscription`・`render_panorama_inscription`）。全景と
+  同じ座標系に額縁の銘帯と陣 / 手順ごとの銘環（詠唱帯を含む）を描き、`stage.scene` の `inscription` で送る。全景と重ねると完全陣と同じ絵
+  （`<text>` と四隅の護符を除く・`packages/jin-render/tests/test_panorama.py` が固定）。§2.2 の灯し方・読み上げはそのまま
+- **`stage.scene` の欄 `panorama`**（`true` だけが全景・§6）。全景では陣が額縁の中に散らばって縮むので、stage は次の 2 つだけを変える:
+  - 環の管の太さ（`RING_TUBE` / `SMALL_RING_TUBE`）と目盛りの寸法に陣の単位（`unit`・1 で頭打ち）を掛ける（`render/gilded.ts`）。
+    固定の寸法のままだと、手順の図のステップが太い管に埋もれる（全景の陣は単位がおよそ 0.2）
+  - 銘の帯を回さない（`render/inscriptionView.ts`。銘環は陣ごとの中心にあり、原点まわりに回すと陣からずれる）
+- 層・宝玉・地金・演出・自転は陣（`<g data-jin-kind="circle">`）ごとで、手順の図の group も `kind="circle"`（pointer は手順）なので
+  そのまま効く。カメラ（§4）の既定は額縁全体を収め、細部はホイール / ピンチで寄る。召喚の窓（§5.1）は原点（額縁の中心）の上空
+- エディタ（`App.tsx`）: 「全景」のチェック（`jin-stage-panorama`・既定 ON）が ON で `focus` が root のときだけ全景。全景の図と全景の銘は
+  鑑賞モードにいて本文が前に取った時から変わったときだけ一緒に取り直す（§2.2 の帯と同じ規律）。取れなければ今の図で描く
+
 ## 3. 演出
 
 <!-- machine-readable: stage-effects -->
@@ -265,7 +287,7 @@ glyph 設計書 `docs/superpowers/specs/2026-10-03-jin-glyph-design.md` §6 の 
 
 | 語 | 向き | 欄 |
 |---|---|---|
-| `stage.scene` | 親 → stage | `svg`（string）/ `inscription`（銘環の帯の SVG か null・§2.2）/ `names`（名前の表）/ `fps` / `jinName` / `circleName` / `stageSize`（`{width, height}` か null・召喚の窓の舞台の大きさ） |
+| `stage.scene` | 親 → stage | `svg`（string）/ `inscription`（銘環の帯の SVG か null・§2.2）/ `names`（名前の表）/ `fps` / `jinName` / `circleName` / `stageSize`（`{width, height}` か null・召喚の窓の舞台の大きさ）/ `panorama`（`true` だけが全景・§2.3。無い・別の型は false） |
 | `stage.trace` | 親 → stage | `rows`（トレース行の配列）/ `seed`（number か null） |
 | `stage.status` | stage → 親 | `ready` / `rows` / `codec`（`"avc"` / `"vp9"` / null）/ `exporting`（`{done,total}` か null）/ `error` |
 | `stage.file` | stage → 親 | `name` / `mime` / `bytes`（ArrayBuffer） |

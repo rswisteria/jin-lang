@@ -167,3 +167,7 @@ v1 と同じ: schema を通るモデルなら意味エラーを含んでいて�
 - **色は黒 1 色**。升の枠・目盛り・帯の番号・環の名前は `stroke-opacity` / `fill-opacity` 0.35 で薄く刷る(新しい色を足さない)
 - `data-jin-kind` は `stage`(額縁・護符・等級の印・額縁の銘帯と帯の升)と `circle`(環。pointer は骨格の `/circles/k` / `/circles/k/rites/j`)だけ
 - キャンバスは一辺 57 升 × 12 px = 684 px の正方形。印刷は一辺 285 mm(1 升 5 mm)に合わせる
+
+## 11. 全景(鑑賞ページ・Issue #132)
+
+`jin render FILE --panorama`(`jin_render.render(model, panorama=True)` → `jin_render.v2.panorama.render_panorama`)。§9 の完全陣と**同じ配置**(`full_layout.place`)に、すべての陣の図とすべての手順の図・円どうしを結ぶ線・額縁を描き、銘文は描かない(名前の `<text>` は残す)。`--inscription` を併せると同じ座標系の銘(額縁の銘帯と陣 / 手順ごとの銘環)。重ねると完全陣(`<text>` と四隅の護符を除く)。§1〜§9 の出力は 1 バイトも変わらない。`data-jin-kind` は 13 種のまま。鑑賞ページでの扱いは stage.md §2.3

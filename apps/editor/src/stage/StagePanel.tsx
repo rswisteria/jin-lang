@@ -11,7 +11,7 @@ import { buildStageNames } from "./names";
  * （three は `apps/stage` にだけある）。書き出されたファイルは親がダウンロードさせる。
  *
  * 語彙（stage.md §6。**エディタ側で語を書いてよいのはこのファイルだけ**）:
- * - 親 → stage: `stage.scene`（svg / inscription / names / fps / jinName / circleName / stageSize）、`stage.trace`（rows / seed）
+ * - 親 → stage: `stage.scene`（svg / inscription / names / fps / jinName / circleName / stageSize / panorama）、`stage.trace`（rows / seed）
  * - stage → 親: `stage.status`（ready / rows / codec / exporting / error）、`stage.file`（name / mime / bytes）
  */
 export const STAGE_PATH = "./stage/";
@@ -27,6 +27,11 @@ export interface StagePanelProps {
 	readonly fileName: string;
 	readonly circleName: string;
 	readonly hidden: boolean;
+	/** `svg` / `inscription` が全景（すべての陣と手順の図・stage.md §2.3）か。`stage.scene` の欄 `panorama` で知らせる。 */
+	readonly panorama: boolean;
+	/** 「全景」のチェック（既定 ON）。ON でも陣や手順を開いている（ダブルクリック・focus）間はその図（`panorama` は偽）。 */
+	readonly panoramaOn: boolean;
+	readonly onPanoramaChange: (on: boolean) => void;
 }
 
 interface StageStatusView {
@@ -127,7 +132,7 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 	const size = stageSizeOf(props.model);
 	const sizeKey =
 		size === null ? "" : `${String(size.width)}x${String(size.height)}`;
-	const { svg, inscription, fileName, circleName, rows, seed } = props;
+	const { svg, inscription, fileName, circleName, rows, seed, panorama } = props;
 
 	useEffect(() => {
 		if (loads === 0 || svg === null) return;
@@ -139,6 +144,7 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 			circleName,
 			names,
 			sizeKey,
+			panorama,
 		]);
 		if (key === lastScene.current) return;
 		lastScene.current = key;
@@ -153,8 +159,20 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 			jinName: fileName,
 			circleName,
 			stageSize,
+			panorama,
 		});
-	}, [loads, svg, inscription, names, fps, fileName, circleName, sizeKey, post]);
+	}, [
+		loads,
+		svg,
+		inscription,
+		names,
+		fps,
+		fileName,
+		circleName,
+		sizeKey,
+		panorama,
+		post,
+	]);
 
 	useEffect(() => {
 		if (loads === 0) return;
@@ -202,6 +220,15 @@ export function StagePanel(props: StagePanelProps): React.JSX.Element {
 					: (status.error ??
 						`トレース ${String(status.rows)} 行${status.exporting === null ? "" : `・書き出し中 ${String(status.exporting.done)} / ${String(status.exporting.total)}`}`)}
 			</p>
+			<label className="jin-hint">
+				<input
+					type="checkbox"
+					data-testid="jin-stage-panorama"
+					checked={props.panoramaOn}
+					onChange={(event) => props.onPanoramaChange(event.target.checked)}
+				/>{" "}
+				全景（すべての陣と手順の図。陣や手順をダブルクリックで開いている間はその図に寄る）
+			</label>
 			{props.rows.length === 0 ? (
 				<p className="jin-hint">
 					「実行」で録画（.jinrec）を再生すると、その詠唱で陣が発動します。

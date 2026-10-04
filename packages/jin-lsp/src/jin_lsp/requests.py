@@ -146,11 +146,14 @@ def jin_render_svg(
     trace: list[dict[str, Any]] | None = None,
     upto: int | None = None,
     inscription: Any = None,
+    panorama: Any = None,
 ) -> dict[str, Any]:
-    """`jin/renderSvg`: `{ uri, focus?, trace?, upto?, inscription? }` → SVG 文字列。
+    """`jin/renderSvg`: `{ uri, focus?, trace?, upto?, inscription?, panorama? }` → SVG 文字列。
 
     `inscription: true` は鑑賞ページの銘環の帯（陣書き S7・`jin_render.v2.inscription`）。
     `true` 以外（省略・`false`・別の型）は通常の図で、`jin render --inscription` とバイト一致する。
+    `panorama: true` は鑑賞ページの全景（すべての陣と手順の図・`jin_render.v2.panorama`）で、`inscription: true` と
+    併せると全景と同じ座標系の銘。`jin render --panorama [--inscription]` とバイト一致する。`true` 以外は今までどおり。
 
     `jin_render.render` が**唯一の入口**（要件書 §4 最終項）。ここで独自に
     レイアウトを持たないので、`jin render` の出力とバイト一致する。
@@ -158,7 +161,14 @@ def jin_render_svg(
     """
     model, stale = _require_model(state, uri)
     try:
-        svg = render(model, focus=focus, trace=trace, upto=upto, inscription=inscription is True)
+        svg = render(
+            model,
+            focus=focus,
+            trace=trace,
+            upto=upto,
+            inscription=inscription is True,
+            panorama=panorama is True,
+        )
     except TraceRowError as exc:
         # **どの行が悪いのかを言う**（NFR-FAIL-001）。`TraceRowError.index` は
         # `trace` 配列の中の位置（0 始まり）で、**JSONL の行番号ではない**。
@@ -175,7 +185,7 @@ def jin_render_svg(
             "JIN002",
             f"描画できません: {exc}",
             "focus に定義済みの circle 名を、trace に seq / pointer を持つ行を渡してください"
-            "（inscription は v2 の .jin に、focus / trace / upto を付けずに）",
+            "（inscription と panorama は v2 の .jin に、focus / trace / upto を付けずに）",
         ) from exc
     return {"svg": svg, "stale": stale}
 

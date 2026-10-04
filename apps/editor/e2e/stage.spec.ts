@@ -107,6 +107,31 @@ test("録画を再生して鑑賞モードへ → 行数が jin run --input と�
 			{ timeout: 60_000 },
 		)
 		.toBe(true);
+	// 全景（stage.md §2.3・Issue #132）: 鑑賞モードの既定は全景で、既定の図では点になる手順の図まで場面に入る。
+	// 「全景」を外すと今の図（root の陣・手順は点）に戻る。
+	const rites = (
+		JSON.parse(SOURCE) as { circles: { rites?: unknown[] }[] }
+	).circles.reduce((sum, circle) => sum + (circle.rites?.length ?? 0), 0);
+	const whole = () =>
+		stageFrame.evaluate(
+			() =>
+				(
+					window as unknown as {
+						__jinStage: {
+							panorama(): { panorama: boolean; rites: number };
+						};
+					}
+				).__jinStage.panorama(),
+		);
+	await expect(page.getByTestId("jin-stage-panorama")).toBeChecked();
+	await expect.poll(whole, { timeout: 60_000 }).toEqual({
+		panorama: true,
+		rites,
+	});
+	await page.getByTestId("jin-stage-panorama").uncheck();
+	await expect
+		.poll(async () => (await whole()).panorama, { timeout: 60_000 })
+		.toBe(false);
 	// 編集モードへ戻ってもプレイヤーの iframe は残る（鑑賞モードが実行パネルを外していない）
 	await page.getByTestId("jin-mode-edit").click();
 	await expect(page.getByTestId("jin-player")).toBeAttached();
